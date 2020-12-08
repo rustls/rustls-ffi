@@ -9,8 +9,7 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
-extern int new_client_session(const char *hostname, void **client_session);
-extern void drop_client_session(void *client_session);
+#include "lib.h"
 
 int
 main(void)

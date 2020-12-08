@@ -1,13 +1,16 @@
 [package]
-name = "c-to-rust"
+name = "crustls"
 version = "0.1.0"
-authors = ["Alex Crichton <alex@alexcrichton.com>"]
+authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 
 [dependencies]
 rustls = "0.19"
 webpki = "0.21"
 libc = "0.2.81"
 
+[dev_devpendencies]
+cbindgen = "*"
+
 [lib]
-name = "double_input"
+name = "crustls"
 crate-type = ["staticlib"]

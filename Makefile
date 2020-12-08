@@ -4,16 +4,19 @@ else
     LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 endif
 
-all: target/double
-	target/double
+all: target/crustls-demo
+	target/crustls-demo
 
 target:
 	mkdir -p $@
 
-target/double: target/main.o target/debug/libdouble_input.a
+src/lib.h:
+	cbindgen --lang C --output src/lib.h
+
+target/crustls-demo: target/main.o target/debug/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-target/debug/libdouble_input.a: src/lib.rs Cargo.toml
+target/debug/libcrustls.a: src/lib.rs Cargo.toml
 	cargo build
 
 target/main.o: src/main.c | target

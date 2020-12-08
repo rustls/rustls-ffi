@@ -5,7 +5,7 @@ extern crate rustls;
 extern crate webpki;
 
 use libc::{c_char, c_int, c_void};
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::sync::Arc;
 
 use rustls::{ClientSession, ALL_CIPHERSUITES};
