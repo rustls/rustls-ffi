@@ -4,7 +4,7 @@ extern crate libc;
 extern crate rustls;
 extern crate webpki;
 
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, c_void};
 use std::ffi::{CStr, CString};
 use std::sync::Arc;
 
@@ -28,10 +28,7 @@ const CRUSTLS_ERROR: c_int = 1;
 // The caller now owns the ClientSession and must call `drop_client_session` when
 // done with it.
 #[no_mangle]
-pub extern "C" fn new_client_session(
-    hostname: *const c_char,
-    out: *mut *const ClientSession,
-) -> c_int {
+pub extern "C" fn new_client_session(hostname: *const c_char, out: *mut *const c_void) -> c_int {
     unsafe {
         if RUSTLS_CONFIG.is_none() {
             eprintln!("RUSTLS_CONFIG not initialized");
@@ -64,16 +61,16 @@ pub extern "C" fn new_client_session(
     // caller knows it is responsible for this memory.
     let b = Box::new(client);
     unsafe {
-        *out = Box::into_raw(b);
+        *out = Box::into_raw(b) as *const c_void;
     }
 
     return CRUSTLS_OK;
 }
 
 #[no_mangle]
-pub extern "C" fn drop_client_session(ptr: *mut ClientSession) {
+pub extern "C" fn drop_client_session(ptr: *const c_void) {
     // Convert the pointer to a Box and drop it.
-    unsafe { Box::from_raw(ptr) };
+    unsafe { Box::from_raw(ptr as *mut ClientSession) };
     ()
 }
 
