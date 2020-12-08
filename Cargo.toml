@@ -5,6 +5,8 @@ authors = ["Alex Crichton <alex@alexcrichton.com>"]
 
 [dependencies]
 rustls = "0.19"
+webpki = "0.21"
+libc = "0.2.81"
 
 [lib]
 name = "double_input"

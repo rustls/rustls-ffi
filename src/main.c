@@ -9,12 +9,25 @@
 #include <errno.h>
 #include <arpa/inet.h>
 
+extern int new_client_session(const char *hostname, void **client_session);
+extern void drop_client_session(void *client_session);
+
 int
 main(void)
 {
   int sockfd = 0, n = 0, m = 0, result = 0;
   char buf[1024];
   struct sockaddr_in serv_addr;
+  void *client_session = NULL;
+
+  init_rustls();
+  printf("gonna make a client session. current value %p\n", client_session);
+  result = new_client_session("localhost", &client_session);
+  if(result != 0) {
+    return 1;
+  }
+  printf("successfully made a client session. current value %p\n",
+         client_session);
 
   memset(buf, '0', sizeof(buf));
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -59,5 +72,7 @@ main(void)
     }
   }
 
+  printf("gonna drop it! %p\n", client_session);
+  drop_client_session(client_session);
   return 0;
 }
