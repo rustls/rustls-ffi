@@ -190,6 +190,12 @@ pub extern "C" fn rustls_client_session_read(
         }
         slice::from_raw_parts_mut(buf, count as usize)
     };
+    // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
+    // zero it out just in case. TODO: use Initializer once it's stabilized.
+    // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
+    for c in read_buf.iter_mut() {
+        *c = 0;
+    }
     let n_read: usize = match session.read(read_buf) {
         Ok(n) => n,
         // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
