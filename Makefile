@@ -5,7 +5,7 @@ else
 endif
 
 all: target/crustls-demo
-	target/crustls-demo
+	target/crustls-demo httpbin.org /headers
 
 target:
 	mkdir -p $@

@@ -19,8 +19,12 @@ static mut RUSTLS_CONFIG: Option<Arc<rustls::ClientConfig>> = None;
 
 #[no_mangle]
 pub extern "C" fn rustls_init() {
+    let mut config = rustls::ClientConfig::new();
+    config
+        .root_store
+        .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     unsafe {
-        RUSTLS_CONFIG = Some(Arc::new(rustls::ClientConfig::new()));
+        RUSTLS_CONFIG = Some(Arc::new(config));
     }
     env_logger::init();
 }
