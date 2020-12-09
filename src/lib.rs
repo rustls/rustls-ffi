@@ -7,7 +7,7 @@ use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::sync::Arc;
 
-use rustls::{ClientSession, Session, ALL_CIPHERSUITES};
+use rustls::{ClientSession, Session};
 
 type CrustlsResult = c_int;
 
@@ -144,7 +144,7 @@ pub extern "C" fn rustls_client_session_write(
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
             None => {
-                eprintln!("ClientSession::process_new_packets: session was NULL");
+                eprintln!("ClientSession::write: session was NULL");
                 return -1;
             }
         }
@@ -178,7 +178,7 @@ pub extern "C" fn rustls_client_session_read(
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
             None => {
-                eprintln!("ClientSession::process_new_packets: session was NULL");
+                eprintln!("ClientSession::read: session was NULL");
                 return -1;
             }
         }
@@ -196,10 +196,7 @@ pub extern "C" fn rustls_client_session_read(
         // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
         // Log it and return EOF.
         Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-            eprintln!(
-                "ClientSession::read_tls: CloseNotify (this is expected): {}",
-                e
-            );
+            eprintln!("ClientSession::read: CloseNotify (this is expected): {}", e);
             return 0;
         }
         Err(e) => {
@@ -222,7 +219,7 @@ pub extern "C" fn rustls_client_session_read_tls(
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
             None => {
-                eprintln!("ClientSession::process_new_packets: session was NULL");
+                eprintln!("ClientSession::read_tls: session was NULL");
                 return -1;
             }
         }
@@ -257,7 +254,7 @@ pub extern "C" fn rustls_client_session_write_tls(
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
             None => {
-                eprintln!("ClientSession::process_new_packets: session was NULL");
+                eprintln!("ClientSession::write_tls: session was NULL");
                 return -1;
             }
         }
@@ -277,13 +274,4 @@ pub extern "C" fn rustls_client_session_write_tls(
         }
     };
     n_written as ssize_t
-}
-
-#[no_mangle]
-pub extern "C" fn print_ciphersuites() {
-    println!("Supported ciphersuites in rustls:");
-    for cs in ALL_CIPHERSUITES.iter() {
-        println!("  {:?}", cs.suite);
-    }
-    ()
 }
