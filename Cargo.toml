@@ -7,8 +7,9 @@ authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 rustls = "0.19"
 webpki = "0.21"
 libc = "0.2.81"
+env_logger = "0.8.2"
 
-[dev_devpendencies]
+[dev_dependencies]
 cbindgen = "*"
 
 [lib]
