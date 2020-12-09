@@ -12,6 +12,11 @@
 
 #include "lib.h"
 
+/*
+ * Write n bytes from buf to the provided fd, retrying short writes until
+ * we finish or hit an error. Assumes fd is blocking and therefore doesn't
+ * handle EAGAIN.
+ */
 void
 write_all(int fd, const char *buf, int n)
 {
@@ -30,9 +35,11 @@ write_all(int fd, const char *buf, int n)
   }
 }
 
-// Connect to the given hostname on port 443 and return the file descriptor of
-// the socket. On error, print the error and return -1. Caller is responsible
-// for closing socket.
+/*
+ * Connect to the given hostname on port 443 and return the file descriptor of
+ * the socket. On error, print the error and return -1. Caller is responsible
+ * for closing socket.
+ */
 int
 make_conn(const char *hostname)
 {
@@ -62,36 +69,17 @@ make_conn(const char *hostname)
   return sockfd;
 }
 
+/*
+ * Given an established TCP connection, and a rustls client_session, send an
+ * HTTP request and read the response. On success, return 0. On error, print
+ * the message and return 1.
+ */
 int
-main(int argc, const char **argv)
+send_request_and_read_response(int sockfd, void *client_session,
+                               const char *hostname, const char *path)
 {
   int n = 0, m = 0, result = 0;
   char buf[2048];
-  struct sockaddr_in serv_addr;
-  const void *client_session = NULL;
-
-  if(argc <= 2) {
-    fprintf(stderr,
-            "usage: %s hostname path\n\n"
-            "Connect to a host via HTTPS on port 443, make a request for the\n"
-            "given path, and emit response to stdout.\n",
-            argv[0]);
-  }
-  const char *hostname = argv[1];
-  const char *path = argv[2];
-
-  rustls_init();
-
-  int sockfd = make_conn(hostname);
-  if(sockfd < 0) {
-    // No perror because make_conn printed error already.
-    return 1;
-  }
-
-  result = rustls_client_session_new(hostname, &client_session);
-  if(result != CRUSTLS_OK) {
-    return 1;
-  }
 
   memset(buf, '0', sizeof(buf));
   snprintf(buf,
@@ -204,6 +192,39 @@ main(int argc, const char **argv)
     }
   }
 
-  rustls_client_session_drop(client_session);
   return 0;
+}
+
+int
+main(int argc, const char **argv)
+{
+  if(argc <= 2) {
+    fprintf(stderr,
+            "usage: %s hostname path\n\n"
+            "Connect to a host via HTTPS on port 443, make a request for the\n"
+            "given path, and emit response to stdout.\n",
+            argv[0]);
+    return 1;
+  }
+  const char *hostname = argv[1];
+  const char *path = argv[2];
+
+  rustls_init();
+
+  int sockfd = make_conn(hostname);
+  if(sockfd < 0) {
+    // No perror because make_conn printed error already.
+    return 1;
+  }
+
+  void *client_session = NULL;
+  int result = rustls_client_session_new(hostname, &client_session);
+  if(result != CRUSTLS_OK) {
+    return 1;
+  }
+
+  int return_code =
+    send_request_and_read_response(sockfd, client_session, hostname, path);
+  rustls_client_session_free(client_session);
+  return return_code;
 }

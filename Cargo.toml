@@ -2,6 +2,8 @@
 name = "crustls"
 version = "0.1.0"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
+description = "C-to-rustls bindings"
+edition = "2018"
 
 [dependencies]
 rustls = "0.19"
