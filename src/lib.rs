@@ -2,6 +2,7 @@
 
 use libc::{c_char, c_int, c_void, size_t, ssize_t};
 use std::ffi::CStr;
+use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::sync::Arc;
@@ -191,6 +192,16 @@ pub extern "C" fn rustls_client_session_read(
     };
     let n_read: usize = match session.read(read_buf) {
         Ok(n) => n,
+        // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
+        // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
+        // Log it and return EOF.
+        Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
+            eprintln!(
+                "ClientSession::read_tls: CloseNotify (this is expected): {}",
+                e
+            );
+            return 0;
+        }
         Err(e) => {
             eprintln!("ClientSession::read: {}", e);
             return -1;
