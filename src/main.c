@@ -78,7 +78,6 @@ int
 send_request_and_read_response(int sockfd, void *client_session,
                                const char *hostname, const char *path)
 {
-  int n = 0, m = 0, result = 0;
   char buf[2048];
 
   memset(buf, '0', sizeof(buf));
@@ -92,7 +91,7 @@ send_request_and_read_response(int sockfd, void *client_session,
            "\r\n",
            path,
            hostname);
-  n = rustls_client_session_write(client_session, buf, strlen(buf));
+  int n = rustls_client_session_write(client_session, buf, strlen(buf));
   if(n < 0) {
     fprintf(stderr, "error writing plaintext bytes to ClientSession\n");
   }
@@ -130,7 +129,6 @@ send_request_and_read_response(int sockfd, void *client_session,
       memset(buf, 0, sizeof(buf));
       n = read(sockfd, buf, sizeof(buf));
       if(n == 0) {
-        // EOF
         fprintf(stderr, "EOF reading from socket\n");
         break;
       }
@@ -189,8 +187,7 @@ send_request_and_read_response(int sockfd, void *client_session,
       n = rustls_client_session_write_tls(client_session, buf, sizeof(buf));
       if(n == 0) {
         fprintf(stderr, "EOF from ClientSession::write_tls\n");
-        // TODO: What to do?
-        break;
+        return 1;
       }
       else if(n < 0) {
         fprintf(stderr, "Error in ClientSession::write_tls\n");
