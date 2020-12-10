@@ -251,5 +251,7 @@ main(int argc, const char **argv)
     send_request_and_read_response(sockfd2, client_session, hostname, path);
   rustls_client_session_free(client_session);
 
+  rustls_client_config_free(client_config);
+
   return return_code;
 }

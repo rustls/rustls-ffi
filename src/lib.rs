@@ -23,6 +23,27 @@ pub extern "C" fn rustls_client_config_new() -> *const c_void {
     Arc::into_raw(Arc::new(config)) as *const c_void
 }
 
+#[no_mangle]
+pub extern "C" fn rustls_client_config_free(config: *const c_void) {
+    unsafe {
+        if let Some(c) = (config as *const ClientConfig).as_ref() {
+            // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
+            // representing the C code's copy. When it drops, that refcount will go down to 0
+            // and the inner ClientConfig will be dropped.
+            let arc: Arc<ClientConfig> = Arc::from_raw(c);
+            let strong_count = Arc::strong_count(&arc);
+            if strong_count != 1 {
+                eprintln!(
+                    "rustls_client_config_free: invariant failed: arc.strong_count was not 1: {}. probably this function was called twice or more for the same pointer",
+                    strong_count
+                );
+            }
+        } else {
+            eprintln!("rustls_client_config_free: config was NULL");
+        }
+    };
+}
+
 // In rustls_client_config_new, we create an Arc, then call `into_raw` and return the resulting raw
 // pointer to C. C can then call rustls_client_session_new multiple times using that same raw
 // pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc, its
