@@ -233,5 +233,23 @@ main(int argc, const char **argv)
   int return_code =
     send_request_and_read_response(sockfd, client_session, hostname, path);
   rustls_client_session_free(client_session);
+
+  int sockfd2 = make_conn(hostname);
+  if(sockfd2 < 0) {
+    // No perror because make_conn printed error already.
+    return 1;
+  }
+
+  void *client_session2 = NULL;
+  int result2 =
+    rustls_client_session_new(client_config, hostname, &client_session2);
+  if(result2 != CRUSTLS_OK) {
+    return 1;
+  }
+
+  int return_code2 =
+    send_request_and_read_response(sockfd2, client_session, hostname, path);
+  rustls_client_session_free(client_session);
+
   return return_code;
 }

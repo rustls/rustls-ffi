@@ -1,10 +1,10 @@
 #![crate_type = "staticlib"]
 
 use libc::{c_char, c_int, c_void, size_t, ssize_t};
-use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
+use std::{io::ErrorKind::ConnectionAborted, mem};
 
 use rustls::{ClientConfig, ClientSession, Session};
 
@@ -34,6 +34,13 @@ pub extern "C" fn rustls_client_session_new(
     hostname: *const c_char,
     session_out: *mut *mut c_void,
 ) -> CrustlsResult {
+    let hostname: &CStr = unsafe {
+        if hostname.is_null() {
+            eprintln!("rustls_client_session_new: hostname was NULL");
+            return CRUSTLS_ERROR;
+        }
+        CStr::from_ptr(hostname)
+    };
     let config: Arc<ClientConfig> = unsafe {
         match (config as *const ClientConfig).as_ref() {
             Some(c) => Arc::from_raw(c),
@@ -43,17 +50,11 @@ pub extern "C" fn rustls_client_session_new(
             }
         }
     };
-    let hostname: &CStr = unsafe {
-        if hostname.is_null() {
-            eprintln!("rustls_client_session_new: hostname was NULL");
-            return CRUSTLS_ERROR;
-        }
-        CStr::from_ptr(hostname)
-    };
     let hostname: &str = match hostname.to_str() {
         Ok(s) => s,
         Err(e) => {
             eprintln!("converting hostname to Rust &str: {}", e);
+            mem::forget(config);
             return CRUSTLS_ERROR;
         }
     };
@@ -64,6 +65,7 @@ pub extern "C" fn rustls_client_session_new(
                 "turning hostname '{}' into webpki::DNSNameRef: {}",
                 hostname, e
             );
+            mem::forget(config);
             return CRUSTLS_ERROR;
         }
     };
@@ -77,6 +79,7 @@ pub extern "C" fn rustls_client_session_new(
         *session_out = Box::into_raw(b) as *mut c_void;
     }
 
+    mem::forget(config);
     return CRUSTLS_OK;
 }
 
