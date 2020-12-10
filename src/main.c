@@ -215,7 +215,7 @@ main(int argc, const char **argv)
   const char *hostname = argv[1];
   const char *path = argv[2];
 
-  rustls_init();
+  const void *client_config = rustls_client_config_new();
 
   int sockfd = make_conn(hostname);
   if(sockfd < 0) {
@@ -224,7 +224,8 @@ main(int argc, const char **argv)
   }
 
   void *client_session = NULL;
-  int result = rustls_client_session_new(hostname, &client_session);
+  int result =
+    rustls_client_session_new(client_config, hostname, &client_session);
   if(result != CRUSTLS_OK) {
     return 1;
   }

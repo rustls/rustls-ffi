@@ -1,31 +1,26 @@
 #![crate_type = "staticlib"]
 
 use libc::{c_char, c_int, c_void, size_t, ssize_t};
-use std::ffi::CStr;
 use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::slice;
-use std::sync::Arc;
+use std::{ffi::CStr, sync::Arc};
 
-use rustls::{ClientSession, Session};
+use rustls::{ClientConfig, ClientSession, Session};
 
 type CrustlsResult = c_int;
 
 pub const CRUSTLS_OK: c_int = 0;
 pub const CRUSTLS_ERROR: c_int = 1;
 
-static mut RUSTLS_CONFIG: Option<Arc<rustls::ClientConfig>> = None;
-
 #[no_mangle]
-pub extern "C" fn rustls_init() {
+pub extern "C" fn rustls_client_config_new() -> *const c_void {
     let mut config = rustls::ClientConfig::new();
     config
         .root_store
         .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-    unsafe {
-        RUSTLS_CONFIG = Some(Arc::new(config));
-    }
     env_logger::init();
+    Arc::into_raw(Arc::new(config)) as *const c_void
 }
 
 // Create a new rustls::ClientSession, and return it in the output parameter `out`.
@@ -35,14 +30,15 @@ pub extern "C" fn rustls_init() {
 // `rustls_client_session_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_new(
+    config: *const c_void,
     hostname: *const c_char,
     session_out: *mut *mut c_void,
 ) -> CrustlsResult {
-    let config = unsafe {
-        match &RUSTLS_CONFIG {
-            Some(c) => c.clone(),
+    let config: Arc<ClientConfig> = unsafe {
+        match (config as *const ClientConfig).as_ref() {
+            Some(c) => Arc::from_raw(c),
             None => {
-                eprintln!("RUSTLS_CONFIG not initialized");
+                eprintln!("rustls_client_session_new: config was NULL");
                 return CRUSTLS_ERROR;
             }
         }
