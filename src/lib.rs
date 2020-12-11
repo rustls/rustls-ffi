@@ -13,6 +13,8 @@ type CrustlsResult = c_int;
 pub const CRUSTLS_OK: c_int = 0;
 pub const CRUSTLS_ERROR: c_int = 1;
 
+/// Create a client_config. Caller owns the memory and must free it with
+/// rustls_client_config_free.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_new() -> *const c_void {
     let mut config = rustls::ClientConfig::new();
@@ -23,6 +25,8 @@ pub extern "C" fn rustls_client_config_new() -> *const c_void {
     Arc::into_raw(Arc::new(config)) as *const c_void
 }
 
+/// Free a client_config previously returned from rustls_client_config_new.
+/// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const c_void) {
     unsafe {
@@ -34,7 +38,9 @@ pub extern "C" fn rustls_client_config_free(config: *const c_void) {
             let strong_count = Arc::strong_count(&arc);
             if strong_count != 1 {
                 eprintln!(
-                    "rustls_client_config_free: invariant failed: arc.strong_count was not 1: {}. probably this function was called twice or more for the same pointer",
+                    "rustls_client_config_free: invariant failed: arc.strong_count was not 1: {}. \
+                    You must free all client_sessions that depend on this client_config first. \
+                    Also you must not free client_config multiple times",
                     strong_count
                 );
             }
@@ -44,19 +50,19 @@ pub extern "C" fn rustls_client_config_free(config: *const c_void) {
     };
 }
 
-// In rustls_client_config_new, we create an Arc, then call `into_raw` and return the resulting raw
-// pointer to C. C can then call rustls_client_session_new multiple times using that same raw
-// pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc, its
-// reference count will be decremented on drop. We need to reference count to stay at 1, because
-// the C code is holding a copy. This function turns the raw pointer back into an Arc, clones it
-// to increment the reference count (which will make it 2 in this particular case), and
-// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
-// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
-// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
-//
-// Unsafety:
-//
-// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+/// In rustls_client_config_new, we create an Arc, then call `into_raw` and return the resulting raw
+/// pointer to C. C can then call rustls_client_session_new multiple times using that same raw
+/// pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc, its
+/// reference count will be decremented on drop. We need to reference count to stay at 1, because
+/// the C code is holding a copy. This function turns the raw pointer back into an Arc, clones it
+/// to increment the reference count (which will make it 2 in this particular case), and
+/// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
+/// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
+/// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
+///
+/// Unsafety:
+///
+/// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
 unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     let r = Arc::from_raw(v);
     let val = Arc::clone(&r);
@@ -64,11 +70,11 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     val
 }
 
-// Create a new rustls::ClientSession, and return it in the output parameter `out`.
-// If this returns an error code, the memory pointed to by `session_out` remains unchanged.
-// If this returns a non-error, the memory pointed to by `session_out` is modified to point
-// at a valid ClientSession. The caller now owns the ClientSession and must call
-// `rustls_client_session_free` when done with it.
+/// Create a new rustls::ClientSession, and return it in the output parameter `out`.
+/// If this returns an error code, the memory pointed to by `session_out` remains unchanged.
+/// If this returns a non-error, the memory pointed to by `session_out` is modified to point
+/// at a valid ClientSession. The caller now owns the ClientSession and must call
+/// `rustls_client_session_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_new(
     config: *const c_void,
@@ -162,15 +168,22 @@ pub extern "C" fn rustls_client_session_process_new_packets(session: *mut c_void
     result
 }
 
+/// Free a client_session previously returned from rustls_client_session_new.
+/// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
-pub extern "C" fn rustls_client_session_free(session: *const c_void) {
-    // Convert the pointer to a Box and drop it.
-    unsafe { Box::from_raw(session as *mut ClientSession) };
-    ()
+pub extern "C" fn rustls_client_session_free(session: *mut c_void) {
+    unsafe {
+        if let Some(c) = (session as *mut ClientSession).as_mut() {
+            // Convert the pointer to a Box and drop it.
+            Box::from_raw(c);
+        } else {
+            eprintln!("warning: rustls_client_config_free: config was NULL");
+        }
+    }
 }
 
-// Write plaintext bytes into the ClientSession. This acts like
-// write(2). It returns the number of bytes written, or -1 on error.
+/// Write plaintext bytes into the ClientSession. This acts like
+/// write(2). It returns the number of bytes written, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write(
     session: *const c_void,
@@ -203,8 +216,9 @@ pub extern "C" fn rustls_client_session_write(
     n_written as ssize_t
 }
 
-// Read plaintext bytes from the ClientSession. This acts like
-// read(2). It returns the number of bytes read, or -1 on error.
+/// Read plaintext bytes from the ClientSession. This acts like
+/// read(2), writing the plaintext bytes into `buf`. It returns
+/// the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
     session: *const c_void,
@@ -250,8 +264,8 @@ pub extern "C" fn rustls_client_session_read(
     n_read as ssize_t
 }
 
-// Read TLS bytes taken from a socket into the ClientSession. This acts like
-// read(2). It returns the number of bytes read, or -1 on error.
+/// Read TLS bytes taken from a socket into the ClientSession. This acts like
+/// read(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read_tls(
     session: *const c_void,
@@ -285,8 +299,8 @@ pub extern "C" fn rustls_client_session_read_tls(
     n_read as ssize_t
 }
 
-// Write TLS bytes from the ClientSession into a buffer. Those bytes should then be written to
-// a socket. This acts like write(2). It returns the number of bytes read, or -1 on error.
+/// Write TLS bytes from the ClientSession into a buffer. Those bytes should then be written to
+/// a socket. This acts like write(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(
     session: *const c_void,
