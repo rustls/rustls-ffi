@@ -45,7 +45,7 @@ write_all(int fd, const char *buf, int n)
 int
 make_conn(const char *hostname)
 {
-  struct addrinfo *getaddrinfo_output;
+  struct addrinfo *getaddrinfo_output = NULL;
   int getaddrinfo_result =
     getaddrinfo(hostname, "443", NULL, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
