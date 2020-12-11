@@ -1,0 +1,20 @@
+[package]
+name = "crustls"
+version = "0.1.0"
+authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
+description = "C-to-rustls bindings"
+edition = "2018"
+
+[dependencies]
+rustls = "0.19"
+webpki = "0.21"
+libc = "0.2"
+env_logger = "0.8"
+webpki-roots = "0.21"
+
+[dev_dependencies]
+cbindgen = "*"
+
+[lib]
+name = "crustls"
+crate-type = ["staticlib"]
