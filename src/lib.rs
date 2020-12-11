@@ -25,7 +25,11 @@ pub extern "C" fn rustls_client_config_new() -> *const c_void {
     Arc::into_raw(Arc::new(config)) as *const c_void
 }
 
-/// Free a client_config previously returned from rustls_client_config_new.
+/// "Free" a client_config previously returned from rustls_client_config_new.
+/// Since client_config is actually an atomically reference-counted pointer,
+/// extant client_sessions may still hold an internal reference to the
+/// Rust object. However, C code must consider this pointer unusable after
+/// "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const c_void) {
@@ -36,11 +40,10 @@ pub extern "C" fn rustls_client_config_free(config: *const c_void) {
             // and the inner ClientConfig will be dropped.
             let arc: Arc<ClientConfig> = Arc::from_raw(c);
             let strong_count = Arc::strong_count(&arc);
-            if strong_count != 1 {
+            if strong_count < 1 {
                 eprintln!(
-                    "rustls_client_config_free: invariant failed: arc.strong_count was not 1: {}. \
-                    You must free all client_sessions that depend on this client_config first. \
-                    Also you must not free client_config multiple times",
+                    "rustls_client_config_free: invariant failed: arc.strong_count was < 1: {}. \
+                    You must not free the same client_config multiple times.",
                     strong_count
                 );
             }
