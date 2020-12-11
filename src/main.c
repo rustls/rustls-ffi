@@ -43,7 +43,7 @@ write_all(int fd, const char *buf, int n)
 int
 make_conn(const char *hostname)
 {
-  struct addrinfo *getaddrinfo_output, *rp;
+  struct addrinfo *getaddrinfo_output;
   int getaddrinfo_result =
     getaddrinfo(hostname, "443", NULL, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
@@ -91,16 +91,16 @@ send_request_and_read_response(int sockfd, void *client_session,
            "\r\n",
            path,
            hostname);
-  int n = rustls_client_session_write(client_session, buf, strlen(buf));
+  int n =
+    rustls_client_session_write(client_session, (uint8_t *)buf, strlen(buf));
   if(n < 0) {
     fprintf(stderr, "error writing plaintext bytes to ClientSession\n");
   }
 
 #define MAX_EVENTS 1
   struct epoll_event ev, events[MAX_EVENTS];
-  int conn_sock, nfds, epollfd;
-
-  epollfd = epoll_create1(0);
+  int nfds = 0;
+  int epollfd = epoll_create1(0);
   if(epollfd == -1) {
     perror("epoll_create1");
     return 1;
@@ -144,7 +144,7 @@ send_request_and_read_response(int sockfd, void *client_session,
        * want to pull in unitialized memory that we didn't just
        * read from the socket.
        */
-      n = rustls_client_session_read_tls(client_session, buf, n);
+      n = rustls_client_session_read_tls(client_session, (uint8_t *)buf, n);
       if(n == 0) {
         fprintf(stderr, "EOF from ClientSession::read_tls\n");
         // TODO: What to do here?
@@ -167,7 +167,8 @@ send_request_and_read_response(int sockfd, void *client_session,
        */
       for(;;) {
         memset(buf, 0, sizeof(buf));
-        n = rustls_client_session_read(client_session, buf, sizeof(buf));
+        n = rustls_client_session_read(
+          client_session, (uint8_t *)buf, sizeof(buf));
         if(n == 0) {
           fprintf(stderr, "EOF from ClientSession::read (this is expected)\n");
           break;
@@ -184,7 +185,8 @@ send_request_and_read_response(int sockfd, void *client_session,
        (events[0].events & EPOLLOUT) > 0) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
       memset(buf, 0, sizeof(buf));
-      n = rustls_client_session_write_tls(client_session, buf, sizeof(buf));
+      n = rustls_client_session_write_tls(
+        client_session, (uint8_t *)buf, sizeof(buf));
       if(n == 0) {
         fprintf(stderr, "EOF from ClientSession::write_tls\n");
         return 1;
@@ -230,10 +232,11 @@ main(int argc, const char **argv)
     return 1;
   }
 
-  int return_code =
-    send_request_and_read_response(sockfd, client_session, hostname, path);
-  rustls_client_session_free(client_session);
-
+  int ret = 1;
+  ret = send_request_and_read_response(sockfd, client_session, hostname, path);
+  if(ret != CRUSTLS_OK) {
+    goto cleanup;
+  }
   int sockfd2 = make_conn(hostname);
   if(sockfd2 < 0) {
     // No perror because make_conn printed error already.
@@ -247,11 +250,18 @@ main(int argc, const char **argv)
     return 1;
   }
 
-  int return_code2 =
+  ret =
     send_request_and_read_response(sockfd2, client_session, hostname, path);
-  rustls_client_session_free(client_session);
+  if(ret != CRUSTLS_OK) {
+    goto cleanup;
+  }
 
+  // Success!
+  return 0;
+
+cleanup:
   rustls_client_config_free(client_config);
 
-  return return_code;
+  rustls_client_session_free(client_session);
+  return ret;
 }
