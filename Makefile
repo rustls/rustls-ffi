@@ -1,10 +1,5 @@
-ifeq ($(shell uname),Darwin)
-    LDFLAGS := -Wl,-dead_strip
-else
-    LDFLAGS := -Wl,--gc-sections -lpthread -ldl
-endif
-
 CFLAGS := -Werror -Wall -Wextra -Wpedantic
+LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 
 all: target/crustls-demo
 	target/crustls-demo httpbin.org /headers
