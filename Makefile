@@ -2,6 +2,8 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic
 LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 
 all: target/crustls-demo
+
+test: all
 	target/crustls-demo httpbin.org /headers
 
 target:

@@ -86,7 +86,7 @@ cleanup:
  * the message and return 1.
  */
 int
-send_request_and_read_response(int sockfd, void *client_session,
+send_request_and_read_response(int sockfd, client_session *client_session,
                                const char *hostname, const char *path)
 {
   int ret = 1;
@@ -229,7 +229,7 @@ cleanup:
 }
 
 int
-do_request(const void *client_config, const char *hostname, const char *path)
+do_request(const client_config *client_config, const char *hostname, const char *path)
 {
   int ret = 1;
   int sockfd = make_conn(hostname);
@@ -238,7 +238,7 @@ do_request(const void *client_config, const char *hostname, const char *path)
     goto cleanup;
   }
 
-  void *client_session = NULL;
+  client_session *client_session = NULL;
   int result =
     rustls_client_session_new(client_config, hostname, &client_session);
   if(result != CRUSTLS_OK) {
@@ -276,7 +276,7 @@ main(int argc, const char **argv)
   const char *hostname = argv[1];
   const char *path = argv[2];
 
-  const void *client_config = rustls_client_config_new();
+  const client_config *client_config = rustls_client_config_new();
 
   int i;
   for(i = 0; i < 3; i++) {
