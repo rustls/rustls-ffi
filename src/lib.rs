@@ -1,5 +1,5 @@
 #![crate_type = "staticlib"]
-use libc::{c_char, c_int, size_t, ssize_t};
+use libc::{c_char, size_t, ssize_t};
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
@@ -7,10 +7,12 @@ use std::{io::ErrorKind::ConnectionAborted, mem};
 
 use rustls::{ClientConfig, ClientSession, Session};
 
-type CrustlsResult = c_int;
-
-pub const CRUSTLS_OK: c_int = 0;
-pub const CRUSTLS_ERROR: c_int = 1;
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub enum rustls_result {
+    OK = 0,
+    ERROR = 1,
+}
 
 // We use the opaque struct trick pattern to tell C about our types without
 // telling them what's inside.
@@ -93,11 +95,11 @@ pub extern "C" fn rustls_client_session_new(
     config: *const rustls_client_config,
     hostname: *const c_char,
     session_out: *mut *mut rustls_client_session,
-) -> CrustlsResult {
+) -> rustls_result {
     let hostname: &CStr = unsafe {
         if hostname.is_null() {
             eprintln!("rustls_client_session_new: hostname was NULL");
-            return CRUSTLS_ERROR;
+            return rustls_result::ERROR;
         }
         CStr::from_ptr(hostname)
     };
@@ -106,7 +108,7 @@ pub extern "C" fn rustls_client_session_new(
             Some(c) => arc_with_incref_from_raw(c),
             None => {
                 eprintln!("rustls_client_session_new: config was NULL");
-                return CRUSTLS_ERROR;
+                return rustls_result::ERROR;
             }
         }
     };
@@ -114,7 +116,7 @@ pub extern "C" fn rustls_client_session_new(
         Ok(s) => s,
         Err(e) => {
             eprintln!("converting hostname to Rust &str: {}", e);
-            return CRUSTLS_ERROR;
+            return rustls_result::ERROR;
         }
     };
     let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
@@ -124,7 +126,7 @@ pub extern "C" fn rustls_client_session_new(
                 "turning hostname '{}' into webpki::DNSNameRef: {}",
                 hostname, e
             );
-            return CRUSTLS_ERROR;
+            return rustls_result::ERROR;
         }
     };
     let client = ClientSession::new(&config, name_ref);
@@ -137,7 +139,7 @@ pub extern "C" fn rustls_client_session_new(
         *session_out = Box::into_raw(b) as *mut _;
     }
 
-    return CRUSTLS_OK;
+    return rustls_result::OK;
 }
 
 #[no_mangle]
@@ -163,24 +165,23 @@ pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_clien
 #[no_mangle]
 pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
-) -> CrustlsResult {
+) -> rustls_result {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
             None => {
                 eprintln!("ClientSession::process_new_packets: session was NULL");
-                return CRUSTLS_ERROR;
+                return rustls_result::ERROR;
             }
         }
     };
-    let result: CrustlsResult = match session.process_new_packets() {
-        Ok(()) => CRUSTLS_OK,
+    match session.process_new_packets() {
+        Ok(()) => rustls_result::OK,
         Err(e) => {
             eprintln!("ClientSession::process_new_packets: {}", e);
-            CRUSTLS_ERROR
+            return rustls_result::ERROR;
         }
-    };
-    result
+    }
 }
 
 /// Free a client_session previously returned from rustls_client_session_new.
