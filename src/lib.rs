@@ -151,6 +151,16 @@ pub extern "C" fn rustls_client_session_wants_write(session: *const c_void) -> b
 }
 
 #[no_mangle]
+pub extern "C" fn rustls_client_session_is_handshaking(session: *const c_void) -> bool {
+    unsafe {
+        match (session as *const ClientSession).as_ref() {
+            Some(cs) => cs.is_handshaking(),
+            None => false,
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn rustls_client_session_process_new_packets(session: *mut c_void) -> CrustlsResult {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
