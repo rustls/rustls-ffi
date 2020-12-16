@@ -171,7 +171,7 @@ send_request_and_read_response(int sockfd,
       }
 
       result = rustls_client_session_process_new_packets(client_session);
-      if(result != rustls_result_OK) {
+      if(result != RUSTLS_RESULT_OK) {
         fprintf(stderr, "Error in process_new_packets");
         goto cleanup;
       }
@@ -243,12 +243,12 @@ do_request(const struct rustls_client_config *client_config,
   struct rustls_client_session *client_session = NULL;
   rustls_result result =
     rustls_client_session_new(client_config, hostname, &client_session);
-  if(result != rustls_result_OK) {
+  if(result != RUSTLS_RESULT_OK) {
     goto cleanup;
   }
 
   ret = send_request_and_read_response(sockfd, client_session, hostname, path);
-  if(ret != rustls_result_OK) {
+  if(ret != RUSTLS_RESULT_OK) {
     goto cleanup;
   }
 

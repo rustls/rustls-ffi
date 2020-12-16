@@ -10,8 +10,8 @@ use rustls::{ClientConfig, ClientSession, Session};
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub enum rustls_result {
-    OK = 0,
-    ERROR = 1,
+    Ok = 0,
+    Error = 1,
 }
 
 // We use the opaque struct pattern to tell C about our types without
@@ -100,7 +100,7 @@ pub extern "C" fn rustls_client_session_new(
     let hostname: &CStr = unsafe {
         if hostname.is_null() {
             eprintln!("rustls_client_session_new: hostname was NULL");
-            return rustls_result::ERROR;
+            return rustls_result::Error;
         }
         CStr::from_ptr(hostname)
     };
@@ -109,7 +109,7 @@ pub extern "C" fn rustls_client_session_new(
             Some(c) => arc_with_incref_from_raw(c),
             None => {
                 eprintln!("rustls_client_session_new: config was NULL");
-                return rustls_result::ERROR;
+                return rustls_result::Error;
             }
         }
     };
@@ -117,7 +117,7 @@ pub extern "C" fn rustls_client_session_new(
         Ok(s) => s,
         Err(e) => {
             eprintln!("converting hostname to Rust &str: {}", e);
-            return rustls_result::ERROR;
+            return rustls_result::Error;
         }
     };
     let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
@@ -127,7 +127,7 @@ pub extern "C" fn rustls_client_session_new(
                 "turning hostname '{}' into webpki::DNSNameRef: {}",
                 hostname, e
             );
-            return rustls_result::ERROR;
+            return rustls_result::Error;
         }
     };
     let client = ClientSession::new(&config, name_ref);
@@ -140,7 +140,7 @@ pub extern "C" fn rustls_client_session_new(
         *session_out = Box::into_raw(b) as *mut _;
     }
 
-    return rustls_result::OK;
+    return rustls_result::Ok;
 }
 
 #[no_mangle]
@@ -172,15 +172,15 @@ pub extern "C" fn rustls_client_session_process_new_packets(
             Some(cs) => cs,
             None => {
                 eprintln!("ClientSession::process_new_packets: session was NULL");
-                return rustls_result::ERROR;
+                return rustls_result::Error;
             }
         }
     };
     match session.process_new_packets() {
-        Ok(()) => rustls_result::OK,
+        Ok(()) => rustls_result::Ok,
         Err(e) => {
             eprintln!("ClientSession::process_new_packets: {}", e);
-            return rustls_result::ERROR;
+            return rustls_result::Error;
         }
     }
 }
