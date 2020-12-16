@@ -162,6 +162,18 @@ pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_clien
 }
 
 #[no_mangle]
+pub extern "C" fn rustls_client_session_is_handshaking(
+    session: *const rustls_client_session,
+) -> bool {
+    unsafe {
+        match (session as *const ClientSession).as_ref() {
+            Some(cs) => cs.is_handshaking(),
+            None => false,
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> CrustlsResult {
