@@ -1,6 +1,5 @@
 #![crate_type = "staticlib"]
-
-use libc::{c_char, c_int, c_void, size_t, ssize_t};
+use libc::{c_char, c_int, size_t, ssize_t};
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
@@ -13,16 +12,28 @@ type CrustlsResult = c_int;
 pub const CRUSTLS_OK: c_int = 0;
 pub const CRUSTLS_ERROR: c_int = 1;
 
+// We use the opaque struct pattern to tell C about our types without
+// telling them what's inside.
+// https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+#[allow(non_camel_case_types)]
+pub struct rustls_client_config {
+    _private: [u8; 0],
+}
+#[allow(non_camel_case_types)]
+pub struct rustls_client_session {
+    _private: [u8; 0],
+}
+
 /// Create a client_config. Caller owns the memory and must free it with
 /// rustls_client_config_free.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_new() -> *const c_void {
+pub extern "C" fn rustls_client_config_new() -> *const rustls_client_config {
     let mut config = rustls::ClientConfig::new();
     config
         .root_store
         .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     env_logger::init();
-    Arc::into_raw(Arc::new(config)) as *const c_void
+    Arc::into_raw(Arc::new(config)) as *const _
 }
 
 /// "Free" a client_config previously returned from rustls_client_config_new.
@@ -32,7 +43,7 @@ pub extern "C" fn rustls_client_config_new() -> *const c_void {
 /// "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_free(config: *const c_void) {
+pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
     unsafe {
         if let Some(c) = (config as *const ClientConfig).as_ref() {
             // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
@@ -80,9 +91,9 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
 /// `rustls_client_session_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_new(
-    config: *const c_void,
+    config: *const rustls_client_config,
     hostname: *const c_char,
-    session_out: *mut *mut c_void,
+    session_out: *mut *mut rustls_client_session,
 ) -> CrustlsResult {
     let hostname: &CStr = unsafe {
         if hostname.is_null() {
@@ -124,14 +135,14 @@ pub extern "C" fn rustls_client_session_new(
     // caller knows it is responsible for this memory.
     let b = Box::new(client);
     unsafe {
-        *session_out = Box::into_raw(b) as *mut c_void;
+        *session_out = Box::into_raw(b) as *mut _;
     }
 
     return CRUSTLS_OK;
 }
 
 #[no_mangle]
-pub extern "C" fn rustls_client_session_wants_read(session: *const c_void) -> bool {
+pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     unsafe {
         match (session as *const ClientSession).as_ref() {
             Some(cs) => cs.wants_read(),
@@ -141,7 +152,7 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const c_void) -> bo
 }
 
 #[no_mangle]
-pub extern "C" fn rustls_client_session_wants_write(session: *const c_void) -> bool {
+pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     unsafe {
         match (session as *const ClientSession).as_ref() {
             Some(cs) => cs.wants_write(),
@@ -151,7 +162,9 @@ pub extern "C" fn rustls_client_session_wants_write(session: *const c_void) -> b
 }
 
 #[no_mangle]
-pub extern "C" fn rustls_client_session_process_new_packets(session: *mut c_void) -> CrustlsResult {
+pub extern "C" fn rustls_client_session_process_new_packets(
+    session: *mut rustls_client_session,
+) -> CrustlsResult {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
@@ -174,7 +187,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(session: *mut c_void
 /// Free a client_session previously returned from rustls_client_session_new.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
-pub extern "C" fn rustls_client_session_free(session: *mut c_void) {
+pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     unsafe {
         if let Some(c) = (session as *mut ClientSession).as_mut() {
             // Convert the pointer to a Box and drop it.
@@ -189,7 +202,7 @@ pub extern "C" fn rustls_client_session_free(session: *mut c_void) {
 /// write(2). It returns the number of bytes written, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write(
-    session: *const c_void,
+    session: *const rustls_client_session,
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
@@ -224,7 +237,7 @@ pub extern "C" fn rustls_client_session_write(
 /// the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
-    session: *const c_void,
+    session: *const rustls_client_session,
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
@@ -271,7 +284,7 @@ pub extern "C" fn rustls_client_session_read(
 /// read(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read_tls(
-    session: *const c_void,
+    session: *const rustls_client_session,
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
@@ -306,7 +319,7 @@ pub extern "C" fn rustls_client_session_read_tls(
 /// a socket. This acts like write(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(
-    session: *const c_void,
+    session: *const rustls_client_session,
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
