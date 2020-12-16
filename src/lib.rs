@@ -14,8 +14,9 @@ pub enum rustls_result {
     ERROR = 1,
 }
 
-// We use the opaque struct trick pattern to tell C about our types without
+// We use the opaque struct pattern to tell C about our types without
 // telling them what's inside.
+// https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
 #[allow(non_camel_case_types)]
 pub struct rustls_client_config {
     _private: [u8; 0],
