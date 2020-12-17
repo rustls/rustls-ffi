@@ -175,7 +175,9 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 /*
  * Do one read from the socket, and process all resulting bytes into the
  * client_session, then copy all plaintext bytes from the session to stdout.
- * Returns 0 for success, 1 for error. EAGAIN and WOULDBLOCK are successes.
+ * Returns CRUSTLS_DEMO_OK for success, CRUSTLS_DEMO_ERROR for error, and
+ * CRUSTLS_DEMO_AGAIN if we go an EAGAIN or EWOULDBLOCK reading from the
+ * socket.
  */
 enum crustls_demo_result
 do_read(int sockfd, struct rustls_client_session *client_session)
