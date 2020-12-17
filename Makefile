@@ -1,4 +1,4 @@
-CFLAGS := -Werror -Wall -Wextra -Wpedantic
+CFLAGS := -Werror -Wall -Wextra -Wpedantic -g
 LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 
 all: target/crustls-demo
