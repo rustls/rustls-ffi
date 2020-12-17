@@ -21,5 +21,9 @@ target/debug/libcrustls.a: src/lib.rs Cargo.toml
 target/main.o: src/main.c src/lib.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
+install: target/debug/libcrustls.a src/lib.h
+	sudo install target/debug/libcrustls.a /usr/local/lib/
+	sudo install src/lib.h /usr/local/include/crustls.h
+
 clean:
 	rm -rf target
