@@ -232,7 +232,7 @@ send_request_and_read_response(int sockfd,
         n = read(sockfd, buf, sizeof(buf));
         if(n == 0) {
           fprintf(stderr, "EOF reading from socket\n");
-          goto drain_and_probably_succeed;
+          goto cleanup;
         }
         else if(n < 0) {
           if(errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -283,12 +283,6 @@ send_request_and_read_response(int sockfd,
         goto cleanup;
       }
     }
-  }
-
-drain_and_probably_succeed:
-  result = copy_plaintext_to_stdout(client_session);
-  if(result != 0) {
-    goto cleanup;
   }
 
   ret = 0;
