@@ -16,9 +16,10 @@
 
 enum crustls_demo_result
 {
-  CRUSTLS_DEMO_OK = 0,
-  CRUSTLS_DEMO_ERROR = 1,
-  CRUSTLS_DEMO_AGAIN = 2,
+  CRUSTLS_DEMO_OK,
+  CRUSTLS_DEMO_ERROR,
+  CRUSTLS_DEMO_AGAIN,
+  CRUSTLS_DEMO_EOF,
 };
 
 /*
@@ -47,13 +48,24 @@ write_all(int fd, const char *buf, int n)
 
 /*
  * Set a socket to be nonblocking.
+ *
+ * Returns CRUSTLS_DEMO_OK on success, CRUSTLS_DEMO_ERROR on error.
  */
-int
+enum crustls_demo_result
 nonblock(int sockfd)
 {
   int flags;
   flags = fcntl(sockfd, F_GETFL, 0);
-  return fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+  if(flags < 0) {
+    perror("getting socket flags");
+    return CRUSTLS_DEMO_ERROR;
+  }
+  flags = fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+  if(flags < 0) {
+    perror("setting socket nonblocking");
+    return CRUSTLS_DEMO_ERROR;
+  }
+  return CRUSTLS_DEMO_OK;
 }
 
 /*
@@ -64,6 +76,7 @@ nonblock(int sockfd)
 int
 make_conn(const char *hostname)
 {
+  enum crustls_demo_result result = 0;
   struct addrinfo *getaddrinfo_output = NULL;
   int getaddrinfo_result =
     getaddrinfo(hostname, "443", NULL, &getaddrinfo_output);
@@ -86,7 +99,10 @@ make_conn(const char *hostname)
     perror("connecting");
     goto cleanup;
   }
-  nonblock(sockfd);
+  result = nonblock(sockfd);
+  if(result != CRUSTLS_DEMO_OK) {
+    return 1;
+  }
 
   return sockfd;
 
@@ -112,7 +128,7 @@ copy_tls_bytes_into_client_session(
   int result;
 
   while(len > 0) {
-    n = rustls_client_session_read_tls(client_session, (uint8_t *)buf, len);
+    n = rustls_client_session_read_tls(client_session, buf, len);
     if(n == 0) {
       fprintf(stderr, "EOF from ClientSession::read_tls %ld \n", len);
       return 1;
@@ -169,15 +185,19 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
     }
   }
 
-  return 0;
+  fprintf(stderr, "copy_plaintext_to_stdout: fell through loop\n");
+  return 1;
 }
 
 /*
  * Do one read from the socket, and process all resulting bytes into the
  * client_session, then copy all plaintext bytes from the session to stdout.
- * Returns CRUSTLS_DEMO_OK for success, CRUSTLS_DEMO_ERROR for error, and
- * CRUSTLS_DEMO_AGAIN if we go an EAGAIN or EWOULDBLOCK reading from the
- * socket.
+ * Returns:
+ *  - CRUSTLS_DEMO_OK for success
+ *  - CRUSTLS_DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
+ *    socket
+ *  - CRUSTLS_DEMO_EOF if we got EOF
+ *  - CRUSTLS_DEMO_ERROR for other errors.
  */
 enum crustls_demo_result
 do_read(int sockfd, struct rustls_client_session *client_session)
@@ -190,11 +210,13 @@ do_read(int sockfd, struct rustls_client_session *client_session)
   n = read(sockfd, buf, sizeof(buf));
   if(n == 0) {
     fprintf(stderr, "EOF reading from socket\n");
-    return CRUSTLS_DEMO_ERROR;
+    return CRUSTLS_DEMO_EOF;
   }
   else if(n < 0) {
     if(errno == EAGAIN || errno == EWOULDBLOCK) {
-      fprintf(stderr, "reading from socket: EAGAIN or EWOULDBLOCK\n");
+      fprintf(stderr,
+              "reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
+              strerror(errno));
       return CRUSTLS_DEMO_AGAIN;
     }
     else {
@@ -291,6 +313,10 @@ send_request_and_read_response(int sockfd,
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
+        else if(result == CRUSTLS_DEMO_EOF) {
+          ret = 0;
+          goto cleanup;
+        }
         else if(result != CRUSTLS_DEMO_OK) {
           goto cleanup;
         }
@@ -318,7 +344,8 @@ send_request_and_read_response(int sockfd,
     }
   }
 
-  ret = 0;
+  fprintf(stderr, "send_request_and_read_response: loop fell through");
+
 cleanup:
   if(epollfd > 0) {
     close(epollfd);
