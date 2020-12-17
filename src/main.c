@@ -93,6 +93,43 @@ cleanup:
   return -1;
 }
 
+/*
+ * Copy all the ciphertext bytes from buf into the client session.
+ * Returns 0 for success, 1 for error.
+ */
+int
+copy_tls_bytes_into_client_session(
+  struct rustls_client_session *client_session, uint8_t *buf, size_t len)
+{
+  ssize_t n;
+  int result;
+
+  while(len > 0) {
+    n = rustls_client_session_read_tls(client_session, (uint8_t *)buf, len);
+    if(n == 0) {
+      fprintf(stderr, "EOF from ClientSession::read_tls %ld \n", len);
+      return 1;
+    }
+    else if(n < 0) {
+      fprintf(stderr, "Error in ClientSession::read_tls\n");
+      return 1;
+    }
+    if((size_t)n > len) {
+      fprintf(stderr, "too many bytes written to ClientSession; overflow\n");
+      return 1;
+    }
+    len -= n;
+    buf += n;
+
+    result = rustls_client_session_process_new_packets(client_session);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "Error in process_new_packets\n");
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /* Read all available bytes from the client_session until EOF.
  * Note that EOF here indicates "no more bytes until
  * process_new_packets", not "stream is closed".
@@ -100,7 +137,7 @@ cleanup:
  * Returns 0 for success, 1 for error.
  */
 int
-copy_plaintext_to_stdout(rustls_client_session *client_session)
+copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 {
   int result = 1;
   char buf[2048];
@@ -111,7 +148,7 @@ copy_plaintext_to_stdout(rustls_client_session *client_session)
     n =
       rustls_client_session_read(client_session, (uint8_t *)buf, sizeof(buf));
     if(n == 0) {
-      fprintf(stderr, "EOF from ClientSession::read (this is expected)\n");
+      /* EOF from ClientSession::read. This is expected. */
       return 0;
     }
     else if(n < 0) {
@@ -177,6 +214,7 @@ send_request_and_read_response(int sockfd,
   }
 
   for(;;) {
+  poll:
     nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
     if(nfds == -1) {
       perror("epoll_wait");
@@ -199,14 +237,13 @@ send_request_and_read_response(int sockfd,
         else if(n < 0) {
           if(errno == EAGAIN || errno == EWOULDBLOCK) {
             fprintf(stderr, "reading from socket: EAGAIN or EWOULDBLOCK\n");
-            break;
+            goto poll;
           }
           else {
             perror("reading from socket");
             goto cleanup;
           }
         }
-        fprintf(stderr, "read %d bytes from socket\n", n);
 
         /*
          * Now pull those bytes from the buffer into ClientSession.
@@ -214,27 +251,16 @@ send_request_and_read_response(int sockfd,
          * want to pull in unitialized memory that we didn't just
          * read from the socket.
          */
-        n = rustls_client_session_read_tls(client_session, (uint8_t *)buf, n);
-        if(n == 0) {
-          fprintf(stderr, "EOF from ClientSession::read_tls\n");
-          // TODO: What to do here?
-          break;
-        }
-        else if(n < 0) {
-          fprintf(stderr, "Error in ClientSession::read_tls\n");
+        result = copy_tls_bytes_into_client_session(
+          client_session, (uint8_t *)buf, n);
+        if(result != 0) {
           goto cleanup;
         }
 
-        result = rustls_client_session_process_new_packets(client_session);
-        if(result != RUSTLS_RESULT_OK) {
-          fprintf(stderr, "Error in process_new_packets");
+        result = copy_plaintext_to_stdout(client_session);
+        if(result != 0) {
           goto cleanup;
         }
-      }
-
-      result = copy_plaintext_to_stdout(client_session);
-      if(result != 0) {
-        goto cleanup;
       }
     }
     if(rustls_client_session_wants_write(client_session) &&
