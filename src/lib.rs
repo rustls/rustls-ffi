@@ -151,10 +151,32 @@ pub extern "C" fn rustls_client_session_new(
     return rustls_result::OK;
 }
 
+const NULL_SESSION: &str = "session was NULL";
+
+/// After a rustls_client_session method returns an error, you may call
+/// this method to get a pointer to a buffer containing a detailed error
+/// message. The contents of the error buffer will by len bytes long,
+/// UTF-8 encoded, and not NUL-terminated.
+#[no_mangle]
+pub extern "C" fn rustls_client_session_error(
+    session: *const rustls_client_session,
+    msg: *mut *const c_char,
+    len: *mut size_t,
+) {
+    unsafe {
+        let error: &str = match session.as_ref() {
+            Some(rcs) => &rcs.error,
+            None => NULL_SESSION,
+        };
+        *msg = error.as_ptr() as *const c_char;
+        *len = error.len();
+    };
+}
+
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     unsafe {
-        match (session as *const rustls_client_session).as_ref() {
+        match session.as_ref() {
             Some(rcs) => rcs.session.wants_read(),
             None => false,
         }
@@ -164,7 +186,7 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     unsafe {
-        match (session as *const rustls_client_session).as_ref() {
+        match session.as_ref() {
             Some(rcs) => rcs.session.wants_write(),
             None => false,
         }
@@ -176,7 +198,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     unsafe {
-        match (session as *const rustls_client_session).as_ref() {
+        match session.as_ref() {
             Some(rcs) => rcs.session.is_handshaking(),
             None => false,
         }
@@ -187,26 +209,28 @@ pub extern "C" fn rustls_client_session_is_handshaking(
 pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
+    let rcs: &mut rustls_client_session = unsafe {
         match session.as_mut() {
-            Some(rcs) => &mut rcs.session,
+            Some(rcs) => rcs,
             None => {
                 eprintln!("ClientSession::process_new_packets: session was NULL");
                 return rustls_result::ERROR;
             }
         }
     };
-    match session.process_new_packets() {
+    rcs.error = "".to_string();
+    match rcs.session.process_new_packets() {
         Ok(()) => rustls_result::OK,
         Err(e) => {
-            eprintln!("ClientSession::process_new_packets: {}", e);
-            return rustls_result::ERROR;
+            rcs.error = e.to_string();
+            rustls_result::ERROR
         }
     }
 }
 
 /// Free a client_session previously returned from rustls_client_session_new.
-/// Calling with NULL is fine. Must not be called twice with the same value.
+/// Calling with NULL is fine. Must not be called twice with the same non-NULL
+/// value.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     unsafe {
@@ -227,9 +251,9 @@ pub extern "C" fn rustls_client_session_write(
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
-    let session: &mut ClientSession = unsafe {
+    let rcs: &mut rustls_client_session = unsafe {
         match session.as_mut() {
-            Some(rcs) => &mut rcs.session,
+            Some(rcs) => rcs,
             None => {
                 eprintln!("ClientSession::write: session was NULL");
                 return -1;
@@ -238,15 +262,15 @@ pub extern "C" fn rustls_client_session_write(
     };
     let write_buf: &[u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::write: buf was NULL");
+            rcs.error = "ClientSession::write: buf was NULL".to_string();
             return -1;
         }
         slice::from_raw_parts(buf, count as usize)
     };
-    let n_written: usize = match session.write(write_buf) {
+    let n_written: usize = match rcs.session.write(write_buf) {
         Ok(n) => n,
         Err(e) => {
-            eprintln!("ClientSession::write: {}", e);
+            rcs.error = format!("ClientSession::write: {}", e);
             return -1;
         }
     };
@@ -262,9 +286,9 @@ pub extern "C" fn rustls_client_session_read(
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
-    let session: &mut ClientSession = unsafe {
+    let rcs: &mut rustls_client_session = unsafe {
         match session.as_mut() {
-            Some(rcs) => &mut rcs.session,
+            Some(rcs) => rcs,
             None => {
                 eprintln!("ClientSession::read: session was NULL");
                 return -1;
@@ -273,7 +297,7 @@ pub extern "C" fn rustls_client_session_read(
     };
     let read_buf: &mut [u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::read: buf was NULL");
+            rcs.error = "ClientSession::read: buf was NULL".to_string();
             return -1;
         }
         slice::from_raw_parts_mut(buf, count as usize)
@@ -284,17 +308,16 @@ pub extern "C" fn rustls_client_session_read(
     for c in read_buf.iter_mut() {
         *c = 0;
     }
-    let n_read: usize = match session.read(read_buf) {
+    let n_read: usize = match rcs.session.read(read_buf) {
         Ok(n) => n,
         // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
         // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
         // Log it and return EOF.
         Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-            eprintln!("ClientSession::read: CloseNotify (this is expected): {}", e);
             return 0;
         }
         Err(e) => {
-            eprintln!("ClientSession::read: {}", e);
+            rcs.error = format!("ClientSession::read: {}", e);
             return -1;
         }
     };
@@ -309,27 +332,27 @@ pub extern "C" fn rustls_client_session_read_tls(
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
-    let session: &mut ClientSession = unsafe {
+    let rcs: &mut rustls_client_session = unsafe {
         match session.as_mut() {
-            Some(rcs) => &mut rcs.session,
+            Some(rcs) => rcs,
             None => {
-                eprintln!("ClientSession::read_tls: session was NULL");
+                eprintln!("ClientSession::read: session was NULL");
                 return -1;
             }
         }
     };
     let input_buf: &[u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::read_tls: buf was NULL");
+            rcs.error = "ClientSession::read_tls: buf was NULL".to_string();
             return -1;
         }
         slice::from_raw_parts(buf, count as usize)
     };
     let mut cursor = Cursor::new(input_buf);
-    let n_read: usize = match session.read_tls(&mut cursor) {
+    let n_read: usize = match rcs.session.read_tls(&mut cursor) {
         Ok(n) => n,
         Err(e) => {
-            eprintln!("ClientSession::read_tls: {}", e);
+            rcs.error = format!("ClientSession::read_tls: {}", e);
             return -1;
         }
     };
@@ -344,26 +367,26 @@ pub extern "C" fn rustls_client_session_write_tls(
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
-    let session: &mut ClientSession = unsafe {
+    let rcs: &mut rustls_client_session = unsafe {
         match session.as_mut() {
-            Some(rcs) => &mut rcs.session,
+            Some(rcs) => rcs,
             None => {
-                eprintln!("ClientSession::write_tls: session was NULL");
+                eprintln!("ClientSession::read: session was NULL");
                 return -1;
             }
         }
     };
     let mut output_buf: &mut [u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::write_tls: buf was NULL");
+            rcs.error = "ClientSession::write_tls: buf was NULL".to_string();
             return -1;
         }
         slice::from_raw_parts_mut(buf, count as usize)
     };
-    let n_written: usize = match session.write_tls(&mut output_buf) {
+    let n_written: usize = match rcs.session.write_tls(&mut output_buf) {
         Ok(n) => n,
         Err(e) => {
-            eprintln!("ClientSession::write_tls: {}", e);
+            rcs.error = format!("ClientSession::write_tls: {}", e);
             return -1;
         }
     };

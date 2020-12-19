@@ -22,6 +22,15 @@ enum crustls_demo_result
   CRUSTLS_DEMO_EOF,
 };
 
+void
+print_error(const rustls_client_session *session, const char *prefix)
+{
+  const char *buf;
+  size_t len;
+  rustls_client_session_error(session, &buf, &len);
+  fprintf(stderr, "%s: %.*s\n", prefix, (int)len, buf);
+}
+
 /*
  * Write n bytes from buf to the provided fd, retrying short writes until
  * we finish or hit an error. Assumes fd is blocking and therefore doesn't
@@ -134,7 +143,7 @@ copy_tls_bytes_into_client_session(
       return 1;
     }
     else if(n < 0) {
-      fprintf(stderr, "Error in ClientSession::read_tls\n");
+      print_error(client_session, "ClientSession::read_tls");
       return 1;
     }
     if((size_t)n > len) {
@@ -146,7 +155,7 @@ copy_tls_bytes_into_client_session(
 
     result = rustls_client_session_process_new_packets(client_session);
     if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "Error in process_new_packets\n");
+      print_error(client_session, "process_new_packets");
       return 1;
     }
   }
@@ -175,7 +184,7 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
       return 0;
     }
     else if(n < 0) {
-      fprintf(stderr, "Error in ClientSession::read\n");
+      print_error(client_session, "ClientSession::read");
       return 1;
     }
 
@@ -273,7 +282,7 @@ send_request_and_read_response(int sockfd,
   int n =
     rustls_client_session_write(client_session, (uint8_t *)buf, strlen(buf));
   if(n < 0) {
-    fprintf(stderr, "error writing plaintext bytes to ClientSession\n");
+    print_error(client_session, "ClientSession::write");
     goto cleanup;
   }
 
@@ -333,7 +342,7 @@ send_request_and_read_response(int sockfd,
         goto cleanup;
       }
       else if(n < 0) {
-        fprintf(stderr, "Error in ClientSession::write_tls\n");
+        print_error(client_session, "ClientSession::write_tls");
         goto cleanup;
       }
 
