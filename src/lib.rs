@@ -21,9 +21,14 @@ pub enum rustls_result {
 pub struct rustls_client_config {
     _private: [u8; 0],
 }
+// This is intentionally not #[repr(C)]. We only ever pass this to C by
+// reference, and C is not allowed to know about the internals. Also, by
+// leaving this with the default repr, we cause cbindgen to generate only
+// a forward declaration of this struct, not a definition.
 #[allow(non_camel_case_types)]
 pub struct rustls_client_session {
-    _private: [u8; 0],
+    session: ClientSession,
+    error: String,
 }
 
 /// Create a client_config. Caller owns the memory and must free it with
@@ -130,12 +135,15 @@ pub extern "C" fn rustls_client_session_new(
             return rustls_result::ERROR;
         }
     };
-    let client = ClientSession::new(&config, name_ref);
+    let session = ClientSession::new(&config, name_ref);
 
-    // We've succeeded. Put the client on the heap, and transfer ownership
-    // to the caller. After this point, we must return CRUSTLS_OK so the
-    // caller knows it is responsible for this memory.
-    let b = Box::new(client);
+    // We've succeeded. Put a rustls_client_session on the heap, and transfer
+    // ownership to the caller. After this point, we must return CRUSTLS_OK so
+    // the caller knows it is responsible for this memory.
+    let b = Box::new(rustls_client_session {
+        session,
+        error: "".to_string(),
+    });
     unsafe {
         *session_out = Box::into_raw(b) as *mut _;
     }
@@ -146,8 +154,8 @@ pub extern "C" fn rustls_client_session_new(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.wants_read(),
+        match (session as *const rustls_client_session).as_ref() {
+            Some(rcs) => rcs.session.wants_read(),
             None => false,
         }
     }
@@ -156,8 +164,8 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.wants_write(),
+        match (session as *const rustls_client_session).as_ref() {
+            Some(rcs) => rcs.session.wants_write(),
             None => false,
         }
     }
@@ -168,8 +176,8 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.is_handshaking(),
+        match (session as *const rustls_client_session).as_ref() {
+            Some(rcs) => rcs.session.is_handshaking(),
             None => false,
         }
     }
@@ -180,8 +188,8 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
     let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
+        match session.as_mut() {
+            Some(rcs) => &mut rcs.session,
             None => {
                 eprintln!("ClientSession::process_new_packets: session was NULL");
                 return rustls_result::ERROR;
@@ -202,9 +210,9 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     unsafe {
-        if let Some(c) = (session as *mut ClientSession).as_mut() {
+        if let Some(rcs) = session.as_mut() {
             // Convert the pointer to a Box and drop it.
-            Box::from_raw(c);
+            Box::from_raw(rcs);
         } else {
             eprintln!("warning: rustls_client_config_free: config was NULL");
         }
@@ -215,13 +223,13 @@ pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session
 /// write(2). It returns the number of bytes written, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write(
-    session: *const rustls_client_session,
+    session: *mut rustls_client_session,
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
     let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
+        match session.as_mut() {
+            Some(rcs) => &mut rcs.session,
             None => {
                 eprintln!("ClientSession::write: session was NULL");
                 return -1;
@@ -250,13 +258,13 @@ pub extern "C" fn rustls_client_session_write(
 /// the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
-    session: *const rustls_client_session,
+    session: *mut rustls_client_session,
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
     let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
+        match session.as_mut() {
+            Some(rcs) => &mut rcs.session,
             None => {
                 eprintln!("ClientSession::read: session was NULL");
                 return -1;
@@ -297,13 +305,13 @@ pub extern "C" fn rustls_client_session_read(
 /// read(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read_tls(
-    session: *const rustls_client_session,
+    session: *mut rustls_client_session,
     buf: *const u8,
     count: size_t,
 ) -> ssize_t {
     let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
+        match session.as_mut() {
+            Some(rcs) => &mut rcs.session,
             None => {
                 eprintln!("ClientSession::read_tls: session was NULL");
                 return -1;
@@ -332,13 +340,13 @@ pub extern "C" fn rustls_client_session_read_tls(
 /// a socket. This acts like write(2). It returns the number of bytes read, or -1 on error.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(
-    session: *const rustls_client_session,
+    session: *mut rustls_client_session,
     buf: *mut u8,
     count: size_t,
 ) -> ssize_t {
     let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
+        match session.as_mut() {
+            Some(rcs) => &mut rcs.session,
             None => {
                 eprintln!("ClientSession::write_tls: session was NULL");
                 return -1;
