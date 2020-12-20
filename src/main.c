@@ -45,6 +45,7 @@ write_all(int fd, const char *buf, int n)
 int
 make_conn(const char *hostname)
 {
+  int sockfd = 0;
   struct addrinfo *getaddrinfo_output = NULL;
   int getaddrinfo_result =
     getaddrinfo(hostname, "443", NULL, &getaddrinfo_output);
@@ -53,9 +54,9 @@ make_conn(const char *hostname)
     goto cleanup;
   }
 
-  int sockfd = socket(getaddrinfo_output->ai_family,
-                      getaddrinfo_output->ai_socktype,
-                      getaddrinfo_output->ai_protocol);
+  sockfd = socket(getaddrinfo_output->ai_family,
+                  getaddrinfo_output->ai_socktype,
+                  getaddrinfo_output->ai_protocol);
   if(sockfd < 0) {
     perror("making socket");
     goto cleanup;
@@ -91,8 +92,13 @@ send_request_and_read_response(int sockfd,
                                const char *hostname, const char *path)
 {
   int ret = 1;
+  int epollfd = 0;
   int result = 1;
   char buf[2048];
+#define MAX_EVENTS 1
+  struct epoll_event ev, events[MAX_EVENTS];
+  int nfds = 0;
+  int n = 0;
 
   bzero(buf, sizeof(buf));
   snprintf(buf,
@@ -105,17 +111,13 @@ send_request_and_read_response(int sockfd,
            "\r\n",
            path,
            hostname);
-  int n =
-    rustls_client_session_write(client_session, (uint8_t *)buf, strlen(buf));
+  n = rustls_client_session_write(client_session, (uint8_t *)buf, strlen(buf));
   if(n < 0) {
     fprintf(stderr, "error writing plaintext bytes to ClientSession\n");
     goto cleanup;
   }
 
-#define MAX_EVENTS 1
-  struct epoll_event ev, events[MAX_EVENTS];
-  int nfds = 0;
-  int epollfd = epoll_create1(0);
+  epollfd = epoll_create1(0);
   if(epollfd == -1) {
     perror("epoll_create1");
     goto cleanup;
