@@ -1,0 +1,13 @@
+name: test
+on: [push]
+jobs:
+  test-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make test
+  test-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make PROFILE=release test
