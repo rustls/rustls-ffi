@@ -5,6 +5,7 @@ PROFILE := debug
 
 ifeq ($(PROFILE), release)
 	CFLAGS += -O3
+	CARGOFLAGS += --release
 endif
 
 all: target/crustls-demo
@@ -22,7 +23,7 @@ target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 target/$(PROFILE)/libcrustls.a: src/lib.rs Cargo.toml
-	cargo build --$(PROFILE)
+	cargo build $(CARGOFLAGS)
 
 target/main.o: src/main.c src/lib.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
