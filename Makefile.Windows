@@ -1,0 +1,50 @@
+#
+# Create 'crustls.lib' and 'src/crustls.h' for Windows using
+# 'cl' or 'clang-cl'.
+#
+export CL=
+
+CRUSTLS_LIB = target/i686-pc-windows-msvc/release/crustls.lib
+
+USE_CLANG_CL ?= 1
+
+CFLAGS     = -nologo -MD -Zi -W3 -O2 -I. -Dssize_t=int -D_CRT_SECURE_NO_WARNINGS
+LDFLAGS    = -nologo -incremental:no
+CARGOFLAGS = --color never --release --target i686-pc-windows-msvc
+
+ifeq ($(USE_CLANG_CL),1)
+  CC = clang-cl
+  CFLAGS += -ferror-limit=5
+else
+  CC = cl
+endif
+
+all: crustls.h $(CRUSTLS_LIB) # crustls-demo.exe
+
+test: all
+	crustls-demo.exe httpbin.org /headers
+
+crustls.h: src/lib.rs
+	cbindgen --lang C --output $@
+	@echo
+
+#
+# Currently impossible on Windows since it used epoll API.
+#
+crustls-demo.exe: main.obj $(CRUSTLS_LIB)
+	link $(LDFLAGS) -out:$@ $^
+	@echo
+
+$(CRUSTLS_LIB): src/lib.rs Cargo.toml
+	cargo build $(CARGOFLAGS)
+	@echo
+
+main.obj: src/main.c crustls.h
+	$(CC) -Fo$@ -c $< $(CFLAGS)
+	@echo
+
+clean:
+	rm -f *.obj target/.rustc_info.json $(CRUSTLS_LIB) crustls.h vc1*.pdb
+	rm -fR target/*
+	rmdir target
+

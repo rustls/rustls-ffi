@@ -16,7 +16,7 @@ test: all
 target:
 	mkdir -p $@
 
-src/lib.h: src/lib.rs
+src/crustls.h: src/lib.rs
 	cbindgen --lang C --output src/crustls.h
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
@@ -28,7 +28,7 @@ target/$(PROFILE)/libcrustls.a: src/lib.rs Cargo.toml
 target/main.o: src/main.c src/lib.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-install: target/debug/libcrustls.a src/lib.h
+install: target/debug/libcrustls.a src/crustls.h
 	sudo install target/debug/libcrustls.a /usr/local/lib/
 	sudo install src/crustls.h /usr/local/include/crustls.h
 

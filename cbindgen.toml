@@ -1,3 +1,5 @@
+include_guard = "CRUSTLS_H"
+
 [enum]
 prefix_with_name = true
 rename_variants = "ScreamingSnakeCase"
