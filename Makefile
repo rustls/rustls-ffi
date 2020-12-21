@@ -2,6 +2,7 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic -g
 LDFLAGS := -Wl,--gc-sections -lpthread -ldl
 
 PROFILE := debug
+DESTDIR=/usr/local
 
 ifeq ($(PROFILE), release)
 	CFLAGS += -O3
@@ -29,8 +30,10 @@ target/main.o: src/main.c src/crustls.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 install: target/debug/libcrustls.a src/crustls.h
-	sudo install target/debug/libcrustls.a /usr/local/lib/
-	sudo install src/crustls.h /usr/local/include/crustls.h
+	mkdir -p $(DESTDIR)/lib
+	install target/debug/libcrustls.a $(DESTDIR)/lib/
+	mkdir -p $(DESTDIR)/include
+	install src/crustls.h $(DESTDIR)/include/crustls.h
 
 clean:
 	rm -rf target
