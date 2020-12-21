@@ -17,8 +17,8 @@ test: all
 target:
 	mkdir -p $@
 
-src/lib.h: src/lib.rs
-	cbindgen --lang C --output src/crustls.h
+src/crustls.h: src/lib.rs
+	cbindgen --lang C --output $@
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -26,10 +26,10 @@ target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 target/$(PROFILE)/libcrustls.a: src/lib.rs Cargo.toml
 	cargo build $(CARGOFLAGS)
 
-target/main.o: src/main.c src/lib.h | target
+target/main.o: src/main.c src/crustls.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-install: target/debug/libcrustls.a src/lib.h
+install: target/debug/libcrustls.a src/crustls.h
 	mkdir -p $(DESTDIR)/lib
 	install target/debug/libcrustls.a $(DESTDIR)/lib/
 	mkdir -p $(DESTDIR)/include
