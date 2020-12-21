@@ -1,7 +1,10 @@
 #![crate_type = "staticlib"]
 use libc::{c_char, size_t, ssize_t};
-use std::io::{Cursor, Read, Write};
 use std::slice;
+use std::{
+    cmp::min,
+    io::{Cursor, Read, Write},
+};
 use std::{ffi::CStr, sync::Arc};
 use std::{io::ErrorKind::ConnectionAborted, mem};
 
@@ -24,6 +27,33 @@ pub struct rustls_client_config {
 #[allow(non_camel_case_types)]
 pub struct rustls_client_session {
     _private: [u8; 0],
+}
+
+// Keep in sync with Cargo.toml.
+const RUSTLS_CRATE_VERSION: &str = "0.19.0";
+
+/// Write the version of the crustls C bindings and rustls itself into the
+/// provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
+/// and NUL terminated. Returns the number of bytes written before the NUL.
+#[no_mangle]
+pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
+    let write_buf: &mut [u8] = unsafe {
+        if buf.is_null() {
+            eprintln!("rustls_version: buf was NULL!");
+            return 0;
+        }
+        slice::from_raw_parts_mut(buf as *mut u8, len as usize)
+    };
+    let version: String = format!(
+        "crustls/{}/rustls/{}",
+        env!("CARGO_PKG_VERSION"),
+        RUSTLS_CRATE_VERSION,
+    );
+    let version: &[u8] = version.as_bytes();
+    let len: usize = min(write_buf.len() - 1, version.len());
+    write_buf[..len].copy_from_slice(&version[..len]);
+    write_buf[len] = 0;
+    len
 }
 
 /// Create a client_config. Caller owns the memory and must free it with
