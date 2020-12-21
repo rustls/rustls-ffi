@@ -25,7 +25,7 @@ target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 target/$(PROFILE)/libcrustls.a: src/lib.rs Cargo.toml
 	cargo build $(CARGOFLAGS)
 
-target/main.o: src/main.c src/lib.h | target
+target/main.o: src/main.c src/crustls.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 install: target/debug/libcrustls.a src/crustls.h
