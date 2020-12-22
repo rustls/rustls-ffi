@@ -29,9 +29,9 @@ target/$(PROFILE)/libcrustls.a: src/lib.rs Cargo.toml
 target/main.o: src/main.c src/crustls.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-install: target/debug/libcrustls.a src/crustls.h
+install: target/$(PROFILE)/libcrustls.a src/crustls.h
 	mkdir -p $(DESTDIR)/lib
-	install target/debug/libcrustls.a $(DESTDIR)/lib/
+	install target/$(PROFILE)/libcrustls.a $(DESTDIR)/lib/
 	mkdir -p $(DESTDIR)/include
 	install src/crustls.h $(DESTDIR)/include/crustls.h
 
