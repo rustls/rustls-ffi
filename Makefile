@@ -18,7 +18,7 @@ target:
 	mkdir -p $@
 
 src/crustls.h: src/lib.rs
-	cbindgen --lang C --output $@
+	cbindgen --lang C > $@
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
