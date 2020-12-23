@@ -1,11 +1,11 @@
 #![crate_type = "staticlib"]
 use libc::{c_char, size_t, ssize_t};
-use std::slice;
 use std::{
     cmp::min,
-    io::{Cursor, Read, Write},
+    io::{BufReader, Cursor, Read, Write},
 };
 use std::{ffi::CStr, sync::Arc};
+use std::{ffi::OsStr, fs::File, slice};
 use std::{io::ErrorKind::ConnectionAborted, mem};
 
 use rustls::{ClientConfig, ClientSession, Session};
@@ -56,16 +56,115 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
     len
 }
 
-/// Create a client_config. Caller owns the memory and must free it with
-/// rustls_client_config_free.
+/// Create a rustls_client_config. Caller owns the memory and must free it with
+/// rustls_client_config_free. This starts out with no trusted roots.
+/// This config may be modified using methods whose names start with
+/// rustls_client_config_, but only so long as it is not shared. The config
+/// becomes shared as soon as you create a session that relies on it with
+/// rustls_client_session_new. The config also becomes shared if you have
+/// multiple pointers to the same config.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_new() -> *const rustls_client_config {
-    let mut config = rustls::ClientConfig::new();
-    config
-        .root_store
-        .add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+pub extern "C" fn rustls_client_config_new() -> *mut rustls_client_config {
+    let config = rustls::ClientConfig::new();
     env_logger::init();
-    Arc::into_raw(Arc::new(config)) as *const _
+    Arc::into_raw(Arc::new(config)) as *mut _
+}
+
+/// Given a &mut T that originally came from Arc::into_raw, check that the
+/// Arc is unshared.
+/// This is a best-effort check to prevent mutating a shared Arc. We cannot
+/// prevent sharing of the pointer on the C side, and there may be multiple
+/// inflight calls racing to modify the contents of the arc.
+/// Arc::get_mut doesn't help us, because it relies on `&mut Arc` to ensure
+/// it has exclusive access, but we don't get that guarantee so long as C
+/// has a copy.
+unsafe fn arc_is_unique<T>(input: &mut T) -> bool {
+    let arc = arc_with_incref_from_raw(input);
+    Arc::strong_count(&arc) == 2 && Arc::weak_count(&arc) == 0
+}
+
+/// Add certificates from platform's native root store, using
+/// https://github.com/ctz/rustls-native-certs#readme.
+/// May only be called when the config is not shared.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_load_native_roots(
+    config: *mut rustls_client_config,
+) -> rustls_result {
+    let mut config: &mut ClientConfig = unsafe {
+        match (config as *mut ClientConfig).as_mut() {
+            Some(c) => c,
+            None => {
+                eprintln!("rustls_client_config_load_native_roots: config was NULL");
+                return rustls_result::ERROR;
+            }
+        }
+    };
+    unsafe {
+        if !arc_is_unique(config) {
+            eprintln!("rustls_client_config_load_native_roots: config was shared");
+            return rustls_result::ERROR;
+        }
+    }
+    let store = match rustls_native_certs::load_native_certs() {
+        Ok(store) => store,
+        Err((_, e)) => {
+            eprintln!("rustls_client_config_load_native_roots: {}", e);
+            return rustls_result::ERROR;
+        }
+    };
+    config.root_store = store;
+    rustls_result::OK
+}
+
+/// Add trusted root certificates from the named file, which should contain
+/// PEM-formatted certificates.
+/// May only be called when the config is not shared.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_load_roots_from_file(
+    config: *mut rustls_client_config,
+    filename: *const c_char,
+) -> rustls_result {
+    let filename: &CStr = unsafe {
+        if filename.is_null() {
+            eprintln!("rustls_client_config_load_roots_from_file: hostname was NULL");
+            return rustls_result::ERROR;
+        }
+        CStr::from_ptr(filename)
+    };
+    let config: &mut ClientConfig = unsafe {
+        match (config as *mut ClientConfig).as_mut() {
+            Some(c) => c,
+            None => {
+                eprintln!("rustls_client_config_load_native_roots: config was NULL");
+                return rustls_result::ERROR;
+            }
+        }
+    };
+    unsafe {
+        if !arc_is_unique(config) {
+            eprintln!("rustls_client_config_load_native_roots: config was shared");
+            return rustls_result::ERROR;
+        }
+    }
+    let filename: &[u8] = filename.to_bytes();
+    let filename: &str = match std::str::from_utf8(filename) {
+        Ok(s) => s,
+        Err(_) => return rustls_result::ERROR,
+    };
+    let filename: &OsStr = OsStr::new(filename);
+    let mut cafile = match File::open(filename) {
+        Ok(f) => f,
+        Err(_) => return rustls_result::ERROR,
+    };
+    let mut bufreader = BufReader::new(&mut cafile);
+    match config.root_store.add_pem_file(&mut bufreader) {
+        Ok(_) => {}
+        Err(_) => {
+            eprintln!("rustls_client_config_load_roots_from_file: error reading roots");
+            return rustls_result::ERROR;
+        }
+    };
+    rustls_result::OK
 }
 
 /// "Free" a client_config previously returned from rustls_client_config_new.
