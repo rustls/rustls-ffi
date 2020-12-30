@@ -123,35 +123,42 @@ cleanup:
  */
 int
 copy_tls_bytes_into_client_session(
-  struct rustls_client_session *client_session, uint8_t *buf, size_t len)
+  struct rustls_client_session *client_session, uint8_t *buf, size_t len,
+  size_t *out_n)
 {
-  ssize_t n;
+  size_t n;
+  size_t n_written = 0;
   int result;
 
-  while(len > 0) {
-    n = rustls_client_session_read_tls(client_session, buf, len);
-    if(n == 0) {
-      fprintf(stderr, "EOF from ClientSession::read_tls %ld \n", len);
-      return 1;
-    }
-    else if(n < 0) {
+  while(n_written < len) {
+    result = rustls_client_session_read_tls(
+      client_session, buf + n_written, len - n_written, &n);
+    if(result != RUSTLS_RESULT_OK) {
       fprintf(stderr, "Error in ClientSession::read_tls\n");
-      return 1;
+      goto fail;
     }
-    if((size_t)n > len) {
+    if(n == 0) {
+      fprintf(stderr, "EOF from ClientSession::read_tls\n");
+      goto fail;
+    }
+    if(n > len) {
       fprintf(stderr, "too many bytes written to ClientSession; overflow\n");
-      return 1;
+      goto fail;
     }
-    len -= n;
-    buf += n;
+    n_written += n;
 
     result = rustls_client_session_process_new_packets(client_session);
     if(result != RUSTLS_RESULT_OK) {
       fprintf(stderr, "Error in process_new_packets\n");
-      return 1;
+      goto fail;
     }
   }
+  *out_n = n_written;
   return 0;
+
+fail:
+  *out_n = n_written;
+  return 1;
 }
 
 /* Read all available bytes from the client_session until EOF.
@@ -163,21 +170,21 @@ copy_tls_bytes_into_client_session(
 int
 copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 {
-  int result = 1;
+  int result = RUSTLS_RESULT_ERROR;
   char buf[2048];
-  int n;
+  size_t n;
 
   for(;;) {
     bzero(buf, sizeof(buf));
-    n =
-      rustls_client_session_read(client_session, (uint8_t *)buf, sizeof(buf));
+    result = rustls_client_session_read(
+      client_session, (uint8_t *)buf, sizeof(buf), &n);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "Error in ClientSession::read\n");
+      return 1;
+    }
     if(n == 0) {
       /* EOF from ClientSession::read. This is expected. */
       return 0;
-    }
-    else if(n < 0) {
-      fprintf(stderr, "Error in ClientSession::read\n");
-      return 1;
     }
 
     result = write_all(STDOUT_FILENO, buf, n);
@@ -205,6 +212,8 @@ do_read(int sockfd, struct rustls_client_session *client_session)
 {
   int result = 1;
   ssize_t n = 0;
+  size_t buflen = 0;
+  size_t n_from_rustls = 0;
   char buf[2048];
 
   bzero(buf, sizeof(buf));
@@ -225,6 +234,7 @@ do_read(int sockfd, struct rustls_client_session *client_session)
       return CRUSTLS_DEMO_ERROR;
     }
   }
+  buflen = (size_t)n;
 
   /*
    * Now pull those bytes from the buffer into ClientSession.
@@ -232,8 +242,8 @@ do_read(int sockfd, struct rustls_client_session *client_session)
    * want to pull in unitialized memory that we didn't just
    * read from the socket.
    */
-  result =
-    copy_tls_bytes_into_client_session(client_session, (uint8_t *)buf, n);
+  result = copy_tls_bytes_into_client_session(
+    client_session, (uint8_t *)buf, buflen, &n_from_rustls);
   if(result != 0) {
     return CRUSTLS_DEMO_ERROR;
   }
@@ -263,7 +273,7 @@ send_request_and_read_response(int sockfd,
 #define MAX_EVENTS 1
   struct epoll_event ev, events[MAX_EVENTS];
   int nfds = 0;
-  int n = 0;
+  size_t n = 0;
 
   bzero(buf, sizeof(buf));
   snprintf(buf,
@@ -276,9 +286,14 @@ send_request_and_read_response(int sockfd,
            "\r\n",
            path,
            hostname);
-  n = rustls_client_session_write(client_session, (uint8_t *)buf, strlen(buf));
-  if(n < 0) {
+  result = rustls_client_session_write(
+    client_session, (uint8_t *)buf, strlen(buf), &n);
+  if(result != RUSTLS_RESULT_OK) {
     fprintf(stderr, "error writing plaintext bytes to ClientSession\n");
+    goto cleanup;
+  }
+  if(n != strlen(buf)) {
+    fprintf(stderr, "short write writing plaintext bytes to ClientSession\n");
     goto cleanup;
   }
 
@@ -328,14 +343,14 @@ send_request_and_read_response(int sockfd,
        (events[0].events & EPOLLOUT) > 0) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
       bzero(buf, sizeof(buf));
-      n = rustls_client_session_write_tls(
-        client_session, (uint8_t *)buf, sizeof(buf));
-      if(n == 0) {
-        fprintf(stderr, "EOF from ClientSession::write_tls\n");
+      result = rustls_client_session_write_tls(
+        client_session, (uint8_t *)buf, sizeof(buf), &n);
+      if(result != RUSTLS_RESULT_OK) {
+        fprintf(stderr, "Error in ClientSession::write_tls\n");
         goto cleanup;
       }
-      else if(n < 0) {
-        fprintf(stderr, "Error in ClientSession::write_tls\n");
+      else if(n == 0) {
+        fprintf(stderr, "EOF from ClientSession::write_tls\n");
         goto cleanup;
       }
 
