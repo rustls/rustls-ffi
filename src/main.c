@@ -1,4 +1,3 @@
-#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -257,12 +256,10 @@ send_request_and_read_response(int sockfd,
                                const char *hostname, const char *path)
 {
   int ret = 1;
-  int epollfd = 0;
   int result = 1;
   char buf[2048];
-#define MAX_EVENTS 1
-  struct epoll_event ev, events[MAX_EVENTS];
-  int nfds = 0;
+  fd_set read_fds;
+  fd_set write_fds;
   int n = 0;
 
   bzero(buf, sizeof(buf));
@@ -282,34 +279,26 @@ send_request_and_read_response(int sockfd,
     goto cleanup;
   }
 
-  epollfd = epoll_create1(0);
-  if(epollfd == -1) {
-    perror("epoll_create1");
-    goto cleanup;
-  }
-
-  ev.events = EPOLLIN | EPOLLOUT;
-  ev.data.fd = sockfd;
-  if(epoll_ctl(epollfd, EPOLL_CTL_ADD, sockfd, &ev) == -1) {
-    perror("epoll_ctl: listen_sock");
-    goto cleanup;
-  }
-
   for(;;) {
-    nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
-    if(nfds == -1) {
-      perror("epoll_wait");
+    FD_ZERO(&read_fds);
+    FD_SET(sockfd, &read_fds);
+    FD_ZERO(&write_fds);
+    FD_SET(sockfd, &write_fds);
+
+    result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
+    if(result == -1) {
+      perror("select");
       goto cleanup;
     }
 
     if(rustls_client_session_wants_read(client_session) &&
-       (events[0].events & EPOLLIN) > 0) {
+       FD_ISSET(sockfd, &read_fds)) {
       fprintf(stderr,
               "ClientSession wants us to read_tls. First we need to pull some "
               "bytes from the socket\n");
 
       /* Read all bytes until we get EAGAIN. Then loop again to wind up in
-         epoll_wait awaiting the next bit of data. */
+         select awaiting the next bit of data. */
       for(;;) {
         result = do_read(sockfd, client_session);
         if(result == CRUSTLS_DEMO_AGAIN) {
@@ -325,7 +314,7 @@ send_request_and_read_response(int sockfd,
       }
     }
     if(rustls_client_session_wants_write(client_session) &&
-       (events[0].events & EPOLLOUT) > 0) {
+       FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
       bzero(buf, sizeof(buf));
       n = rustls_client_session_write_tls(
@@ -349,8 +338,8 @@ send_request_and_read_response(int sockfd,
   fprintf(stderr, "send_request_and_read_response: loop fell through");
 
 cleanup:
-  if(epollfd > 0) {
-    close(epollfd);
+  if(sockfd > 0) {
+    close(sockfd);
   }
   return ret;
 }
@@ -359,6 +348,7 @@ int
 do_request(const struct rustls_client_config *client_config,
            const char *hostname, const char *path)
 {
+  struct rustls_client_session *client_session = NULL;
   int ret = 1;
   int sockfd = make_conn(hostname);
   if(sockfd < 0) {
@@ -366,7 +356,6 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
-  struct rustls_client_session *client_session = NULL;
   rustls_result result =
     rustls_client_session_new(client_config, hostname, &client_session);
   if(result != RUSTLS_RESULT_OK) {
