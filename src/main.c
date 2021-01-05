@@ -21,6 +21,15 @@ enum crustls_demo_result
   CRUSTLS_DEMO_EOF,
 };
 
+void
+print_error(char *prefix, rustls_result result)
+{
+  char buf[256];
+  size_t n;
+  rustls_error(result, buf, sizeof(buf), &n);
+  fprintf(stderr, "%s: %.*s\n", prefix, (int)n, buf);
+}
+
 /*
  * Write n bytes from buf to the provided fd, retrying short writes until
  * we finish or hit an error. Assumes fd is blocking and therefore doesn't
@@ -148,7 +157,7 @@ copy_tls_bytes_into_client_session(
 
     result = rustls_client_session_process_new_packets(client_session);
     if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "Error in process_new_packets\n");
+      print_error("in process_new_packets", result);
       goto fail;
     }
   }
@@ -169,7 +178,7 @@ fail:
 int
 copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 {
-  int result = RUSTLS_RESULT_ERROR;
+  int result;
   char buf[2048];
   size_t n;
 
