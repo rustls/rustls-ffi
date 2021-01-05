@@ -1,5 +1,5 @@
 #![crate_type = "staticlib"]
-use libc::{c_char, size_t, ssize_t};
+use libc::{c_char, size_t};
 use std::slice;
 use std::{
     cmp::min,
@@ -10,12 +10,9 @@ use std::{io::ErrorKind::ConnectionAborted, mem};
 
 use rustls::{ClientConfig, ClientSession, Session};
 
-#[allow(non_camel_case_types)]
-#[repr(C)]
-pub enum rustls_result {
-    OK = 0,
-    ERROR = 1,
-}
+mod error;
+use error::{map_error, rustls_result};
+use rustls_result::NullParameter;
 
 // We use the opaque struct pattern to tell C about our types without
 // telling them what's inside.
@@ -39,7 +36,6 @@ const RUSTLS_CRATE_VERSION: &str = "0.19.0";
 pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
     let write_buf: &mut [u8] = unsafe {
         if buf.is_null() {
-            eprintln!("rustls_version: buf was NULL!");
             return 0;
         }
         slice::from_raw_parts_mut(buf as *mut u8, len as usize)
@@ -129,25 +125,21 @@ pub extern "C" fn rustls_client_session_new(
 ) -> rustls_result {
     let hostname: &CStr = unsafe {
         if hostname.is_null() {
-            eprintln!("rustls_client_session_new: hostname was NULL");
-            return rustls_result::ERROR;
+            return NullParameter;
         }
         CStr::from_ptr(hostname)
     };
     let config: Arc<ClientConfig> = unsafe {
         match (config as *const ClientConfig).as_ref() {
             Some(c) => arc_with_incref_from_raw(c),
-            None => {
-                eprintln!("rustls_client_session_new: config was NULL");
-                return rustls_result::ERROR;
-            }
+            None => return NullParameter,
         }
     };
     let hostname: &str = match hostname.to_str() {
         Ok(s) => s,
         Err(e) => {
             eprintln!("converting hostname to Rust &str: {}", e);
-            return rustls_result::ERROR;
+            return rustls_result::Io;
         }
     };
     let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
@@ -157,7 +149,7 @@ pub extern "C" fn rustls_client_session_new(
                 "turning hostname '{}' into webpki::DNSNameRef: {}",
                 hostname, e
             );
-            return rustls_result::ERROR;
+            return rustls_result::Io;
         }
     };
     let client = ClientSession::new(&config, name_ref);
@@ -170,7 +162,7 @@ pub extern "C" fn rustls_client_session_new(
         *session_out = Box::into_raw(b) as *mut _;
     }
 
-    return rustls_result::OK;
+    return rustls_result::Ok;
 }
 
 #[no_mangle]
@@ -212,18 +204,12 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
-            None => {
-                eprintln!("ClientSession::process_new_packets: session was NULL");
-                return rustls_result::ERROR;
-            }
+            None => return NullParameter,
         }
     };
     match session.process_new_packets() {
-        Ok(()) => rustls_result::OK,
-        Err(e) => {
-            eprintln!("ClientSession::process_new_packets: {}", e);
-            return rustls_result::ERROR;
-        }
+        Ok(()) => rustls_result::Ok,
+        Err(e) => return map_error(e),
     }
 }
 
@@ -241,64 +227,76 @@ pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session
     }
 }
 
-/// Write plaintext bytes into the ClientSession. This acts like
-/// write(2). It returns the number of bytes written, or -1 on error.
+/// Write up to `count` plaintext bytes from `buf` into the ClientSession.
+/// This will increase the number of output bytes available to
+/// `rustls_client_session_write_tls`.
+/// On success, store the number of bytes actually written in *out_n
+/// (this may be less than `count`).
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.write
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write(
     session: *const rustls_client_session,
     buf: *const u8,
     count: size_t,
-) -> ssize_t {
+    out_n: *mut size_t,
+) -> rustls_result {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
-            None => {
-                eprintln!("ClientSession::write: session was NULL");
-                return -1;
-            }
+            None => return NullParameter,
         }
     };
     let write_buf: &[u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::write: buf was NULL");
-            return -1;
+            return NullParameter;
         }
         slice::from_raw_parts(buf, count as usize)
     };
-    let n_written: usize = match session.write(write_buf) {
-        Ok(n) => n,
-        Err(e) => {
-            eprintln!("ClientSession::write: {}", e);
-            return -1;
+    let out_n: &mut size_t = unsafe {
+        match out_n.as_mut() {
+            Some(out_n) => out_n,
+            None => return NullParameter,
         }
     };
-    n_written as ssize_t
+    let n_written: usize = match session.write(write_buf) {
+        Ok(n) => n,
+        Err(_) => return rustls_result::Io,
+    };
+    *out_n = n_written;
+    rustls_result::Ok
 }
 
-/// Read plaintext bytes from the ClientSession. This acts like
-/// read(2), writing the plaintext bytes into `buf`. It returns
-/// the number of bytes read, or -1 on error.
+/// Read up to `count` plaintext bytes from the ClientSession into `buf`.
+/// On success, store the number of bytes read in *out_n (this may be less
+/// than `count`). A success with *out_n set to 0 means "all bytes currently
+/// available have been read, but more bytes may become available after
+/// subsequent calls to rustls_client_session_read_tls and
+/// rustls_client_session_process_new_packets."
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
     session: *const rustls_client_session,
     buf: *mut u8,
     count: size_t,
-) -> ssize_t {
+    out_n: *mut size_t,
+) -> rustls_result {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
-            None => {
-                eprintln!("ClientSession::read: session was NULL");
-                return -1;
-            }
+            None => return NullParameter,
         }
     };
     let read_buf: &mut [u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::read: buf was NULL");
-            return -1;
+            return NullParameter;
         }
         slice::from_raw_parts_mut(buf, count as usize)
+    };
+    let out_n = unsafe {
+        match out_n.as_mut() {
+            Some(out_n) => out_n,
+            None => return NullParameter,
+        }
     };
     // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
     // zero it out just in case. TODO: use Initializer once it's stabilized.
@@ -312,82 +310,90 @@ pub extern "C" fn rustls_client_session_read(
         // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
         // Log it and return EOF.
         Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-            eprintln!("ClientSession::read: CloseNotify (this is expected): {}", e);
-            return 0;
+            *out_n = 0;
+            return rustls_result::Ok;
         }
-        Err(e) => {
-            eprintln!("ClientSession::read: {}", e);
-            return -1;
-        }
+        Err(_) => return rustls_result::Io,
     };
-    n_read as ssize_t
+    *out_n = n_read;
+    rustls_result::Ok
 }
 
-/// Read TLS bytes taken from a socket into the ClientSession. This acts like
-/// read(2). It returns the number of bytes read, or -1 on error.
+/// Read up to `count` TLS bytes from `buf` (usually read from a socket) into
+/// the ClientSession. This may make packets available to
+/// `rustls_client_session_process_new_packets`, which in turn may make more
+/// bytes available to `rustls_client_session_read`.
+/// On success, store the number of bytes actually read in *out_n (this may
+/// be less than `count`). This function returns success and stores 0 in
+/// *out_n when the input count is 0.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read_tls(
     session: *const rustls_client_session,
     buf: *const u8,
     count: size_t,
-) -> ssize_t {
+    out_n: *mut size_t,
+) -> rustls_result {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
-            None => {
-                eprintln!("ClientSession::read_tls: session was NULL");
-                return -1;
-            }
+            None => return NullParameter,
         }
     };
     let input_buf: &[u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::read_tls: buf was NULL");
-            return -1;
+            return NullParameter;
         }
         slice::from_raw_parts(buf, count as usize)
+    };
+    let out_n = unsafe {
+        match out_n.as_mut() {
+            Some(out_n) => out_n,
+            None => return NullParameter,
+        }
     };
     let mut cursor = Cursor::new(input_buf);
     let n_read: usize = match session.read_tls(&mut cursor) {
         Ok(n) => n,
-        Err(e) => {
-            eprintln!("ClientSession::read_tls: {}", e);
-            return -1;
-        }
+        Err(_) => return rustls_result::Io,
     };
-    n_read as ssize_t
+    *out_n = n_read;
+    rustls_result::Ok
 }
 
-/// Write TLS bytes from the ClientSession into a buffer. Those bytes should then be written to
-/// a socket. This acts like write(2). It returns the number of bytes read, or -1 on error.
+/// Write up to `count` TLS bytes from the ClientSession into `buf`. Those
+/// bytes should then be written to a socket. On success, store the number of
+/// bytes actually written in *out_n (this maybe less than `count`).
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(
     session: *const rustls_client_session,
     buf: *mut u8,
     count: size_t,
-) -> ssize_t {
+    out_n: *mut size_t,
+) -> rustls_result {
     let session: &mut ClientSession = unsafe {
         match (session as *mut ClientSession).as_mut() {
             Some(cs) => cs,
-            None => {
-                eprintln!("ClientSession::write_tls: session was NULL");
-                return -1;
-            }
+            None => return NullParameter,
         }
     };
     let mut output_buf: &mut [u8] = unsafe {
         if buf.is_null() {
-            eprintln!("ClientSession::write_tls: buf was NULL");
-            return -1;
+            return NullParameter;
         }
         slice::from_raw_parts_mut(buf, count as usize)
     };
-    let n_written: usize = match session.write_tls(&mut output_buf) {
-        Ok(n) => n,
-        Err(e) => {
-            eprintln!("ClientSession::write_tls: {}", e);
-            return -1;
+    let out_n = unsafe {
+        match out_n.as_mut() {
+            Some(out_n) => out_n,
+            None => return NullParameter,
         }
     };
-    n_written as ssize_t
+    let n_written: usize = match session.write_tls(&mut output_buf) {
+        Ok(n) => n,
+        Err(_) => return rustls_result::Io,
+    };
+    *out_n = n_written;
+    rustls_result::Ok
 }

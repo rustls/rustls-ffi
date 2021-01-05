@@ -12,6 +12,7 @@ webpki = "0.21"
 libc = "0.2"
 env_logger = "0.8"
 webpki-roots = "0.21"
+sct = "0.6.0"
 
 [dev_dependencies]
 cbindgen = "*"
