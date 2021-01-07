@@ -13,13 +13,31 @@ mod error;
 use error::{map_error, rustls_result};
 use rustls_result::NullParameter;
 
-// We use the opaque struct pattern to tell C about our types without
-// telling them what's inside.
-// https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+/// A client config being constructed. A builder can be modified by,
+/// e.g. rustls_client_config_builder_load_native_roots. Once you're
+/// done configuring settings, call rustls_client_config_builder_build
+/// to turn it into a *rustls_client_config.
+/// Under the hood, this object corresponds to a Box<ClientConfig>.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
 #[allow(non_camel_case_types)]
-pub struct rustls_client_config {
+pub struct rustls_client_config_builder {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
+
+/// A client config that is done being constructed and is now read-only.
+/// Under the hood, this object corresponds to an Arc<ClientConfig>.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
+#[allow(non_camel_case_types)]
+pub struct rustls_client_config {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+}
+
 #[allow(non_camel_case_types)]
 pub struct rustls_client_session {
     _private: [u8; 0],
@@ -51,39 +69,33 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
     len
 }
 
-/// Create a rustls_client_config. Caller owns the memory and must free it with
-/// rustls_client_config_free. This starts out with no trusted roots.
-/// This config may be modified using methods whose names start with
-/// rustls_client_config_, but only so long as it is not shared. The config
-/// becomes shared as soon as you create a session that relies on it with
-/// rustls_client_session_new. The config also becomes shared if you have
-/// multiple pointers to the same config.
+/// Create a rustls_client_config_builder. Caller owns the memory and must
+/// eventually call rustls_client_config_builder_build, then free the
+/// resulting rustls_client_config. This starts out with no trusted roots.
+/// Caller must add roots with rustls_client_config_builder_load_native_roots
+/// or rustls_client_config_builder_load_roots_from_file.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_new() -> *mut rustls_client_config {
+pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
     let config = rustls::ClientConfig::new();
     env_logger::init();
-    Arc::into_raw(Arc::new(config)) as *mut _
+    let b = Box::new(config);
+    Box::into_raw(b) as *mut _
 }
 
-/// Given a &mut T that originally came from Arc::into_raw, check that the
-/// Arc is unshared.
-/// This is a best-effort check to prevent mutating a shared Arc. We cannot
-/// prevent sharing of the pointer on the C side, and there may be multiple
-/// inflight calls racing to modify the contents of the arc.
-/// Arc::get_mut doesn't help us, because it relies on `&mut Arc` to ensure
-/// it has exclusive access, but we don't get that guarantee so long as C
-/// has a copy.
-unsafe fn arc_is_unique<T>(input: &mut T) -> bool {
-    let arc = arc_with_incref_from_raw(input);
-    Arc::strong_count(&arc) == 2 && Arc::weak_count(&arc) == 0
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_build(
+    builder: *mut rustls_client_config_builder,
+) -> *const rustls_client_config {
+    let b = unsafe { Box::from_raw(builder as *mut ClientConfig) };
+    Arc::into_raw(Arc::new(*b)) as *const _
 }
 
 /// Add certificates from platform's native root store, using
 /// https://github.com/ctz/rustls-native-certs#readme.
 /// May only be called when the config is not shared.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_load_native_roots(
-    config: *mut rustls_client_config,
+pub extern "C" fn rustls_client_config_builder_load_native_roots(
+    config: *mut rustls_client_config_builder,
 ) -> rustls_result {
     let mut config: &mut ClientConfig = unsafe {
         match (config as *mut ClientConfig).as_mut() {
@@ -91,11 +103,6 @@ pub extern "C" fn rustls_client_config_load_native_roots(
             None => return rustls_result::NullParameter,
         }
     };
-    unsafe {
-        if !arc_is_unique(config) {
-            return rustls_result::General;
-        }
-    }
     let store = match rustls_native_certs::load_native_certs() {
         Ok(store) => store,
         Err(_) => return rustls_result::Io,
@@ -108,8 +115,8 @@ pub extern "C" fn rustls_client_config_load_native_roots(
 /// PEM-formatted certificates.
 /// May only be called when the config is not shared.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_load_roots_from_file(
-    config: *mut rustls_client_config,
+pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
+    config: *mut rustls_client_config_builder,
     filename: *const c_char,
 ) -> rustls_result {
     let filename: &CStr = unsafe {
@@ -124,12 +131,6 @@ pub extern "C" fn rustls_client_config_load_roots_from_file(
             None => return rustls_result::NullParameter,
         }
     };
-    unsafe {
-        if !arc_is_unique(config) {
-            eprintln!("rustls_client_config_load_native_roots: config was shared");
-            return rustls_result::General;
-        }
-    }
     let filename: &[u8] = filename.to_bytes();
     let filename: &str = match std::str::from_utf8(filename) {
         Ok(s) => s,
@@ -161,15 +162,7 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
             // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
             // representing the C code's copy. When it drops, that refcount will go down to 0
             // and the inner ClientConfig will be dropped.
-            let arc: Arc<ClientConfig> = Arc::from_raw(c);
-            let strong_count = Arc::strong_count(&arc);
-            if strong_count < 1 {
-                eprintln!(
-                    "rustls_client_config_free: invariant failed: arc.strong_count was < 1: {}. \
-                    You must not free the same client_config multiple times.",
-                    strong_count
-                );
-            }
+            drop(Arc::from_raw(c));
         } else {
             eprintln!("rustls_client_config_free: config was NULL");
         }

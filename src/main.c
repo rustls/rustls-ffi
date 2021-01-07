@@ -417,8 +417,16 @@ main(int argc, const char **argv)
   const char *hostname = argv[1];
   const char *path = argv[2];
 
-  const struct rustls_client_config *client_config =
-    rustls_client_config_new();
+  struct rustls_client_config_builder *config_builder =
+    rustls_client_config_builder_new();
+  const struct rustls_client_config *client_config = NULL;
+
+  result = rustls_client_config_builder_load_native_roots(config_builder);
+  if(result != RUSTLS_RESULT_OK) {
+    fprintf(stderr, "error loading trusted certificates\n");
+  }
+
+  client_config = rustls_client_config_builder_build(config_builder);
 
   int i;
   for(i = 0; i < 3; i++) {
