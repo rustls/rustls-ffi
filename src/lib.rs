@@ -82,6 +82,8 @@ pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_confi
     Box::into_raw(b) as *mut _
 }
 
+/// Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
+/// (read-only).
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_build(
     builder: *mut rustls_client_config_builder,
