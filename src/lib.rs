@@ -163,7 +163,15 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
             // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
             // representing the C code's copy. When it drops, that refcount will go down to 0
             // and the inner ClientConfig will be dropped.
-            drop(Arc::from_raw(c));
+            let arc: Arc<ClientConfig> = Arc::from_raw(c);
+            let strong_count = Arc::strong_count(&arc);
+            if strong_count < 1 {
+                eprintln!(
+                    "rustls_client_config_free: invariant failed: arc.strong_count was < 1: {}. \
+                    You must not free the same client_config multiple times.",
+                    strong_count
+                );
+            }
         } else {
             eprintln!("rustls_client_config_free: config was NULL");
         }
