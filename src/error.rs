@@ -33,6 +33,37 @@ pub extern "C" fn rustls_error(
     }
 }
 
+#[no_mangle]
+pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
+    match result {
+        rustls_result::CertBadDER => true,
+        rustls_result::CertBadDERTime => true,
+        rustls_result::CertCAUsedAsEndEntity => true,
+        rustls_result::CertExpired => true,
+        rustls_result::CertNotValidForName => true,
+        rustls_result::CertNotValidYet => true,
+        rustls_result::CertEndEntityUsedAsCA => true,
+        rustls_result::CertExtensionValueInvalid => true,
+        rustls_result::CertInvalidCertValidity => true,
+        rustls_result::CertInvalidSignatureForPublicKey => true,
+        rustls_result::CertNameConstraintViolation => true,
+        rustls_result::CertPathLenConstraintViolated => true,
+        rustls_result::CertSignatureAlgorithmMismatch => true,
+        rustls_result::CertRequiredEKUNotFound => true,
+        rustls_result::CertUnknownIssuer => true,
+        rustls_result::CertUnsupportedCertVersion => true,
+        rustls_result::CertUnsupportedCriticalExtension => true,
+        rustls_result::CertUnsupportedSignatureAlgorithmForPublicKey => true,
+        rustls_result::CertUnsupportedSignatureAlgorithm => true,
+        rustls_result::CertSCTMalformed => true,
+        rustls_result::CertSCTInvalidSignature => true,
+        rustls_result::CertSCTTimestampInFuture => true,
+        rustls_result::CertSCTUnsupportedVersion => true,
+        rustls_result::CertSCTUnknownLog => true,
+        _ => false,
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub enum rustls_result {
