@@ -16,8 +16,9 @@ use rustls_result::NullParameter;
 /// A client config being constructed. A builder can be modified by,
 /// e.g. rustls_client_config_builder_load_native_roots. Once you're
 /// done configuring settings, call rustls_client_config_builder_build
-/// to turn it into a *rustls_client_config.
-/// Under the hood, this object corresponds to a Box<ClientConfig>.
+/// to turn it into a *rustls_client_config. This object is not safe
+/// for concurrent mutation. Under the hood, it corresponds to a
+/// Box<ClientConfig>.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
 #[allow(non_camel_case_types)]
 pub struct rustls_client_config_builder {
@@ -94,7 +95,6 @@ pub extern "C" fn rustls_client_config_builder_build(
 
 /// Add certificates from platform's native root store, using
 /// https://github.com/ctz/rustls-native-certs#readme.
-/// May only be called when the config is not shared.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_load_native_roots(
     config: *mut rustls_client_config_builder,
@@ -115,7 +115,6 @@ pub extern "C" fn rustls_client_config_builder_load_native_roots(
 
 /// Add trusted root certificates from the named file, which should contain
 /// PEM-formatted certificates.
-/// May only be called when the config is not shared.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     config: *mut rustls_client_config_builder,
@@ -151,11 +150,11 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     rustls_result::Ok
 }
 
-/// "Free" a client_config previously returned from rustls_client_config_new.
-/// Since client_config is actually an atomically reference-counted pointer,
-/// extant client_sessions may still hold an internal reference to the
-/// Rust object. However, C code must consider this pointer unusable after
-/// "free"ing it.
+/// "Free" a client_config previously returned from
+/// rustls_client_config_builder_build. Since client_config is actually an
+/// atomically reference-counted pointer, extant client_sessions may still
+/// hold an internal reference to the Rust object. However, C code must
+/// consider this pointer unusable after "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
@@ -171,12 +170,12 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
     };
 }
 
-/// In rustls_client_config_new, we create an Arc, then call `into_raw` and return the resulting raw
-/// pointer to C. C can then call rustls_client_session_new multiple times using that same raw
-/// pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc, its
-/// reference count will be decremented on drop. We need to reference count to stay at 1, because
-/// the C code is holding a copy. This function turns the raw pointer back into an Arc, clones it
-/// to increment the reference count (which will make it 2 in this particular case), and
+/// In rustls_client_config_builder_build, we create an Arc, then call `into_raw` and return the
+/// resulting raw pointer to C. C can then call rustls_client_session_new multiple times using that
+/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
+/// its reference count will be decremented on drop. We need to reference count to stay at 1,
+/// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
+/// clones it to increment the reference count (which will make it 2 in this particular case), and
 /// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
 /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
 /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
