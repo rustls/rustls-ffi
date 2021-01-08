@@ -241,4 +241,6 @@ rustls_result rustls_client_session_write_tls(const rustls_client_session *sessi
  */
 void rustls_error(rustls_result result, char *buf, size_t len, size_t *out_n);
 
+bool rustls_result_is_cert_error(rustls_result result);
+
 #endif /* CRUSTLS_H */
