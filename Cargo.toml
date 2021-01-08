@@ -1,6 +1,6 @@
 [package]
 name = "crustls"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 description = "C-to-rustls bindings"
 edition = "2018"
@@ -11,7 +11,7 @@ rustls = "^0.19.0"
 webpki = "0.21"
 libc = "0.2"
 env_logger = "0.8"
-webpki-roots = "0.21"
+rustls-native-certs = "0.5.0"
 sct = "0.6.0"
 
 [dev_dependencies]
