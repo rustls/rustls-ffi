@@ -11,3 +11,11 @@ jobs:
       - uses: actions/checkout@v2
       - run: make test
       - run: make PROFILE=release test
+
+jobs:
+  ensure-header-updated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: make src/crustls.h
+      - run: git diff
