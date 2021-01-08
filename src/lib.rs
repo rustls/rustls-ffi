@@ -213,6 +213,19 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     }
 }
 
+/// Queues a close_notify fatal alert to be sent in the next write_tls call.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
+#[no_mangle]
+pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
+    let session: &mut ClientSession = unsafe {
+        match (session as *mut ClientSession).as_mut() {
+            Some(cs) => cs,
+            None => return,
+        }
+    };
+    session.send_close_notify()
+}
+
 /// Free a client_session previously returned from rustls_client_session_new.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
