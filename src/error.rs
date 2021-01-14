@@ -48,6 +48,7 @@ pub enum rustls_result {
     Ok = 7000,
     Io,
     NullParameter,
+    InvalidDnsNameError,
 
     // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
     CorruptMessage,
@@ -258,6 +259,8 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         rustls_result::Ok => return Either::String("OK".to_string()),
         Io => return Either::String("I/O error".to_string()),
         NullParameter => return Either::String("a parameter was NULL".to_string()),
+        InvalidDnsNameError => return Either::String(
+            "hostname was either malformed or an IP address (rustls does not support certificates for IP addresses)".to_string()),
 
         // These variants correspond to a TLSError variant with a field,
         // where generating an arbitrary field would produce a confusing error
@@ -276,6 +279,7 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         rustls_result::Ok => unreachable!(),
         Io => unreachable!(),
         NullParameter => unreachable!(),
+        InvalidDnsNameError => unreachable!(),
 
         InappropriateMessage => unreachable!(),
         InappropriateHandshakeMessage => unreachable!(),

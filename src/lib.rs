@@ -223,20 +223,13 @@ pub extern "C" fn rustls_client_session_new(
     };
     let hostname: &str = match hostname.to_str() {
         Ok(s) => s,
-        Err(e) => {
-            eprintln!("converting hostname to Rust &str: {}", e);
-            return rustls_result::Io;
-        }
+        Err(std::str::Utf8Error{..}) =>
+         return rustls_result::InvalidDnsNameError,
     };
     let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
         Ok(nr) => nr,
-        Err(e) => {
-            eprintln!(
-                "turning hostname '{}' into webpki::DNSNameRef: {}",
-                hostname, e
-            );
-            return rustls_result::Io;
-        }
+        Err(webpki::InvalidDNSNameError{..}) =>
+         return rustls_result::InvalidDnsNameError,
     };
     let client = ClientSession::new(&config, name_ref);
 

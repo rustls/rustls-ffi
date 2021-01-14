@@ -383,6 +383,7 @@ do_request(const struct rustls_client_config *client_config,
   rustls_result result =
     rustls_client_session_new(client_config, hostname, &client_session);
   if(result != RUSTLS_RESULT_OK) {
+    print_error("client_session_new", result);
     goto cleanup;
   }
 
