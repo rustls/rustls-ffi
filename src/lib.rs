@@ -78,7 +78,6 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
     let config = rustls::ClientConfig::new();
-    env_logger::init();
     let b = Box::new(config);
     Box::into_raw(b) as *mut _
 }
@@ -223,13 +222,11 @@ pub extern "C" fn rustls_client_session_new(
     };
     let hostname: &str = match hostname.to_str() {
         Ok(s) => s,
-        Err(std::str::Utf8Error{..}) =>
-         return rustls_result::InvalidDnsNameError,
+        Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
     };
     let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
         Ok(nr) => nr,
-        Err(webpki::InvalidDNSNameError{..}) =>
-         return rustls_result::InvalidDnsNameError,
+        Err(webpki::InvalidDNSNameError { .. }) => return rustls_result::InvalidDnsNameError,
     };
     let client = ClientSession::new(&config, name_ref);
 
