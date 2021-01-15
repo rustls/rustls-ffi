@@ -424,7 +424,8 @@ main(int argc, const char **argv)
 
   result = rustls_client_config_builder_load_native_roots(config_builder);
   if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "error loading trusted certificates\n");
+    print_error("loading trusted certificate", result);
+    goto cleanup;
   }
 
   client_config = rustls_client_config_builder_build(config_builder);
