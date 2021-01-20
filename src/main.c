@@ -86,9 +86,14 @@ make_conn(const char *hostname)
 {
   int sockfd = 0;
   enum crustls_demo_result result = 0;
-  struct addrinfo *getaddrinfo_output = NULL;
+  struct addrinfo *getaddrinfo_output = NULL, hints;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM; /* looking for TCP */
+
   int getaddrinfo_result =
-    getaddrinfo(hostname, "443", NULL, &getaddrinfo_output);
+    getaddrinfo(hostname, "443", &hints, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
     goto cleanup;
