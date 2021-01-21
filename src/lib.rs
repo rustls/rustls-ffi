@@ -47,27 +47,89 @@ pub struct rustls_client_session {
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
 
+#[macro_export]
+macro_rules! ffi_panic_boundary {
+    ( $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            Ok(ret) => ret,
+            Err(_) => return rustls_result::Panic,
+        }
+  }
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_size_t {
+    ( $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            | Ok(ret) => ret,
+            | Err(_) => return 0,
+        }
+  }
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_bool {
+    ( $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            | Ok(ret) => ret,
+            | Err(_) => return false,
+        }
+  }
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_ptr {
+    ( $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            | Ok(ret) => ret,
+            | Err(_) => return std::ptr::null_mut(),
+        }
+  }
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_unit {
+    ( $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            | Ok(ret) => ret,
+            | Err(_) => return,
+        }
+  }
+}
+
 /// Write the version of the crustls C bindings and rustls itself into the
 /// provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
 /// and NUL terminated. Returns the number of bytes written before the NUL.
 #[no_mangle]
 pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
-    let write_buf: &mut [u8] = unsafe {
-        if buf.is_null() {
-            return 0;
-        }
-        slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-    };
-    let version: String = format!(
-        "crustls/{}/rustls/{}",
-        env!("CARGO_PKG_VERSION"),
-        RUSTLS_CRATE_VERSION,
-    );
-    let version: &[u8] = version.as_bytes();
-    let len: usize = min(write_buf.len() - 1, version.len());
-    write_buf[..len].copy_from_slice(&version[..len]);
-    write_buf[len] = 0;
-    len
+    ffi_panic_boundary_size_t! {
+        let write_buf: &mut [u8] = unsafe {
+            if buf.is_null() {
+                return 0;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
+        };
+        let version: String = format!(
+            "crustls/{}/rustls/{}",
+            env!("CARGO_PKG_VERSION"),
+            RUSTLS_CRATE_VERSION,
+        );
+        let version: &[u8] = version.as_bytes();
+        let len: usize = min(write_buf.len() - 1, version.len());
+        write_buf[..len].copy_from_slice(&version[..len]);
+        write_buf[len] = 0;
+        len
+    }
 }
 
 /// Create a rustls_client_config_builder. Caller owns the memory and must
@@ -77,9 +139,11 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
 /// or rustls_client_config_builder_load_roots_from_file.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
-    let config = rustls::ClientConfig::new();
-    let b = Box::new(config);
-    Box::into_raw(b) as *mut _
+    ffi_panic_boundary_ptr! {
+        let config = rustls::ClientConfig::new();
+        let b = Box::new(config);
+        Box::into_raw(b) as *mut _
+    }
 }
 
 /// Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
@@ -88,8 +152,10 @@ pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_confi
 pub extern "C" fn rustls_client_config_builder_build(
     builder: *mut rustls_client_config_builder,
 ) -> *const rustls_client_config {
-    let b = unsafe { Box::from_raw(builder as *mut ClientConfig) };
-    Arc::into_raw(Arc::new(*b)) as *const _
+    ffi_panic_boundary_ptr! {
+        let b = unsafe { Box::from_raw(builder as *mut ClientConfig) };
+        Arc::into_raw(Arc::new(*b)) as *const _
+    }
 }
 
 /// Add certificates from platform's native root store, using
@@ -98,18 +164,20 @@ pub extern "C" fn rustls_client_config_builder_build(
 pub extern "C" fn rustls_client_config_builder_load_native_roots(
     config: *mut rustls_client_config_builder,
 ) -> rustls_result {
-    let mut config: &mut ClientConfig = unsafe {
-        match (config as *mut ClientConfig).as_mut() {
-            Some(c) => c,
-            None => return rustls_result::NullParameter,
-        }
-    };
-    let store = match rustls_native_certs::load_native_certs() {
-        Ok(store) => store,
-        Err(_) => return rustls_result::Io,
-    };
-    config.root_store = store;
-    rustls_result::Ok
+    ffi_panic_boundary! {
+        let mut config: &mut ClientConfig = unsafe {
+            match (config as *mut ClientConfig).as_mut() {
+                Some(c) => c,
+                None => return rustls_result::NullParameter,
+            }
+        };
+        let store = match rustls_native_certs::load_native_certs() {
+            Ok(store) => store,
+            Err(_) => return rustls_result::Io,
+        };
+        config.root_store = store;
+        rustls_result::Ok
+    }
 }
 
 /// Add trusted root certificates from the named file, which should contain
@@ -119,34 +187,36 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     config: *mut rustls_client_config_builder,
     filename: *const c_char,
 ) -> rustls_result {
-    let filename: &CStr = unsafe {
-        if filename.is_null() {
-            return rustls_result::NullParameter;
-        }
-        CStr::from_ptr(filename)
-    };
-    let config: &mut ClientConfig = unsafe {
-        match (config as *mut ClientConfig).as_mut() {
-            Some(c) => c,
-            None => return rustls_result::NullParameter,
-        }
-    };
-    let filename: &[u8] = filename.to_bytes();
-    let filename: &str = match std::str::from_utf8(filename) {
-        Ok(s) => s,
-        Err(_) => return rustls_result::Io,
-    };
-    let filename: &OsStr = OsStr::new(filename);
-    let mut cafile = match File::open(filename) {
-        Ok(f) => f,
-        Err(_) => return rustls_result::Io,
-    };
-    let mut bufreader = BufReader::new(&mut cafile);
-    match config.root_store.add_pem_file(&mut bufreader) {
-        Ok(_) => {}
-        Err(_) => return rustls_result::Io,
-    };
-    rustls_result::Ok
+    ffi_panic_boundary! {
+        let filename: &CStr = unsafe {
+            if filename.is_null() {
+                return rustls_result::NullParameter;
+            }
+            CStr::from_ptr(filename)
+        };
+        let config: &mut ClientConfig = unsafe {
+            match (config as *mut ClientConfig).as_mut() {
+                Some(c) => c,
+                None => return rustls_result::NullParameter,
+            }
+        };
+        let filename: &[u8] = filename.to_bytes();
+        let filename: &str = match std::str::from_utf8(filename) {
+            Ok(s) => s,
+            Err(_) => return rustls_result::Io,
+        };
+        let filename: &OsStr = OsStr::new(filename);
+        let mut cafile = match File::open(filename) {
+            Ok(f) => f,
+            Err(_) => return rustls_result::Io,
+        };
+        let mut bufreader = BufReader::new(&mut cafile);
+        match config.root_store.add_pem_file(&mut bufreader) {
+            Ok(_) => {}
+            Err(_) => return rustls_result::Io,
+        };
+        rustls_result::Ok
+    }
 }
 
 /// "Free" a client_config previously returned from
@@ -157,24 +227,26 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
-    unsafe {
-        if let Some(c) = (config as *const ClientConfig).as_ref() {
-            // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner ClientConfig will be dropped.
-            let arc: Arc<ClientConfig> = Arc::from_raw(c);
-            let strong_count = Arc::strong_count(&arc);
-            if strong_count < 1 {
-                eprintln!(
-                    "rustls_client_config_free: invariant failed: arc.strong_count was < 1: {}. \
-                    You must not free the same client_config multiple times.",
-                    strong_count
-                );
+    ffi_panic_boundary_unit! {
+        unsafe {
+            if let Some(c) = (config as *const ClientConfig).as_ref() {
+                // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
+                // representing the C code's copy. When it drops, that refcount will go down to 0
+                // and the inner ClientConfig will be dropped.
+                let arc: Arc<ClientConfig> = Arc::from_raw(c);
+                let strong_count = Arc::strong_count(&arc);
+                if strong_count < 1 {
+                    eprintln!(
+                        "rustls_client_config_free: invariant failed: arc.strong_count was < 1: {}. \
+                        You must not free the same client_config multiple times.",
+                        strong_count
+                    );
+                }
+            } else {
+                eprintln!("rustls_client_config_free: config was NULL");
             }
-        } else {
-            eprintln!("rustls_client_config_free: config was NULL");
-        }
-    };
+        };
+    }
 }
 
 /// In rustls_client_config_builder_build, we create an Arc, then call `into_raw` and return the
@@ -208,55 +280,61 @@ pub extern "C" fn rustls_client_session_new(
     hostname: *const c_char,
     session_out: *mut *mut rustls_client_session,
 ) -> rustls_result {
-    let hostname: &CStr = unsafe {
-        if hostname.is_null() {
-            return NullParameter;
-        }
-        CStr::from_ptr(hostname)
-    };
-    let config: Arc<ClientConfig> = unsafe {
-        match (config as *const ClientConfig).as_ref() {
-            Some(c) => arc_with_incref_from_raw(c),
-            None => return NullParameter,
-        }
-    };
-    let hostname: &str = match hostname.to_str() {
-        Ok(s) => s,
-        Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
-    };
-    let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
-        Ok(nr) => nr,
-        Err(webpki::InvalidDNSNameError { .. }) => return rustls_result::InvalidDnsNameError,
-    };
-    let client = ClientSession::new(&config, name_ref);
+    ffi_panic_boundary! {
+        let hostname: &CStr = unsafe {
+            if hostname.is_null() {
+                return NullParameter;
+            }
+            CStr::from_ptr(hostname)
+        };
+        let config: Arc<ClientConfig> = unsafe {
+            match (config as *const ClientConfig).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return NullParameter,
+            }
+        };
+        let hostname: &str = match hostname.to_str() {
+            Ok(s) => s,
+            Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
+        };
+        let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
+            Ok(nr) => nr,
+            Err(webpki::InvalidDNSNameError { .. }) => return rustls_result::InvalidDnsNameError,
+        };
+        let client = ClientSession::new(&config, name_ref);
 
-    // We've succeeded. Put the client on the heap, and transfer ownership
-    // to the caller. After this point, we must return CRUSTLS_OK so the
-    // caller knows it is responsible for this memory.
-    let b = Box::new(client);
-    unsafe {
-        *session_out = Box::into_raw(b) as *mut _;
+        // We've succeeded. Put the client on the heap, and transfer ownership
+        // to the caller. After this point, we must return CRUSTLS_OK so the
+        // caller knows it is responsible for this memory.
+        let b = Box::new(client);
+        unsafe {
+            *session_out = Box::into_raw(b) as *mut _;
+        }
+
+        return rustls_result::Ok;
     }
-
-    return rustls_result::Ok;
 }
 
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
-    unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.wants_read(),
-            None => false,
+    ffi_panic_boundary_bool! {
+        unsafe {
+            match (session as *const ClientSession).as_ref() {
+                Some(cs) => cs.wants_read(),
+                None => false,
+            }
         }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
-    unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.wants_write(),
-            None => false,
+    ffi_panic_boundary_bool! {
+        unsafe {
+            match (session as *const ClientSession).as_ref() {
+                Some(cs) => cs.wants_write(),
+                None => false,
+            }
         }
     }
 }
@@ -265,10 +343,12 @@ pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_clien
 pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
-    unsafe {
-        match (session as *const ClientSession).as_ref() {
-            Some(cs) => cs.is_handshaking(),
-            None => false,
+    ffi_panic_boundary_bool! {
+        unsafe {
+            match (session as *const ClientSession).as_ref() {
+                Some(cs) => cs.is_handshaking(),
+                None => false,
+            }
         }
     }
 }
@@ -277,15 +357,17 @@ pub extern "C" fn rustls_client_session_is_handshaking(
 pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return NullParameter,
+    ffi_panic_boundary! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return NullParameter,
+            }
+        };
+        match session.process_new_packets() {
+            Ok(()) => rustls_result::Ok,
+            Err(e) => return map_error(e),
         }
-    };
-    match session.process_new_packets() {
-        Ok(()) => rustls_result::Ok,
-        Err(e) => return map_error(e),
     }
 }
 
@@ -293,25 +375,29 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
 #[no_mangle]
 pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return,
-        }
-    };
-    session.send_close_notify()
+    ffi_panic_boundary_unit! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return,
+            }
+        };
+        session.send_close_notify()
+    }
 }
 
 /// Free a client_session previously returned from rustls_client_session_new.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
-    unsafe {
-        if let Some(c) = (session as *mut ClientSession).as_mut() {
-            // Convert the pointer to a Box and drop it.
-            Box::from_raw(c);
-        } else {
-            eprintln!("warning: rustls_client_config_free: config was NULL");
+    ffi_panic_boundary_unit! {
+        unsafe {
+            if let Some(c) = (session as *mut ClientSession).as_mut() {
+                // Convert the pointer to a Box and drop it.
+                Box::from_raw(c);
+            } else {
+                eprintln!("warning: rustls_client_config_free: config was NULL");
+            }
         }
     }
 }
@@ -329,30 +415,32 @@ pub extern "C" fn rustls_client_session_write(
     count: size_t,
     out_n: *mut size_t,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return NullParameter,
-        }
-    };
-    let write_buf: &[u8] = unsafe {
-        if buf.is_null() {
-            return NullParameter;
-        }
-        slice::from_raw_parts(buf, count as usize)
-    };
-    let out_n: &mut size_t = unsafe {
-        match out_n.as_mut() {
-            Some(out_n) => out_n,
-            None => return NullParameter,
-        }
-    };
-    let n_written: usize = match session.write(write_buf) {
-        Ok(n) => n,
-        Err(_) => return rustls_result::Io,
-    };
-    *out_n = n_written;
-    rustls_result::Ok
+    ffi_panic_boundary! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return NullParameter,
+            }
+        };
+        let write_buf: &[u8] = unsafe {
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts(buf, count as usize)
+        };
+        let out_n: &mut size_t = unsafe {
+            match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            }
+        };
+        let n_written: usize = match session.write(write_buf) {
+            Ok(n) => n,
+            Err(_) => return rustls_result::Io,
+        };
+        *out_n = n_written;
+        rustls_result::Ok
+    }
 }
 
 /// Read up to `count` plaintext bytes from the ClientSession into `buf`.
@@ -369,43 +457,45 @@ pub extern "C" fn rustls_client_session_read(
     count: size_t,
     out_n: *mut size_t,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return NullParameter,
+    ffi_panic_boundary! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return NullParameter,
+            }
+        };
+        let read_buf: &mut [u8] = unsafe {
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf, count as usize)
+        };
+        let out_n = unsafe {
+            match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            }
+        };
+        // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
+        // zero it out just in case. TODO: use Initializer once it's stabilized.
+        // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
+        for c in read_buf.iter_mut() {
+            *c = 0;
         }
-    };
-    let read_buf: &mut [u8] = unsafe {
-        if buf.is_null() {
-            return NullParameter;
-        }
-        slice::from_raw_parts_mut(buf, count as usize)
-    };
-    let out_n = unsafe {
-        match out_n.as_mut() {
-            Some(out_n) => out_n,
-            None => return NullParameter,
-        }
-    };
-    // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
-    // zero it out just in case. TODO: use Initializer once it's stabilized.
-    // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
-    for c in read_buf.iter_mut() {
-        *c = 0;
+        let n_read: usize = match session.read(read_buf) {
+            Ok(n) => n,
+            // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
+            // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
+            // Log it and return EOF.
+            Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
+                *out_n = 0;
+                return rustls_result::Ok;
+            }
+            Err(_) => return rustls_result::Io,
+        };
+        *out_n = n_read;
+        rustls_result::Ok
     }
-    let n_read: usize = match session.read(read_buf) {
-        Ok(n) => n,
-        // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
-        // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
-        // Log it and return EOF.
-        Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-            *out_n = 0;
-            return rustls_result::Ok;
-        }
-        Err(_) => return rustls_result::Io,
-    };
-    *out_n = n_read;
-    rustls_result::Ok
 }
 
 /// Read up to `count` TLS bytes from `buf` (usually read from a socket) into
@@ -423,31 +513,33 @@ pub extern "C" fn rustls_client_session_read_tls(
     count: size_t,
     out_n: *mut size_t,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return NullParameter,
-        }
-    };
-    let input_buf: &[u8] = unsafe {
-        if buf.is_null() {
-            return NullParameter;
-        }
-        slice::from_raw_parts(buf, count as usize)
-    };
-    let out_n = unsafe {
-        match out_n.as_mut() {
-            Some(out_n) => out_n,
-            None => return NullParameter,
-        }
-    };
-    let mut cursor = Cursor::new(input_buf);
-    let n_read: usize = match session.read_tls(&mut cursor) {
-        Ok(n) => n,
-        Err(_) => return rustls_result::Io,
-    };
-    *out_n = n_read;
-    rustls_result::Ok
+    ffi_panic_boundary! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return NullParameter,
+            }
+        };
+        let input_buf: &[u8] = unsafe {
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts(buf, count as usize)
+        };
+        let out_n = unsafe {
+            match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            }
+        };
+        let mut cursor = Cursor::new(input_buf);
+        let n_read: usize = match session.read_tls(&mut cursor) {
+            Ok(n) => n,
+            Err(_) => return rustls_result::Io,
+        };
+        *out_n = n_read;
+        rustls_result::Ok
+    }
 }
 
 /// Write up to `count` TLS bytes from the ClientSession into `buf`. Those
@@ -461,28 +553,30 @@ pub extern "C" fn rustls_client_session_write_tls(
     count: size_t,
     out_n: *mut size_t,
 ) -> rustls_result {
-    let session: &mut ClientSession = unsafe {
-        match (session as *mut ClientSession).as_mut() {
-            Some(cs) => cs,
-            None => return NullParameter,
-        }
-    };
-    let mut output_buf: &mut [u8] = unsafe {
-        if buf.is_null() {
-            return NullParameter;
-        }
-        slice::from_raw_parts_mut(buf, count as usize)
-    };
-    let out_n = unsafe {
-        match out_n.as_mut() {
-            Some(out_n) => out_n,
-            None => return NullParameter,
-        }
-    };
-    let n_written: usize = match session.write_tls(&mut output_buf) {
-        Ok(n) => n,
-        Err(_) => return rustls_result::Io,
-    };
-    *out_n = n_written;
-    rustls_result::Ok
+    ffi_panic_boundary! {
+        let session: &mut ClientSession = unsafe {
+            match (session as *mut ClientSession).as_mut() {
+                Some(cs) => cs,
+                None => return NullParameter,
+            }
+        };
+        let mut output_buf: &mut [u8] = unsafe {
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf, count as usize)
+        };
+        let out_n = unsafe {
+            match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            }
+        };
+        let n_written: usize = match session.write_tls(&mut output_buf) {
+            Ok(n) => n,
+            Err(_) => return rustls_result::Io,
+        };
+        *out_n = n_written;
+        rustls_result::Ok
+    }
 }

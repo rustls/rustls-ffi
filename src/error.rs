@@ -1,5 +1,6 @@
 use std::{cmp::min, fmt::Display, slice};
 
+use crate::ffi_panic_boundary_unit;
 use libc::{c_char, size_t};
 use rustls::TLSError;
 
@@ -14,22 +15,24 @@ pub extern "C" fn rustls_error(
     len: size_t,
     out_n: *mut size_t,
 ) {
-    let write_buf: &mut [u8] = unsafe {
-        let out_n: &mut size_t = match out_n.as_mut() {
-            Some(out_n) => out_n,
-            None => return,
+    ffi_panic_boundary_unit! {
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
         };
-        *out_n = 0;
-        if buf.is_null() {
-            return;
+        let error_str = result.to_string();
+        let len: usize = min(write_buf.len() - 1, error_str.len());
+        write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
+        unsafe {
+            *out_n = len;
         }
-        slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-    };
-    let error_str = result.to_string();
-    let len: usize = min(write_buf.len() - 1, error_str.len());
-    write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
-    unsafe {
-        *out_n = len;
     }
 }
 
@@ -49,6 +52,7 @@ pub enum rustls_result {
     Io = 7001,
     NullParameter = 7002,
     InvalidDnsNameError = 7003,
+    Panic = 7004,
 
     // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
     CorruptMessage = 7100,
@@ -261,6 +265,7 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         NullParameter => return Either::String("a parameter was NULL".to_string()),
         InvalidDnsNameError => return Either::String(
             "hostname was either malformed or an IP address (rustls does not support certificates for IP addresses)".to_string()),
+        Panic => return Either::String("a Rust component panicked".to_string()),
 
         // These variants correspond to a TLSError variant with a field,
         // where generating an arbitrary field would produce a confusing error
@@ -280,6 +285,7 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         Io => unreachable!(),
         NullParameter => unreachable!(),
         InvalidDnsNameError => unreachable!(),
+        Panic => unreachable!(),
 
         InappropriateMessage => unreachable!(),
         InappropriateHandshakeMessage => unreachable!(),
