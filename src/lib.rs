@@ -106,12 +106,7 @@ macro_rules! ffi_panic_boundary_unit {
 #[macro_export]
 macro_rules! checked_ptr_ref {
     ( $var:ident, $typ:ty ) => {
-        unsafe {
-            match ($var as *mut $typ).as_ref() {
-                Some(c) => c,
-                None => return rustls_result::NullParameter,
-            }
-        };
+        checked_ptr_ref!($var, $typ, rustls_result::NullParameter)
     };
     ( $var:ident, $typ:ty, $retval:expr ) => {
         unsafe {
@@ -127,12 +122,7 @@ macro_rules! checked_ptr_ref {
 #[macro_export]
 macro_rules! checked_ptr_mut {
     ( $var:ident, $typ:ty ) => {
-        unsafe {
-            match ($var as *mut $typ).as_mut() {
-                Some(c) => c,
-                None => return rustls_result::NullParameter,
-            }
-        };
+        checked_ptr_mut!($var, $typ, rustls_result::NullParameter)
     };
     ( $var:ident, $typ:ty, $retval:expr ) => {
         unsafe {
