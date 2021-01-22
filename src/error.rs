@@ -1,6 +1,6 @@
 use std::{cmp::min, fmt::Display, slice};
 
-use crate::ffi_panic_boundary_unit;
+use crate::{ffi_panic_boundary_generic, ffi_panic_boundary_unit};
 use libc::{c_char, size_t};
 use rustls::TLSError;
 

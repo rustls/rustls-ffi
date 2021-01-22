@@ -190,7 +190,7 @@ void rustls_client_session_free(rustls_client_session *session);
  * (this may be less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.write
  */
-rustls_result rustls_client_session_write(const rustls_client_session *session,
+rustls_result rustls_client_session_write(rustls_client_session *session,
                                           const uint8_t *buf,
                                           size_t count,
                                           size_t *out_n);
@@ -204,7 +204,7 @@ rustls_result rustls_client_session_write(const rustls_client_session *session,
  * rustls_client_session_process_new_packets."
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
  */
-rustls_result rustls_client_session_read(const rustls_client_session *session,
+rustls_result rustls_client_session_read(rustls_client_session *session,
                                          uint8_t *buf,
                                          size_t count,
                                          size_t *out_n);
@@ -219,7 +219,7 @@ rustls_result rustls_client_session_read(const rustls_client_session *session,
  * *out_n when the input count is 0.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-rustls_result rustls_client_session_read_tls(const rustls_client_session *session,
+rustls_result rustls_client_session_read_tls(rustls_client_session *session,
                                              const uint8_t *buf,
                                              size_t count,
                                              size_t *out_n);
@@ -230,7 +230,7 @@ rustls_result rustls_client_session_read_tls(const rustls_client_session *sessio
  * bytes actually written in *out_n (this maybe less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-rustls_result rustls_client_session_write_tls(const rustls_client_session *session,
+rustls_result rustls_client_session_write_tls(rustls_client_session *session,
                                               uint8_t *buf,
                                               size_t count,
                                               size_t *out_n);
