@@ -54,6 +54,7 @@ pub enum rustls_result {
     InvalidDnsNameError = 7003,
     Panic = 7004,
     CertificateParseError = 7005,
+    PrivateKeyParseError = 7006,
 
     // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
     CorruptMessage = 7100,
@@ -267,7 +268,8 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         InvalidDnsNameError => return Either::String(
             "hostname was either malformed or an IP address (rustls does not support certificates for IP addresses)".to_string()),
         Panic => return Either::String("a Rust component panicked".to_string()),
-        rustls_result::CertificateParseError => return Either::String("error parsing certificate".to_string()),
+        CertificateParseError => return Either::String("error parsing certificate".to_string()),
+        PrivateKeyParseError => return Either::String("error parsing private key".to_string()),
 
         // These variants correspond to a TLSError variant with a field,
         // where generating an arbitrary field would produce a confusing error
@@ -288,7 +290,8 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         NullParameter => unreachable!(),
         InvalidDnsNameError => unreachable!(),
         Panic => unreachable!(),
-        rustls_result::CertificateParseError => unreachable!(),
+        CertificateParseError => unreachable!(),
+        PrivateKeyParseError => unreachable!(),
 
         InappropriateMessage => unreachable!(),
         InappropriateHandshakeMessage => unreachable!(),
