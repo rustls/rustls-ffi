@@ -110,7 +110,7 @@ macro_rules! checked_ptr_ref {
     };
     ( $var:ident, $typ:ty, $retval:expr ) => {
         unsafe {
-            match ($var as *mut $typ).as_ref() {
+            match ($var as *const $typ).as_ref() {
                 Some(c) => c,
                 None => return $retval,
             }
@@ -194,7 +194,7 @@ pub extern "C" fn rustls_client_config_builder_load_native_roots(
     config: *mut rustls_client_config_builder,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let mut config = checked_ptr_mut!(config, ClientConfig);
+        let mut config: &mut ClientConfig = checked_ptr_mut!(config, ClientConfig);
         let store = match rustls_native_certs::load_native_certs() {
             Ok(store) => store,
             Err(_) => return rustls_result::Io,
@@ -350,7 +350,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     ffi_panic_boundary_bool! {
-        let session: & ClientSession = checked_ptr_ref!(session, ClientSession, false);
+        let session: &ClientSession = checked_ptr_ref!(session, ClientSession, false);
         session.is_handshaking()
     }
 }
