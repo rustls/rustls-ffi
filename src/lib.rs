@@ -99,16 +99,21 @@ macro_rules! ffi_panic_boundary_unit {
     }
 }
 
-/// If the provided pointer is non-null, convert it to a reference
-/// to the type in the second argument.
+/// If the provided pointer is non-null, convert it to the reference
+/// type in the second argument.
 /// Otherwise, return NullParameter (in the two-argument form) or the provided
 /// value (in the three-argument form).
+/// Examples:
+///   let config: &mut ClientConfig = try_ref_from_ptr!(builder, &mut ClientConfig,
+///        null::<rustls_client_config>());
+///   let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession);
+///
 #[macro_export]
-macro_rules! checked_ptr_ref {
-    ( $var:ident, $typ:ty ) => {
-        checked_ptr_ref!($var, $typ, rustls_result::NullParameter)
+macro_rules! try_ref_from_ptr {
+    ( $var:ident, & $typ:ty ) => {
+        try_ref_from_ptr!($var, &$typ, rustls_result::NullParameter)
     };
-    ( $var:ident, $typ:ty, $retval:expr ) => {
+    ( $var:ident, & $typ:ty, $retval: expr ) => {
         unsafe {
             match ($var as *const $typ).as_ref() {
                 Some(c) => c,
@@ -116,15 +121,10 @@ macro_rules! checked_ptr_ref {
             }
         };
     };
-}
-
-/// Like checked_ptr, but provides mutable references.
-#[macro_export]
-macro_rules! checked_ptr_mut {
-    ( $var:ident, $typ:ty ) => {
-        checked_ptr_mut!($var, $typ, rustls_result::NullParameter)
+    ( $var:ident, &mut $typ:ty ) => {
+        try_ref_from_ptr!($var, &mut $typ, rustls_result::NullParameter)
     };
-    ( $var:ident, $typ:ty, $retval:expr ) => {
+    ( $var:ident, &mut $typ:ty, $retval:expr ) => {
         unsafe {
             match ($var as *mut $typ).as_mut() {
                 Some(c) => c,
@@ -180,7 +180,7 @@ pub extern "C" fn rustls_client_config_builder_build(
     builder: *mut rustls_client_config_builder,
 ) -> *const rustls_client_config {
     ffi_panic_boundary_ptr! {
-        let config: &mut ClientConfig = checked_ptr_mut!(builder, ClientConfig,
+        let config: &mut ClientConfig = try_ref_from_ptr!(builder, &mut ClientConfig,
              null::<rustls_client_config>());
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
@@ -194,7 +194,7 @@ pub extern "C" fn rustls_client_config_builder_load_native_roots(
     config: *mut rustls_client_config_builder,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let mut config: &mut ClientConfig = checked_ptr_mut!(config, ClientConfig);
+        let mut config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
         let store = match rustls_native_certs::load_native_certs() {
             Ok(store) => store,
             Err(_) => return rustls_result::Io,
@@ -218,7 +218,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
             }
             CStr::from_ptr(filename)
         };
-        let config: &mut ClientConfig = checked_ptr_mut!(config, ClientConfig);
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
         let filename: &[u8] = filename.to_bytes();
         let filename: &str = match std::str::from_utf8(filename) {
             Ok(s) => s,
@@ -247,7 +247,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
     ffi_panic_boundary_unit! {
-        let config: &ClientConfig = checked_ptr_ref!(config, ClientConfig, ());
+        let config: &ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
         // To free the client_config, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0
         // and the inner ClientConfig will be dropped.
@@ -332,7 +332,7 @@ pub extern "C" fn rustls_client_session_new(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary_bool! {
-        let session: &ClientSession = checked_ptr_ref!(session, ClientSession, false);
+        let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession, false);
         session.wants_read()
     }
 }
@@ -340,7 +340,7 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary_bool! {
-        let session: &ClientSession = checked_ptr_ref!(session, ClientSession, false);
+        let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession, false);
         session.wants_write()
     }
 }
@@ -350,7 +350,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     ffi_panic_boundary_bool! {
-        let session: &ClientSession = checked_ptr_ref!(session, ClientSession, false);
+        let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession, false);
         session.is_handshaking()
     }
 }
@@ -360,7 +360,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession);
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession);
         match session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
             Err(e) => return map_error(e),
@@ -373,7 +373,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
     ffi_panic_boundary_unit! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession, ());
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession, ());
         session.send_close_notify()
     }
 }
@@ -383,7 +383,7 @@ pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_c
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     ffi_panic_boundary_unit! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession, ());
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession, ());
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }
     }
@@ -403,7 +403,7 @@ pub extern "C" fn rustls_client_session_write(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession);
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession);
         let write_buf: &[u8] = unsafe {
             if buf.is_null() {
                 return NullParameter;
@@ -440,7 +440,7 @@ pub extern "C" fn rustls_client_session_read(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession);
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession);
         let read_buf: &mut [u8] = unsafe {
             if buf.is_null() {
                 return NullParameter;
@@ -491,7 +491,7 @@ pub extern "C" fn rustls_client_session_read_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession);
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession);
         let input_buf: &[u8] = unsafe {
             if buf.is_null() {
                 return NullParameter;
@@ -526,7 +526,7 @@ pub extern "C" fn rustls_client_session_write_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = checked_ptr_mut!(session, ClientSession);
+        let session: &mut ClientSession = try_ref_from_ptr!(session, &mut ClientSession);
         let mut output_buf: &mut [u8] = unsafe {
             if buf.is_null() {
                 return NullParameter;
