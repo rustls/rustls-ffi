@@ -1,14 +1,17 @@
 use libc::{c_char, size_t};
+use std::io::ErrorKind::ConnectionAborted;
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
-use std::{io::ErrorKind::ConnectionAborted, mem};
 
 use rustls::{ClientConfig, ClientSession, Session};
 
-use crate::error::{map_error, rustls_result};
+use crate::{
+    arc_with_incref_from_raw,
+    error::{map_error, rustls_result},
+};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
@@ -148,26 +151,6 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
             );
         }
     }
-}
-
-/// In rustls_client_config_builder_build, we create an Arc, then call `into_raw` and return the
-/// resulting raw pointer to C. C can then call rustls_client_session_new multiple times using that
-/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
-/// its reference count will be decremented on drop. We need to reference count to stay at 1,
-/// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
-/// clones it to increment the reference count (which will make it 2 in this particular case), and
-/// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
-/// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
-/// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
-///
-/// Unsafety:
-///
-/// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
-unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
-    let r = Arc::from_raw(v);
-    let val = Arc::clone(&r);
-    mem::forget(r);
-    val
 }
 
 /// Create a new rustls::ClientSession, and return it in the output parameter `out`.

@@ -1,10 +1,11 @@
 #![crate_type = "staticlib"]
 use libc::{c_char, size_t};
-use std::cmp::min;
-use std::slice;
+use std::{cmp::min, sync::Arc};
+use std::{mem, slice};
 
 mod client;
 mod error;
+mod server;
 
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
@@ -119,4 +120,25 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
         write_buf[len] = 0;
         len
     }
+}
+
+/// In rustls_server_config_builder_build, andrustls_client_config_builder_build,
+/// we create an Arc, then call `into_raw` and return the resulting raw pointer
+/// to C. C can then call rustls_server_session_new multiple times using that
+/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
+/// its reference count will be decremented on drop. We need to reference count to stay at 1,
+/// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
+/// clones it to increment the reference count (which will make it 2 in this particular case), and
+/// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
+/// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
+/// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
+///
+/// Unsafety:
+///
+/// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
+    let r = Arc::from_raw(v);
+    let val = Arc::clone(&r);
+    mem::forget(r);
+    val
 }
