@@ -73,23 +73,12 @@ macro_rules! ffi_panic_boundary_unit {
 ///
 #[macro_export]
 macro_rules! try_ref_from_ptr {
-    ( $var:ident, & $typ:ty ) => {
+    ( $var:ident, &$typ:ty ) => {
         try_ref_from_ptr!($var, &$typ, rustls_result::NullParameter)
     };
-    ( $var:ident, & $typ:ty, $retval: expr ) => {
+    ( $var:ident, &$typ:ty, $retval: expr ) => {
         unsafe {
             match ($var as *const $typ).as_ref() {
-                Some(c) => c,
-                None => return $retval,
-            }
-        };
-    };
-    ( $var:ident, &mut $typ:ty ) => {
-        try_ref_from_ptr!($var, &mut $typ, rustls_result::NullParameter)
-    };
-    ( $var:ident, &mut $typ:ty, $retval:expr ) => {
-        unsafe {
-            match ($var as *mut $typ).as_mut() {
                 Some(c) => c,
                 None => return $retval,
             }

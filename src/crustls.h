@@ -13,6 +13,7 @@ typedef enum {
   RUSTLS_RESULT_INVALID_DNS_NAME_ERROR = 7003,
   RUSTLS_RESULT_PANIC = 7004,
   RUSTLS_RESULT_CERTIFICATE_PARSE_ERROR = 7005,
+  RUSTLS_RESULT_PRIVATE_KEY_PARSE_ERROR = 7006,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -280,6 +281,11 @@ rustls_server_config_builder *rustls_server_config_builder_new(void);
  * Sets a single certificate chain and matching private key.
  * This certificate and key is used for all subsequent connections,
  * irrespective of things like SNI hostname.
+ * cert_chain must point to a byte array of length cert_chain_len containing
+ * a series of PEM-encoded certificates, with the end-entity certificate
+ * first.
+ * private_key must point to a byte array of length private_key_len containing
+ * a private key in PEM-encoded PKCS#8 or PKCS#1 format.
  */
 rustls_result rustls_server_config_builder_set_single_cert_pem(rustls_server_config_builder *builder,
                                                                const uint8_t *cert_chain,
