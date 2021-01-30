@@ -5,16 +5,11 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use rustls::{
-    internal::pemfile::{certs, pkcs8_private_keys, rsa_private_keys},
-    PrivateKey,
-};
-use rustls::{Certificate, NoClientAuth, ServerConfig, ServerSession, Session};
+use rustls::{Certificate, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session};
+use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
-use crate::{
-    arc_with_incref_from_raw,
-    error::{map_error, rustls_result},
-};
+use crate::arc_with_incref_from_raw;
+use crate::error::{map_error, rustls_result};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
@@ -97,20 +92,20 @@ pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
             }
             slice::from_raw_parts(private_key, private_key_len as usize)
         };
-        let mut private_keys: Vec<PrivateKey> = match pkcs8_private_keys(&mut Cursor::new(private_key)) {
+        let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key)) {
             Ok(v) => v,
             _ => match rsa_private_keys(&mut Cursor::new(private_key)) {
                 Ok(v) => v,
-                Err(()) => return rustls_result::PrivateKeyParseError,
+                Err(_) => return rustls_result::PrivateKeyParseError,
             }
         };
         let private_key: PrivateKey = match private_keys.pop() {
-            Some(p) => p,
+            Some(p) => PrivateKey(p),
             None => return rustls_result::PrivateKeyParseError,
         };
         let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
-            Ok(v) => v,
-            Err(()) => return rustls_result::CertificateParseError,
+            Ok(v) => v.into_iter().map(Certificate).collect(),
+            Err(_) => return rustls_result::CertificateParseError,
         };
         match config.set_single_cert(parsed_chain, private_key) {
             Ok(()) => rustls_result::Ok,
