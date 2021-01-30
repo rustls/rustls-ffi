@@ -73,12 +73,23 @@ macro_rules! ffi_panic_boundary_unit {
 ///
 #[macro_export]
 macro_rules! try_ref_from_ptr {
-    ( $var:ident, &$typ:ty ) => {
+    ( $var:ident, & $typ:ty ) => {
         try_ref_from_ptr!($var, &$typ, rustls_result::NullParameter)
     };
-    ( $var:ident, &$typ:ty, $retval: expr ) => {
+    ( $var:ident, & $typ:ty, $retval: expr ) => {
         unsafe {
             match ($var as *const $typ).as_ref() {
+                Some(c) => c,
+                None => return $retval,
+            }
+        };
+    };
+    ( $var:ident, &mut $typ:ty ) => {
+        try_ref_from_ptr!($var, &mut $typ, rustls_result::NullParameter)
+    };
+    ( $var:ident, &mut $typ:ty, $retval:expr ) => {
+        unsafe {
+            match ($var as *mut $typ).as_mut() {
                 Some(c) => c,
                 None => return $retval,
             }
@@ -111,7 +122,7 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
     }
 }
 
-/// In rustls_server_config_builder_build, andrustls_client_config_builder_build,
+/// In rustls_server_config_builder_build, and rustls_client_config_builder_build,
 /// we create an Arc, then call `into_raw` and return the resulting raw pointer
 /// to C. C can then call rustls_server_session_new multiple times using that
 /// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
