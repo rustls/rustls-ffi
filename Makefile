@@ -11,7 +11,7 @@ PROFILE := debug
 DESTDIR=/usr/local
 
 ifeq ($(CC), clang)
-	CFLAGS += -fsanitize=address -fPIE -fsanitize=undefined
+	CFLAGS += -fsanitize=address -fsanitize=undefined
 	LDFLAGS += -fsanitize=address
 endif
 
