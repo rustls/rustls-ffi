@@ -10,10 +10,8 @@ jobs:
         cc: [clang, gcc]
     steps:
       - uses: actions/checkout@v2
-      - run: make test
       - run: make CC=${{ matrix.cc }} PROFILE=release test
 
-jobs:
   ensure-header-updated:
     runs-on: ubuntu-latest
     steps:
