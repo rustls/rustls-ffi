@@ -118,6 +118,7 @@ make_conn(const char *hostname)
     return 1;
   }
 
+  freeaddrinfo(getaddrinfo_output);
   return sockfd;
 
 cleanup:
