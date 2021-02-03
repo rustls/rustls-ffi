@@ -7,10 +7,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
+        cc: [clang, gcc]
     steps:
       - uses: actions/checkout@v2
-      - run: make test
-      - run: make PROFILE=release test
+      - run: make CC=${{ matrix.cc }} PROFILE=release test
+
   ensure-header-updated:
     runs-on: ubuntu-latest
     steps:
