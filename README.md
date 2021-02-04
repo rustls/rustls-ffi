@@ -101,3 +101,16 @@ rather than dereferencing a NULL pointer. For some methods that are infallible
 except for the possibility of NULL (for instance
 `rustls_client_session_is_handshaking`), the library returns a convenient
 type (e.g. `bool`) and uses a suitable fallback value if an input is NULL.
+
+## Panics
+
+In case of a bug (e.g. exceeding the bounds of an array), Rust code may
+emit a panic. Panics are treated like exceptions in C++, unwinding the stack.
+Unwinding past the FFI boundary is undefined behavior, so this library catches
+all unwinds and turns them into RUSTLS_RESULT_PANIC (when the function is
+fallible).
+
+Functions that are theoretically infallible don't return rustls_result, so we
+can't return RUSTLS_RESULT_PANIC. In those cases, if there's a panic, we'll
+return a default value suitable to the return type: NULL for pointer types,
+false for bool types, and 0 for integer types.

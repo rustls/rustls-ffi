@@ -10,6 +10,11 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic -g
 PROFILE := debug
 DESTDIR=/usr/local
 
+ifeq ($(CC), clang)
+	CFLAGS += -fsanitize=address -fsanitize=undefined
+	LDFLAGS += -fsanitize=address
+endif
+
 ifeq ($(PROFILE), release)
 	CFLAGS += -O3
 	CARGOFLAGS += --release
