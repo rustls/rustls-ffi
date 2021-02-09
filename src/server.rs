@@ -1,4 +1,5 @@
-use libc::size_t;
+use libc::{c_char, size_t};
+use std::cmp::min;
 use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
@@ -402,3 +403,41 @@ pub extern "C" fn rustls_server_session_write_tls(
         rustls_result::Ok
     }
 }
+
+/// Write up to `count` characters of the SNI hostname into `buf`. If the
+/// handshake has not been performed yet or if the client does not support SNI,
+/// the returned length in out_n will be 0.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
+#[no_mangle]
+pub extern "C" fn rustls_server_session_sni_hostname_get(
+    session: *mut rustls_server_session,
+    buf: *mut c_char,
+    len: size_t,
+    out_n: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let session: &mut ServerSession = try_ref_from_ptr!(session, &mut ServerSession);
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
+        };
+        let hostname_str = match session.get_sni_hostname() {
+            Some(hostname_str) => hostname_str,
+            None => "",
+        };
+        let len: usize = min(write_buf.len() - 1, hostname_str.len());
+        write_buf[..len].copy_from_slice(&hostname_str.as_bytes()[..len]);
+        unsafe {
+            *out_n = len;
+        }
+        rustls_result::Ok
+    }
+}
+
