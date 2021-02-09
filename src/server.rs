@@ -404,7 +404,7 @@ pub extern "C" fn rustls_server_session_write_tls(
     }
 }
 
-/// Write up to `count` characters of the SNI hostname into `buf`. If the
+/// Write up to `len` characters of the SNI hostname into `buf`. If the
 /// handshake has not been performed yet or if the client does not support SNI,
 /// the returned length in out_n will be 0.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
