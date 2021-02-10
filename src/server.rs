@@ -62,6 +62,22 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
     }
 }
 
+/// With `ignore` != 0, the server will ignore the client ordering of cipher
+/// suites, aka preference, during handshake and respect its own ordering
+/// as configured.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
+    builder: *mut rustls_server_config_builder,
+    ignore: i8,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.ignore_client_order = ignore != 0;
+        rustls_result::Ok
+    }
+}
+
 /// Sets a single certificate chain and matching private key.
 /// This certificate and key is used for all subsequent connections,
 /// irrespective of things like SNI hostname.

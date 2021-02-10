@@ -279,6 +279,15 @@ bool rustls_result_is_cert_error(enum rustls_result result);
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
+ * With `ignore` != 0, the server will ignore the client ordering of cipher
+ * suites, aka preference, during handshake and respect its own ordering
+ * as configured.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
+ */
+enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
+                                                                        int8_t ignore);
+
+/**
  * Sets a single certificate chain and matching private key.
  * This certificate and key is used for all subsequent connections,
  * irrespective of things like SNI hostname.
