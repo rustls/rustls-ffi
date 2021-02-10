@@ -425,7 +425,7 @@ pub extern "C" fn rustls_server_session_write_tls(
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
 #[no_mangle]
-pub extern "C" fn rustls_server_session_sni_hostname_get(
+pub extern "C" fn rustls_server_session_get_sni_hostname(
     session: *const rustls_server_session,
     buf: *mut u8,
     count: size_t,

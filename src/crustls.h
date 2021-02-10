@@ -409,7 +409,7 @@ enum rustls_result rustls_server_session_write_tls(struct rustls_server_session 
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
  */
-enum rustls_result rustls_server_session_sni_hostname_get(const struct rustls_server_session *session,
+enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_server_session *session,
                                                           uint8_t *buf,
                                                           size_t count,
                                                           size_t *out_n);
