@@ -28,7 +28,7 @@ test: all
 target:
 	mkdir -p $@
 
-src/crustls.h: src/lib.rs src/error.rs
+src/crustls.h: src/lib.rs src/error.rs src/client.rs src/server.rs
 	cbindgen --lang C > $@
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a

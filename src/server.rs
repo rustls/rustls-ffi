@@ -402,3 +402,47 @@ pub extern "C" fn rustls_server_session_write_tls(
         rustls_result::Ok
     }
 }
+
+/// Copy the SNI hostname to `buf` wich can hold up  to `count` bytes,
+/// and the length of that hostname in `out_n`. The string is stored in UTF-8
+/// with no terminating NUL byte.
+/// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
+#[no_mangle]
+pub extern "C" fn rustls_server_session_sni_hostname_get(
+    session: *const rustls_server_session,
+    buf: *mut u8,
+    count: size_t,
+    out_n: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let session: &ServerSession = try_ref_from_ptr!(session, &mut ServerSession, NullParameter);
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, count as usize)
+        };
+        let sni_hostname = match session.get_sni_hostname() {
+            Some(sni_hostname) => sni_hostname,
+            None => {
+                return rustls_result::Ok
+            },
+        };
+        let len: usize = sni_hostname.len();
+        if len <= write_buf.len() {
+            write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
+            unsafe {
+                *out_n = len;
+            }
+            return rustls_result::Ok
+
+        }
+        rustls_result::InsufficientSize
+    }
+}
