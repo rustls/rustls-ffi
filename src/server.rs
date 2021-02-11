@@ -460,6 +460,6 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
         unsafe {
             *out_n = len;
         }
-        return rustls_result::Ok
+        rustls_result::Ok
     }
 }
