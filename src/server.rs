@@ -69,11 +69,11 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
     builder: *mut rustls_server_config_builder,
-    ignore: i8,
+    ignore: bool,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        config.ignore_client_order = ignore != 0;
+        config.ignore_client_order = ignore;
         rustls_result::Ok
     }
 }
@@ -419,10 +419,12 @@ pub extern "C" fn rustls_server_session_write_tls(
     }
 }
 
-/// Copy the SNI hostname to `buf` wich can hold up  to `count` bytes,
+/// Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
 /// and the length of that hostname in `out_n`. The string is stored in UTF-8
 /// with no terminating NUL byte.
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+/// Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+/// because it hasn't been processed yet, or because the client did not send SNI.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
 #[no_mangle]
 pub extern "C" fn rustls_server_session_get_sni_hostname(
@@ -432,7 +434,7 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &ServerSession = try_ref_from_ptr!(session, &mut ServerSession, NullParameter);
+        let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, NullParameter);
         let write_buf: &mut [u8] = unsafe {
             let out_n: &mut size_t = match out_n.as_mut() {
                 Some(out_n) => out_n,
@@ -451,14 +453,13 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
             },
         };
         let len: usize = sni_hostname.len();
-        if len <= write_buf.len() {
-            write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
-            unsafe {
-                *out_n = len;
-            }
-            return rustls_result::Ok
-
+        if len > write_buf.len() {
+            return rustls_result::InsufficientSize;
         }
-        rustls_result::InsufficientSize
+        write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
+        unsafe {
+            *out_n = len;
+        }
+        return rustls_result::Ok
     }
 }

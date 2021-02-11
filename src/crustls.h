@@ -285,7 +285,7 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
-                                                                        int8_t ignore);
+                                                                        bool ignore);
 
 /**
  * Sets a single certificate chain and matching private key.
@@ -403,10 +403,12 @@ enum rustls_result rustls_server_session_write_tls(struct rustls_server_session 
                                                    size_t *out_n);
 
 /**
- * Copy the SNI hostname to `buf` wich can hold up  to `count` bytes,
+ * Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
  * and the length of that hostname in `out_n`. The string is stored in UTF-8
  * with no terminating NUL byte.
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+ * Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+ * because it hasn't been processed yet, or because the client did not send SNI.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
  */
 enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_server_session *session,
