@@ -55,6 +55,7 @@ pub enum rustls_result {
     Panic = 7004,
     CertificateParseError = 7005,
     PrivateKeyParseError = 7006,
+    InsufficientSize = 7007,
 
     // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
     CorruptMessage = 7100,
@@ -270,6 +271,7 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         Panic => return Either::String("a Rust component panicked".to_string()),
         CertificateParseError => return Either::String("error parsing certificate".to_string()),
         PrivateKeyParseError => return Either::String("error parsing private key".to_string()),
+        InsufficientSize => return Either::String("provided buffer is of insufficient size".to_string()),
 
         // These variants correspond to a TLSError variant with a field,
         // where generating an arbitrary field would produce a confusing error
@@ -292,6 +294,7 @@ fn result_to_tlserror(input: &rustls_result) -> Either {
         Panic => unreachable!(),
         CertificateParseError => unreachable!(),
         PrivateKeyParseError => unreachable!(),
+        InsufficientSize => unreachable!(),
 
         InappropriateMessage => unreachable!(),
         InappropriateHandshakeMessage => unreachable!(),

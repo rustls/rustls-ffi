@@ -62,6 +62,22 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
     }
 }
 
+/// With `ignore` != 0, the server will ignore the client ordering of cipher
+/// suites, aka preference, during handshake and respect its own ordering
+/// as configured.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
+    builder: *mut rustls_server_config_builder,
+    ignore: bool,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.ignore_client_order = ignore;
+        rustls_result::Ok
+    }
+}
+
 /// Sets a single certificate chain and matching private key.
 /// This certificate and key is used for all subsequent connections,
 /// irrespective of things like SNI hostname.
@@ -399,6 +415,51 @@ pub extern "C" fn rustls_server_session_write_tls(
             Err(_) => return rustls_result::Io,
         };
         *out_n = n_written;
+        rustls_result::Ok
+    }
+}
+
+/// Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
+/// and the length of that hostname in `out_n`. The string is stored in UTF-8
+/// with no terminating NUL byte.
+/// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+/// Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+/// because it hasn't been processed yet, or because the client did not send SNI.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_sni_hostname(
+    session: *const rustls_server_session,
+    buf: *mut u8,
+    count: size_t,
+    out_n: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, NullParameter);
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, count as usize)
+        };
+        let sni_hostname = match session.get_sni_hostname() {
+            Some(sni_hostname) => sni_hostname,
+            None => {
+                return rustls_result::Ok
+            },
+        };
+        let len: usize = sni_hostname.len();
+        if len > write_buf.len() {
+            return rustls_result::InsufficientSize;
+        }
+        write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
+        unsafe {
+            *out_n = len;
+        }
         rustls_result::Ok
     }
 }

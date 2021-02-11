@@ -14,6 +14,7 @@ typedef enum rustls_result {
   RUSTLS_RESULT_PANIC = 7004,
   RUSTLS_RESULT_CERTIFICATE_PARSE_ERROR = 7005,
   RUSTLS_RESULT_PRIVATE_KEY_PARSE_ERROR = 7006,
+  RUSTLS_RESULT_INSUFFICIENT_SIZE = 7007,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -278,6 +279,15 @@ bool rustls_result_is_cert_error(enum rustls_result result);
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
+ * With `ignore` != 0, the server will ignore the client ordering of cipher
+ * suites, aka preference, during handshake and respect its own ordering
+ * as configured.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
+ */
+enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
+                                                                        bool ignore);
+
+/**
  * Sets a single certificate chain and matching private key.
  * This certificate and key is used for all subsequent connections,
  * irrespective of things like SNI hostname.
@@ -391,5 +401,19 @@ enum rustls_result rustls_server_session_write_tls(struct rustls_server_session 
                                                    uint8_t *buf,
                                                    size_t count,
                                                    size_t *out_n);
+
+/**
+ * Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
+ * and the length of that hostname in `out_n`. The string is stored in UTF-8
+ * with no terminating NUL byte.
+ * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+ * Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+ * because it hasn't been processed yet, or because the client did not send SNI.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
+ */
+enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_server_session *session,
+                                                          uint8_t *buf,
+                                                          size_t count,
+                                                          size_t *out_n);
 
 #endif /* CRUSTLS_H */
