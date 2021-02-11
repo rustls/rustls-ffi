@@ -28,13 +28,13 @@ test: all
 target:
 	mkdir -p $@
 
-src/crustls.h: src/lib.rs src/error.rs src/client.rs src/server.rs
+src/crustls.h: src/*.rs
 	cbindgen --lang C > $@
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-target/$(PROFILE)/libcrustls.a: src/lib.rs src/error.rs Cargo.toml
+target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
 	cargo build $(CARGOFLAGS)
 
 target/main.o: src/main.c src/crustls.h | target
