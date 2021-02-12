@@ -110,14 +110,21 @@ pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
         };
         let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key)) {
             Ok(v) => v,
-            _ => match rsa_private_keys(&mut Cursor::new(private_key)) {
-                Ok(v) => v,
-                Err(_) => return rustls_result::PrivateKeyParseError,
-            }
+            Err(_) => return rustls_result::PrivateKeyParseError,
         };
         let private_key: PrivateKey = match private_keys.pop() {
             Some(p) => PrivateKey(p),
-            None => return rustls_result::PrivateKeyParseError,
+            None => {
+                private_keys = match rsa_private_keys(&mut Cursor::new(private_key)) {
+                    Ok(v) => v,
+                    Err(_) => return rustls_result::PrivateKeyParseError,
+                };
+                let rsa_private_key: PrivateKey = match private_keys.pop() {
+                    Some(p) => PrivateKey(p),
+                    None => return rustls_result::PrivateKeyParseError,
+                };
+                rsa_private_key
+            }
         };
         let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
             Ok(v) => v.into_iter().map(Certificate).collect(),
