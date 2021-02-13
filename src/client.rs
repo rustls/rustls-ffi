@@ -5,12 +5,15 @@ use std::ptr::null;
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
+use webpki::DNSNameRef;
 
-use rustls::{ClientConfig, ClientSession, Session};
+use rustls::{
+    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
+};
 
 use crate::{
     arc_with_incref_from_raw,
-    error::{map_error, rustls_result},
+    error::{self, map_error, rustls_result},
 };
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -74,6 +77,102 @@ pub extern "C" fn rustls_client_config_builder_build(
              null::<rustls_client_config>());
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
+    }
+}
+
+#[allow(non_camel_case_types)]
+pub struct rustls_root_cert_store {
+    _private: [u8; 0],
+}
+
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub struct rustls_certificate {
+    bytes: *const u8,
+    len: usize,
+}
+
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct rustls_verify_params {
+    roots: *const rustls_root_cert_store,
+    presented_certs: *const rustls_certificate,
+    presented_certs_len: usize,
+    dns_name: *const c_char,
+    dns_name_len: usize,
+    ocsp_response: *const u8,
+    ocsp_response_len: usize,
+}
+
+type VerifyUserData = *const libc::c_void;
+type VerifyCallback = unsafe extern "C" fn(
+    userdata: VerifyUserData,
+    params: *const rustls_verify_params,
+) -> rustls_result;
+
+struct Verifier {
+    callback: VerifyCallback,
+    userdata: VerifyUserData,
+}
+
+unsafe impl Send for Verifier {}
+unsafe impl Sync for Verifier {}
+
+impl rustls::ServerCertVerifier for Verifier {
+    fn verify_server_cert(
+        &self,
+        roots: &RootCertStore,
+        presented_certs: &[Certificate],
+        dns_name: DNSNameRef<'_>,
+        ocsp_response: &[u8],
+    ) -> Result<ServerCertVerified, TLSError> {
+        let cb = self.callback;
+        let dns_name: &str = dns_name.into();
+        let certificates: Vec<rustls_certificate> = presented_certs
+            .iter()
+            .map(|cert: &Certificate| {
+                let cert: &[u8] = cert.as_ref();
+                rustls_certificate {
+                    bytes: cert.as_ptr(),
+                    len: cert.len(),
+                }
+            })
+            .collect();
+        let params = rustls_verify_params {
+            roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
+            presented_certs: certificates.as_ptr(),
+            presented_certs_len: presented_certs.len(),
+            dns_name: dns_name.as_ptr() as *const c_char,
+            dns_name_len: dns_name.len(),
+            ocsp_response: ocsp_response.as_ptr(),
+            ocsp_response_len: ocsp_response.len(),
+        };
+        let result: rustls_result = unsafe {
+             cb(self.userdata, &params)
+             };
+        match result {
+            rustls_result::Ok => Ok(ServerCertVerified::assertion()),
+            r => match error::result_to_tlserror(&r) {
+                error::Either::TLSError(te) => Err(te),
+                error::Either::String(se) => Err(TLSError::General(se)),
+            },
+        }
+    }
+}
+
+/// Add certificates from platform's native root store, using
+/// https://github.com/ctz/rustls-native-certs#readme.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
+    config: *mut rustls_client_config_builder,
+    callback: VerifyCallback,
+    userdata: VerifyUserData,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
+        let verifier: Verifier = Verifier{callback, userdata};
+        config.dangerous().set_certificate_verifier(Arc::new(verifier));
+        rustls_result::Ok
     }
 }
 

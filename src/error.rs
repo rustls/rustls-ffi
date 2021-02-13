@@ -243,7 +243,7 @@ impl Display for rustls_result {
 }
 
 // Either a String or a TLSError
-enum Either {
+pub(crate) enum Either {
     String(String),
     TLSError(TLSError),
 }
@@ -254,7 +254,7 @@ enum Either {
 // Otherwise, it returns a TLSError. This is used internally for determining
 // whether a rustls_result is part of some top-level variant that maps to
 // several rustls_results.
-fn result_to_tlserror(input: &rustls_result) -> Either {
+pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
     use rustls::internal::msgs::enums::AlertDescription as alert;
     use rustls_result::*;
     use sct::Error as sct;
