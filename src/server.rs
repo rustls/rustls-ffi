@@ -2,10 +2,10 @@ use libc::size_t;
 use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
-use std::slice;
+use std::{slice, marker};
 use std::sync::Arc;
 
-use rustls::{Certificate, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session};
+use rustls::{Certificate, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session, ClientHello};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::arc_with_incref_from_raw;
@@ -15,6 +15,8 @@ use crate::{
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
+use rustls::sign::CertifiedKey;
+use std::ffi::c_void;
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -470,3 +472,56 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
         rustls_result::Ok
     }
 }
+
+struct DoesNotReallyResolve {
+    /// Implementation of rustls::ResolvesServerCert that passes values
+    /// from the supplied ClientHello to the callback function.
+    pub sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
+    pub sni_callback_data: *mut c_void,
+}
+
+impl DoesNotReallyResolve {
+    pub fn new(
+        sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
+        sni_callback_data: *mut c_void
+    ) -> DoesNotReallyResolve {
+        DoesNotReallyResolve {
+            sni_callback: sni_callback,
+            sni_callback_data: sni_callback_data
+        }
+    }
+}
+
+impl rustls::ResolvesServerCert for DoesNotReallyResolve {
+    fn resolve(&self, client_hello: ClientHello<'_>) -> Option<CertifiedKey> {
+        let sni_name = {
+            match client_hello.server_name() {
+                Some(c) => c.into(),
+                None => "",
+            }
+        };
+        (self.sni_callback)(self.sni_callback_data,
+                            sni_name.as_bytes().as_ptr(),
+                            sni_name.len());
+        None
+    }
+}
+
+unsafe impl marker::Sync for DoesNotReallyResolve {}
+unsafe impl marker::Send for DoesNotReallyResolve {}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_hello_callback(
+    builder: *mut rustls_server_config_builder,
+    sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
+    sni_callback_data: *mut c_void,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.cert_resolver = Arc::new(DoesNotReallyResolve::new(
+            sni_callback, sni_callback_data
+        ));
+        rustls_result::Ok
+    }
+}
+

@@ -416,4 +416,8 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           size_t count,
                                                           size_t *out_n);
 
+enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
+                                                                   void (*sni_callback)(void *cb_data, const uint8_t *buf, size_t count),
+                                                                   void *sni_callback_data);
+
 #endif /* CRUSTLS_H */
