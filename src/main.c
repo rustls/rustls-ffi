@@ -80,7 +80,7 @@ const char *ws_strerror (int err)
  * we finish or hit an error. Assumes fd is blocking and therefore doesn't
  * handle EAGAIN. Returns 0 for success or 1 for error.
  *
- * For Windsock we cannot use a socket-fd in write().
+ * For Winsock we cannot use a socket-fd in write().
  * Call send() if fd > STDOUT_FILENO.
  */
 int
