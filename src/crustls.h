@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef enum {
+typedef enum rustls_result {
   RUSTLS_RESULT_OK = 7000,
   RUSTLS_RESULT_IO = 7001,
   RUSTLS_RESULT_NULL_PARAMETER = 7002,
@@ -88,6 +88,8 @@ typedef enum {
   RUSTLS_RESULT_CERT_SCT_UNKNOWN_LOG = 7323,
 } rustls_result;
 
+typedef struct rustls_certificate rustls_certificate;
+
 /**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
@@ -107,6 +109,8 @@ typedef struct rustls_client_config rustls_client_config;
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 typedef struct rustls_client_session rustls_client_session;
+
+typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
  * A server config that is done being constructed and is now read-only.
@@ -128,6 +132,20 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 
 typedef struct rustls_server_session rustls_server_session;
 
+typedef const void *VerifyUserData;
+
+typedef struct rustls_verify_params {
+  const struct rustls_root_cert_store *roots;
+  const struct rustls_certificate *presented_certs;
+  uintptr_t presented_certs_len;
+  const char *dns_name;
+  uintptr_t dns_name_len;
+  const uint8_t *ocsp_response;
+  uintptr_t ocsp_response_len;
+} rustls_verify_params;
+
+typedef enum rustls_result (*VerifyCallback)(VerifyUserData userdata, const struct rustls_verify_params *params);
+
 /**
  * Write the version of the crustls C bindings and rustls itself into the
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
@@ -142,26 +160,34 @@ size_t rustls_version(char *buf, size_t len);
  * Caller must add roots with rustls_client_config_builder_load_native_roots
  * or rustls_client_config_builder_load_roots_from_file.
  */
-rustls_client_config_builder *rustls_client_config_builder_new(void);
+struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
  * Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
  * (read-only).
  */
-const rustls_client_config *rustls_client_config_builder_build(rustls_client_config_builder *builder);
+const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
 
 /**
  * Add certificates from platform's native root store, using
  * https://github.com/ctz/rustls-native-certs#readme.
  */
-rustls_result rustls_client_config_builder_load_native_roots(rustls_client_config_builder *config);
+enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
+                                                                                   VerifyCallback callback,
+                                                                                   VerifyUserData userdata);
+
+/**
+ * Add certificates from platform's native root store, using
+ * https://github.com/ctz/rustls-native-certs#readme.
+ */
+enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_client_config_builder *config);
 
 /**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
-rustls_result rustls_client_config_builder_load_roots_from_file(rustls_client_config_builder *config,
-                                                                const char *filename);
+enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
+                                                                     const char *filename);
 
 /**
  * "Free" a client_config previously returned from
@@ -171,7 +197,7 @@ rustls_result rustls_client_config_builder_load_roots_from_file(rustls_client_co
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_client_config_free(const rustls_client_config *config);
+void rustls_client_config_free(const struct rustls_client_config *config);
 
 /**
  * Create a new rustls::ClientSession, and return it in the output parameter `out`.
@@ -180,29 +206,29 @@ void rustls_client_config_free(const rustls_client_config *config);
  * at a valid ClientSession. The caller now owns the ClientSession and must call
  * `rustls_client_session_free` when done with it.
  */
-rustls_result rustls_client_session_new(const rustls_client_config *config,
-                                        const char *hostname,
-                                        rustls_client_session **session_out);
+enum rustls_result rustls_client_session_new(const struct rustls_client_config *config,
+                                             const char *hostname,
+                                             struct rustls_client_session **session_out);
 
-bool rustls_client_session_wants_read(const rustls_client_session *session);
+bool rustls_client_session_wants_read(const struct rustls_client_session *session);
 
-bool rustls_client_session_wants_write(const rustls_client_session *session);
+bool rustls_client_session_wants_write(const struct rustls_client_session *session);
 
-bool rustls_client_session_is_handshaking(const rustls_client_session *session);
+bool rustls_client_session_is_handshaking(const struct rustls_client_session *session);
 
-rustls_result rustls_client_session_process_new_packets(rustls_client_session *session);
+enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
 /**
  * Queues a close_notify fatal alert to be sent in the next write_tls call.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
  */
-void rustls_client_session_send_close_notify(rustls_client_session *session);
+void rustls_client_session_send_close_notify(struct rustls_client_session *session);
 
 /**
  * Free a client_session previously returned from rustls_client_session_new.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_client_session_free(rustls_client_session *session);
+void rustls_client_session_free(struct rustls_client_session *session);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the ClientSession.
@@ -212,10 +238,10 @@ void rustls_client_session_free(rustls_client_session *session);
  * (this may be less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.write
  */
-rustls_result rustls_client_session_write(rustls_client_session *session,
-                                          const uint8_t *buf,
-                                          size_t count,
-                                          size_t *out_n);
+enum rustls_result rustls_client_session_write(struct rustls_client_session *session,
+                                               const uint8_t *buf,
+                                               size_t count,
+                                               size_t *out_n);
 
 /**
  * Read up to `count` plaintext bytes from the ClientSession into `buf`.
@@ -226,10 +252,10 @@ rustls_result rustls_client_session_write(rustls_client_session *session,
  * rustls_client_session_process_new_packets."
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
  */
-rustls_result rustls_client_session_read(rustls_client_session *session,
-                                         uint8_t *buf,
-                                         size_t count,
-                                         size_t *out_n);
+enum rustls_result rustls_client_session_read(struct rustls_client_session *session,
+                                              uint8_t *buf,
+                                              size_t count,
+                                              size_t *out_n);
 
 /**
  * Read up to `count` TLS bytes from `buf` (usually read from a socket) into
@@ -241,10 +267,10 @@ rustls_result rustls_client_session_read(rustls_client_session *session,
  * *out_n when the input count is 0.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-rustls_result rustls_client_session_read_tls(rustls_client_session *session,
-                                             const uint8_t *buf,
-                                             size_t count,
-                                             size_t *out_n);
+enum rustls_result rustls_client_session_read_tls(struct rustls_client_session *session,
+                                                  const uint8_t *buf,
+                                                  size_t count,
+                                                  size_t *out_n);
 
 /**
  * Write up to `count` TLS bytes from the ClientSession into `buf`. Those
@@ -252,10 +278,10 @@ rustls_result rustls_client_session_read_tls(rustls_client_session *session,
  * bytes actually written in *out_n (this maybe less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-rustls_result rustls_client_session_write_tls(rustls_client_session *session,
-                                              uint8_t *buf,
-                                              size_t count,
-                                              size_t *out_n);
+enum rustls_result rustls_client_session_write_tls(struct rustls_client_session *session,
+                                                   uint8_t *buf,
+                                                   size_t count,
+                                                   size_t *out_n);
 
 /**
  * After a rustls_client_session method returns an error, you may call
@@ -263,9 +289,9 @@ rustls_result rustls_client_session_write_tls(rustls_client_session *session,
  * message. The contents of the error buffer will be out_n bytes long,
  * UTF-8 encoded, and not NUL-terminated.
  */
-void rustls_error(rustls_result result, char *buf, size_t len, size_t *out_n);
+void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_n);
 
-bool rustls_result_is_cert_error(rustls_result result);
+bool rustls_result_is_cert_error(enum rustls_result result);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
@@ -275,7 +301,7 @@ bool rustls_result_is_cert_error(rustls_result result);
  * or rustls_server_config_builder_load_roots_from_file.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
  */
-rustls_server_config_builder *rustls_server_config_builder_new(void);
+struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
  * Sets a single certificate chain and matching private key.
@@ -287,17 +313,17 @@ rustls_server_config_builder *rustls_server_config_builder_new(void);
  * private_key must point to a byte array of length private_key_len containing
  * a private key in PEM-encoded PKCS#8 or PKCS#1 format.
  */
-rustls_result rustls_server_config_builder_set_single_cert_pem(rustls_server_config_builder *builder,
-                                                               const uint8_t *cert_chain,
-                                                               size_t cert_chain_len,
-                                                               const uint8_t *private_key,
-                                                               size_t private_key_len);
+enum rustls_result rustls_server_config_builder_set_single_cert_pem(struct rustls_server_config_builder *builder,
+                                                                    const uint8_t *cert_chain,
+                                                                    size_t cert_chain_len,
+                                                                    const uint8_t *private_key,
+                                                                    size_t private_key_len);
 
 /**
  * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
  * (read-only).
  */
-const rustls_server_config *rustls_server_config_builder_build(rustls_server_config_builder *builder);
+const struct rustls_server_config *rustls_server_config_builder_build(struct rustls_server_config_builder *builder);
 
 /**
  * "Free" a server_config previously returned from
@@ -307,7 +333,7 @@ const rustls_server_config *rustls_server_config_builder_build(rustls_server_con
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_server_config_free(const rustls_server_config *config);
+void rustls_server_config_free(const struct rustls_server_config *config);
 
 /**
  * Create a new rustls::ServerSession, and return it in the output parameter `out`.
@@ -316,28 +342,28 @@ void rustls_server_config_free(const rustls_server_config *config);
  * at a valid ServerSession. The caller now owns the ServerSession and must call
  * `rustls_server_session_free` when done with it.
  */
-rustls_result rustls_server_session_new(const rustls_server_config *config,
-                                        rustls_server_session **session_out);
+enum rustls_result rustls_server_session_new(const struct rustls_server_config *config,
+                                             struct rustls_server_session **session_out);
 
-bool rustls_server_session_wants_read(const rustls_server_session *session);
+bool rustls_server_session_wants_read(const struct rustls_server_session *session);
 
-bool rustls_server_session_wants_write(const rustls_server_session *session);
+bool rustls_server_session_wants_write(const struct rustls_server_session *session);
 
-bool rustls_server_session_is_handshaking(const rustls_server_session *session);
+bool rustls_server_session_is_handshaking(const struct rustls_server_session *session);
 
-rustls_result rustls_server_session_process_new_packets(rustls_server_session *session);
+enum rustls_result rustls_server_session_process_new_packets(struct rustls_server_session *session);
 
 /**
  * Queues a close_notify fatal alert to be sent in the next write_tls call.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
  */
-void rustls_server_session_send_close_notify(rustls_server_session *session);
+void rustls_server_session_send_close_notify(struct rustls_server_session *session);
 
 /**
  * Free a server_session previously returned from rustls_server_session_new.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_server_session_free(rustls_server_session *session);
+void rustls_server_session_free(struct rustls_server_session *session);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the ServerSession.
@@ -347,10 +373,10 @@ void rustls_server_session_free(rustls_server_session *session);
  * (this may be less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.write
  */
-rustls_result rustls_server_session_write(rustls_server_session *session,
-                                          const uint8_t *buf,
-                                          size_t count,
-                                          size_t *out_n);
+enum rustls_result rustls_server_session_write(struct rustls_server_session *session,
+                                               const uint8_t *buf,
+                                               size_t count,
+                                               size_t *out_n);
 
 /**
  * Read up to `count` plaintext bytes from the ServerSession into `buf`.
@@ -361,10 +387,10 @@ rustls_result rustls_server_session_write(rustls_server_session *session,
  * rustls_server_session_process_new_packets."
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.read
  */
-rustls_result rustls_server_session_read(rustls_server_session *session,
-                                         uint8_t *buf,
-                                         size_t count,
-                                         size_t *out_n);
+enum rustls_result rustls_server_session_read(struct rustls_server_session *session,
+                                              uint8_t *buf,
+                                              size_t count,
+                                              size_t *out_n);
 
 /**
  * Read up to `count` TLS bytes from `buf` (usually read from a socket) into
@@ -376,10 +402,10 @@ rustls_result rustls_server_session_read(rustls_server_session *session,
  * *out_n when the input count is 0.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-rustls_result rustls_server_session_read_tls(rustls_server_session *session,
-                                             const uint8_t *buf,
-                                             size_t count,
-                                             size_t *out_n);
+enum rustls_result rustls_server_session_read_tls(struct rustls_server_session *session,
+                                                  const uint8_t *buf,
+                                                  size_t count,
+                                                  size_t *out_n);
 
 /**
  * Write up to `count` TLS bytes from the ServerSession into `buf`. Those
@@ -387,9 +413,9 @@ rustls_result rustls_server_session_read_tls(rustls_server_session *session,
  * bytes actually written in *out_n (this maybe less than `count`).
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-rustls_result rustls_server_session_write_tls(rustls_server_session *session,
-                                              uint8_t *buf,
-                                              size_t count,
-                                              size_t *out_n);
+enum rustls_result rustls_server_session_write_tls(struct rustls_server_session *session,
+                                                   uint8_t *buf,
+                                                   size_t count,
+                                                   size_t *out_n);
 
 #endif /* CRUSTLS_H */

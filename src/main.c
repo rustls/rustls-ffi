@@ -408,6 +408,11 @@ cleanup:
   return ret;
 }
 
+enum rustls_result
+verify(__attribute((unused)) const void *userdata, __attribute((unused)) const rustls_verify_params *params) {
+  return RUSTLS_RESULT_OK;
+}
+
 int
 main(int argc, const char **argv)
 {
@@ -433,6 +438,8 @@ main(int argc, const char **argv)
     print_error("loading trusted certificate", result);
     goto cleanup;
   }
+
+  rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify, NULL);
 
   client_config = rustls_client_config_builder_build(config_builder);
 

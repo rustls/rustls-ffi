@@ -147,9 +147,7 @@ impl rustls::ServerCertVerifier for Verifier {
             ocsp_response: ocsp_response.as_ptr(),
             ocsp_response_len: ocsp_response.len(),
         };
-        let result: rustls_result = unsafe {
-             cb(self.userdata, &params)
-             };
+        let result: rustls_result = unsafe { cb(self.userdata, &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => match error::result_to_tlserror(&r) {
@@ -160,17 +158,24 @@ impl rustls::ServerCertVerifier for Verifier {
     }
 }
 
-/// Add certificates from platform's native root store, using
-/// https://github.com/ctz/rustls-native-certs#readme.
+/// Set a custom certificate verifier.
+// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
+// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
+// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
+// So we use Option<VerifyCallback> here.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,
-    callback: VerifyCallback,
+    callback: Option<VerifyCallback>,
     userdata: VerifyUserData,
 ) -> rustls_result {
     ffi_panic_boundary! {
+        let callback: VerifyCallback = match callback {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        }
         let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
-        let verifier: Verifier = Verifier{callback, userdata};
+        let verifier: Verifier = Verifier{callback: callback, userdata};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
         rustls_result::Ok
     }
