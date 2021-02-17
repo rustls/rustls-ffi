@@ -130,6 +130,22 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 typedef struct rustls_server_session rustls_server_session;
 
 /**
+ * Any context information the callback will receive when invoked.
+ */
+typedef void *ClientHelloUserData;
+
+/**
+ * The TLS Client Hello information provided to a ClientHelloCallback function.
+ * `sni_name` is the SNI servername provided by the client (not 0 terminated) with
+ * `sni_name_len` as its length. If the client did not provide an SNI, the name
+ * length is 0.
+ */
+typedef struct rustls_client_hello {
+  const char *sni_name;
+  unsigned int sni_name_len;
+} rustls_client_hello;
+
+/**
  * Write the version of the crustls C bindings and rustls itself into the
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
  * and NUL terminated. Returns the number of bytes written before the NUL.
@@ -416,8 +432,20 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           size_t count,
                                                           size_t *out_n);
 
+/**
+ * Register a callback to be invoked when a session created from this config
+ * is seeing a TLS ClientHello message. The given `userdata` will be passed
+ * to the callback when invoked.
+ * Specifying `replace`!= 0 will replace any existing `ResolvesServerCert` in
+ * the config. Otherwise, the existing `ResolvesServerCert` will be invoked
+ * after the callback has been returned successfully.
+ * Any error returned by the callback will abort the TLS handshake and give
+ * an error in the called rustls function (most likely
+ * `rustls_server_session_write_tls`).
+ */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
-                                                                   void (*sni_callback)(void *cb_data, const uint8_t *buf, size_t count),
-                                                                   void *sni_callback_data);
+                                                                   enum rustls_result (*callback)(ClientHelloUserData userdata, const struct rustls_client_hello *hello),
+                                                                   ClientHelloUserData userdata,
+                                                                   bool replace);
 
 #endif /* CRUSTLS_H */

@@ -17,6 +17,7 @@ use crate::{
 use rustls_result::NullParameter;
 use rustls::sign::CertifiedKey;
 use std::ffi::c_void;
+use std::os::raw::{c_char, c_uint};
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -473,26 +474,45 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
     }
 }
 
-struct DoesNotReallyResolve {
-    /// Implementation of rustls::ResolvesServerCert that passes values
-    /// from the supplied ClientHello to the callback function.
-    pub sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
-    pub sni_callback_data: *mut c_void,
+/// The TLS Client Hello information provided to a ClientHelloCallback function.
+/// `sni_name` is the SNI servername provided by the client (not 0 terminated) with
+/// `sni_name_len` as its length. If the client did not provide an SNI, the name
+/// length is 0.
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct rustls_client_hello {
+    sni_name: *const c_char,
+    sni_name_len: c_uint,
 }
 
-impl DoesNotReallyResolve {
+/// Any context information the callback will receive when invoked.
+type ClientHelloUserData = *mut c_void;
+
+/// Called when the TLS ClientHello message was received and successfully decoded.
+type ClientHelloCallback = unsafe extern "C" fn(
+    userdata: ClientHelloUserData,
+    hello: *const rustls_client_hello,
+) -> rustls_result;
+
+struct ClientHelloResolver {
+    /// Implementation of rustls::ResolvesServerCert that passes values
+    /// from the supplied ClientHello to the callback function.
+    pub callback: ClientHelloCallback,
+    pub userdata: ClientHelloUserData,
+    pub previous_resolver: Option<Arc<dyn rustls::ResolvesServerCert>>,
+}
+
+impl ClientHelloResolver {
     pub fn new(
-        sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
-        sni_callback_data: *mut c_void
-    ) -> DoesNotReallyResolve {
-        DoesNotReallyResolve {
-            sni_callback: sni_callback,
-            sni_callback_data: sni_callback_data
-        }
+        callback: ClientHelloCallback,
+        userdata: ClientHelloUserData,
+        previous_resolver: Option<Arc<dyn rustls::ResolvesServerCert>>,
+    ) -> ClientHelloResolver {
+        ClientHelloResolver { callback, userdata, previous_resolver }
     }
 }
 
-impl rustls::ResolvesServerCert for DoesNotReallyResolve {
+impl rustls::ResolvesServerCert for ClientHelloResolver {
     fn resolve(&self, client_hello: ClientHello<'_>) -> Option<CertifiedKey> {
         let sni_name = {
             match client_hello.server_name() {
@@ -500,26 +520,57 @@ impl rustls::ResolvesServerCert for DoesNotReallyResolve {
                 None => "",
             }
         };
-        (self.sni_callback)(self.sni_callback_data,
-                            sni_name.as_bytes().as_ptr(),
-                            sni_name.len());
-        None
+        let hello = rustls_client_hello {
+            sni_name: sni_name.as_ptr() as *const c_char,
+            sni_name_len: sni_name.len() as c_uint,
+        };
+        let cb = self.callback;
+        let result: rustls_result = unsafe { cb(self.userdata, &hello) };
+        match result {
+            rustls_result::Ok => rustls_result::Ok,
+            r => panic!("client hello callback returned: {}", r)
+        };
+        match &self.previous_resolver {
+            Some(r) => r.resolve(client_hello),
+            None => None
+        }
     }
 }
 
-unsafe impl marker::Sync for DoesNotReallyResolve {}
-unsafe impl marker::Send for DoesNotReallyResolve {}
+unsafe impl marker::Sync for ClientHelloResolver {}
+unsafe impl marker::Send for ClientHelloResolver {}
 
+/// Register a callback to be invoked when a session created from this config
+/// is seeing a TLS ClientHello message. The given `userdata` will be passed
+/// to the callback when invoked.
+/// Specifying `replace`!= 0 will replace any existing `ResolvesServerCert` in
+/// the config. Otherwise, the existing `ResolvesServerCert` will be invoked
+/// after the callback has been returned successfully.
+/// Any error returned by the callback will abort the TLS handshake and give
+/// an error in the called rustls function (most likely
+/// `rustls_server_session_write_tls`).
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
-    sni_callback: extern fn(cb_data: *mut c_void, buf: *const u8, count: size_t),
-    sni_callback_data: *mut c_void,
+    callback: Option<extern "C" fn(
+        userdata: ClientHelloUserData,
+        hello: *const rustls_client_hello
+    ) -> rustls_result>,
+    userdata: ClientHelloUserData,
+    replace: bool,
 ) -> rustls_result {
     ffi_panic_boundary! {
+        let callback: ClientHelloCallback = match callback {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        config.cert_resolver = Arc::new(DoesNotReallyResolve::new(
-            sni_callback, sni_callback_data
+        let previous_resolver = match replace {
+            true => None,
+            false => Some(config.cert_resolver.clone()),
+        };
+        config.cert_resolver = Arc::new(ClientHelloResolver::new(
+            callback, userdata, previous_resolver
         ));
         rustls_result::Ok
     }
