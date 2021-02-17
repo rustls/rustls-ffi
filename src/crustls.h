@@ -143,6 +143,8 @@ typedef void *ClientHelloUserData;
 typedef struct rustls_client_hello {
   const char *sni_name;
   size_t sni_name_len;
+  const unsigned short *signature_schemes;
+  size_t signature_schemes_len;
 } rustls_client_hello;
 
 /**
@@ -447,5 +449,7 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
                                                                    enum rustls_result (*callback)(ClientHelloUserData userdata, const struct rustls_client_hello *hello),
                                                                    ClientHelloUserData userdata,
                                                                    bool replace);
+
+void rustls_signature_scheme_name(unsigned short scheme, char *buf, size_t len, size_t *out_n);
 
 #endif /* CRUSTLS_H */
