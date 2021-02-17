@@ -17,7 +17,7 @@ use crate::{
 use rustls_result::NullParameter;
 use rustls::sign::CertifiedKey;
 use std::ffi::c_void;
-use std::os::raw::{c_char, c_uint};
+use std::os::raw::{c_char};
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -482,7 +482,7 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
 #[repr(C)]
 pub struct rustls_client_hello {
     sni_name: *const c_char,
-    sni_name_len: c_uint,
+    sni_name_len: size_t,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -522,7 +522,7 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
         };
         let hello = rustls_client_hello {
             sni_name: sni_name.as_ptr() as *const c_char,
-            sni_name_len: sni_name.len() as c_uint,
+            sni_name_len: sni_name.len() as size_t,
         };
         let cb = self.callback;
         let result: rustls_result = unsafe { cb(self.userdata, &hello) };

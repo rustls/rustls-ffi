@@ -142,7 +142,7 @@ typedef void *ClientHelloUserData;
  */
 typedef struct rustls_client_hello {
   const char *sni_name;
-  unsigned int sni_name_len;
+  size_t sni_name_len;
 } rustls_client_hello;
 
 /**
