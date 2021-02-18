@@ -86,7 +86,6 @@ pub struct rustls_root_cert_store {
 }
 
 #[allow(non_camel_case_types)]
-#[allow(dead_code)]
 #[repr(C)]
 pub struct rustls_certificate {
     bytes: *const u8,
