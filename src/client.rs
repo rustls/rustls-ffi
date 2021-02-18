@@ -11,13 +11,10 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
+use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::{
-    arc_with_incref_from_raw,
-    error::{self, map_error, rustls_result},
-};
-use crate::{
-    ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
+    arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
 
@@ -80,11 +77,16 @@ pub extern "C" fn rustls_client_config_builder_build(
     }
 }
 
+/// Currently just a placeholder with no accessors yet.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
 #[allow(non_camel_case_types)]
 pub struct rustls_root_cert_store {
     _private: [u8; 0],
 }
 
+/// A representation of the rustls Certificate type, which is an array of
+/// bytes, nominally in DER-encoded X.509.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.Certificate.html
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_certificate {
@@ -92,19 +94,23 @@ pub struct rustls_certificate {
     len: usize,
 }
 
+/// Input to a custom certificate verifier callback. See
+/// rustls_client_config_builder_dangerous_set_certificate_verifier().
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_verify_server_cert_params {
-    roots: *const rustls_root_cert_store,
     end_entity: rustls_certificate,
     intermediates: *const rustls_certificate,
     intermediates_len: usize,
+    roots: *const rustls_root_cert_store,
     dns_name: *const c_char,
     dns_name_len: usize,
     ocsp_response: *const u8,
     ocsp_response_len: usize,
 }
 
+/// User-provided input to a custom certificate verifier callback. See
+/// rustls_client_config_builder_dangerous_set_certificate_verifier().
 #[allow(non_camel_case_types)]
 type rustls_verify_server_cert_user_data = *mut libc::c_void;
 
@@ -113,10 +119,12 @@ type rustls_verify_server_cert_user_data = *mut libc::c_void;
 // > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
 // So we use Option<...> here. This is the type that is passed from C code.
 #[allow(non_camel_case_types)]
-type rustls_verify_server_cert_callback = Option<unsafe extern "C" fn(
-    userdata: rustls_verify_server_cert_user_data,
-    params: *const rustls_verify_server_cert_params,
-) -> rustls_result>;
+type rustls_verify_server_cert_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_verify_server_cert_user_data,
+        params: *const rustls_verify_server_cert_params,
+    ) -> rustls_result,
+>;
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
 // the Option (which is equivalent to checking for null).
@@ -159,7 +167,11 @@ impl rustls::ServerCertVerifier for Verifier {
         // We anticipate that API by doing it ourselves.
         let end_entity = match certificates.pop() {
             Some(c) => c,
-            None => return Err(TLSError::General("missing end-entity certificate".to_string())),
+            None => {
+                return Err(TLSError::General(
+                    "missing end-entity certificate".to_string(),
+                ))
+            }
         };
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
@@ -174,7 +186,7 @@ impl rustls::ServerCertVerifier for Verifier {
         let result: rustls_result = unsafe { cb(self.userdata, &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
-            r => match error::result_to_tlserror(&r) {
+            r => match result_to_tlserror(&r) {
                 error::Either::TLSError(te) => Err(te),
                 error::Either::String(se) => Err(TLSError::General(se)),
             },
@@ -205,6 +217,8 @@ impl rustls::ServerCertVerifier for Verifier {
 /// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
 /// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
 /// section.
+///
+/// https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,

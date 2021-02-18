@@ -109,6 +109,10 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 typedef struct rustls_client_session rustls_client_session;
 
+/**
+ * Currently just a placeholder with no accessors yet.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
+ */
 typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
@@ -131,18 +135,31 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 
 typedef struct rustls_server_session rustls_server_session;
 
+/**
+ * User-provided input to a custom certificate verifier callback. See
+ * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ */
 typedef void *rustls_verify_server_cert_user_data;
 
+/**
+ * A representation of the rustls Certificate type, which is an array of
+ * bytes, nominally in DER-encoded X.509.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.Certificate.html
+ */
 typedef struct rustls_certificate {
   const uint8_t *bytes;
   uintptr_t len;
 } rustls_certificate;
 
+/**
+ * Input to a custom certificate verifier callback. See
+ * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ */
 typedef struct rustls_verify_server_cert_params {
-  const struct rustls_root_cert_store *roots;
   struct rustls_certificate end_entity;
   const struct rustls_certificate *intermediates;
   uintptr_t intermediates_len;
+  const struct rustls_root_cert_store *roots;
   const char *dns_name;
   uintptr_t dns_name_len;
   const uint8_t *ocsp_response;
@@ -197,6 +214,8 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
  * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
  * section.
+ *
+ * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
 enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
                                                                                    rustls_verify_server_cert_callback callback,
