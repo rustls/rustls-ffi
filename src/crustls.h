@@ -135,16 +135,75 @@ typedef struct rustls_server_session rustls_server_session;
 typedef void *rustls_client_hello_userdata;
 
 /**
+ * A read-only view on a Rust utf-8 string or byte array.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. The `data` is not NUL-terminated.
+ * `len` indicates the number of bytes than can be safely read.
+ * A `len` of 0 is used to represent a missing value.
+ *
+ * The memmory exposed is available for the duration of the call (e.g.
+ * when passed to a callback) and must be copied if the values are
+ * needed for longer.
+ *
+ */
+typedef struct rustls_string {
+  const char *data;
+  size_t len;
+} rustls_string;
+
+/**
+ * A read-only view on a list of Rust owned unsigned short values.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. The `data` is an array of `len` 16 bit values.
+ *
+ * The memmory exposed is available for the duration of the call (e.g.
+ * when passed to a callback) and must be copied if the values are
+ * needed for longer.
+ *
+ */
+typedef struct rustls_vec_ushort {
+  const unsigned short *data;
+  size_t len;
+} rustls_vec_ushort;
+
+/**
+ * A read-only view on a list of Rust utf-8 strings or byte arrays.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. The `data` is an array of `rustls_string`
+ * structures with `len` elements.
+ *
+ * The memmory exposed is available for the duration of the call (e.g.
+ * when passed to a callback) and must be copied if the values are
+ * needed for longer.
+ *
+ */
+typedef struct rustls_vec_string {
+  const struct rustls_string *data;
+  size_t len;
+} rustls_vec_string;
+
+/**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
- * `sni_name` is the SNI servername provided by the client (not 0 terminated) with
- * `sni_name_len` as its length. If the client did not provide an SNI, the name
- * length is 0.
+ * `sni_name` is the SNI servername provided by the client. If the client
+ * did not provide an SNI, the length of this `rustls_string` will be 0.
+ * The signature_schemes carries the values supplied by the client or, should
+ * the client not use this TLS extension, the default schemes in the rustls
+ * library. See:
+ * https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+ * `alpn` carries the list of ALPN protocol names that the client proposed to
+ * the server. Again, the length of this list will be 0 if non were supplied.
+ *
+ * All this data, when passed to a callback function, is only accessible during
+ * the call and may not be modified. Users of this API must copy any values that
+ * they want to access when the callback returned.
+ *
+ * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef struct rustls_client_hello {
-  const char *sni_name;
-  size_t sni_name_len;
-  const unsigned short *signature_schemes;
-  size_t signature_schemes_len;
+  struct rustls_string sni_name;
+  struct rustls_vec_ushort signature_schemes;
+  struct rustls_vec_string alpn;
 } rustls_client_hello;
 
 /**
@@ -153,6 +212,21 @@ typedef struct rustls_client_hello {
  * and NUL terminated. Returns the number of bytes written before the NUL.
  */
 size_t rustls_version(char *buf, size_t len);
+
+/**
+ * Get the name of a SignatureScheme, represented by the `scheme` short value,
+ * if known by the rustls library. For unknown schemes, this returns a string
+ * with the scheme value in hex notation.
+ * Mainly useful for debugging output.
+ * The caller provides `buf` for holding the string and gives its size as `len`
+ * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+ * `buf` is not NUL-terminated.
+ *
+ */
+void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
+                                             char *buf,
+                                             size_t len,
+                                             size_t *out_n);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -438,17 +512,16 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
  * Register a callback to be invoked when a session created from this config
  * is seeing a TLS ClientHello message. The given `userdata` will be passed
  * to the callback when invoked.
- * Specifying `replace`!= 0 will replace any existing `ResolvesServerCert` in
- * the config. Otherwise, the existing `ResolvesServerCert` will be invoked
- * after the callback has been returned successfully.
- * Any error returned by the callback will abort the TLS handshake and give
- * an error in the called rustls function (most likely
- * `rustls_server_session_write_tls`).
+ * Any existing `ResolvesServerCert` implementation currently installed in the
+ * `rustls_server_config` will be replaced. This also means registering twice
+ * will overwrite the first registration. It is not permitted to pass a NULL
+ * value for `callback`, but it is possible to have `userdata` as NULL.
+ *
+ * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * the rustls library is re-evaluating their current approach to client hello handling.
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
                                                                    void (*callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello),
                                                                    rustls_client_hello_userdata userdata);
-
-void rustls_signature_scheme_name(unsigned short scheme, char *buf, size_t len, size_t *out_n);
 
 #endif /* CRUSTLS_H */

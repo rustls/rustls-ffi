@@ -11,7 +11,8 @@ use rustls::{
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::arc_with_incref_from_raw;
-use crate::cipher::map_signature_schemes;
+use crate::base::{rustls_string, rustls_strings, rustls_vec_string, rustls_vec_ushort};
+use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -20,7 +21,6 @@ use crate::{
 use rustls::sign::CertifiedKey;
 use rustls_result::NullParameter;
 use std::ffi::c_void;
-use std::os::raw::{c_char, c_ushort};
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -478,23 +478,45 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
 }
 
 /// The TLS Client Hello information provided to a ClientHelloCallback function.
-/// `sni_name` is the SNI servername provided by the client (not 0 terminated) with
-/// `sni_name_len` as its length. If the client did not provide an SNI, the name
-/// length is 0.
+/// `sni_name` is the SNI servername provided by the client. If the client
+/// did not provide an SNI, the length of this `rustls_string` will be 0.
+/// The signature_schemes carries the values supplied by the client or, should
+/// the client not use this TLS extension, the default schemes in the rustls
+/// library. See:
+/// https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+/// `alpn` carries the list of ALPN protocol names that the client proposed to
+/// the server. Again, the length of this list will be 0 if non were supplied.
+///
+/// All this data, when passed to a callback function, is only accessible during
+/// the call and may not be modified. Users of this API must copy any values that
+/// they want to access when the callback returned.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_client_hello {
-    sni_name: *const c_char,
-    sni_name_len: size_t,
-    signature_schemes: *const c_ushort,
-    signature_schemes_len: size_t,
+    sni_name: rustls_string,
+    signature_schemes: rustls_vec_ushort,
+    alpn: rustls_vec_string,
 }
 
 /// Any context information the callback will receive when invoked.
 #[allow(non_camel_case_types)]
 pub type rustls_client_hello_userdata = *mut c_void;
 
-/// Called when the TLS ClientHello message was received and successfully decoded.
+/// Prototype of a callback that can be installed by the application at the
+/// `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
+/// once the TLS client hello message has been received.
+/// `userdata` will be supplied as provided when registering the callback.
+/// `hello`gives the value of the available client announcements, as interpreted
+/// by rustls. See the definition of `rustls_client_hello` for details.
+///
+/// NOTE: the passed in `hello` and all its values are only availabe during the
+/// callback invocations.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
 #[allow(non_camel_case_types)]
 pub type rustls_client_hello_callback =
     unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello);
@@ -523,12 +545,12 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
                 None => "",
             }
         };
-        let sigschemes = map_signature_schemes(client_hello.sigschemes());
+        let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
+        let alpn: Vec<rustls_string> = rustls_strings(client_hello.alpn());
         let hello = rustls_client_hello {
-            sni_name: sni_name.as_ptr() as *const c_char,
-            sni_name_len: sni_name.len() as size_t,
-            signature_schemes: sigschemes.as_ptr(),
-            signature_schemes_len: sigschemes.len(),
+            sni_name: rustls_string::from(sni_name),
+            signature_schemes: rustls_vec_ushort::from(&mapped_sigs),
+            alpn: rustls_vec_string::from(&alpn),
         };
         let cb = self.callback;
         unsafe { cb(self.userdata, &hello) };
@@ -542,12 +564,13 @@ unsafe impl Send for ClientHelloResolver {}
 /// Register a callback to be invoked when a session created from this config
 /// is seeing a TLS ClientHello message. The given `userdata` will be passed
 /// to the callback when invoked.
-/// Specifying `replace`!= 0 will replace any existing `ResolvesServerCert` in
-/// the config. Otherwise, the existing `ResolvesServerCert` will be invoked
-/// after the callback has been returned successfully.
-/// Any error returned by the callback will abort the TLS handshake and give
-/// an error in the called rustls function (most likely
-/// `rustls_server_session_write_tls`).
+/// Any existing `ResolvesServerCert` implementation currently installed in the
+/// `rustls_server_config` will be replaced. This also means registering twice
+/// will overwrite the first registration. It is not permitted to pass a NULL
+/// value for `callback`, but it is possible to have `userdata` as NULL.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,

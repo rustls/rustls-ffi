@@ -114,3 +114,41 @@ Functions that are theoretically infallible don't return rustls_result, so we
 can't return RUSTLS_RESULT_PANIC. In those cases, if there's a panic, we'll
 return a default value suitable to the return type: NULL for pointer types,
 false for bool types, and 0 for integer types.
+
+# Experimentals
+
+Several features of the C bindings are marked as `EXPERIMENTAL` as they are
+need further evaluation and will most likely change significantly in the future.
+
+## Server Side Experimentals
+
+The `rustls_server_config_builder_set_hello_callback` and its provided information
+in `rustls_client_hello` will change. The current design is a snapshot of the 
+implementation efforts in [mod_tls](https://github.com/icing/mod_tls) to provide
+`rustls` base TLS as module for the Apache webserver.
+
+For a webserver hosting multiple domains on the same endpoint, it is highly desirable
+to have individual TLS settings, depending on the domain the client wants to talk to.
+Most domains have their own TLS certificates, some have configured restrictions on
+other features as well, such as TLS protocol versions, ciphers or client authentication.
+
+The approach to this taken with the current `rustls_client_hello` is as follows:
+
+#### One domain, one cert
+
+If you have a single site and one certificate, you can preconfigure the `rustls_server_config` accordingly and do not need to register any callback.
+
+#### Multiple domains/certs/settings
+
+If you need to support multiple `rustls_server_config`s on the same connection endpoint, you can start the connection with a default `rustls_server_config` and register a client hello callback. The callback inspects the SNI/ALPN/cipher values announced by the client and selects the appropriate configuration to use.
+
+When your callback returns, the handshake of `rustls` will fail, as no certifcate was configured. This will be noticeable as an error returned from `rustls_server_session_write_tls()`. You can then free this session
+and create the one with the correct setting for the domain chosen.
+
+For this to work, your connection needs ot buffer the initial data from the client, so these bytes can be 
+replayed to the second session you use. Do not write any data back to the client while your are
+in the initial session. The client hellos are usually only a few hundred bytes.
+
+
+
+

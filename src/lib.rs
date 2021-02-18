@@ -3,10 +3,11 @@ use libc::{c_char, size_t};
 use std::{cmp::min, sync::Arc};
 use std::{mem, slice};
 
+mod base;
+mod cipher;
 mod client;
 mod error;
 mod server;
-mod cipher;
 
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
