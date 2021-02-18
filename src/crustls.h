@@ -210,6 +210,14 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * static bytes. We plan to export parsing code in the future to make it
  * possible to implement other strategies.
  *
+ * If you intend to write a verifier that accepts all certificates, be aware
+ * that special measures are required for IP addresses. Rustls currently
+ * (0.19.0) doesn't support building a ClientSession with an IP address
+ * (because it's not a valid DNSNameRef). One workaround is to detect IP
+ * addresses and rewrite them to `example.invalid`, and _also_ to disable
+ * SNI vial rustls_client_config_builder_set_enable_sni (IP addresses don't
+ * need SNI).
+ *
  * If the custom verifier accepts the certificate, it should return
  * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
  * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
@@ -233,6 +241,13 @@ enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_
  */
 enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
                                                                      const char *filename);
+
+/**
+ * Enable or disable SNI.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+ */
+void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
+                                                 bool enable);
 
 /**
  * "Free" a client_config previously returned from

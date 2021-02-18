@@ -213,6 +213,14 @@ impl rustls::ServerCertVerifier for Verifier {
 /// static bytes. We plan to export parsing code in the future to make it
 /// possible to implement other strategies.
 ///
+/// If you intend to write a verifier that accepts all certificates, be aware
+/// that special measures are required for IP addresses. Rustls currently
+/// (0.19.0) doesn't support building a ClientSession with an IP address
+/// (because it's not a valid DNSNameRef). One workaround is to detect IP
+/// addresses and rewrite them to `example.invalid`, and _also_ to disable
+/// SNI vial rustls_client_config_builder_set_enable_sni (IP addresses don't
+/// need SNI).
+///
 /// If the custom verifier accepts the certificate, it should return
 /// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
 /// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
@@ -288,6 +296,16 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     }
 }
 
+/// Enable or disable SNI.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_enable_sni(config: *mut rustls_client_config_builder, enable: bool) {
+    ffi_panic_boundary_unit! {
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
+        config.enable_sni = enable;
+    }
+}
+
 /// "Free" a client_config previously returned from
 /// rustls_client_config_builder_build. Since client_config is actually an
 /// atomically reference-counted pointer, extant client_sessions may still
@@ -297,7 +315,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
     ffi_panic_boundary_unit! {
-        let config: &ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
+        let config: &ClientConfig = try_ref_from_ptr!(config, &ClientConfig, ());
         // To free the client_config, we reconstruct the Arc and then drop it. It should
         // have a refcount of 1, representing the C code's copy. When it drops, that
         // refcount will go down to 0 and the inner ClientConfig will be dropped.
