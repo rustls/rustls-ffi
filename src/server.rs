@@ -2,23 +2,25 @@ use libc::size_t;
 use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
-use std::{slice, marker};
+use std::slice;
 use std::sync::Arc;
 
-use rustls::{Certificate, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session, ClientHello};
+use rustls::{
+    Certificate, ClientHello, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session,
+};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::arc_with_incref_from_raw;
+use crate::cipher::map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
-use rustls_result::NullParameter;
 use rustls::sign::CertifiedKey;
+use rustls_result::NullParameter;
 use std::ffi::c_void;
 use std::os::raw::{c_char, c_ushort};
-use crate::cipher::map_signature_schemes;
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -489,35 +491,33 @@ pub struct rustls_client_hello {
 }
 
 /// Any context information the callback will receive when invoked.
-type ClientHelloUserData = *mut c_void;
+#[allow(non_camel_case_types)]
+pub type rustls_client_hello_userdata = *mut c_void;
 
 /// Called when the TLS ClientHello message was received and successfully decoded.
-type ClientHelloCallback = unsafe extern "C" fn(
-    userdata: ClientHelloUserData,
-    hello: *const rustls_client_hello,
-) -> rustls_result;
+#[allow(non_camel_case_types)]
+pub type rustls_client_hello_callback =
+    unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello);
 
 struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values
     /// from the supplied ClientHello to the callback function.
-    pub callback: ClientHelloCallback,
-    pub userdata: ClientHelloUserData,
-    pub previous_resolver: Option<Arc<dyn rustls::ResolvesServerCert>>,
+    pub callback: rustls_client_hello_callback,
+    pub userdata: rustls_client_hello_userdata,
 }
 
 impl ClientHelloResolver {
     pub fn new(
-        callback: ClientHelloCallback,
-        userdata: ClientHelloUserData,
-        previous_resolver: Option<Arc<dyn rustls::ResolvesServerCert>>,
+        callback: rustls_client_hello_callback,
+        userdata: rustls_client_hello_userdata,
     ) -> ClientHelloResolver {
-        ClientHelloResolver { callback, userdata, previous_resolver }
+        ClientHelloResolver { callback, userdata }
     }
 }
 
 impl rustls::ResolvesServerCert for ClientHelloResolver {
     fn resolve(&self, client_hello: ClientHello<'_>) -> Option<CertifiedKey> {
-        let sni_name = {
+        let sni_name: &str = {
             match client_hello.server_name() {
                 Some(c) => c.into(),
                 None => "",
@@ -531,20 +531,13 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             signature_schemes_len: sigschemes.len(),
         };
         let cb = self.callback;
-        let result: rustls_result = unsafe { cb(self.userdata, &hello) };
-        match result {
-            rustls_result::Ok => rustls_result::Ok,
-            r => panic!("client hello callback returned: {}", r)
-        };
-        match &self.previous_resolver {
-            Some(r) => r.resolve(client_hello),
-            None => None
-        }
+        unsafe { cb(self.userdata, &hello) };
+        None
     }
 }
 
-unsafe impl marker::Sync for ClientHelloResolver {}
-unsafe impl marker::Send for ClientHelloResolver {}
+unsafe impl Sync for ClientHelloResolver {}
+unsafe impl Send for ClientHelloResolver {}
 
 /// Register a callback to be invoked when a session created from this config
 /// is seeing a TLS ClientHello message. The given `userdata` will be passed
@@ -558,27 +551,20 @@ unsafe impl marker::Send for ClientHelloResolver {}
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
-    callback: Option<extern "C" fn(
-        userdata: ClientHelloUserData,
-        hello: *const rustls_client_hello
-    ) -> rustls_result>,
-    userdata: ClientHelloUserData,
-    replace: bool,
+    callback: Option<
+        extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello),
+    >,
+    userdata: rustls_client_hello_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let callback: ClientHelloCallback = match callback {
+        let callback: rustls_client_hello_callback = match callback {
             Some(cb) => cb,
             None => return rustls_result::NullParameter,
         };
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let previous_resolver = match replace {
-            true => None,
-            false => Some(config.cert_resolver.clone()),
-        };
         config.cert_resolver = Arc::new(ClientHelloResolver::new(
-            callback, userdata, previous_resolver
+            callback, userdata
         ));
         rustls_result::Ok
     }
 }
-

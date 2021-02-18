@@ -132,7 +132,7 @@ typedef struct rustls_server_session rustls_server_session;
 /**
  * Any context information the callback will receive when invoked.
  */
-typedef void *ClientHelloUserData;
+typedef void *rustls_client_hello_userdata;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -446,9 +446,8 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
  * `rustls_server_session_write_tls`).
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
-                                                                   enum rustls_result (*callback)(ClientHelloUserData userdata, const struct rustls_client_hello *hello),
-                                                                   ClientHelloUserData userdata,
-                                                                   bool replace);
+                                                                   void (*callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello),
+                                                                   rustls_client_hello_userdata userdata);
 
 void rustls_signature_scheme_name(unsigned short scheme, char *buf, size_t len, size_t *out_n);
 

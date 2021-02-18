@@ -4,34 +4,33 @@ use crate::{ffi_panic_boundary_generic, ffi_panic_boundary_unit};
 use libc::{c_char, size_t};
 use std::os::raw::c_ushort;
 
-
 static ALL_SIGNATURE_SCHEMES: &[rustls::SignatureScheme] = &[
-        rustls::SignatureScheme::RSA_PKCS1_SHA1,
-        rustls::SignatureScheme::ECDSA_SHA1_Legacy,
-        rustls::SignatureScheme::RSA_PKCS1_SHA256,
-        rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
-        rustls::SignatureScheme::RSA_PKCS1_SHA384,
-        rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
-        rustls::SignatureScheme::RSA_PKCS1_SHA512,
-        rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
-        rustls::SignatureScheme::RSA_PSS_SHA256,
-        rustls::SignatureScheme::RSA_PSS_SHA384,
-        rustls::SignatureScheme::RSA_PSS_SHA512,
-        rustls::SignatureScheme::ED25519,
-        rustls::SignatureScheme::ED448,
+    rustls::SignatureScheme::RSA_PKCS1_SHA1,
+    rustls::SignatureScheme::ECDSA_SHA1_Legacy,
+    rustls::SignatureScheme::RSA_PKCS1_SHA256,
+    rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+    rustls::SignatureScheme::RSA_PKCS1_SHA384,
+    rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+    rustls::SignatureScheme::RSA_PKCS1_SHA512,
+    rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+    rustls::SignatureScheme::RSA_PSS_SHA256,
+    rustls::SignatureScheme::RSA_PSS_SHA384,
+    rustls::SignatureScheme::RSA_PSS_SHA512,
+    rustls::SignatureScheme::ED25519,
+    rustls::SignatureScheme::ED448,
 ];
 
 fn signature_scheme_name(n: u16) -> String {
     for scheme in ALL_SIGNATURE_SCHEMES {
         if scheme.get_u16() == n {
-            return format!("{:?}", scheme)
+            return format!("{:?}", scheme);
         }
-    };
+    }
     String::from("Unknown")
 }
 
 pub(crate) fn map_signature_schemes(schemes: &[rustls::SignatureScheme]) -> Vec<u16> {
-    let mut mapped_schemes :Vec<u16> = Vec::new();
+    let mut mapped_schemes: Vec<u16> = Vec::new();
     for s in schemes {
         mapped_schemes.push(s.get_u16());
     }
