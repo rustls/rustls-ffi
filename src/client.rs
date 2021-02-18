@@ -104,15 +104,15 @@ pub struct rustls_verify_params {
     ocsp_response_len: usize,
 }
 
-type VerifyUserData = *const libc::c_void;
-type VerifyCallback = unsafe extern "C" fn(
-    userdata: VerifyUserData,
+type rustls_verify_server_cert_user_data = *const libc::c_void;
+type rustls_verify_server_cert_callback = unsafe extern "C" fn(
+    userdata: rustls_verify_server_cert_user_data,
     params: *const rustls_verify_params,
 ) -> rustls_result;
 
 struct Verifier {
-    callback: VerifyCallback,
-    userdata: VerifyUserData,
+    callback: rustls_verify_server_cert_callback,
+    userdata: rustls_verify_server_cert_user_data,
 }
 
 unsafe impl Send for Verifier {}
@@ -166,11 +166,11 @@ impl rustls::ServerCertVerifier for Verifier {
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,
-    callback: Option<VerifyCallback>,
-    userdata: VerifyUserData,
+    callback: Option<rustls_verify_server_cert_callback>,
+    userdata: rustls_verify_server_cert_user_data,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let callback: VerifyCallback = match callback {
+        let callback: rustls_verify_server_cert_callback = match callback {
             Some(cb) => cb,
             None => return rustls_result::NullParameter,
         }
