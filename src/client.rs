@@ -204,7 +204,7 @@ impl rustls::ServerCertVerifier for Verifier {
 /// The callback must be safe to call on any thread at any time, including
 /// multiple concurrent calls. So, for instance, if the callback mutates
 /// userdata (or other shared state), it must use synchronization primitives
-/// to make such mutatation safe.
+/// to make such mutation safe.
 ///
 /// The callback receives certificate chain information as raw bytes.
 /// Currently this library offers no functions for C code to parse the
