@@ -23,7 +23,6 @@ use rustls_result::NullParameter;
 /// for concurrent mutation. Under the hood, it corresponds to a
 /// Box<ServerConfig>.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
-#[allow(non_camel_case_types)]
 pub struct rustls_server_config_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -34,7 +33,6 @@ pub struct rustls_server_config_builder {
 /// A server config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an Arc<ServerConfig>.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
-#[allow(non_camel_case_types)]
 pub struct rustls_server_config {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -42,7 +40,6 @@ pub struct rustls_server_config {
     _private: [u8; 0],
 }
 
-#[allow(non_camel_case_types)]
 pub struct rustls_server_session {
     _private: [u8; 0],
 }
