@@ -87,6 +87,7 @@ pub struct rustls_root_cert_store {
 
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
+#[repr(C)]
 pub struct rustls_certificate {
     bytes: *const u8,
     len: usize,
@@ -94,24 +95,40 @@ pub struct rustls_certificate {
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
-pub struct rustls_verify_params {
+pub struct rustls_verify_server_cert_params {
     roots: *const rustls_root_cert_store,
-    presented_certs: *const rustls_certificate,
-    presented_certs_len: usize,
+    end_entity: rustls_certificate,
+    intermediates: *const rustls_certificate,
+    intermediates_len: usize,
     dns_name: *const c_char,
     dns_name_len: usize,
     ocsp_response: *const u8,
     ocsp_response_len: usize,
 }
 
-type rustls_verify_server_cert_user_data = *const libc::c_void;
-type rustls_verify_server_cert_callback = unsafe extern "C" fn(
+#[allow(non_camel_case_types)]
+type rustls_verify_server_cert_user_data = *mut libc::c_void;
+
+// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
+// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
+// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
+// So we use Option<...> here. This is the type that is passed from C code.
+#[allow(non_camel_case_types)]
+type rustls_verify_server_cert_callback = Option<unsafe extern "C" fn(
     userdata: rustls_verify_server_cert_user_data,
-    params: *const rustls_verify_params,
+    params: *const rustls_verify_server_cert_params,
+) -> rustls_result>;
+
+// This is the same as a rustls_verify_server_cert_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+type NonNullVerifyCallback = unsafe extern "C" fn(
+    userdata: rustls_verify_server_cert_user_data,
+    params: *const rustls_verify_server_cert_params,
 ) -> rustls_result;
 
+// An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
-    callback: rustls_verify_server_cert_callback,
+    callback: NonNullVerifyCallback,
     userdata: rustls_verify_server_cert_user_data,
 }
 
@@ -128,7 +145,7 @@ impl rustls::ServerCertVerifier for Verifier {
     ) -> Result<ServerCertVerified, TLSError> {
         let cb = self.callback;
         let dns_name: &str = dns_name.into();
-        let certificates: Vec<rustls_certificate> = presented_certs
+        let mut certificates: Vec<rustls_certificate> = presented_certs
             .iter()
             .map(|cert: &Certificate| {
                 let cert: &[u8] = cert.as_ref();
@@ -138,10 +155,18 @@ impl rustls::ServerCertVerifier for Verifier {
                 }
             })
             .collect();
-        let params = rustls_verify_params {
+        // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
+        // rustls changed the verifier API to separate the end entity and intermediates.
+        // We anticipate that API by doing it ourselves.
+        let end_entity = match certificates.pop() {
+            Some(c) => c,
+            None => return Err(TLSError::General("missing end-entity certificate".to_string())),
+        };
+        let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
-            presented_certs: certificates.as_ptr(),
-            presented_certs_len: presented_certs.len(),
+            end_entity,
+            intermediates: certificates.as_ptr(),
+            intermediates_len: certificates.len(),
             dns_name: dns_name.as_ptr() as *const c_char,
             dns_name_len: dns_name.len(),
             ocsp_response: ocsp_response.as_ptr(),
@@ -158,22 +183,40 @@ impl rustls::ServerCertVerifier for Verifier {
     }
 }
 
-/// Set a custom certificate verifier.
-// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
-// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
-// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
-// So we use Option<VerifyCallback> here.
+/// Set a custom server certificate verifier.
+///
+/// The userdata pointer must stay valid until (a) all sessions created with this
+/// config have been freed, and (b) the config itself has been freed.
+/// The callback must not capture any of the pointers in its
+/// rustls_verify_server_cert_params.
+///
+/// The callback must be safe to call on any thread at any time, including
+/// multiple concurrent calls. So, for instance, if the callback mutates
+/// userdata (or other shared state), it must use synchronization primitives
+/// to make such mutatation safe.
+///
+/// The callback receives certificate chain information as raw bytes.
+/// Currently this library offers no functions for C code to parse the
+/// certificates, so it's only possible to implement verifiers that either
+/// (a) always succeed (or fail), or (b) compare the certificates against
+/// static bytes. We plan to export parsing code in the future to make it
+/// possible to implement other strategies.
+///
+/// If the custom verifier accepts the certificate, it should return
+/// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
+/// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
+/// section.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,
-    callback: Option<rustls_verify_server_cert_callback>,
+    callback: rustls_verify_server_cert_callback,
     userdata: rustls_verify_server_cert_user_data,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let callback: rustls_verify_server_cert_callback = match callback {
+        let callback: NonNullVerifyCallback = match callback {
             Some(cb) => cb,
             None => return rustls_result::NullParameter,
-        }
+        };
         let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
         let verifier: Verifier = Verifier{callback: callback, userdata};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));

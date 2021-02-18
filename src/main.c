@@ -471,7 +471,7 @@ cleanup:
 }
 
 enum rustls_result
-verify(__attribute((unused)) const void *userdata, __attribute((unused)) const rustls_verify_params *params) {
+verify(__attribute((unused)) void *userdata, __attribute((unused)) const rustls_verify_server_cert_params *params) {
   return RUSTLS_RESULT_OK;
 }
 
@@ -507,7 +507,9 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify, NULL);
+  if(getenv("NO_CHECK_CERTIFICATE")) {
+    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify, NULL);
+  }
 
   client_config = rustls_client_config_builder_build(config_builder);
 

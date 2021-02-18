@@ -89,8 +89,6 @@ typedef enum rustls_result {
   RUSTLS_RESULT_CERT_SCT_UNKNOWN_LOG = 7323,
 } rustls_result;
 
-typedef struct rustls_certificate rustls_certificate;
-
 /**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
@@ -133,19 +131,25 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 
 typedef struct rustls_server_session rustls_server_session;
 
-typedef const void *VerifyUserData;
+typedef void *rustls_verify_server_cert_user_data;
 
-typedef struct rustls_verify_params {
+typedef struct rustls_certificate {
+  const uint8_t *bytes;
+  uintptr_t len;
+} rustls_certificate;
+
+typedef struct rustls_verify_server_cert_params {
   const struct rustls_root_cert_store *roots;
-  const struct rustls_certificate *presented_certs;
-  uintptr_t presented_certs_len;
+  struct rustls_certificate end_entity;
+  const struct rustls_certificate *intermediates;
+  uintptr_t intermediates_len;
   const char *dns_name;
   uintptr_t dns_name_len;
   const uint8_t *ocsp_response;
   uintptr_t ocsp_response_len;
-} rustls_verify_params;
+} rustls_verify_server_cert_params;
 
-typedef enum rustls_result (*VerifyCallback)(VerifyUserData userdata, const struct rustls_verify_params *params);
+typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
 
 /**
  * Write the version of the crustls C bindings and rustls itself into the
@@ -170,12 +174,33 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
 
 /**
- * Add certificates from platform's native root store, using
- * https://github.com/ctz/rustls-native-certs#readme.
+ * Set a custom server certificate verifier.
+ *
+ * The userdata pointer must stay valid until (a) all sessions created with this
+ * config have been freed, and (b) the config itself has been freed.
+ * The callback must not capture any of the pointers in its
+ * rustls_verify_server_cert_params.
+ *
+ * The callback must be safe to call on any thread at any time, including
+ * multiple concurrent calls. So, for instance, if the callback mutates
+ * userdata (or other shared state), it must use synchronization primitives
+ * to make such mutatation safe.
+ *
+ * The callback receives certificate chain information as raw bytes.
+ * Currently this library offers no functions for C code to parse the
+ * certificates, so it's only possible to implement verifiers that either
+ * (a) always succeed (or fail), or (b) compare the certificates against
+ * static bytes. We plan to export parsing code in the future to make it
+ * possible to implement other strategies.
+ *
+ * If the custom verifier accepts the certificate, it should return
+ * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
+ * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
+ * section.
  */
 enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                                   VerifyCallback callback,
-                                                                                   VerifyUserData userdata);
+                                                                                   rustls_verify_server_cert_callback callback,
+                                                                                   rustls_verify_server_cert_user_data userdata);
 
 /**
  * Add certificates from platform's native root store, using
@@ -312,6 +337,7 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
+
 /**
  * Sets a single certificate chain and matching private key.
  * This certificate and key is used for all subsequent connections,
@@ -440,4 +466,5 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           uint8_t *buf,
                                                           size_t count,
                                                           size_t *out_n);
+
 #endif /* CRUSTLS_H */
