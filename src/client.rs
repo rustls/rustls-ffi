@@ -232,16 +232,15 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
     config: *mut rustls_client_config_builder,
     callback: rustls_verify_server_cert_callback,
     userdata: rustls_verify_server_cert_user_data,
-) -> rustls_result {
-    ffi_panic_boundary! {
+) {
+    ffi_panic_boundary_unit! {
         let callback: NonNullVerifyCallback = match callback {
             Some(cb) => cb,
-            None => return rustls_result::NullParameter,
+            None => return,
         };
-        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig);
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
         let verifier: Verifier = Verifier{callback: callback, userdata};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
-        rustls_result::Ok
     }
 }
 

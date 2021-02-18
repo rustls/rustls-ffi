@@ -225,9 +225,9 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  *
  * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
-enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                                   rustls_verify_server_cert_callback callback,
-                                                                                   rustls_verify_server_cert_user_data userdata);
+void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
+                                                                     rustls_verify_server_cert_callback callback,
+                                                                     rustls_verify_server_cert_user_data userdata);
 
 /**
  * Add certificates from platform's native root store, using
