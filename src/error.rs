@@ -45,7 +45,6 @@ pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
     }
 }
 
-#[allow(non_camel_case_types)]
 #[repr(C)]
 pub enum rustls_result {
     Ok = 7000,

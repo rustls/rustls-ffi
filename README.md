@@ -142,10 +142,10 @@ If you have a single site and one certificate, you can preconfigure the `rustls_
 
 If you need to support multiple `rustls_server_config`s on the same connection endpoint, you can start the connection with a default `rustls_server_config` and register a client hello callback. The callback inspects the SNI/ALPN/cipher values announced by the client and selects the appropriate configuration to use.
 
-When your callback returns, the handshake of `rustls` will fail, as no certifcate was configured. This will be noticeable as an error returned from `rustls_server_session_write_tls()`. You can then free this session
+When your callback returns, the handshake of `rustls` will fail, as no certificate was configured. This will be noticeable as an error returned from `rustls_server_session_write_tls()`. You can then free this session
 and create the one with the correct setting for the domain chosen.
 
-For this to work, your connection needs ot buffer the initial data from the client, so these bytes can be 
+For this to work, your connection needs to buffer the initial data from the client, so these bytes can be 
 replayed to the second session you use. Do not write any data back to the client while your are
 in the initial session. The client hellos are usually only a few hundred bytes.
 

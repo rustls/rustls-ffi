@@ -1,4 +1,5 @@
 #![crate_type = "staticlib"]
+#![allow(non_camel_case_types)]
 use libc::{c_char, size_t};
 use std::{cmp::min, sync::Arc};
 use std::{mem, slice};

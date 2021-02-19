@@ -121,7 +121,18 @@ pub struct rustls_vec_ushort {
     len: size_t,
 }
 
-impl From<&Vec<u16>> for rustls_vec_ushort {
+impl<'a> From<&'a [u16]> for rustls_vec_ushort {
+    fn from(values: &[u16]) -> Self {
+        rustls_vec_ushort {
+            data: values.as_ptr(),
+            len: values.len(),
+        }
+    }
+}
+
+// Should not be necessary, according to:
+// https://github.com/abetterinternet/crustls/pull/50#discussion_r578720430
+impl<'a> From<&'a Vec<u16>> for rustls_vec_ushort {
     fn from(values: &Vec<u16>) -> Self {
         rustls_vec_ushort {
             data: values.as_ptr(),
