@@ -135,16 +135,15 @@ typedef struct rustls_server_session rustls_server_session;
 typedef void *rustls_client_hello_userdata;
 
 /**
- * A read-only view on a Rust utf-8 string or byte array.
- * This is used to pass data from crustls to callback functions provided
+ * A read-only view on a Rust utf-8 string.
+ * This is used to pass strings from crustls to callback functions provided
  * by the user of the API. The `data` is not NUL-terminated.
- * `len` indicates the number of bytes than can be safely read.
+ * `len` indicates the number of utf-8 bytes than can be safely read.
  * A `len` of 0 is used to represent a missing value.
  *
  * The memmory exposed is available for the duration of the call (e.g.
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
- *
  */
 typedef struct rustls_string {
   const char *data;
@@ -167,9 +166,24 @@ typedef struct rustls_vec_ushort {
 } rustls_vec_ushort;
 
 /**
- * A read-only view on a list of Rust utf-8 strings or byte arrays.
+ * A read-only view on a Rust slice of bytes.
  * This is used to pass data from crustls to callback functions provided
- * by the user of the API. The `data` is an array of `rustls_string`
+ * by the user of the API. `len` indicates the number of bytes than can
+ * be safely read. A `len` of 0 is used to represent a missing value.
+ *
+ * The memmory exposed is available for the duration of the call (e.g.
+ * when passed to a callback) and must be copied if the values are
+ * needed for longer.
+ */
+typedef struct rustls_bytes {
+  const unsigned char *data;
+  size_t len;
+} rustls_bytes;
+
+/**
+ * A read-only view on a list of Rust bytes.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. The `data` is an array of `rustls_bytes`
  * structures with `len` elements.
  *
  * The memmory exposed is available for the duration of the call (e.g.
@@ -177,10 +191,10 @@ typedef struct rustls_vec_ushort {
  * needed for longer.
  *
  */
-typedef struct rustls_vec_string {
-  const struct rustls_string *data;
+typedef struct rustls_vec_bytes {
+  const struct rustls_bytes *data;
   size_t len;
-} rustls_vec_string;
+} rustls_vec_bytes;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -203,7 +217,7 @@ typedef struct rustls_vec_string {
 typedef struct rustls_client_hello {
   struct rustls_string sni_name;
   struct rustls_vec_ushort signature_schemes;
-  struct rustls_vec_string alpn;
+  struct rustls_vec_bytes alpn;
 } rustls_client_hello;
 
 /**

@@ -11,7 +11,9 @@ use rustls::{
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::arc_with_incref_from_raw;
-use crate::base::{rustls_string, rustls_strings, rustls_vec_string, rustls_vec_ushort};
+use crate::base::{
+    rustls_bytes, rustls_bytes_vec_from_slices, rustls_string, rustls_vec_bytes, rustls_vec_ushort,
+};
 use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
@@ -495,7 +497,7 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
 pub struct rustls_client_hello {
     sni_name: rustls_string,
     signature_schemes: rustls_vec_ushort,
-    alpn: rustls_vec_string,
+    alpn: rustls_vec_bytes,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -551,11 +553,11 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             }
         };
         let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
-        let alpn: Vec<rustls_string> = rustls_strings(client_hello.alpn());
+        let alpn: Vec<rustls_bytes> = rustls_bytes_vec_from_slices(client_hello.alpn());
         let hello = rustls_client_hello {
             sni_name: rustls_string::from(sni_name),
             signature_schemes: rustls_vec_ushort::from(&mapped_sigs),
-            alpn: rustls_vec_string::from(&alpn),
+            alpn: rustls_vec_bytes::from(&alpn),
         };
         let cb = self.callback;
         unsafe { cb(self.userdata, &hello) };
