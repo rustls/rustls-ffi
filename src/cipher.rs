@@ -4,7 +4,7 @@ use crate::{ffi_panic_boundary_generic, ffi_panic_boundary_unit};
 use libc::{c_char, size_t};
 use std::os::raw::c_ushort;
 
-/// All SignatureScheme currently defines in rustls.
+/// All SignatureScheme currently defined in rustls.
 /// At the moment not exposed by rustls itself.
 #[no_mangle]
 pub(crate) static ALL_SIGNATURE_SCHEMES: &[rustls::SignatureScheme] = &[

@@ -518,19 +518,27 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
 #[allow(non_camel_case_types)]
-pub type rustls_client_hello_callback =
+#[allow(dead_code)]
+pub type rustls_client_hello_callback = Option<
+    unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello),
+>;
+
+// This is the same as a rustls_verify_server_cert_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+#[allow(non_camel_case_types)]
+type non_null_rustls_client_hello_callback =
     unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello);
 
 struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values
     /// from the supplied ClientHello to the callback function.
-    pub callback: rustls_client_hello_callback,
+    pub callback: non_null_rustls_client_hello_callback,
     pub userdata: rustls_client_hello_userdata,
 }
 
 impl ClientHelloResolver {
     pub fn new(
-        callback: rustls_client_hello_callback,
+        callback: non_null_rustls_client_hello_callback,
         userdata: rustls_client_hello_userdata,
     ) -> ClientHelloResolver {
         ClientHelloResolver { callback, userdata }
@@ -580,7 +588,7 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     userdata: rustls_client_hello_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let callback: rustls_client_hello_callback = match callback {
+        let callback: non_null_rustls_client_hello_callback = match callback {
             Some(cb) => cb,
             None => return rustls_result::NullParameter,
         };
