@@ -5,16 +5,13 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use rustls::{
-    Certificate, ClientHello, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session,
-};
-use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
+use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
 use crate::arc_with_incref_from_raw;
 use crate::base::{
     rustls_bytes, rustls_bytes_vec_from_slices, rustls_string, rustls_vec_bytes, rustls_vec_ushort,
 };
-use crate::cipher::rustls_cipher_map_signature_schemes;
+use crate::cipher::{rustls_cipher_certified_key, rustls_cipher_map_signature_schemes};
 use crate::error::{map_error, rustls_result};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -91,6 +88,10 @@ pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
 /// first.
 /// private_key must point to a byte array of length private_key_len containing
 /// a private key in PEM-encoded PKCS#8 or PKCS#1 format.
+///
+/// EXPERIMENTAL: installing a client_hello callback will replace any
+/// configured certified keys and vice versa. Same holds true for the
+/// set_single_cert variant.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
     builder: *mut rustls_server_config_builder,
@@ -101,44 +102,53 @@ pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let mut cert_chain: &[u8] = unsafe {
-            if cert_chain.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(cert_chain, cert_chain_len as usize)
+        let certified_key: CertifiedKey = match crate::cipher::certified_key_build(
+            cert_chain, cert_chain_len, private_key, private_key_len) {
+            Ok(key) => key,
+            Err(rr) => return rr,
         };
-        let private_key: &[u8] = unsafe {
-            if private_key.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(private_key, private_key_len as usize)
+        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&[Arc::new(certified_key)]));
+        rustls_result::Ok
+    }
+}
+
+/// Provide the configuration a list of certificates where the session
+/// will select the first one that is compatible with the client's signing
+/// capabilities. Servers that want to support ECDSA and RSA certificates
+/// will want the ECSDA to go first in the list.
+///
+/// The built configuration will keep a reference to all certified keys
+/// provided. The client may `rustls_cipher_certified_key_free()` afterwards
+/// without the configuration losing them. The same certified key may also
+/// be appear in multiple configs.
+///
+/// EXPERIMENTAL: installing a client_hello callback will replace any
+/// configured certified keys and vice versa. Same holds true for the
+/// set_single_cert variant.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_certified_keys(
+    builder: *mut rustls_server_config_builder,
+    certified_keys: *const *const rustls_cipher_certified_key,
+    certified_keys_len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+        let keys_ptrs = unsafe {
+            slice::from_raw_parts(certified_keys, certified_keys_len)
         };
-        let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key)) {
-            Ok(v) => v,
-            Err(_) => return rustls_result::PrivateKeyParseError,
-        };
-        let private_key: PrivateKey = match private_keys.pop() {
-            Some(p) => PrivateKey(p),
-            None => {
-                private_keys = match rsa_private_keys(&mut Cursor::new(private_key)) {
-                    Ok(v) => v,
-                    Err(_) => return rustls_result::PrivateKeyParseError,
-                };
-                let rsa_private_key: PrivateKey = match private_keys.pop() {
-                    Some(p) => PrivateKey(p),
-                    None => return rustls_result::PrivateKeyParseError,
-                };
-                rsa_private_key
-            }
-        };
-        let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
-            Ok(v) => v.into_iter().map(Certificate).collect(),
-            Err(_) => return rustls_result::CertificateParseError,
-        };
-        match config.set_single_cert(parsed_chain, private_key) {
-            Ok(()) => rustls_result::Ok,
-            Err(e) => map_error(e),
+        for key_ptr_ref in keys_ptrs {
+            let key_ptr = *key_ptr_ref;
+            let certified_key: Arc<CertifiedKey> = unsafe {
+                match (key_ptr as *const CertifiedKey).as_ref() {
+                    Some(c) => arc_with_incref_from_raw(c),
+                    None => return NullParameter,
+                }
+            };
+            keys.push(certified_key);
         }
+        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&keys));
+        rustls_result::Ok
     }
 }
 
@@ -476,6 +486,35 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
     }
 }
 
+/// Choose the server certificate to be used for a session.
+/// Will pick the first CertfiedKey available that is suitable for
+/// the SignatureSchemes supported by the client.
+struct ResolvesServerCertFromChoices {
+    choices: Vec<Arc<rustls::sign::CertifiedKey>>,
+}
+
+impl ResolvesServerCertFromChoices {
+    pub fn new(choices: &[Arc<rustls::sign::CertifiedKey>]) -> ResolvesServerCertFromChoices {
+        ResolvesServerCertFromChoices {
+            choices: Vec::from(choices),
+        }
+    }
+}
+
+impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
+    fn resolve(&self, client_hello: ClientHello) -> Option<rustls::sign::CertifiedKey> {
+        for key in self.choices.iter() {
+            match key.key.choose_scheme(client_hello.sigschemes()) {
+                Some(_) => {
+                    return Some(key.as_ref().clone());
+                }
+                None => (),
+            };
+        }
+        None
+    }
+}
+
 /// The TLS Client Hello information provided to a ClientHelloCallback function.
 /// `sni_name` is the SNI servername provided by the client. If the client
 /// did not provide an SNI, the length of this `rustls_string` will be 0.
@@ -519,14 +558,20 @@ pub type rustls_client_hello_userdata = *mut c_void;
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
 pub type rustls_client_hello_callback = Option<
-    unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello),
+    unsafe extern "C" fn(
+        userdata: rustls_client_hello_userdata,
+        hello: *const rustls_client_hello,
+    ) -> *const rustls_cipher_certified_key,
 >;
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
 // the Option (which is equivalent to checking for null).
 #[allow(non_camel_case_types)]
 type non_null_rustls_client_hello_callback =
-    unsafe extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello);
+    unsafe extern "C" fn(
+        userdata: rustls_client_hello_userdata,
+        hello: *const rustls_client_hello,
+    ) -> *const rustls_cipher_certified_key;
 
 struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values
@@ -560,8 +605,14 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             alpn: rustls_vec_bytes::from(&alpn),
         };
         let cb = self.callback;
-        unsafe { cb(self.userdata, &hello) };
-        None
+        let key_ptr = unsafe { cb(self.userdata, &hello) };
+        let certified_key: &CertifiedKey = unsafe {
+            match (key_ptr as *const CertifiedKey).as_ref() {
+                Some(c) => c,
+                None => return None,
+            }
+        };
+        Some(certified_key.clone())
     }
 }
 
@@ -578,12 +629,12 @@ unsafe impl Send for ClientHelloResolver {}
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
+/// Installing a client_hello callback will replace any configured certified keys
+/// and vice versa. Same holds true for the set_single_cert variant.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
-    callback: Option<
-        extern "C" fn(userdata: rustls_client_hello_userdata, hello: *const rustls_client_hello),
-    >,
+    callback: rustls_client_hello_callback,
     userdata: rustls_client_hello_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
