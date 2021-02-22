@@ -142,30 +142,29 @@ typedef struct rustls_server_session rustls_server_session;
 typedef void *rustls_client_hello_userdata;
 
 /**
- * A read-only view on a Rust utf-8 string.
- * This is used to pass strings from crustls to callback functions provided
+ * A read-only view on a Rust utf-8 string slice.
+ * This is used to pass data from crustls to callback functions provided
  * by the user of the API. The `data` is not NUL-terminated.
- * `len` indicates the number of utf-8 bytes than can be safely read.
- * A `len` of 0 is used to represent a missing value.
+ * `len` indicates the number of bytes than can be safely read.
+ * A `len` of 0 is used to represent a missing value OR an empty string.
  *
- * The memmory exposed is available for the duration of the call (e.g.
+ * The memory exposed is available for the duration of the call (e.g.
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
  */
-typedef struct rustls_string {
+typedef struct rustls_str {
   const char *data;
   size_t len;
-} rustls_string;
+} rustls_str;
 
 /**
  * A read-only view on a list of Rust owned unsigned short values.
  * This is used to pass data from crustls to callback functions provided
  * by the user of the API. The `data` is an array of `len` 16 bit values.
  *
- * The memmory exposed is available for the duration of the call (e.g.
+ * The memory exposed is available for the duration of the call (e.g.
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
- *
  */
 typedef struct rustls_vec_ushort {
   const unsigned short *data;
@@ -173,35 +172,37 @@ typedef struct rustls_vec_ushort {
 } rustls_vec_ushort;
 
 /**
- * A read-only view on a Rust slice of bytes.
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API. `len` indicates the number of bytes than can
- * be safely read. A `len` of 0 is used to represent a missing value.
+ * A read-only view on a Rust byte slice.
  *
- * The memmory exposed is available for the duration of the call (e.g.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ * A `len` of 0 is used to represent a missing value OR an empty slice.
+ *
+ * The memory exposed is available for the duration of the call (e.g.
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
  */
-typedef struct rustls_bytes {
-  const unsigned char *data;
+typedef struct rustls_slice_bytes {
+  const uint8_t *data;
   size_t len;
-} rustls_bytes;
+} rustls_slice_bytes;
 
 /**
- * A read-only view on a list of Rust bytes.
+ * A read-only view on a vector of Rust byte slices.
+ *
  * This is used to pass data from crustls to callback functions provided
- * by the user of the API. The `data` is an array of `rustls_bytes`
+ * by the user of the API. The `data` is an array of `rustls_slice_bytes`
  * structures with `len` elements.
  *
- * The memmory exposed is available for the duration of the call (e.g.
+ * The memory exposed is available for the duration of the call (e.g.
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
- *
  */
-typedef struct rustls_vec_bytes {
-  const struct rustls_bytes *data;
+typedef struct rustls_vec_slice_bytes {
+  const struct rustls_slice_bytes *data;
   size_t len;
-} rustls_vec_bytes;
+} rustls_vec_slice_bytes;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -222,9 +223,9 @@ typedef struct rustls_vec_bytes {
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef struct rustls_client_hello {
-  struct rustls_string sni_name;
+  struct rustls_str sni_name;
   struct rustls_vec_ushort signature_schemes;
-  struct rustls_vec_bytes alpn;
+  struct rustls_vec_slice_bytes alpn;
 } rustls_client_hello;
 
 /**

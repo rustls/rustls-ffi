@@ -7,11 +7,9 @@ use std::sync::Arc;
 
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
-use crate::arc_with_incref_from_raw;
-use crate::base::{
-    rustls_bytes, rustls_bytes_vec_from_slices, rustls_string, rustls_vec_bytes, rustls_vec_ushort,
-};
-use crate::cipher::{rustls_cipher_certified_key, rustls_cipher_map_signature_schemes};
+use crate::{arc_with_incref_from_raw, base::rustls_vec_slice_bytes, cipher::rustls_cipher_certified_key};
+use crate::base::{rustls_str, rustls_vec_ushort};
+use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -533,10 +531,10 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 /// the rustls library is re-evaluating their current approach to client hello handling.
 #[allow(non_camel_case_types)]
 #[repr(C)]
-pub struct rustls_client_hello {
-    sni_name: rustls_string,
+pub struct rustls_client_hello<'a> {
+    sni_name: rustls_str<'a>,
     signature_schemes: rustls_vec_ushort,
-    alpn: rustls_vec_bytes,
+    alpn: rustls_vec_slice_bytes<'a>,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -598,11 +596,13 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             }
         };
         let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
-        let alpn: Vec<rustls_bytes> = rustls_bytes_vec_from_slices(client_hello.alpn());
+        // Unwrap the Option. None becomes an empty slice.
+        let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
+        let alpn: rustls_vec_slice_bytes = alpn.into();
         let hello = rustls_client_hello {
-            sni_name: rustls_string::from(sni_name),
+            sni_name: rustls_str::from(sni_name),
             signature_schemes: rustls_vec_ushort::from(&mapped_sigs),
-            alpn: rustls_vec_bytes::from(&alpn),
+            alpn,
         };
         let cb = self.callback;
         let key_ptr = unsafe { cb(self.userdata, &hello) };
