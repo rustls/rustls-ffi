@@ -1,5 +1,5 @@
 use libc::{c_char, size_t};
-use std::{marker::PhantomData, os::raw::{c_ushort}};
+use std::{marker::PhantomData, os::raw::c_ushort};
 
 /// A read-only view on a Rust byte slice.
 ///
@@ -45,17 +45,43 @@ pub struct rustls_vec_slice_bytes<'a> {
     len: size_t,
 }
 
-impl<'a> From<&'a [&[u8]]> for rustls_vec_slice_bytes<'a> {
+/// Internal struct that keeps the actual slice_byte data from which
+/// we show pointers to in C API callbacks.
+///
+/// While we indicate with lifetimes that the bytes we point to should live
+/// as long as this struct, the rustls_vec_slice_bytes view exposes an
+/// array of `rustls_slice_bytes` which does not exist before the view is created.
+///
+/// Since we do not want to expose the Vec<> itself in the struct, but need
+/// to announce all its members to C (so it has a known size), we create a `keeper`
+/// around it that holds all necessary, but not visible information.
+pub(crate) struct rustls_vec_slice_bytes_keeper<'a> {
+    #[allow(dead_code)]
+    data: Vec<rustls_slice_bytes<'a>>,
+    pub view: rustls_vec_slice_bytes<'a>,
+}
+
+impl<'a> rustls_vec_slice_bytes_keeper<'a> {
+    pub fn new(slice_data: Vec<rustls_slice_bytes>) -> rustls_vec_slice_bytes_keeper {
+        let view = rustls_vec_slice_bytes {
+            data: slice_data.as_ptr(),
+            len: slice_data.len(),
+        };
+        rustls_vec_slice_bytes_keeper {
+            data: slice_data,
+            view: view,
+        }
+    }
+}
+
+impl<'a> From<&'a [&[u8]]> for rustls_vec_slice_bytes_keeper<'a> {
     fn from(input: &'a [&[u8]]) -> Self {
-        let mut output: Vec<rustls_slice_bytes> = vec![];
+        let mut slice_data: Vec<rustls_slice_bytes> = vec![];
         for b in input {
             let b: &[u8] = b;
-            output.push(b.into());
+            slice_data.push(b.into());
         }
-        rustls_vec_slice_bytes {
-            data: output.as_ptr(),
-            len: output.len(),
-        }
+        rustls_vec_slice_bytes_keeper::new(slice_data)
     }
 }
 
@@ -93,17 +119,35 @@ pub struct rustls_vec_str<'a> {
     len: size_t,
 }
 
-impl<'a> From<&'a [String]> for rustls_vec_str<'a> {
+/// Internal struct that keeps the actual str data from which
+/// we show pointers to in C API callbacks.
+pub(crate) struct rustls_vec_str_keeper<'a> {
+    #[allow(dead_code)]
+    data: Vec<rustls_str<'a>>,
+    pub view: rustls_vec_str<'a>,
+}
+
+impl<'a> rustls_vec_str_keeper<'a> {
+    pub fn new(str_data: Vec<rustls_str>) -> rustls_vec_str_keeper {
+        let view = rustls_vec_str {
+            data: str_data.as_ptr(),
+            len: str_data.len(),
+        };
+        rustls_vec_str_keeper {
+            data: str_data,
+            view: view,
+        }
+    }
+}
+
+impl<'a> From<&'a [String]> for rustls_vec_str_keeper<'a> {
     fn from(input: &'a [String]) -> Self {
         let mut output: Vec<rustls_str> = vec![];
         for b in input {
             let b: &str = b;
             output.push(b.into());
         }
-        rustls_vec_str {
-            data: output.as_ptr(),
-            len: output.len(),
-        }
+        rustls_vec_str_keeper::new(output)
     }
 }
 
