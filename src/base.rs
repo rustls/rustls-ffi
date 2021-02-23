@@ -40,48 +40,50 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
 /// needed for longer.
 #[allow(non_camel_case_types)]
 #[repr(C)]
-pub struct rustls_vec_slice_bytes<'a> {
+pub struct rustls_slice_slice_bytes<'a> {
     data: *const rustls_slice_bytes<'a>,
     len: size_t,
 }
 
-/// Internal struct that keeps the actual slice_byte data from which
-/// we show pointers to in C API callbacks.
+/// An immutable slice of slices of bytes that can be read in Rust and C.  
 ///
-/// While we indicate with lifetimes that the bytes we point to should live
-/// as long as this struct, the rustls_vec_slice_bytes view exposes an
-/// array of `rustls_slice_bytes` which does not exist before the view is created.
+/// The Rust `&[&[u8]]` primitive is translated into a `rustls_slice_slice_bytes`
+/// view of the same data for C. This involves additional allocation that are
+/// kept in the translation, preserving the lifetime of everything involved.
 ///
-/// Since we do not want to expose the Vec<> itself in the struct, but need
-/// to announce all its members to C (so it has a known size), we create a `keeper`
-/// around it that holds all necessary, but not visible information.
-pub(crate) struct rustls_vec_slice_bytes_keeper<'a> {
+/// Note: Rust does not track `x.as_ptr()` which means that usages of the pointer
+/// are not counted and `x` is seemingly no longer used afterwards. We pass around
+/// a pointer to things in `model_for_c` and need to preserve it. However, for the
+/// Rust analyzer this is only dead code.
+pub(crate) struct BytesSlicesSliceTranslation<'a> {
     #[allow(dead_code)]
-    data: Vec<rustls_slice_bytes<'a>>,
-    pub view: rustls_vec_slice_bytes<'a>,
+    pub in_rust: &'a [&'a [u8]],
+    pub in_c: rustls_slice_slice_bytes<'a>,
+    #[allow(dead_code)]
+    model_for_c: Vec<rustls_slice_bytes<'a>>,
 }
 
-impl<'a> rustls_vec_slice_bytes_keeper<'a> {
-    pub fn new(slice_data: Vec<rustls_slice_bytes>) -> rustls_vec_slice_bytes_keeper {
-        let view = rustls_vec_slice_bytes {
-            data: slice_data.as_ptr(),
-            len: slice_data.len(),
-        };
-        rustls_vec_slice_bytes_keeper {
-            data: slice_data,
-            view: view,
+impl<'a> BytesSlicesSliceTranslation<'a> {
+    pub fn new(slices: &'a [&'a [u8]]) -> BytesSlicesSliceTranslation {
+        let mut model_for_c: Vec<rustls_slice_bytes> = vec![];
+        for b in slices {
+            let b: &[u8] = b;
+            model_for_c.push(b.into());
+        }
+        BytesSlicesSliceTranslation {
+            in_rust: slices,
+            in_c: rustls_slice_slice_bytes {
+                data: model_for_c.as_ptr(),
+                len: model_for_c.len(),
+            },
+            model_for_c,
         }
     }
 }
 
-impl<'a> From<&'a [&[u8]]> for rustls_vec_slice_bytes_keeper<'a> {
+impl<'a> From<&'a [&[u8]]> for BytesSlicesSliceTranslation<'a> {
     fn from(input: &'a [&[u8]]) -> Self {
-        let mut slice_data: Vec<rustls_slice_bytes> = vec![];
-        for b in input {
-            let b: &[u8] = b;
-            slice_data.push(b.into());
-        }
-        rustls_vec_slice_bytes_keeper::new(slice_data)
+        BytesSlicesSliceTranslation::new(input)
     }
 }
 
@@ -114,40 +116,51 @@ impl<'a> From<&'a str> for rustls_str<'a> {
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
-pub struct rustls_vec_str<'a> {
+pub struct rustls_slice_str<'a> {
     data: *const rustls_str<'a>,
     len: size_t,
 }
 
+/// An immutable slice of `str` that can be read in Rust and C.  
+///
+/// The Rust `&[&str]` primitive is translated into a `rustls_slice_str`
+/// view of the same data for C. This involves additional allocation that are
+/// kept in the translation, preserving the lifetime of everything involved.
+///
+/// Note: Rust does not track `x.as_ptr()` which means that usages of the pointer
+/// are not counted and `x` is seemingly no longer used afterwards. We pass around
+/// a pointer to things in `model_for_c` and need to preserve it. However, for the
+/// Rust analyzer this is only dead code.
 /// Internal struct that keeps the actual str data from which
 /// we show pointers to in C API callbacks.
-pub(crate) struct rustls_vec_str_keeper<'a> {
+pub(crate) struct StrSliceTranslation<'a> {
+    pub in_rust: &'a [&'a str],
+    pub in_c: rustls_slice_str<'a>,
     #[allow(dead_code)]
-    data: Vec<rustls_str<'a>>,
-    pub view: rustls_vec_str<'a>,
+    model_for_c: Vec<rustls_str<'a>>,
 }
 
-impl<'a> rustls_vec_str_keeper<'a> {
-    pub fn new(str_data: Vec<rustls_str>) -> rustls_vec_str_keeper {
-        let view = rustls_vec_str {
-            data: str_data.as_ptr(),
-            len: str_data.len(),
-        };
-        rustls_vec_str_keeper {
-            data: str_data,
-            view: view,
+impl<'a> StrSliceTranslation<'a> {
+    pub fn new(slice: &'a [&'a str]) -> StrSliceTranslation {
+        let mut model_for_c: Vec<rustls_str> = vec![];
+        for b in slice {
+            let b: &str = b;
+            model_for_c.push(b.into());
+        }
+        StrSliceTranslation {
+            in_rust: slice,
+            in_c: rustls_slice_str {
+                data: model_for_c.as_ptr(),
+                len: model_for_c.len(),
+            },
+            model_for_c,
         }
     }
 }
 
-impl<'a> From<&'a [String]> for rustls_vec_str_keeper<'a> {
-    fn from(input: &'a [String]) -> Self {
-        let mut output: Vec<rustls_str> = vec![];
-        for b in input {
-            let b: &str = b;
-            output.push(b.into());
-        }
-        rustls_vec_str_keeper::new(output)
+impl<'a> From<&'a [&'a str]> for StrSliceTranslation<'a> {
+    fn from(input: &'a [&str]) -> Self {
+        StrSliceTranslation::new(input)
     }
 }
 

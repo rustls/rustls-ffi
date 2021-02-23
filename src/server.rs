@@ -7,11 +7,11 @@ use std::sync::Arc;
 
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
-use crate::base::{rustls_str, rustls_vec_slice_bytes_keeper, rustls_vec_ushort};
+use crate::base::{rustls_str, rustls_vec_ushort, BytesSlicesSliceTranslation};
 use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
-    arc_with_incref_from_raw, base::rustls_vec_slice_bytes, cipher::rustls_cipher_certified_key,
+    arc_with_incref_from_raw, base::rustls_slice_slice_bytes, cipher::rustls_cipher_certified_key,
 };
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -536,7 +536,7 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
     signature_schemes: rustls_vec_ushort,
-    alpn: rustls_vec_slice_bytes<'a>,
+    alpn: rustls_slice_slice_bytes<'a>,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -600,11 +600,11 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
         let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
-        let alpn2: rustls_vec_slice_bytes_keeper = alpn.into();
+        let alpn: BytesSlicesSliceTranslation = alpn.into();
         let hello = rustls_client_hello {
             sni_name: rustls_str::from(sni_name),
             signature_schemes: rustls_vec_ushort::from(&mapped_sigs),
-            alpn: alpn2.view,
+            alpn: alpn.in_c,
         };
         let cb = self.callback;
         let key_ptr = unsafe { cb(self.userdata, &hello) };

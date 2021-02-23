@@ -199,10 +199,10 @@ typedef struct rustls_slice_bytes {
  * when passed to a callback) and must be copied if the values are
  * needed for longer.
  */
-typedef struct rustls_vec_slice_bytes {
+typedef struct rustls_slice_slice_bytes {
   const struct rustls_slice_bytes *data;
   size_t len;
-} rustls_vec_slice_bytes;
+} rustls_slice_slice_bytes;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -225,7 +225,7 @@ typedef struct rustls_vec_slice_bytes {
 typedef struct rustls_client_hello {
   struct rustls_str sni_name;
   struct rustls_vec_ushort signature_schemes;
-  struct rustls_vec_slice_bytes alpn;
+  struct rustls_slice_slice_bytes alpn;
 } rustls_client_hello;
 
 /**
