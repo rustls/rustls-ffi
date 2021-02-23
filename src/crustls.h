@@ -137,6 +137,23 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 typedef struct rustls_server_session rustls_server_session;
 
 /**
+ * A read-only view on a Rust byte slice.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ * A `len` of 0 is used to represent a missing value OR an empty slice.
+ *
+ * The memory exposed is available for the duration of the call (e.g.
+ * when passed to a callback) and must be copied if the values are
+ * needed for longer.
+ */
+typedef struct rustls_slice_bytes {
+  const uint8_t *data;
+  size_t len;
+} rustls_slice_bytes;
+
+/**
  * Any context information the callback will receive when invoked.
  */
 typedef void *rustls_client_hello_userdata;
@@ -170,23 +187,6 @@ typedef struct rustls_vec_ushort {
   const unsigned short *data;
   size_t len;
 } rustls_vec_ushort;
-
-/**
- * A read-only view on a Rust byte slice.
- *
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API.
- * `len` indicates the number of bytes than can be safely read.
- * A `len` of 0 is used to represent a missing value OR an empty slice.
- *
- * The memory exposed is available for the duration of the call (e.g.
- * when passed to a callback) and must be copied if the values are
- * needed for longer.
- */
-typedef struct rustls_slice_bytes {
-  const uint8_t *data;
-  size_t len;
-} rustls_slice_bytes;
 
 /**
  * A read-only view on a vector of Rust byte slices.
@@ -425,6 +425,22 @@ bool rustls_result_is_cert_error(enum rustls_result result);
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
+ * "Free" a server_config_builder before transmogrifying it into a server_config.
+ * Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
+ */
+void rustls_server_config_builder_free(struct rustls_server_config_builder *config);
+
+/**
+ * Create a rustls_server_config_builder from an existing rustls_server_config. The
+ * builder will be used to create a new, separate config that starts with the settings
+ * from the supplied configuration.
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_from_config(const struct rustls_server_config *config);
+
+/**
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
@@ -432,6 +448,10 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
+
+enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_server_config_builder *builder,
+                                                              const struct rustls_slice_bytes *protocols,
+                                                              size_t len);
 
 /**
  * Sets a single certificate chain and matching private key.

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
-use crate::base::{rustls_str, rustls_vec_ushort, BytesSlicesSliceTranslation};
+use crate::base::{rustls_slice_bytes, rustls_str, rustls_vec_ushort, BytesSlicesSliceTranslation};
 use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::{
@@ -20,6 +20,7 @@ use crate::{
 use rustls::sign::CertifiedKey;
 use rustls_result::NullParameter;
 use std::ffi::c_void;
+use std::ops::Deref;
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -64,6 +65,40 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
     }
 }
 
+/// "Free" a server_config_builder before transmogrifying it into a server_config.
+/// Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+/// and may not be free'd or otherwise used afterwards.
+/// Use free only when the building of a config has to be aborted before a config
+/// was created.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
+    ffi_panic_boundary_unit! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(config, &mut ServerConfig, ());
+        // Convert the pointer to a Box and drop it.
+        unsafe { Box::from_raw(config); }
+    }
+}
+
+/// Create a rustls_server_config_builder from an existing rustls_server_config. The
+/// builder will be used to create a new, separate config that starts with the settings
+/// from the supplied configuration.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_from_config(
+    config: *const rustls_server_config,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary_ptr! {
+        let config: Arc<ServerConfig> = unsafe {
+            match (config as *const ServerConfig).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => Arc::new(rustls::ServerConfig::new(Arc::new(NoClientAuth))),
+            }
+        };
+        let nconfig: ServerConfig = config.deref().clone();
+        let b = Box::new(nconfig);
+        Box::into_raw(b) as *mut _
+    }
+}
+
 /// With `ignore` != 0, the server will ignore the client ordering of cipher
 /// suites, aka preference, during handshake and respect its own ordering
 /// as configured.
@@ -76,6 +111,26 @@ pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
         config.ignore_client_order = ignore;
+        rustls_result::Ok
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_protocols(
+    builder: *mut rustls_server_config_builder,
+    protocols: *const rustls_slice_bytes,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        let mut v: Vec<Vec<u8>> = Vec::new();
+        unsafe {
+            let x: &[rustls_slice_bytes] = slice::from_raw_parts(protocols, len);
+            for s in x {
+                v.push(slice::from_raw_parts(s.data, s.len).to_vec());
+            }
+        }
+        config.set_protocols(&v);
         rustls_result::Ok
     }
 }

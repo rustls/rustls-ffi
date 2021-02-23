@@ -14,8 +14,8 @@ use std::{marker::PhantomData, os::raw::c_ushort};
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_slice_bytes<'a> {
-    data: *const u8,
-    len: size_t,
+    pub data: *const u8,
+    pub len: size_t,
     phantom: PhantomData<&'a [u8]>,
 }
 
@@ -41,8 +41,8 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_slice_slice_bytes<'a> {
-    data: *const rustls_slice_bytes<'a>,
-    len: size_t,
+    pub data: *const rustls_slice_bytes<'a>,
+    pub len: size_t,
 }
 
 /// An immutable slice of slices of bytes that can be read in Rust and C.  
@@ -64,7 +64,7 @@ pub(crate) struct BytesSlicesSliceTranslation<'a> {
 }
 
 impl<'a> BytesSlicesSliceTranslation<'a> {
-    pub fn new(slices: &'a [&'a [u8]]) -> BytesSlicesSliceTranslation {
+    pub fn new(slices: &'a [&'a [u8]]) -> Self {
         let mut model_for_c: Vec<rustls_slice_bytes> = vec![];
         for b in slices {
             let b: &[u8] = b;
@@ -99,8 +99,8 @@ impl<'a> From<&'a [&[u8]]> for BytesSlicesSliceTranslation<'a> {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_str<'a> {
-    data: *const c_char,
-    len: size_t,
+    pub data: *const c_char,
+    pub len: size_t,
     phantom: PhantomData<&'a str>,
 }
 
@@ -117,8 +117,8 @@ impl<'a> From<&'a str> for rustls_str<'a> {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_slice_str<'a> {
-    data: *const rustls_str<'a>,
-    len: size_t,
+    pub data: *const rustls_str<'a>,
+    pub len: size_t,
 }
 
 /// An immutable slice of `str` that can be read in Rust and C.  
