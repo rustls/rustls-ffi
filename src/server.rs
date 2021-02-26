@@ -401,12 +401,46 @@ pub extern "C" fn rustls_server_session_read(
                 None => return NullParameter,
             }
         };
-        // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
-        // zero it out just in case. TODO: use Initializer once it's stabilized.
-        // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
-        for c in read_buf.iter_mut() {
-            *c = 0;
-        }
+        // This is disabled hew for now, since the performance drop of this is
+        // significant in IO intense applications like a web server. The reason
+        // of why it is here in the first place is the discussion around Rust
+        // language handling (or not handling) of "uninitialized" memory:
+        // <https://github.com/rust-lang/rfcs/blob/master/text/2930-read-buf.md#summary>
+        //
+        // From a language viewpoint, this is understandable, from an application
+        // view this is unacceptable. The application has no need to clear a buffer that
+        // is never written to, nor read from, e.g. when it checks if any data is
+        // available.
+        //
+        // There are ways around this in Rust currently. However they would require
+        // significant changes in the `rustls` API and eventually even the Rust
+        // std::io::Read trait. See
+        // https://doc.rust-lang.org/nomicon/unchecked-uninit.html
+        //
+        // TODO: For the time being, we need to decide if we enable the code here
+        // again and pay the price, or if we require the C part to NUL the buffer,
+        // with memset() for example. If we do that, we should also define clearly
+        // - if a buffer needs to be NUL again every time is is passed to this
+        //   function. Specifically:
+        //   memset(buffer, 0, sizeof(buffer));
+        //   result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
+        //   if (result.OK && len == 0) {
+        //     /* do we need to NUL buffer again? */
+        //     result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
+        //   }
+        // - if the results of a previous read to a buffer count as the buffer being
+        //   'initialized', e.g. the user pattern:
+        //   memset(buffer, 0, sizeof(buffer));
+        //   do {
+        //     result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
+        //     if (!result.OK) break;
+        //     /* copy buffer content somewhere */
+        //     /* do we need to NUL buffer again? */
+        //   } while (len > 0);
+        //
+        //for c in read_buf.iter_mut() {
+        //    *c = 0;
+        //}
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
