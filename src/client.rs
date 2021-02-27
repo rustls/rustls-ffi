@@ -128,18 +128,23 @@ type rustls_verify_server_cert_callback = Option<
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
 // the Option (which is equivalent to checking for null).
-type NonNullVerifyCallback = unsafe extern "C" fn(
+type VerifyCallback = unsafe extern "C" fn(
     userdata: rustls_verify_server_cert_user_data,
     params: *const rustls_verify_server_cert_params,
 ) -> rustls_result;
 
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
-    callback: NonNullVerifyCallback,
+    callback: VerifyCallback,
     userdata: rustls_verify_server_cert_user_data,
 }
 
+/// Safety: Verifier is Send because we don't allocate or deallocate any of its
+/// fields.
 unsafe impl Send for Verifier {}
+/// Safety: Verifier is Sync if the C code that passes us a callback that
+/// obeys the concurrency safety requirements documented in 
+/// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
 impl rustls::ServerCertVerifier for Verifier {
@@ -204,7 +209,7 @@ impl rustls::ServerCertVerifier for Verifier {
 /// The callback must be safe to call on any thread at any time, including
 /// multiple concurrent calls. So, for instance, if the callback mutates
 /// userdata (or other shared state), it must use synchronization primitives
-/// to make such mutatation safe.
+/// to make such mutation safe.
 ///
 /// The callback receives certificate chain information as raw bytes.
 /// Currently this library offers no functions for C code to parse the
@@ -218,7 +223,7 @@ impl rustls::ServerCertVerifier for Verifier {
 /// (0.19.0) doesn't support building a ClientSession with an IP address
 /// (because it's not a valid DNSNameRef). One workaround is to detect IP
 /// addresses and rewrite them to `example.invalid`, and _also_ to disable
-/// SNI vial rustls_client_config_builder_set_enable_sni (IP addresses don't
+/// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
 /// need SNI).
 ///
 /// If the custom verifier accepts the certificate, it should return
@@ -234,7 +239,7 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
     userdata: rustls_verify_server_cert_user_data,
 ) {
     ffi_panic_boundary_unit! {
-        let callback: NonNullVerifyCallback = match callback {
+        let callback: VerifyCallback = match callback {
             Some(cb) => cb,
             None => return,
         };

@@ -201,7 +201,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * The callback must be safe to call on any thread at any time, including
  * multiple concurrent calls. So, for instance, if the callback mutates
  * userdata (or other shared state), it must use synchronization primitives
- * to make such mutatation safe.
+ * to make such mutation safe.
  *
  * The callback receives certificate chain information as raw bytes.
  * Currently this library offers no functions for C code to parse the
@@ -215,7 +215,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * (0.19.0) doesn't support building a ClientSession with an IP address
  * (because it's not a valid DNSNameRef). One workaround is to detect IP
  * addresses and rewrite them to `example.invalid`, and _also_ to disable
- * SNI vial rustls_client_config_builder_set_enable_sni (IP addresses don't
+ * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
  * need SNI).
  *
  * If the custom verifier accepts the certificate, it should return

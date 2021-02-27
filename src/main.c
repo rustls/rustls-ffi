@@ -470,8 +470,23 @@ cleanup:
   return ret;
 }
 
+#define VERIFY_ARG = 28831
+
 enum rustls_result
-verify(__attribute((unused)) void *userdata, __attribute((unused)) const rustls_verify_server_cert_params *params) {
+verify(void *userdata, const rustls_verify_server_cert_params *params) {
+  size_t i = 0;
+  fprintf(stderr, "custom certificate verifier called for %.*s\n",
+    (int)params->dns_name_len, params->dns_name);
+  fprintf(stderr, "end entity len: %ld\n", params->end_entity.len);
+  fprintf(stderr, "intermediates:\n");
+  for(i = 0; i<params->intermediates_len; i++) {
+    fprintf(stderr, "  intermediate, len = %ld\n", params->intermediates[i].len);
+  }
+  fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response_len);
+  if(0 != strcmp((const char *)userdata, "verify_arg")) {
+    fprintf(stderr, "invalid argument to verify: %p\n", userdata);
+    return RUSTLS_RESULT_GENERAL;
+  }
   return RUSTLS_RESULT_OK;
 }
 
@@ -508,7 +523,8 @@ main(int argc, const char **argv)
   }
 
   if(getenv("NO_CHECK_CERTIFICATE")) {
-    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify, NULL);
+    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify,
+      "verify_arg");
   }
 
   client_config = rustls_client_config_builder_build(config_builder);
