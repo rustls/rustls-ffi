@@ -480,7 +480,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
   fprintf(stderr, "end entity len: %ld\n", params->end_entity.len);
   fprintf(stderr, "intermediates:\n");
   for(i = 0; i<params->intermediates.len; i++) {
-    fprintf(stderr, "  intermediate, len = %ld\n", (params->intermediates)[i].len);
+    fprintf(stderr, "  intermediate, len = %ld\n", params->intermediates.data[i].len);
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
   if(0 != strcmp((const char *)userdata, "verify_arg")) {
