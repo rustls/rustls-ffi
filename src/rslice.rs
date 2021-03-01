@@ -11,8 +11,8 @@ use std::marker::PhantomData;
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_bytes<'a> {
     pub data: *const u8,
@@ -65,13 +65,13 @@ impl<'a> From<Vec<rustls_slice_bytes<'a>>> for VecSliceBytes<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference any of the
+/// involved data pointers beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_slice_bytes<'a> {
     data: *const rustls_slice_bytes<'a>,
     len: size_t,
-    phantom: PhantomData<&'a [&'a [u8]]>,
+    phantom: PhantomData<&'a [rustls_slice_bytes<'a>]>,
 }
 
 impl<'a> From<&'a VecSliceBytes<'a>> for rustls_slice_slice_bytes<'a> {
@@ -93,8 +93,8 @@ impl<'a> From<&'a VecSliceBytes<'a>> for rustls_slice_slice_bytes<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_str<'a> {
     pub data: *const c_char,
@@ -102,8 +102,12 @@ pub struct rustls_str<'a> {
     phantom: PhantomData<&'a str>,
 }
 
+/// NulByte represents an error converting `&str` to `rustls_str` when the &str
+/// contains a NUL.
+type NulByte = ();
+
 impl<'a> TryFrom<&'a str> for rustls_str<'a> {
-    type Error = ();
+    type Error = NulByte;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.contains('\0') {
@@ -142,13 +146,13 @@ impl<'a> VecStr<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference any of the
+/// involved pointers beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_str<'a> {
     pub data: *const rustls_str<'a>,
     pub len: size_t,
-    phantom: PhantomData<&'a [&'a str]>,
+    phantom: PhantomData<&'a [rustls_str<'a>]>,
 }
 
 impl<'a> From<&'a VecStr<'a>> for rustls_slice_str<'a> {
@@ -170,8 +174,8 @@ impl<'a> From<&'a VecStr<'a>> for rustls_slice_str<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_u16<'a> {
     pub data: *const u16,
