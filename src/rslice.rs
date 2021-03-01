@@ -96,8 +96,12 @@ pub struct rustls_str<'a> {
     phantom: PhantomData<&'a str>,
 }
 
+/// NulByte represents an error converting `&str` to `rustls_str` when the &str
+/// contains a NUL.
+type NulByte = ();
+
 impl<'a> TryFrom<&'a str> for rustls_str<'a> {
-    type Error = ();
+    type Error = NulByte;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.contains('\0') {
