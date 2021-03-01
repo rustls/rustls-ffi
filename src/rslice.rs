@@ -1,6 +1,6 @@
 use libc::{c_char, size_t};
-use std::{marker::PhantomData};
 use std::convert::{TryFrom, TryInto};
+use std::marker::PhantomData;
 
 /// A read-only view on a Rust byte slice.
 ///
@@ -40,7 +40,7 @@ pub(crate) struct VecSliceBytes<'a>(Vec<rustls_slice_bytes<'a>>);
 impl<'a> VecSliceBytes<'a> {
     /// Build a VecSliceBytes that refers to `input` and can live as long as
     /// it does.
-    fn new(input: &'a Vec<Vec<u8>>) -> Self {
+    pub(crate) fn new(input: &'a [&'a [u8]]) -> Self {
         let mut vv: Vec<rustls_slice_bytes> = vec![];
         for v in input {
             let v: &[u8] = v.as_ref();
@@ -117,7 +117,7 @@ pub(crate) struct VecStr<'a>(Vec<rustls_str<'a>>);
 
 impl<'a> VecStr<'a> {
     /// Build a VecStr that refers to `input` and can live as long as it does.
-    fn new(input: &'a Vec<&str>) -> Result<Self, ()> {
+    pub(crate) fn new(input: &'a Vec<&str>) -> Result<Self, ()> {
         let mut vs: Vec<rustls_str> = vec![];
         for v in input {
             let v: &str = v.as_ref();

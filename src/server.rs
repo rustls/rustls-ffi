@@ -1,18 +1,18 @@
 use libc::size_t;
-use std::io::ErrorKind::ConnectionAborted;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
+use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
-use crate::base::{rustls_slice_bytes, rustls_str, rustls_vec_ushort, BytesSlicesSliceTranslation};
 use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
-use crate::{
-    arc_with_incref_from_raw, base::rustls_slice_slice_bytes, cipher::rustls_cipher_certified_key,
+use crate::rslice::{
+    rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str, VecSliceBytes,
 };
+use crate::{arc_with_incref_from_raw, cipher::rustls_cipher_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
@@ -624,7 +624,7 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
-    signature_schemes: rustls_vec_ushort,
+    signature_schemes: rustls_slice_u16<'a>,
     alpn: rustls_slice_slice_bytes<'a>,
 }
 
@@ -686,14 +686,19 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
                 None => "",
             }
         };
+        let sni_name: rustls_str = match sni_name.try_into() {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
         let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
-        let alpn: BytesSlicesSliceTranslation = alpn.into();
+        let alpn: VecSliceBytes = VecSliceBytes::new(alpn);
+        let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
         let hello = rustls_client_hello {
-            sni_name: rustls_str::from(sni_name),
-            signature_schemes: rustls_vec_ushort::from(&mapped_sigs),
-            alpn: alpn.in_c,
+            sni_name,
+            signature_schemes,
+            alpn: (&alpn).into(),
         };
         let cb = self.callback;
         let key_ptr = unsafe { cb(self.userdata, &hello) };
