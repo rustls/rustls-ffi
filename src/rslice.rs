@@ -65,7 +65,7 @@ impl<'a> VecSliceBytes<'a> {
 pub struct rustls_slice_slice_bytes<'a> {
     data: *const rustls_slice_bytes<'a>,
     len: size_t,
-    phantom: PhantomData<&'a [&'a [u8]]>,
+    phantom: PhantomData<&'a [rustls_slice_bytes<'a>]>,
 }
 
 impl<'a> From<&'a VecSliceBytes<'a>> for rustls_slice_slice_bytes<'a> {
@@ -142,7 +142,7 @@ impl<'a> VecStr<'a> {
 pub struct rustls_slice_str<'a> {
     pub data: *const rustls_str<'a>,
     pub len: size_t,
-    phantom: PhantomData<&'a [&'a str]>,
+    phantom: PhantomData<&'a [rustls_str<'a>]>,
 }
 
 impl<'a> From<&'a VecStr<'a>> for rustls_slice_str<'a> {
