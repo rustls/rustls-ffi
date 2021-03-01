@@ -142,11 +142,12 @@ typedef struct rustls_server_session rustls_server_session;
  * This is used to pass data from crustls to callback functions provided
  * by the user of the API.
  * `len` indicates the number of bytes than can be safely read.
- * A `len` of 0 is used to represent a missing value OR an empty slice.
  *
- * The memory exposed is available for the duration of the call (e.g.
- * when passed to a callback) and must be copied if the values are
- * needed for longer.
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
  */
 typedef struct rustls_slice_bytes {
   const uint8_t *data;
@@ -159,15 +160,17 @@ typedef struct rustls_slice_bytes {
 typedef void *rustls_client_hello_userdata;
 
 /**
- * A read-only view on a Rust utf-8 string slice.
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API. The `data` is not NUL-terminated.
- * `len` indicates the number of bytes than can be safely read.
- * A `len` of 0 is used to represent a missing value OR an empty string.
+ * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
+ * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
  *
- * The memory exposed is available for the duration of the call (e.g.
- * when passed to a callback) and must be copied if the values are
- * needed for longer.
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
  */
 typedef struct rustls_str {
   const char *data;
@@ -175,29 +178,35 @@ typedef struct rustls_str {
 } rustls_str;
 
 /**
- * A read-only view on a list of Rust owned unsigned short values.
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API. The `data` is an array of `len` 16 bit values.
+ * A read-only view on a Rust slice of 16-bit integers in platform endianness.
  *
- * The memory exposed is available for the duration of the call (e.g.
- * when passed to a callback) and must be copied if the values are
- * needed for longer.
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
  */
-typedef struct rustls_vec_ushort {
-  const unsigned short *data;
+typedef struct rustls_slice_u16 {
+  const uint16_t *data;
   size_t len;
-} rustls_vec_ushort;
+} rustls_slice_u16;
 
 /**
- * A read-only view on a vector of Rust byte slices.
+ * A read-only view of a slice of Rust byte slices.
  *
  * This is used to pass data from crustls to callback functions provided
  * by the user of the API. The `data` is an array of `rustls_slice_bytes`
  * structures with `len` elements.
  *
- * The memory exposed is available for the duration of the call (e.g.
- * when passed to a callback) and must be copied if the values are
- * needed for longer.
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
  */
 typedef struct rustls_slice_slice_bytes {
   const struct rustls_slice_bytes *data;
@@ -224,7 +233,7 @@ typedef struct rustls_slice_slice_bytes {
  */
 typedef struct rustls_client_hello {
   struct rustls_str sni_name;
-  struct rustls_vec_ushort signature_schemes;
+  struct rustls_slice_u16 signature_schemes;
   struct rustls_slice_slice_bytes alpn;
 } rustls_client_hello;
 
