@@ -6,6 +6,7 @@ use std::{mem, slice};
 
 mod client;
 mod error;
+mod rslice;
 mod server;
 
 // Keep in sync with Cargo.toml.
