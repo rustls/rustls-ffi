@@ -151,8 +151,8 @@ typedef void *rustls_verify_server_cert_user_data;
  * The memory exposed is available as specified by the function
  * using this in its signature. For instance, when this is a parameter to a
  * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not retain copies of any of the
- * pointers beyond the allowed lifetime.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
  */
 typedef struct rustls_slice_bytes {
   const uint8_t *data;
@@ -169,8 +169,8 @@ typedef struct rustls_slice_bytes {
  * The memory exposed is available as specified by the function
  * using this in its signature. For instance, when this is a parameter to a
  * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not retain copies of any of the
- * pointers beyond the allowed lifetime.
+ * Functions that receive one of these must not dereference any of the
+ * involved data pointers beyond the allowed lifetime.
  */
 typedef struct rustls_slice_slice_bytes {
   const struct rustls_slice_bytes *data;
@@ -187,8 +187,8 @@ typedef struct rustls_slice_slice_bytes {
  * The memory exposed is available as specified by the function
  * using this in its signature. For instance, when this is a parameter to a
  * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not retain copies of any of the
- * pointers beyond the allowed lifetime.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
  */
 typedef struct rustls_str {
   const char *data;

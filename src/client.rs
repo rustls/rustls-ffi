@@ -15,10 +15,8 @@ use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
     ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
-use crate::{
-    error::{self, map_error, result_to_tlserror, rustls_result},
-    rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str, VecSliceBytes},
-};
+use crate::error::{self, map_error, result_to_tlserror, rustls_result};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str, VecSliceBytes};
 use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
@@ -146,7 +144,7 @@ impl rustls::ServerCertVerifier for Verifier {
         let dns_name: &str = dns_name.into();
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
-            Err(_) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+            Err(()) => return Err(TLSError::General("NUL byte in SNI".to_string())),
         };
         let mut certificates: Vec<rustls_slice_bytes> = presented_certs
             .iter()

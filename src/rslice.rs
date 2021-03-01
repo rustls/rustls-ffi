@@ -104,7 +104,7 @@ pub struct rustls_str<'a> {
 
 /// NulByte represents an error converting `&str` to `rustls_str` when the &str
 /// contains a NUL.
-type NulByte = ();
+pub type NulByte = ();
 
 impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     type Error = NulByte;
