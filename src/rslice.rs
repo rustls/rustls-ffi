@@ -11,8 +11,8 @@ use std::marker::PhantomData;
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_bytes<'a> {
     pub data: *const u8,
@@ -59,8 +59,8 @@ impl<'a> VecSliceBytes<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference any of the
+/// involved data pointers beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_slice_bytes<'a> {
     data: *const rustls_slice_bytes<'a>,
@@ -87,8 +87,8 @@ impl<'a> From<&'a VecSliceBytes<'a>> for rustls_slice_slice_bytes<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_str<'a> {
     pub data: *const c_char,
@@ -136,8 +136,8 @@ impl<'a> VecStr<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference any of the
+/// involved pointers beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_str<'a> {
     pub data: *const rustls_str<'a>,
@@ -164,8 +164,8 @@ impl<'a> From<&'a VecStr<'a>> for rustls_slice_str<'a> {
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not retain copies of any of the
-/// pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not dereference the data pointer
+/// beyond the allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_u16<'a> {
     pub data: *const u16,
