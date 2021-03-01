@@ -1,5 +1,5 @@
 use libc::{c_char, size_t};
-use std::io::ErrorKind::ConnectionAborted;
+use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
@@ -11,7 +11,7 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::error::{self, map_error, result_to_tlserror, rustls_result};
+use crate::{error::{self, map_error, result_to_tlserror, rustls_result}, rslice::{VecSliceBytes, rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str}};
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
     ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
@@ -81,29 +81,16 @@ pub struct rustls_root_cert_store {
     _private: [u8; 0],
 }
 
-/// A representation of the rustls Certificate type, which is an array of
-/// bytes, nominally in DER-encoded X.509.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.Certificate.html
-#[allow(non_camel_case_types)]
-#[repr(C)]
-pub struct rustls_certificate {
-    bytes: *const u8,
-    len: usize,
-}
-
 /// Input to a custom certificate verifier callback. See
 /// rustls_client_config_builder_dangerous_set_certificate_verifier().
 #[allow(non_camel_case_types)]
 #[repr(C)]
-pub struct rustls_verify_server_cert_params {
-    end_entity: rustls_certificate,
-    intermediates: *const rustls_certificate,
-    intermediates_len: usize,
+pub struct rustls_verify_server_cert_params<'a> {
+    end_entity: rustls_slice_bytes<'a>,
+    intermediates: rustls_slice_slice_bytes<'a>,
     roots: *const rustls_root_cert_store,
-    dns_name: *const c_char,
-    dns_name_len: usize,
-    ocsp_response: *const u8,
-    ocsp_response_len: usize,
+    dns_name: rustls_str<'a>,
+    ocsp_response: rustls_slice_bytes<'a>,
 }
 
 /// User-provided input to a custom certificate verifier callback. See
@@ -154,14 +141,15 @@ impl rustls::ServerCertVerifier for Verifier {
     ) -> Result<ServerCertVerified, TLSError> {
         let cb = self.callback;
         let dns_name: &str = dns_name.into();
-        let mut certificates: Vec<rustls_certificate> = presented_certs
+        let dns_name: rustls_str = match dns_name.try_into() {
+            Ok(r) => r,
+            Err(_) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+        };
+        let mut certificates: Vec<rustls_slice_bytes> = presented_certs
             .iter()
             .map(|cert: &Certificate| {
-                let cert: &[u8] = cert.as_ref();
-                rustls_certificate {
-                    bytes: cert.as_ptr(),
-                    len: cert.len(),
-                }
+                let cert: rustls_slice_bytes = cert.as_ref().into();
+                cert
             })
             .collect();
         // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
@@ -175,15 +163,14 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
+        let intermediates: VecSliceBytes = certificates.into();
+
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
             end_entity,
-            intermediates: certificates.as_ptr(),
-            intermediates_len: certificates.len(),
-            dns_name: dns_name.as_ptr() as *const c_char,
-            dns_name_len: dns_name.len(),
-            ocsp_response: ocsp_response.as_ptr(),
-            ocsp_response_len: ocsp_response.len(),
+            intermediates: (&intermediates).into(),
+            dns_name: dns_name.into(),
+            ocsp_response: ocsp_response.into(),
         };
         let result: rustls_result = unsafe { cb(self.userdata, &params) };
         match result {

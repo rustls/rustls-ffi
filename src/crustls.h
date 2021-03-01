@@ -142,28 +142,69 @@ typedef struct rustls_server_session rustls_server_session;
 typedef void *rustls_verify_server_cert_user_data;
 
 /**
- * A representation of the rustls Certificate type, which is an array of
- * bytes, nominally in DER-encoded X.509.
- * https://docs.rs/rustls/0.19.0/rustls/struct.Certificate.html
+ * A read-only view on a Rust byte slice.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
  */
-typedef struct rustls_certificate {
-  const uint8_t *bytes;
-  uintptr_t len;
-} rustls_certificate;
+typedef struct rustls_slice_bytes {
+  const uint8_t *data;
+  size_t len;
+} rustls_slice_bytes;
+
+/**
+ * A read-only view of a slice of Rust byte slices.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. The `data` is an array of `rustls_slice_bytes`
+ * structures with `len` elements.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_slice_bytes {
+  const struct rustls_slice_bytes *data;
+  size_t len;
+} rustls_slice_slice_bytes;
+
+/**
+ * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
+ * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not retain copies of any of the
+ * pointers beyond the allowed lifetime.
+ */
+typedef struct rustls_str {
+  const char *data;
+  size_t len;
+} rustls_str;
 
 /**
  * Input to a custom certificate verifier callback. See
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
 typedef struct rustls_verify_server_cert_params {
-  struct rustls_certificate end_entity;
-  const struct rustls_certificate *intermediates;
-  uintptr_t intermediates_len;
+  struct rustls_slice_bytes end_entity;
+  struct rustls_slice_slice_bytes intermediates;
   const struct rustls_root_cert_store *roots;
-  const char *dns_name;
-  uintptr_t dns_name_len;
-  const uint8_t *ocsp_response;
-  uintptr_t ocsp_response_len;
+  struct rustls_str dns_name;
+  struct rustls_slice_bytes ocsp_response;
 } rustls_verify_server_cert_params;
 
 typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);

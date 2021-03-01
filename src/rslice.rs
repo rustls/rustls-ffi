@@ -50,6 +50,12 @@ impl<'a> VecSliceBytes<'a> {
     }
 }
 
+impl<'a> From<Vec<rustls_slice_bytes<'a>>> for VecSliceBytes<'a> {
+    fn from(input: Vec<rustls_slice_bytes<'a>>) -> Self {
+        VecSliceBytes(input)
+    }
+}
+
 /// A read-only view of a slice of Rust byte slices.
 ///
 /// This is used to pass data from crustls to callback functions provided
