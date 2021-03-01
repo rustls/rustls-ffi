@@ -477,10 +477,11 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
   size_t i = 0;
   fprintf(stderr, "custom certificate verifier called for %.*s\n",
     (int)params->dns_name.len, params->dns_name.data);
-  fprintf(stderr, "end entity len: %ld\n", params->end_entity.len);
+  fprintf(stderr, "end entity len: %ld\n", params->end_entity_cert_der.len);
   fprintf(stderr, "intermediates:\n");
-  for(i = 0; i<params->intermediates.len; i++) {
-    fprintf(stderr, "  intermediate, len = %ld\n", params->intermediates.data[i].len);
+  for(i = 0; i<params->intermediate_certs_der.len; i++) {
+    fprintf(stderr, "  intermediate, len = %ld\n",
+      params->intermediate_certs_der.data[i].len);
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
   if(0 != strcmp((const char *)userdata, "verify_arg")) {

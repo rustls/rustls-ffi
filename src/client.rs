@@ -89,8 +89,8 @@ pub struct rustls_root_cert_store {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
-    end_entity: rustls_slice_bytes<'a>,
-    intermediates: rustls_slice_slice_bytes<'a>,
+    end_entity_cert_der: rustls_slice_bytes<'a>,
+    intermediate_certs_der: rustls_slice_slice_bytes<'a>,
     roots: *const rustls_root_cert_store,
     dns_name: rustls_str<'a>,
     ocsp_response: rustls_slice_bytes<'a>,
@@ -170,8 +170,8 @@ impl rustls::ServerCertVerifier for Verifier {
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
-            end_entity,
-            intermediates: (&intermediates).into(),
+            end_entity_cert_der: end_entity,
+            intermediate_certs_der: (&intermediates).into(),
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };

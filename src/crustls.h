@@ -200,8 +200,8 @@ typedef struct rustls_str {
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
 typedef struct rustls_verify_server_cert_params {
-  struct rustls_slice_bytes end_entity;
-  struct rustls_slice_slice_bytes intermediates;
+  struct rustls_slice_bytes end_entity_cert_der;
+  struct rustls_slice_slice_bytes intermediate_certs_der;
   const struct rustls_root_cert_store *roots;
   struct rustls_str dns_name;
   struct rustls_slice_bytes ocsp_response;
