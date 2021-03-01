@@ -1,8 +1,8 @@
 use libc::{c_char, size_t};
-use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
+use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
 use webpki::DNSNameRef;
@@ -11,10 +11,13 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::{error::{self, map_error, result_to_tlserror, rustls_result}, rslice::{VecSliceBytes, rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str}};
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
     ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
+};
+use crate::{
+    error::{self, map_error, result_to_tlserror, rustls_result},
+    rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str, VecSliceBytes},
 };
 use rustls_result::NullParameter;
 
@@ -127,7 +130,7 @@ struct Verifier {
 /// fields.
 unsafe impl Send for Verifier {}
 /// Safety: Verifier is Sync if the C code that passes us a callback that
-/// obeys the concurrency safety requirements documented in 
+/// obeys the concurrency safety requirements documented in
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
@@ -287,7 +290,10 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 /// Enable or disable SNI.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
 #[no_mangle]
-pub extern "C" fn rustls_client_config_builder_set_enable_sni(config: *mut rustls_client_config_builder, enable: bool) {
+pub extern "C" fn rustls_client_config_builder_set_enable_sni(
+    config: *mut rustls_client_config_builder,
+    enable: bool,
+) {
     ffi_panic_boundary_unit! {
         let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
         config.enable_sni = enable;
