@@ -342,7 +342,7 @@ bool rustls_result_is_cert_error(enum rustls_result result);
  * Retrieve the nth element from the input slice of slices. If the input
  * pointer is NULL, returns 0.
  */
-uintptr_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
+size_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
 
 /**
  * Retrieve the nth element from the input slice of slices. If the input
@@ -350,20 +350,20 @@ uintptr_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *in
  * rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
  */
 struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
-                                                       uintptr_t n);
+                                                       size_t n);
 
 /**
  * Retrieve the nth element from the input slice of slices. If the input
  * pointer is NULL, returns 0.
  */
-uintptr_t rustls_slice_str_len(const struct rustls_slice_str *input);
+size_t rustls_slice_str_len(const struct rustls_slice_str *input);
 
 /**
  * Retrieve the nth element from the input slice of slices. If the input
  * pointer is NULL, or n is greater than the length of the
  * rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
  */
-struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, uintptr_t n);
+struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, size_t n);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must

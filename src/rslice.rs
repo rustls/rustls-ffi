@@ -53,7 +53,7 @@ pub struct rustls_slice_slice_bytes<'a> {
 /// Return a pointer to a rustls_slice_slice_bytes representing an input slice.
 pub(crate) fn rustls_slice_slice_bytes_new<'a>(
     input: &'a [&'a [u8]],
-) -> *const rustls_slice_slice_bytes {
+) -> *const rustls_slice_slice_bytes<'a> {
     let output: &&[&[u8]] = &input;
     let output: *const &[&[u8]] = output;
     output as *const rustls_slice_slice_bytes
@@ -62,7 +62,7 @@ pub(crate) fn rustls_slice_slice_bytes_new<'a>(
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> usize {
+pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> size_t {
     unsafe {
         match (input as *const &[&[u8]]).as_ref() {
             Some(c) => c.len(),
@@ -75,10 +75,10 @@ pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_
 /// pointer is NULL, or n is greater than the length of the
 /// rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
 #[no_mangle]
-pub extern "C" fn rustls_slice_slice_bytes_get(
-    input: *const rustls_slice_slice_bytes,
-    n: usize,
-) -> rustls_slice_bytes {
+pub extern "C" fn rustls_slice_slice_bytes_get<'a>(
+    input: *const rustls_slice_slice_bytes<'a>,
+    n: size_t,
+) -> rustls_slice_bytes<'a> {
     let input: &&[&[u8]] = unsafe {
         match (input as *const &[&[u8]]).as_ref() {
             Some(c) => c,
@@ -172,7 +172,7 @@ pub(crate) fn rustls_slice_str_new<'a>(input: &'a [&'a str]) -> *const rustls_sl
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> usize {
+pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t {
     unsafe {
         match (input as *const &[&str]).as_ref() {
             Some(c) => c.len(),
@@ -185,7 +185,7 @@ pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> usize 
 /// pointer is NULL, or n is greater than the length of the
 /// rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
 #[no_mangle]
-pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: usize) -> rustls_str {
+pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t) -> rustls_str {
     let input: &&[&str] = unsafe {
         match (input as *const &[&str]).as_ref() {
             Some(c) => c,
