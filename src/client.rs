@@ -11,9 +11,14 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::{arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::{NulByte, rustls_slice_slice_bytes_new}, try_ref_from_ptr};
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
+use crate::{
+    arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit,
+    rslice::{rustls_slice_slice_bytes_new, NulByte},
+    try_ref_from_ptr,
+};
 use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
@@ -141,13 +146,11 @@ impl rustls::ServerCertVerifier for Verifier {
         let dns_name: &str = dns_name.into();
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
-            Err(NulByte{}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+            Err(NulByte {}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
         };
         let mut certificates: Vec<&[u8]> = presented_certs
             .iter()
-            .map(|cert: &Certificate| {
-                cert.as_ref()
-            })
+            .map(|cert: &Certificate| cert.as_ref())
             .collect();
         // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
         // rustls changed the verifier API to separate the end entity and intermediates.
@@ -160,7 +163,7 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
-        let intermediates  = rustls_slice_slice_bytes_new(&*certificates);
+        let intermediates = rustls_slice_slice_bytes_new(&*certificates);
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,

@@ -1,6 +1,9 @@
 use libc::{c_char, size_t};
-use std::{convert::{TryFrom, TryInto}, ptr::null};
 use std::marker::PhantomData;
+use std::{
+    convert::{TryFrom, TryInto},
+    ptr::null,
+};
 
 /// A read-only view on a Rust byte slice.
 ///
@@ -48,8 +51,9 @@ pub struct rustls_slice_slice_bytes<'a> {
 }
 
 /// Return a pointer to a rustls_slice_slice_bytes representing an input slice.
-pub(crate) fn rustls_slice_slice_bytes_new<'a>(input: &'a [&'a [u8]]) ->
-  *const rustls_slice_slice_bytes {
+pub(crate) fn rustls_slice_slice_bytes_new<'a>(
+    input: &'a [&'a [u8]],
+) -> *const rustls_slice_slice_bytes {
     let output: &&[&[u8]] = &input;
     let output: *const &[&[u8]] = output;
     output as *const rustls_slice_slice_bytes
@@ -58,8 +62,7 @@ pub(crate) fn rustls_slice_slice_bytes_new<'a>(input: &'a [&'a [u8]]) ->
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_slice_bytes_len(
-    input: *const rustls_slice_slice_bytes) -> usize {
+pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> usize {
     unsafe {
         match (input as *const &[&[u8]]).as_ref() {
             Some(c) => c.len(),
@@ -73,16 +76,28 @@ pub extern "C" fn rustls_slice_slice_bytes_len(
 /// rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
 #[no_mangle]
 pub extern "C" fn rustls_slice_slice_bytes_get(
-    input: *const rustls_slice_slice_bytes, n: usize) -> rustls_slice_bytes {
+    input: *const rustls_slice_slice_bytes,
+    n: usize,
+) -> rustls_slice_bytes {
     let input: &&[&[u8]] = unsafe {
         match (input as *const &[&[u8]]).as_ref() {
             Some(c) => c,
-            None => return rustls_slice_bytes{data: null(), len: 0, phantom: PhantomData},
+            None => {
+                return rustls_slice_bytes {
+                    data: null(),
+                    len: 0,
+                    phantom: PhantomData,
+                }
+            }
         }
     };
     match input.get(n) {
         Some(rsb) => (*rsb).into(),
-        None => rustls_slice_bytes{data: null(), len: 0, phantom: PhantomData},
+        None => rustls_slice_bytes {
+            data: null(),
+            len: 0,
+            phantom: PhantomData,
+        },
     }
 }
 
@@ -113,7 +128,7 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.contains('\0') {
-            return Err(NulByte{});
+            return Err(NulByte {});
         }
         Ok(rustls_str {
             data: s.as_ptr() as *const c_char,
@@ -143,23 +158,21 @@ pub struct rustls_slice_str<'a> {
 /// Return a pointer to a rustls_slice_str representing a an input slice.
 /// If any element of the input slice doesn't mean the `rustls_str` invariant
 /// of having no NUL bytes, return NULL.
-pub(crate) fn rustls_slice_str_new<'a>(input: &'a [&'a str]) ->
-  *const rustls_slice_str<'a> {
-  for &s in input {
-      if let Err(NulByte{}) = rustls_str::try_from(s) {
-          return null();
-      }
-  }
-  let output: &&[&str] = &input;
-  let output: *const &[&str] = output;
-  output as *const rustls_slice_str
+pub(crate) fn rustls_slice_str_new<'a>(input: &'a [&'a str]) -> *const rustls_slice_str<'a> {
+    for &s in input {
+        if let Err(NulByte {}) = rustls_str::try_from(s) {
+            return null();
+        }
+    }
+    let output: &&[&str] = &input;
+    let output: *const &[&str] = output;
+    output as *const rustls_slice_str
 }
 
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_str_len(
-    input: *const rustls_slice_str) -> usize {
+pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> usize {
     unsafe {
         match (input as *const &[&str]).as_ref() {
             Some(c) => c.len(),
@@ -172,19 +185,28 @@ pub extern "C" fn rustls_slice_str_len(
 /// pointer is NULL, or n is greater than the length of the
 /// rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
 #[no_mangle]
-pub extern "C" fn rustls_slice_str_get(
-    input: *const rustls_slice_str, n: usize) -> rustls_str {
+pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: usize) -> rustls_str {
     let input: &&[&str] = unsafe {
         match (input as *const &[&str]).as_ref() {
             Some(c) => c,
-            None => return rustls_str{data: null(), len: 0, phantom: PhantomData},
+            None => {
+                return rustls_str {
+                    data: null(),
+                    len: 0,
+                    phantom: PhantomData,
+                }
+            }
         }
     };
-    input.get(n).and_then(|&s| s.try_into().ok()).unwrap_or(
-        rustls_str{data: null(), len: 0, phantom: PhantomData},
-    )
+    input
+        .get(n)
+        .and_then(|&s| s.try_into().ok())
+        .unwrap_or(rustls_str {
+            data: null(),
+            len: 0,
+            phantom: PhantomData,
+        })
 }
-
 
 /// A read-only view on a Rust slice of 16-bit integers in platform endianness.
 ///
