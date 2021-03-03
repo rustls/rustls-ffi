@@ -23,8 +23,8 @@ pub struct rustls_slice_bytes<'a> {
 impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
     fn from(s: &[u8]) -> Self {
         rustls_slice_bytes {
-            data: s.as_ptr() as *const u8,
-            len: s.len() as size_t,
+            data: s.as_ptr(),
+            len: s.len(),
             phantom: PhantomData,
         }
     }
@@ -117,7 +117,7 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
         }
         Ok(rustls_str {
             data: s.as_ptr() as *const c_char,
-            len: s.len() as size_t,
+            len: s.len(),
             phantom: PhantomData,
         })
     }
@@ -207,8 +207,8 @@ pub struct rustls_slice_u16<'a> {
 impl<'a> From<&'a [u16]> for rustls_slice_u16<'a> {
     fn from(s: &[u16]) -> Self {
         rustls_slice_u16 {
-            data: s.as_ptr() as *const u16,
-            len: s.len() as size_t,
+            data: s.as_ptr(),
+            len: s.len(),
             phantom: PhantomData,
         }
     }
