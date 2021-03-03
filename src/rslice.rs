@@ -46,7 +46,9 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-pub struct rustls_slice_slice_bytes<'a>(&'a [&'a [u8]]);
+pub struct rustls_slice_slice_bytes<'a>{
+    pub inner: &'a [&'a [u8]],
+}
 
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
@@ -54,7 +56,7 @@ pub struct rustls_slice_slice_bytes<'a>(&'a [&'a [u8]]);
 pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> size_t {
     unsafe {
         match input.as_ref() {
-            Some(c) => c.0.len(),
+            Some(c) => c.inner.len(),
             None => 0,
         }
     }
@@ -80,7 +82,7 @@ pub extern "C" fn rustls_slice_slice_bytes_get<'a>(
             }
         }
     };
-    match input.0.get(n) {
+    match input.inner.get(n) {
         Some(rsb) => (*rsb).into(),
         None => rustls_slice_bytes {
             data: null(),
@@ -140,7 +142,9 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-pub struct rustls_slice_str<'a>(&'a [&'a str]);
+pub struct rustls_slice_str<'a>{
+    pub inner: &'a [&'a str],
+}
 
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, returns 0.
@@ -148,7 +152,7 @@ pub struct rustls_slice_str<'a>(&'a [&'a str]);
 pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t {
     unsafe {
         match input.as_ref() {
-            Some(c) => c.0.len(),
+            Some(c) => c.inner.len(),
             None => 0,
         }
     }
@@ -156,7 +160,7 @@ pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t
 
 /// Retrieve the nth element from the input slice of slices. If the input
 /// pointer is NULL, or n is greater than the length of the
-/// rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
+/// rustls_slice_str, returns rustls_str{NULL, 0}.
 #[no_mangle]
 pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t) -> rustls_str {
     let input: &rustls_slice_str = unsafe {
@@ -172,7 +176,7 @@ pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t
         }
     };
     input
-        .0
+        .inner
         .get(n)
         .and_then(|&s| s.try_into().ok())
         .unwrap_or(rustls_str {
