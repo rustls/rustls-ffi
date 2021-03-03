@@ -110,12 +110,6 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 typedef struct rustls_client_session rustls_client_session;
 
 /**
- * Currently just a placeholder with no accessors yet.
- * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
- */
-typedef struct rustls_root_cert_store rustls_root_cert_store;
-
-/**
  * A server config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ServerConfig>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
@@ -136,10 +130,38 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 typedef struct rustls_server_session rustls_server_session;
 
 /**
- * User-provided input to a custom certificate verifier callback. See
- * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ * A read-only view of a slice of Rust byte slices.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+ * provide access via a pointer to an opaque struct and an accessor method
+ * that acts on that struct to get entries of type `rustls_slice_bytes`.
+ * Internally, the pointee is a `&[&[u8]]`.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not call its methods beyond the
+ * allowed lifetime.
  */
-typedef void *rustls_verify_server_cert_user_data;
+typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
+
+/**
+ * A read-only view of a slice of Rust `&str`.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+ * can't provide a straightforward `data` and `len` structure. Instead, we
+ * provide access via a pointer to an opaque struct and accessor methods.
+ * Internally, the pointee is a `&[&str]`.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not call its methods beyond the
+ * allowed lifetime.
+ */
+typedef struct rustls_slice_str rustls_slice_str;
 
 /**
  * A read-only view on a Rust byte slice.
@@ -160,25 +182,6 @@ typedef struct rustls_slice_bytes {
 } rustls_slice_bytes;
 
 /**
- * A read-only view of a slice of Rust byte slices.
- *
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
- * provide access via a pointer to an opaque struct and an accessor method
- * that acts on that struct to get entries of type `rustls_slice_bytes`.
- * Internally, the pointee is a `&[&[u8]]`.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not call its methods beyond the
- * allowed lifetime.
- */
-typedef struct rustls_slice_slice_bytes {
-
-} rustls_slice_slice_bytes;
-
-/**
  * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
  * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
  * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
@@ -195,20 +198,6 @@ typedef struct rustls_str {
   const char *data;
   size_t len;
 } rustls_str;
-
-/**
- * Input to a custom certificate verifier callback. See
- * rustls_client_config_builder_dangerous_set_certificate_verifier().
- */
-typedef struct rustls_verify_server_cert_params {
-  struct rustls_slice_bytes end_entity_cert_der;
-  struct rustls_slice_slice_bytes intermediate_certs_der;
-  const struct rustls_root_cert_store *roots;
-  struct rustls_str dns_name;
-  struct rustls_slice_bytes ocsp_response;
-} rustls_verify_server_cert_params;
-
-typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
 
 /**
  * Write the version of the crustls C bindings and rustls itself into the
@@ -233,45 +222,6 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
 
 /**
- * Set a custom server certificate verifier.
- *
- * The userdata pointer must stay valid until (a) all sessions created with this
- * config have been freed, and (b) the config itself has been freed.
- * The callback must not capture any of the pointers in its
- * rustls_verify_server_cert_params.
- *
- * The callback must be safe to call on any thread at any time, including
- * multiple concurrent calls. So, for instance, if the callback mutates
- * userdata (or other shared state), it must use synchronization primitives
- * to make such mutation safe.
- *
- * The callback receives certificate chain information as raw bytes.
- * Currently this library offers no functions for C code to parse the
- * certificates, so it's only possible to implement verifiers that either
- * (a) always succeed (or fail), or (b) compare the certificates against
- * static bytes. We plan to export parsing code in the future to make it
- * possible to implement other strategies.
- *
- * If you intend to write a verifier that accepts all certificates, be aware
- * that special measures are required for IP addresses. Rustls currently
- * (0.19.0) doesn't support building a ClientSession with an IP address
- * (because it's not a valid DNSNameRef). One workaround is to detect IP
- * addresses and rewrite them to `example.invalid`, and _also_ to disable
- * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
- * need SNI).
- *
- * If the custom verifier accepts the certificate, it should return
- * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
- * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
- * section.
- *
- * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
- */
-void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                     rustls_verify_server_cert_callback callback,
-                                                                     rustls_verify_server_cert_user_data userdata);
-
-/**
  * Add certificates from platform's native root store, using
  * https://github.com/ctz/rustls-native-certs#readme.
  */
@@ -283,13 +233,6 @@ enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_
  */
 enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
                                                                      const char *filename);
-
-/**
- * Enable or disable SNI.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
- */
-void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
-                                                 bool enable);
 
 /**
  * "Free" a client_config previously returned from
@@ -408,6 +351,19 @@ uintptr_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *in
  */
 struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
                                                        uintptr_t n);
+
+/**
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, returns 0.
+ */
+uintptr_t rustls_slice_str_len(const struct rustls_slice_str *input);
+
+/**
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, or n is greater than the length of the
+ * rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
+ */
+struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, uintptr_t n);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must

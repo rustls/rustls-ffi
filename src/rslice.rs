@@ -43,9 +43,16 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-#[repr(C)]
 pub struct rustls_slice_slice_bytes<'a> {
     phantom: PhantomData<&'a [&'a [u8]]>,
+}
+
+/// Return a pointer to a rustls_slice_slice_bytes representing an input slice.
+pub(crate) fn rustls_slice_slice_bytes_new<'a>(input: &'a [&'a [u8]]) ->
+  *const rustls_slice_slice_bytes {
+    let output: &&[&[u8]] = &input;
+    let output: *const &[&[u8]] = output;
+    output as *const rustls_slice_slice_bytes
 }
 
 /// Retrieve the nth element from the input slice of slices. If the input
@@ -129,9 +136,23 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-#[repr(C)]
 pub struct rustls_slice_str<'a> {
     phantom: PhantomData<&'a [&'a str]>,
+}
+
+/// Return a pointer to a rustls_slice_str representing a an input slice.
+/// If any element of the input slice doesn't mean the `rustls_str` invariant
+/// of having no NUL bytes, return NULL.
+pub(crate) fn rustls_slice_str_new<'a>(input: &'a [&'a str]) ->
+  *const rustls_slice_str<'a> {
+  for &s in input {
+      if let Err(NulByte{}) = rustls_str::try_from(s) {
+          return null();
+      }
+  }
+  let output: &&[&str] = &input;
+  let output: *const &[&str] = output;
+  output as *const rustls_slice_str
 }
 
 /// Retrieve the nth element from the input slice of slices. If the input
