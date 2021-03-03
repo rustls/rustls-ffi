@@ -15,8 +15,7 @@ use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
-    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit,
-    rslice::{rustls_slice_slice_bytes_new, NulByte},
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte,
     try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
@@ -90,7 +89,7 @@ pub struct rustls_root_cert_store {
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
     end_entity_cert_der: rustls_slice_bytes<'a>,
-    intermediate_certs_der: *const rustls_slice_slice_bytes<'a>,
+    intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
     roots: *const rustls_root_cert_store,
     dns_name: rustls_str<'a>,
     ocsp_response: rustls_slice_bytes<'a>,
@@ -163,12 +162,14 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
-        let intermediates = rustls_slice_slice_bytes_new(&&*certificates);
+        let intermediates = rustls_slice_slice_bytes {
+            inner: &*certificates,
+        };
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
             end_entity_cert_der: end_entity.into(),
-            intermediate_certs_der: intermediates,
+            intermediate_certs_der: &intermediates,
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };

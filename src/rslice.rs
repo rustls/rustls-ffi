@@ -46,7 +46,7 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-pub struct rustls_slice_slice_bytes<'a>{
+pub struct rustls_slice_slice_bytes<'a> {
     pub inner: &'a [&'a [u8]],
 }
 
@@ -142,7 +142,7 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
 /// callback, the lifetime will usually be the duration of the callback.
 /// Functions that receive one of these must not call its methods beyond the
 /// allowed lifetime.
-pub struct rustls_slice_str<'a>{
+pub struct rustls_slice_str<'a> {
     pub inner: &'a [&'a str],
 }
 
