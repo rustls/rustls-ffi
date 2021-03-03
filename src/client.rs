@@ -11,7 +11,7 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::{arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte, try_ref_from_ptr};
+use crate::{arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::{NulByte, rustls_slice_slice_bytes_new}, try_ref_from_ptr};
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use rustls_result::NullParameter;
@@ -143,11 +143,10 @@ impl rustls::ServerCertVerifier for Verifier {
             Ok(r) => r,
             Err(NulByte{}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
         };
-        let mut certificates: Vec<rustls_slice_bytes> = presented_certs
+        let mut certificates: Vec<&[u8]> = presented_certs
             .iter()
             .map(|cert: &Certificate| {
-                let cert: rustls_slice_bytes = cert.as_ref().into();
-                cert
+                cert.as_ref()
             })
             .collect();
         // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
@@ -161,13 +160,11 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
-        let intermediates: &&[rustls_slice_bytes] = &&*certificates;
-        let intermediates: *const &[rustls_slice_bytes] = intermediates;
-        let intermediates = intermediates as *const rustls_slice_slice_bytes;
+        let intermediates  = rustls_slice_slice_bytes_new(&*certificates);
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
-            end_entity_cert_der: end_entity,
+            end_entity_cert_der: end_entity.into(),
             intermediate_certs_der: intermediates,
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),

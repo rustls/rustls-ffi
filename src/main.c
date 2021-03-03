@@ -475,13 +475,19 @@ cleanup:
 enum rustls_result
 verify(void *userdata, const rustls_verify_server_cert_params *params) {
   size_t i = 0;
+  const rustls_slice_slice_bytes *intermediates = params->intermediate_certs_der;
+  struct rustls_slice_bytes bytes;
+  const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
+
   fprintf(stderr, "custom certificate verifier called for %.*s\n",
     (int)params->dns_name.len, params->dns_name.data);
   fprintf(stderr, "end entity len: %ld\n", params->end_entity_cert_der.len);
   fprintf(stderr, "intermediates:\n");
-  for(i = 0; i<params->intermediate_certs_der.len; i++) {
-    fprintf(stderr, "  intermediate, len = %ld\n",
-      params->intermediate_certs_der.data[i].len);
+  for(i = 0; i<intermediates_len; i++) {
+    bytes = rustls_slice_slice_bytes_get(intermediates, i);
+    if(bytes.data != NULL) {
+      fprintf(stderr, "  intermediate, len = %ld\n", bytes.len);
+    }
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
   if(0 != strcmp((const char *)userdata, "verify_arg")) {
