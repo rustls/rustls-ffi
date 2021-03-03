@@ -163,7 +163,7 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
-        let intermediates = rustls_slice_slice_bytes_new(&*certificates);
+        let intermediates = rustls_slice_slice_bytes_new(&&*certificates);
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,

@@ -52,10 +52,9 @@ pub struct rustls_slice_slice_bytes<'a> {
 
 /// Return a pointer to a rustls_slice_slice_bytes representing an input slice.
 pub(crate) fn rustls_slice_slice_bytes_new<'a>(
-    input: &'a [&'a [u8]],
+    input: &&'a [&'a [u8]],
 ) -> *const rustls_slice_slice_bytes<'a> {
-    let output: &&[&[u8]] = &input;
-    let output: *const &[&[u8]] = output;
+    let output: *const &[&[u8]] = input;
     output as *const rustls_slice_slice_bytes
 }
 
@@ -158,14 +157,13 @@ pub struct rustls_slice_str<'a> {
 /// Return a pointer to a rustls_slice_str representing a an input slice.
 /// If any element of the input slice doesn't mean the `rustls_str` invariant
 /// of having no NUL bytes, return NULL.
-pub(crate) fn rustls_slice_str_new<'a>(input: &'a [&'a str]) -> *const rustls_slice_str<'a> {
-    for &s in input {
+pub(crate) fn rustls_slice_str_new<'a>(input: &&'a [&'a str]) -> *const rustls_slice_str<'a> {
+    for &s in *input {
         if let Err(NulByte {}) = rustls_str::try_from(s) {
             return null();
         }
     }
-    let output: &&[&str] = &input;
-    let output: *const &[&str] = output;
+    let output: *const &[&str] = input;
     output as *const rustls_slice_str
 }
 
