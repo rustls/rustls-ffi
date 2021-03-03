@@ -1,5 +1,5 @@
 use libc::{c_char, size_t};
-use std::{convert::{TryFrom, TryInto}, ptr::null, slice};
+use std::{convert::{TryFrom, TryInto}, ptr::null};
 use std::marker::PhantomData;
 
 /// A read-only view on a Rust byte slice.
@@ -99,14 +99,14 @@ pub struct rustls_str<'a> {
 
 /// NulByte represents an error converting `&str` to `rustls_str` when the &str
 /// contains a NUL.
-type NulByte = ();
+pub struct NulByte {}
 
 impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     type Error = NulByte;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.contains('\0') {
-            return Err(());
+            return Err(NulByte{});
         }
         Ok(rustls_str {
             data: s.as_ptr() as *const c_char,
@@ -116,49 +116,54 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     }
 }
 
-/// An owned Vec<rustls_str>, where the inner slices have lifetime 'a.
-/// See comment on VecSliceBytes for more information.
-pub(crate) struct VecStr<'a>(Vec<rustls_str<'a>>);
-
-impl<'a> VecStr<'a> {
-    /// Build a VecStr that refers to `input` and can live as long as it does.
-    fn new(input: &'a Vec<&str>) -> Result<Self, ()> {
-        let mut vs: Vec<rustls_str> = vec![];
-        for v in input {
-            let v: &str = v.as_ref();
-            vs.push(v.try_into()?);
-        }
-        Ok(VecStr(vs))
-    }
-}
-
-/// A read-only view of a slice of Rust `&str`
+/// A read-only view of a slice of Rust `&str`.
 ///
 /// This is used to pass data from crustls to callback functions provided
-/// by the user of the API. The `data` is an array of `rustls_str`
-/// structures with `len` elements.
+/// by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+/// can't provide a straightforward `data` and `len` structure. Instead, we
+/// provide access via a pointer to an opaque struct and accessor methods.
+/// Internally, the pointee is a `&[&str]`.
 ///
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
 /// callback, the lifetime will usually be the duration of the callback.
-/// Functions that receive one of these must not dereference any of the
-/// involved pointers beyond the allowed lifetime.
+/// Functions that receive one of these must not call its methods beyond the
+/// allowed lifetime.
 #[repr(C)]
 pub struct rustls_slice_str<'a> {
-    pub data: *const rustls_str<'a>,
-    pub len: size_t,
-    phantom: PhantomData<&'a [rustls_str<'a>]>,
+    phantom: PhantomData<&'a [&'a str]>,
 }
 
-impl<'a> From<&'a VecStr<'a>> for rustls_slice_str<'a> {
-    fn from(input: &'a VecStr<'a>) -> Self {
-        rustls_slice_str {
-            data: input.0.as_ptr(),
-            len: input.0.len(),
-            phantom: PhantomData,
+/// Retrieve the nth element from the input slice of slices. If the input
+/// pointer is NULL, returns 0.
+#[no_mangle]
+pub extern "C" fn rustls_slice_str_len(
+    input: *const rustls_slice_str) -> usize {
+    unsafe {
+        match (input as *const &[&str]).as_ref() {
+            Some(c) => c.len(),
+            None => 0,
         }
     }
 }
+
+/// Retrieve the nth element from the input slice of slices. If the input
+/// pointer is NULL, or n is greater than the length of the
+/// rustls_slice_slice_bytes, returns rustls_str{NULL, 0}.
+#[no_mangle]
+pub extern "C" fn rustls_slice_str_get(
+    input: *const rustls_slice_str, n: usize) -> rustls_str {
+    let input: &&[&str] = unsafe {
+        match (input as *const &[&str]).as_ref() {
+            Some(c) => c,
+            None => return rustls_str{data: null(), len: 0, phantom: PhantomData},
+        }
+    };
+    input.get(n).and_then(|&s| s.try_into().ok()).unwrap_or(
+        rustls_str{data: null(), len: 0, phantom: PhantomData},
+    )
+}
+
 
 /// A read-only view on a Rust slice of 16-bit integers in platform endianness.
 ///

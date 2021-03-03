@@ -11,12 +11,9 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::{
-    arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
-    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
-};
+use crate::{arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte, try_ref_from_ptr};
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
-use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str, VecSliceBytes};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
@@ -88,7 +85,7 @@ pub struct rustls_root_cert_store {
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
     end_entity_cert_der: rustls_slice_bytes<'a>,
-    intermediate_certs_der: rustls_slice_slice_bytes<'a>,
+    intermediate_certs_der: *const rustls_slice_slice_bytes<'a>,
     roots: *const rustls_root_cert_store,
     dns_name: rustls_str<'a>,
     ocsp_response: rustls_slice_bytes<'a>,
@@ -144,7 +141,7 @@ impl rustls::ServerCertVerifier for Verifier {
         let dns_name: &str = dns_name.into();
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
-            Err(()) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+            Err(NulByte{}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
         };
         let mut certificates: Vec<rustls_slice_bytes> = presented_certs
             .iter()
@@ -164,12 +161,14 @@ impl rustls::ServerCertVerifier for Verifier {
                 ))
             }
         };
-        let intermediates: VecSliceBytes = certificates.into();
+        let intermediates: &&[rustls_slice_bytes] = &&*certificates;
+        let intermediates: *const &[rustls_slice_bytes] = intermediates;
+        let intermediates = intermediates as *const rustls_slice_slice_bytes;
 
         let params = rustls_verify_server_cert_params {
             roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
             end_entity_cert_der: end_entity,
-            intermediate_certs_der: (&intermediates).into(),
+            intermediate_certs_der: intermediates,
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };

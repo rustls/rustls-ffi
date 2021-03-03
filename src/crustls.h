@@ -163,18 +163,19 @@ typedef struct rustls_slice_bytes {
  * A read-only view of a slice of Rust byte slices.
  *
  * This is used to pass data from crustls to callback functions provided
- * by the user of the API. The `data` is an array of `rustls_slice_bytes`
- * structures with `len` elements.
+ * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+ * provide access via a pointer to an opaque struct and an accessor method
+ * that acts on that struct to get entries of type `rustls_slice_bytes`.
+ * Internally, the pointee is a `&[&[u8]]`.
  *
  * The memory exposed is available as specified by the function
  * using this in its signature. For instance, when this is a parameter to a
  * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference any of the
- * involved data pointers beyond the allowed lifetime.
+ * Functions that receive one of these must not call its methods beyond the
+ * allowed lifetime.
  */
 typedef struct rustls_slice_slice_bytes {
-  const struct rustls_slice_bytes *data;
-  size_t len;
+
 } rustls_slice_slice_bytes;
 
 /**
@@ -393,6 +394,20 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
 void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_n);
 
 bool rustls_result_is_cert_error(enum rustls_result result);
+
+/**
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, returns 0.
+ */
+uintptr_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
+
+/**
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, or n is greater than the length of the
+ * rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
+ */
+struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
+                                                       uintptr_t n);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
