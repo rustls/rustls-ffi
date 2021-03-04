@@ -13,7 +13,7 @@ use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u
 use crate::{arc_with_incref_from_raw, cipher::rustls_cipher_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
+    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
 use rustls::sign::CertifiedKey;
 use rustls_result::NullParameter;
@@ -298,6 +298,19 @@ pub extern "C" fn rustls_server_session_is_handshaking(
     ffi_panic_boundary_bool! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, false);
         session.is_handshaking()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_protocol_version(
+    session: *const rustls_server_session,
+) -> u16 {
+    ffi_panic_boundary_u16! {
+        let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, 0);
+        match session.get_protocol_version() {
+            Some(v) => v.get_u16(),
+            None => 0
+        }
     }
 }
 

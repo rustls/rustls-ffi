@@ -578,6 +578,8 @@ bool rustls_server_session_wants_write(const struct rustls_server_session *sessi
 
 bool rustls_server_session_is_handshaking(const struct rustls_server_session *session);
 
+uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
+
 enum rustls_result rustls_server_session_process_new_packets(struct rustls_server_session *session);
 
 /**
