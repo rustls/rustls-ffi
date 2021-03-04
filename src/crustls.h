@@ -147,7 +147,9 @@ typedef struct rustls_server_session rustls_server_session;
 typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
 
 /**
- * A read-only view of a slice of Rust `&str`.
+ * A read-only view of a slice of multiple Rust `&str`'s (that is, multiple
+ * strings). Like `rustls_str`, this guarantees that each string contains
+ * UTF-8 and no NUL bytes. Strings are not NUL-terminated.
  *
  * This is used to pass data from crustls to callback functions provided
  * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we

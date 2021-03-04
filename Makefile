@@ -23,12 +23,14 @@ endif
 all: target/crustls-demo
 
 test: all
+	cargo test
 	target/crustls-demo httpbin.org /headers
 
 target:
 	mkdir -p $@
 
 src/crustls.h: src/*.rs
+	cargo check
 	cbindgen --lang C > $@
 
 target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
