@@ -173,22 +173,9 @@ typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
 typedef struct rustls_slice_str rustls_slice_str;
 
 /**
- * A read-only view on a Rust byte slice.
- *
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API.
- * `len` indicates the number of bytes than can be safely read.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
+ * Any context information the callback will receive when invoked.
  */
-typedef struct rustls_slice_bytes {
-  const uint8_t *data;
-  size_t len;
-} rustls_slice_bytes;
+typedef void *rustls_supported_ciphersuite_userdata;
 
 /**
  * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
@@ -207,6 +194,35 @@ typedef struct rustls_str {
   const char *data;
   size_t len;
 } rustls_str;
+
+/**
+ * Prototype of a callback that receives numerical identifier and name of
+ * a cipher suite supported by rustls.
+ * `userdata` will be supplied as provided when registering the callback.
+ * `id` gives the numerical identifier of the cipher suite.
+ * 'name' gives the name of the suite as defined by rustls.
+ *
+ * NOTE: the passed in `name` is only availabe during the callback invocation.
+ */
+typedef void (*rustls_supported_ciphersuite_callback)(rustls_supported_ciphersuite_userdata userdata, unsigned short id, const struct rustls_str *name);
+
+/**
+ * A read-only view on a Rust byte slice.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_bytes {
+  const uint8_t *data;
+  size_t len;
+} rustls_slice_bytes;
 
 /**
  * Any context information the callback will receive when invoked.
@@ -278,21 +294,6 @@ typedef const struct rustls_cipher_certified_key *(*rustls_client_hello_callback
  */
 size_t rustls_version(char *buf, size_t len);
 
-/**
- * Get the name of a SignatureScheme, represented by the `scheme` short value,
- * if known by the rustls library. For unknown schemes, this returns a string
- * with the scheme value in hex notation.
- * Mainly useful for debugging output.
- * The caller provides `buf` for holding the string and gives its size as `len`
- * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
- * `buf` is not NUL-terminated.
- *
- */
-void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
-                                             char *buf,
-                                             size_t len,
-                                             size_t *out_n);
-
 enum rustls_result rustls_cipher_certified_key_build(const uint8_t *cert_chain,
                                                      size_t cert_chain_len,
                                                      const uint8_t *private_key,
@@ -308,6 +309,20 @@ enum rustls_result rustls_cipher_certified_key_build(const uint8_t *cert_chain,
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
 void rustls_cipher_certified_key_free(const struct rustls_cipher_certified_key *config);
+
+/**
+ * Get the name of a rustls_cipher_suite by its number. For unknown
+ * suites, this returns a string with the number in hex notation.
+ *
+ * The caller provides `buf` for holding the string and gives its size as `len`
+ * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+ * `buf` is not NUL-terminated.
+ *
+ */
+enum rustls_result rustls_cipher_suite_get_name(unsigned short suite_num,
+                                                char *buf,
+                                                size_t len,
+                                                size_t *out_n);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -432,6 +447,41 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
                                                    size_t *out_n);
 
 /**
+ * Get the name of a CipherSuite, represented by the `suite` short value,
+ * if known by the rustls library. For unknown schemes, this returns a string
+ * with the scheme value in hex notation.
+ *
+ * The caller provides `buf` for holding the string and gives its size as `len`
+ * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+ * `buf` is not NUL-terminated.
+ * Returns `rustls_result::InsufficientSize` if the buffer was not large enough.
+ *
+ */
+enum rustls_result rustls_ciphersuite_get_name(unsigned short suite,
+                                               char *buf,
+                                               size_t len,
+                                               size_t *out_n);
+
+void rustls_supported_ciphersuite_iter(rustls_supported_ciphersuite_callback callback,
+                                       rustls_supported_ciphersuite_userdata userdata);
+
+/**
+ * Get the name of a SignatureScheme, represented by the `scheme` short value,
+ * if known by the rustls library. For unknown schemes, this returns a string
+ * with the scheme value in hex notation.
+ *
+ * The caller provides `buf` for holding the string and gives its size as `len`
+ * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+ * `buf` is not NUL-terminated.
+ * Returns `rustls_result::InsufficientSize` if the buffer was not large enough.
+ *
+ */
+enum rustls_result rustls_signature_scheme_get_name(unsigned short scheme,
+                                                    char *buf,
+                                                    size_t len,
+                                                    size_t *out_n);
+
+/**
  * After a rustls_client_session method returns an error, you may call
  * this method to get a pointer to a buffer containing a detailed error
  * message. The contents of the error buffer will be out_n bytes long,
@@ -502,6 +552,14 @@ struct rustls_server_config_builder *rustls_server_config_builder_from_config(co
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
+
+enum rustls_result rustls_server_config_builder_set_versions(struct rustls_server_config_builder *builder,
+                                                             const uint16_t *versions,
+                                                             size_t len);
+
+enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_server_config_builder *builder,
+                                                                 const uint16_t *ciphersuites,
+                                                                 size_t len);
 
 enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_server_config_builder *builder,
                                                               const struct rustls_slice_bytes *protocols,
@@ -576,9 +634,19 @@ bool rustls_server_session_wants_read(const struct rustls_server_session *sessio
 
 bool rustls_server_session_wants_write(const struct rustls_server_session *session);
 
+/**
+ * Returns != 0 until the TLS handshake is complete.
+ */
 bool rustls_server_session_is_handshaking(const struct rustls_server_session *session);
 
+/**
+ * Return the TLS protocol version that has been negotiated. Before this
+ * has been decided during the handshake, this will return 0. Otherwise,
+ * the u16 version number as defined in the relevant RFC is returned.
+ */
 uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
+
+uint16_t rustls_server_session_get_negotiated_ciphersuite(const struct rustls_server_session *session);
 
 enum rustls_result rustls_server_session_process_new_packets(struct rustls_server_session *session);
 

@@ -1,5 +1,14 @@
+use crate::error::rustls_result;
+use crate::error::rustls_result::NullParameter;
+use crate::rslice::rustls_str;
+use crate::{ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit};
+use libc::{c_char, c_ushort, c_void, size_t};
+use rustls::ProtocolVersion;
+use std::convert::TryInto;
+use std::{cmp::min, slice};
+
 #[repr(C)]
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub enum rustls_protocol_version {
     SSLv2 = 0x0200,
     SSLv3 = 0x0300,
@@ -7,6 +16,18 @@ pub enum rustls_protocol_version {
     TLSv1_1 = 0x0302,
     TLSv1_2 = 0x0303,
     TLSv1_3 = 0x0304,
+}
+
+pub(crate) fn rustls_protocol_version_from_u16(version_num: u16) -> Option<ProtocolVersion> {
+    match version_num {
+        0x0200 => Some(rustls::ProtocolVersion::SSLv2),
+        0x0300 => Some(rustls::ProtocolVersion::SSLv3),
+        0x0301 => Some(rustls::ProtocolVersion::TLSv1_0),
+        0x0302 => Some(rustls::ProtocolVersion::TLSv1_1),
+        0x0303 => Some(rustls::ProtocolVersion::TLSv1_2),
+        0x0304 => Some(rustls::ProtocolVersion::TLSv1_3),
+        _ => None,
+    }
 }
 
 /// A snapshot of the registered TLS cipher suites as documented in
@@ -19,8 +40,8 @@ pub enum rustls_protocol_version {
 /// suites might be announced that are not present here.
 ///
 #[repr(C)]
-#[warn(dead_code)]
-pub enum rustls_ciper_suite_num {
+#[allow(dead_code)]
+pub enum rustls_cipersuite {
     TLS_NULL_WITH_NULL_NULL = 0x0000,
     TLS_RSA_WITH_NULL_MD5 = 0x0001,
     TLS_RSA_WITH_NULL_SHA = 0x0002,
@@ -395,12 +416,186 @@ pub enum rustls_ciper_suite_num {
     SSL_RSA_FIPS_WITH_3DES_EDE_CBC_SHA = 0xfeff,
 }
 
-#[no_mangle]
-pub fn rustls_cipher_suite_is_supported(suite_num: u16) -> bool {
-    for s in rustls::ALL_CIPHERSUITES.iter() {
-        if s.suite.get_u16() == suite_num {
-            return true;
+pub(crate) fn rustls_supported_ciphersuite_from_u16(
+    cipher_num: u16,
+) -> Option<&'static rustls::SupportedCipherSuite> {
+    for supported in rustls::ALL_CIPHERSUITES.iter() {
+        if supported.suite.get_u16() == cipher_num {
+            return Some(supported);
         }
     }
-    false
+    None
+}
+
+/// Get the name of a CipherSuite, represented by the `suite` short value,
+/// if known by the rustls library. For unknown schemes, this returns a string
+/// with the scheme value in hex notation.
+///
+/// The caller provides `buf` for holding the string and gives its size as `len`
+/// bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+/// `buf` is not NUL-terminated.
+/// Returns `rustls_result::InsufficientSize` if the buffer was not large enough.
+///
+#[no_mangle]
+pub extern "C" fn rustls_ciphersuite_get_name(
+    suite: c_ushort,
+    buf: *mut c_char,
+    len: size_t,
+    out_n: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
+        };
+        let name = match rustls_supported_ciphersuite_from_u16(suite) {
+            Some(s) => format!("{:?}", s.suite),
+            None => format!("Unknown({:#06x})", suite)
+        };
+        let len: usize = min(write_buf.len() - 1, name.len());
+        if len > write_buf.len() {
+            return rustls_result::InsufficientSize;
+        }
+        write_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
+        unsafe {
+            *out_n = len;
+        }
+        rustls_result::Ok
+    }
+}
+
+/// Any context information the callback will receive when invoked.
+#[allow(non_camel_case_types)]
+pub type rustls_supported_ciphersuite_userdata = *mut c_void;
+
+/// Prototype of a callback that receives numerical identifier and name of
+/// a cipher suite supported by rustls.
+/// `userdata` will be supplied as provided when registering the callback.
+/// `id` gives the numerical identifier of the cipher suite.
+/// 'name' gives the name of the suite as defined by rustls.
+///
+/// NOTE: the passed in `name` is only availabe during the callback invocation.
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub type rustls_supported_ciphersuite_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_supported_ciphersuite_userdata,
+        id: c_ushort,
+        name: &rustls_str,
+    ),
+>;
+
+// This is the same as a rustls_supported_ciphersuite_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+#[allow(non_camel_case_types)]
+type non_null_rustls_supported_ciphersuite_callback = unsafe extern "C" fn(
+    userdata: rustls_supported_ciphersuite_userdata,
+    id: c_ushort,
+    name: &rustls_str,
+);
+
+#[no_mangle]
+pub extern "C" fn rustls_supported_ciphersuite_iter(
+    callback: rustls_supported_ciphersuite_callback,
+    userdata: rustls_supported_ciphersuite_userdata,
+) {
+    ffi_panic_boundary_unit! {
+        let callback: non_null_rustls_supported_ciphersuite_callback = match callback {
+            Some(cb) => cb,
+            None => return,
+        };
+        for cipher in rustls::ALL_CIPHERSUITES.iter() {
+            let name = format!("{:?}", cipher);
+            let s: &str = &name;
+            let rs: rustls_str = s.try_into().ok().unwrap();
+            unsafe {
+                callback(userdata, cipher.suite.get_u16(), &rs);
+            }
+        }
+    }
+}
+
+/// All SignatureScheme currently defined in rustls.
+/// At the moment not exposed by rustls itself.
+#[no_mangle]
+pub(crate) static ALL_SIGNATURE_SCHEMES: &[rustls::SignatureScheme] = &[
+    rustls::SignatureScheme::RSA_PKCS1_SHA1,
+    rustls::SignatureScheme::ECDSA_SHA1_Legacy,
+    rustls::SignatureScheme::RSA_PKCS1_SHA256,
+    rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
+    rustls::SignatureScheme::RSA_PKCS1_SHA384,
+    rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
+    rustls::SignatureScheme::RSA_PKCS1_SHA512,
+    rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
+    rustls::SignatureScheme::RSA_PSS_SHA256,
+    rustls::SignatureScheme::RSA_PSS_SHA384,
+    rustls::SignatureScheme::RSA_PSS_SHA512,
+    rustls::SignatureScheme::ED25519,
+    rustls::SignatureScheme::ED448,
+];
+
+/// Collect the u16 values of the given SignatureScheme slice, so they
+/// can be exposed in our API.
+pub(crate) fn rustls_signature_schemes_to_u16s(schemes: &[rustls::SignatureScheme]) -> Vec<u16> {
+    let mut mapped_schemes: Vec<u16> = Vec::new();
+    for s in schemes {
+        mapped_schemes.push(s.get_u16());
+    }
+    mapped_schemes
+}
+
+/// Get the name of a SignatureScheme, represented by the `scheme` short value,
+/// if known by the rustls library. For unknown schemes, this returns a string
+/// with the scheme value in hex notation.
+///
+/// The caller provides `buf` for holding the string and gives its size as `len`
+/// bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+/// `buf` is not NUL-terminated.
+/// Returns `rustls_result::InsufficientSize` if the buffer was not large enough.
+///
+#[no_mangle]
+pub extern "C" fn rustls_signature_scheme_get_name(
+    scheme: c_ushort,
+    buf: *mut c_char,
+    len: size_t,
+    out_n: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let write_buf: &mut [u8] = unsafe {
+            let out_n: &mut size_t = match out_n.as_mut() {
+                Some(out_n) => out_n,
+                None => return NullParameter,
+            };
+            *out_n = 0;
+            if buf.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
+        };
+        let get_name = || {
+            for s in ALL_SIGNATURE_SCHEMES {
+                if s.get_u16() == scheme {
+                    return format!("{:?}", s);
+                }
+            }
+            format!("Unknown({:#06x})", scheme)
+        };
+        let name = get_name();
+        let len: usize = min(write_buf.len() - 1, name.len());
+        if len > write_buf.len() {
+            return rustls_result::InsufficientSize;
+        }
+        write_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
+        unsafe {
+            *out_n = len;
+        }
+        rustls_result::Ok
+    }
 }

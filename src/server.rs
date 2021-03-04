@@ -7,7 +7,10 @@ use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 
-use crate::cipher::rustls_cipher_map_signature_schemes;
+use crate::enums::{
+    rustls_protocol_version_from_u16, rustls_signature_schemes_to_u16s,
+    rustls_supported_ciphersuite_from_u16,
+};
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::{arc_with_incref_from_raw, cipher::rustls_cipher_certified_key};
@@ -109,6 +112,52 @@ pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
         config.ignore_client_order = ignore;
+        rustls_result::Ok
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_versions(
+    builder: *mut rustls_server_config_builder,
+    versions: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        let mut v: Vec<rustls::ProtocolVersion> = Vec::new();
+        unsafe {
+            let x: &[u16] = slice::from_raw_parts(versions, len);
+            for i in x {
+                match rustls_protocol_version_from_u16(*i) {
+                    Some(pversion) => v.push(pversion),
+                    None => return rustls_result::AlertIllegalParameter
+                }
+            }
+        }
+        config.versions = v;
+        rustls_result::Ok
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
+    builder: *mut rustls_server_config_builder,
+    ciphersuites: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        let mut v: Vec<&rustls::SupportedCipherSuite> = Vec::new();
+        unsafe {
+            let x: &[u16] = slice::from_raw_parts(ciphersuites, len);
+            for i in x {
+                match rustls_supported_ciphersuite_from_u16(*i) {
+                    Some(suite) => v.push(suite),
+                    None => return rustls_result::AlertIllegalParameter
+                }
+            }
+        }
+        config.ciphersuites = v;
         rustls_result::Ok
     }
 }
@@ -291,6 +340,7 @@ pub extern "C" fn rustls_server_session_wants_write(session: *const rustls_serve
     }
 }
 
+/// Returns != 0 until the TLS handshake is complete.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_is_handshaking(
     session: *const rustls_server_session,
@@ -301,6 +351,9 @@ pub extern "C" fn rustls_server_session_is_handshaking(
     }
 }
 
+/// Return the TLS protocol version that has been negotiated. Before this
+/// has been decided during the handshake, this will return 0. Otherwise,
+/// the u16 version number as defined in the relevant RFC is returned.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_get_protocol_version(
     session: *const rustls_server_session,
@@ -309,6 +362,21 @@ pub extern "C" fn rustls_server_session_get_protocol_version(
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, 0);
         match session.get_protocol_version() {
             Some(v) => v.get_u16(),
+            None => 0
+        }
+    }
+}
+
+// Return the identifier of the TLS cipher suite that has been negoatiated
+// during handhshake. Until the decision is made, this returns 0.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_negotiated_ciphersuite(
+    session: *const rustls_server_session,
+) -> u16 {
+    ffi_panic_boundary_u16! {
+        let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, 0);
+        match session.get_negotiated_ciphersuite() {
+            Some(s) => s.suite.get_u16(),
             None => 0
         }
     }
@@ -701,7 +769,7 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             Ok(r) => r,
             Err(_) => return None,
         };
-        let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
+        let mapped_sigs: Vec<u16> = rustls_signature_schemes_to_u16s(client_hello.sigschemes());
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
         let alpn: rustls_slice_slice_bytes = rustls_slice_slice_bytes { inner: alpn };
