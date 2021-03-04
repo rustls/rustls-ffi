@@ -33,6 +33,17 @@ impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
     }
 }
 
+#[test]
+fn test_rustls_slice_bytes() {
+    let bytes = "abcd".as_bytes();
+    let rsb: rustls_slice_bytes = bytes.into();
+    unsafe {
+        assert_eq!(*rsb.data, 'a' as u8);
+        assert_eq!(*rsb.data.offset(3), 'd' as u8);
+        assert_eq!(rsb.len, 4);
+    }
+}
+
 /// A read-only view of a slice of Rust byte slices.
 ///
 /// This is used to pass data from crustls to callback functions provided
@@ -92,6 +103,32 @@ pub extern "C" fn rustls_slice_slice_bytes_get<'a>(
     }
 }
 
+#[test]
+fn test_rustls_slice_slice_bytes() {
+    let many_bytes = vec![
+        "abcd".as_bytes(),
+        "".as_bytes(),
+        "xyz".as_bytes(),
+    ];
+    let rssb = rustls_slice_slice_bytes{inner: &many_bytes};
+
+    assert_eq!(rustls_slice_slice_bytes_len(&rssb), 3);
+
+    assert_eq!(rustls_slice_slice_bytes_get(&rssb, 0).len, 4);
+    assert_eq!(rustls_slice_slice_bytes_get(&rssb, 1).len, 0);
+    assert_ne!(rustls_slice_slice_bytes_get(&rssb, 1).data, null());
+    assert_eq!(rustls_slice_slice_bytes_get(&rssb, 2).len, 3);
+    assert_eq!(rustls_slice_slice_bytes_get(&rssb, 3).len, 0);
+    assert_eq!(rustls_slice_slice_bytes_get(&rssb, 3).data, null());
+
+    unsafe {
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 0).data, 'a' as u8);
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 0).data.offset(3), 'd' as u8);
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 2).data, 'x' as u8);
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 2).data.offset(2), 'z' as u8);
+    }
+}
+
 /// A read-only view on a Rust `&str`. The contents are guaranteed to be valid
 /// UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
 /// a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
@@ -112,6 +149,7 @@ pub struct rustls_str<'a> {
 
 /// NulByte represents an error converting `&str` to `rustls_str` when the &str
 /// contains a NUL.
+#[derive(Debug)]
 pub struct NulByte {}
 
 impl<'a> TryFrom<&'a str> for rustls_str<'a> {
@@ -129,7 +167,27 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     }
 }
 
-/// A read-only view of a slice of Rust `&str`.
+#[test]
+fn test_rustls_str() {
+    let s = "abcd";
+    let rs: rustls_str = s.try_into().unwrap();
+    assert_eq!(rs.len, 4);
+    unsafe {
+        assert_eq!(*rs.data, 'a' as c_char);
+        assert_eq!(*rs.data.offset(3), 'd' as c_char);
+    }
+}
+
+#[test]
+fn test_rustls_str_rejects_nul() {
+    assert!(matches!(rustls_str::try_from("\0"), Err(NulByte{})));
+    assert!(matches!(rustls_str::try_from("abc\0"), Err(NulByte{})));
+    assert!(matches!(rustls_str::try_from("ab\0cd"), Err(NulByte{})));
+}
+
+/// A read-only view of a slice of multiple Rust `&str`'s (that is, multiple
+/// strings). Like `rustls_str`, this guarantees that each string contains
+/// UTF-8 and no NUL bytes. Strings are not NUL-terminated.
 ///
 /// This is used to pass data from crustls to callback functions provided
 /// by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
@@ -186,6 +244,33 @@ pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t
         })
 }
 
+#[test]
+fn test_rustls_slice_str() {
+    let many_strings = vec![
+        "abcd",
+        "",
+        "xyz",
+    ];
+    let rss = rustls_slice_str{inner: &many_strings};
+
+    assert_eq!(rustls_slice_str_len(&rss), 3);
+
+    assert_eq!(rustls_slice_str_get(&rss, 0).len, 4);
+    assert_eq!(rustls_slice_str_get(&rss, 1).len, 0);
+    assert_ne!(rustls_slice_str_get(&rss, 1).data, null());
+    assert_eq!(rustls_slice_str_get(&rss, 2).len, 3);
+    assert_eq!(rustls_slice_str_get(&rss, 3).len, 0);
+    assert_eq!(rustls_slice_str_get(&rss, 3).data, null());
+
+    unsafe {
+        assert_eq!(*rustls_slice_str_get(&rss, 0).data, 'a' as c_char);
+        assert_eq!(*rustls_slice_str_get(&rss, 0).data.offset(3), 'd' as c_char);
+        assert_eq!(*rustls_slice_str_get(&rss, 2).data, 'x' as c_char);
+        assert_eq!(*rustls_slice_str_get(&rss, 2).data.offset(2), 'z' as c_char);
+    }
+}
+
+
 /// A read-only view on a Rust slice of 16-bit integers in platform endianness.
 ///
 /// This is used to pass data from crustls to callback functions provided
@@ -211,5 +296,17 @@ impl<'a> From<&'a [u16]> for rustls_slice_u16<'a> {
             len: s.len(),
             phantom: PhantomData,
         }
+    }
+}
+
+#[test]
+fn test_rustls_slice_u16() {
+    let u16s: Vec<u16> = vec![101, 314, 2718];
+    let rsu: rustls_slice_u16 = (&*u16s).into();
+    assert_eq!(rsu.len, 3);
+    unsafe {
+        assert_eq!(*rsu.data, 101);
+        assert_eq!(*rsu.data.offset(1), 314);
+        assert_eq!(*rsu.data.offset(2), 2718);
     }
 }
