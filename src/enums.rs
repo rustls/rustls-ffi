@@ -3,7 +3,7 @@ use crate::error::rustls_result::NullParameter;
 use crate::rslice::rustls_str;
 use crate::{ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit};
 use libc::{c_char, c_ushort, c_void, size_t};
-use rustls::ProtocolVersion;
+use rustls::{ProtocolVersion, SupportedCipherSuite};
 use std::convert::TryInto;
 use std::{cmp::min, slice};
 
@@ -427,6 +427,113 @@ pub(crate) fn rustls_supported_ciphersuite_from_u16(
     None
 }
 
+/// Any context information the callback will receive when invoked.
+#[allow(non_camel_case_types)]
+pub type rustls_supported_ciphersuite_userdata = *mut c_void;
+
+/// Prototype of a callback that receives numerical identifier and name of
+/// a cipher suite supported by rustls.
+/// `userdata` will be supplied as provided when registering the callback.
+/// `id` gives the numerical identifier of the cipher suite.
+/// 'name' gives the name of the suite as defined by rustls.
+///
+/// NOTE: the passed in `name` is only availabe during the callback invocation.
+#[allow(non_camel_case_types)]
+#[allow(dead_code)]
+pub type rustls_supported_ciphersuite_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_supported_ciphersuite_userdata,
+        id: c_ushort,
+        name: &rustls_str,
+    ),
+>;
+
+struct KnownCipherSuite<'a> {
+    id: u16,
+    name: &'a str,
+}
+
+static KNOWN_NAMES: &[KnownCipherSuite] = &[
+    KnownCipherSuite {
+        id: 0xc02b,
+        name: "ECDHE-ECDSA-AES128-GCM-SHA256",
+    },
+    KnownCipherSuite {
+        id: 0x1301,
+        name: "TLS_AES_128_GCM_SHA256",
+    },
+    KnownCipherSuite {
+        id: 0xcca8,
+        name: "ECDHE-RSA-CHACHA20-POLY1305",
+    },
+    KnownCipherSuite {
+        id: 0xc02c,
+        name: "ECDHE-ECDSA-AES256-GCM-SHA384",
+    },
+    KnownCipherSuite {
+        id: 0x1302,
+        name: "TLS_AES_256_GCM_SHA384",
+    },
+    KnownCipherSuite {
+        id: 0xc02f,
+        name: "ECDHE-RSA-AES128-GCM-SHA256",
+    },
+    KnownCipherSuite {
+        id: 0xc030,
+        name: "ECDHE-RSA-AES256-GCM-SHA384",
+    },
+    KnownCipherSuite {
+        id: 0xcca9,
+        name: "ECDHE-ECDSA-CHACHA20-POLY1305",
+    },
+    KnownCipherSuite {
+        id: 0x1303,
+        name: "TLS_CHACHA20_POLY1305_SHA256",
+    },
+];
+
+/// Get the 'standard' name for a supported cipher suite. See
+/// <https://wiki.mozilla.org/Security/Server_Side_TLS> as an example
+/// for definitions.
+fn ciphersuite_get_name(cipher: &SupportedCipherSuite) -> String {
+    for wellknown in KNOWN_NAMES.iter() {
+        if wellknown.id == cipher.suite.get_u16() {
+            return String::from(wellknown.name);
+        }
+    }
+    String::from(format!("{:?}", cipher.suite))
+}
+
+// This is the same as a rustls_supported_ciphersuite_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+#[allow(non_camel_case_types)]
+type non_null_rustls_supported_ciphersuite_callback = unsafe extern "C" fn(
+    userdata: rustls_supported_ciphersuite_userdata,
+    id: c_ushort,
+    name: &rustls_str,
+);
+
+#[no_mangle]
+pub extern "C" fn rustls_supported_ciphersuite_iter(
+    callback: rustls_supported_ciphersuite_callback,
+    userdata: rustls_supported_ciphersuite_userdata,
+) {
+    ffi_panic_boundary_unit! {
+        let callback: non_null_rustls_supported_ciphersuite_callback = match callback {
+            Some(cb) => cb,
+            None => return,
+        };
+        for cipher in rustls::ALL_CIPHERSUITES.iter() {
+            let name = ciphersuite_get_name(cipher);
+            let s: &str = &name;
+            let rs: rustls_str = s.try_into().ok().unwrap();
+            unsafe {
+                callback(userdata, cipher.suite.get_u16(), &rs);
+            }
+        }
+    }
+}
+
 /// Get the name of a CipherSuite, represented by the `suite` short value,
 /// if known by the rustls library. For unknown schemes, this returns a string
 /// with the scheme value in hex notation.
@@ -456,7 +563,7 @@ pub extern "C" fn rustls_ciphersuite_get_name(
             slice::from_raw_parts_mut(buf as *mut u8, len as usize)
         };
         let name = match rustls_supported_ciphersuite_from_u16(suite) {
-            Some(s) => format!("{:?}", s.suite),
+            Some(s) => ciphersuite_get_name(s),
             None => format!("Unknown({:#06x})", suite)
         };
         let len: usize = min(write_buf.len() - 1, name.len());
@@ -468,57 +575,6 @@ pub extern "C" fn rustls_ciphersuite_get_name(
             *out_n = len;
         }
         rustls_result::Ok
-    }
-}
-
-/// Any context information the callback will receive when invoked.
-#[allow(non_camel_case_types)]
-pub type rustls_supported_ciphersuite_userdata = *mut c_void;
-
-/// Prototype of a callback that receives numerical identifier and name of
-/// a cipher suite supported by rustls.
-/// `userdata` will be supplied as provided when registering the callback.
-/// `id` gives the numerical identifier of the cipher suite.
-/// 'name' gives the name of the suite as defined by rustls.
-///
-/// NOTE: the passed in `name` is only availabe during the callback invocation.
-#[allow(non_camel_case_types)]
-#[allow(dead_code)]
-pub type rustls_supported_ciphersuite_callback = Option<
-    unsafe extern "C" fn(
-        userdata: rustls_supported_ciphersuite_userdata,
-        id: c_ushort,
-        name: &rustls_str,
-    ),
->;
-
-// This is the same as a rustls_supported_ciphersuite_callback after unwrapping
-// the Option (which is equivalent to checking for null).
-#[allow(non_camel_case_types)]
-type non_null_rustls_supported_ciphersuite_callback = unsafe extern "C" fn(
-    userdata: rustls_supported_ciphersuite_userdata,
-    id: c_ushort,
-    name: &rustls_str,
-);
-
-#[no_mangle]
-pub extern "C" fn rustls_supported_ciphersuite_iter(
-    callback: rustls_supported_ciphersuite_callback,
-    userdata: rustls_supported_ciphersuite_userdata,
-) {
-    ffi_panic_boundary_unit! {
-        let callback: non_null_rustls_supported_ciphersuite_callback = match callback {
-            Some(cb) => cb,
-            None => return,
-        };
-        for cipher in rustls::ALL_CIPHERSUITES.iter() {
-            let name = format!("{:?}", cipher);
-            let s: &str = &name;
-            let rs: rustls_str = s.try_into().ok().unwrap();
-            unsafe {
-                callback(userdata, cipher.suite.get_u16(), &rs);
-            }
-        }
     }
 }
 

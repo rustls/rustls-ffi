@@ -446,6 +446,9 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
                                                    size_t count,
                                                    size_t *out_n);
 
+void rustls_supported_ciphersuite_iter(rustls_supported_ciphersuite_callback callback,
+                                       rustls_supported_ciphersuite_userdata userdata);
+
 /**
  * Get the name of a CipherSuite, represented by the `suite` short value,
  * if known by the rustls library. For unknown schemes, this returns a string
@@ -461,9 +464,6 @@ enum rustls_result rustls_ciphersuite_get_name(unsigned short suite,
                                                char *buf,
                                                size_t len,
                                                size_t *out_n);
-
-void rustls_supported_ciphersuite_iter(rustls_supported_ciphersuite_callback callback,
-                                       rustls_supported_ciphersuite_userdata userdata);
 
 /**
  * Get the name of a SignatureScheme, represented by the `scheme` short value,
