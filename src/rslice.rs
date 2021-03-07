@@ -119,15 +119,9 @@ fn test_rustls_slice_slice_bytes() {
 
     unsafe {
         assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 0).data, b'a');
-        assert_eq!(
-            *rustls_slice_slice_bytes_get(&rssb, 0).data.offset(3),
-            b'd'
-        );
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 0).data.offset(3), b'd');
         assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 2).data, b'x');
-        assert_eq!(
-            *rustls_slice_slice_bytes_get(&rssb, 2).data.offset(2),
-            b'z'
-        );
+        assert_eq!(*rustls_slice_slice_bytes_get(&rssb, 2).data.offset(2), b'z');
     }
 }
 
