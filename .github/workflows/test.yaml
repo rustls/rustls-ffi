@@ -25,3 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: cargo fmt -- --check
+
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - rustup toolchain install nightly
+      - rustup component add miri
+      - cargo install xargo
+      - run: cargo +nightly miri test
