@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: make src/crustls.h
-      - run: git diff
+      - run: git diff --exit-code
 
   cargo-fmt:
     runs-on: ubuntu-latest
