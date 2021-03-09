@@ -290,6 +290,12 @@ pub extern "C" fn rustls_client_session_write(
 /// available have been read, but more bytes may become available after
 /// subsequent calls to rustls_client_session_read_tls and
 /// rustls_client_session_process_new_packets."
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
@@ -312,12 +318,6 @@ pub extern "C" fn rustls_client_session_read(
                 None => return NullParameter,
             }
         };
-        // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
-        // zero it out just in case. TODO: use Initializer once it's stabilized.
-        // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
-        for c in read_buf.iter_mut() {
-            *c = 0;
-        }
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
@@ -376,6 +376,12 @@ pub extern "C" fn rustls_client_session_read_tls(
 /// Write up to `count` TLS bytes from the ClientSession into `buf`. Those
 /// bytes should then be written to a socket. On success, store the number of
 /// bytes actually written in *out_n (this maybe less than `count`).
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(
