@@ -135,38 +135,6 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
     }
 }
 
-/// Sets a single certificate chain and matching private key.
-/// This certificate and key is used for all subsequent connections,
-/// irrespective of things like SNI hostname.
-/// cert_chain must point to a byte array of length cert_chain_len containing
-/// a series of PEM-encoded certificates, with the end-entity certificate
-/// first.
-/// private_key must point to a byte array of length private_key_len containing
-/// a private key in PEM-encoded PKCS#8 or PKCS#1 format.
-///
-/// EXPERIMENTAL: installing a client_hello callback will replace any
-/// configured certified keys and vice versa. Same holds true for the
-/// set_single_cert variant.
-#[no_mangle]
-pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
-    builder: *mut rustls_server_config_builder,
-    cert_chain: *const u8,
-    cert_chain_len: size_t,
-    private_key: *const u8,
-    private_key_len: size_t,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let certified_key: CertifiedKey = match crate::cipher::certified_key_build(
-            cert_chain, cert_chain_len, private_key, private_key_len) {
-            Ok(key) => key,
-            Err(rr) => return rr,
-        };
-        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&[Arc::new(certified_key)]));
-        rustls_result::Ok
-    }
-}
-
 /// Provide the configuration a list of certificates where the session
 /// will select the first one that is compatible with the client's signature
 /// verification capabilities. Servers that want to support ECDSA and RSA certificates

@@ -463,29 +463,9 @@ enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_serv
                                                               size_t len);
 
 /**
- * Sets a single certificate chain and matching private key.
- * This certificate and key is used for all subsequent connections,
- * irrespective of things like SNI hostname.
- * cert_chain must point to a byte array of length cert_chain_len containing
- * a series of PEM-encoded certificates, with the end-entity certificate
- * first.
- * private_key must point to a byte array of length private_key_len containing
- * a private key in PEM-encoded PKCS#8 or PKCS#1 format.
- *
- * EXPERIMENTAL: installing a client_hello callback will replace any
- * configured certified keys and vice versa. Same holds true for the
- * set_single_cert variant.
- */
-enum rustls_result rustls_server_config_builder_set_single_cert_pem(struct rustls_server_config_builder *builder,
-                                                                    const uint8_t *cert_chain,
-                                                                    size_t cert_chain_len,
-                                                                    const uint8_t *private_key,
-                                                                    size_t private_key_len);
-
-/**
  * Provide the configuration a list of certificates where the session
- * will select the first one that is compatible with the client's signing
- * capabilities. Servers that want to support ECDSA and RSA certificates
+ * will select the first one that is compatible with the client's signature
+ * verification capabilities. Servers that want to support ECDSA and RSA certificates
  * will want the ECSDA to go first in the list.
  *
  * The built configuration will keep a reference to all certified keys
