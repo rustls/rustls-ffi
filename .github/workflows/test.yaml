@@ -30,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: rustup toolchain install nightly
+      - run: rustup default nightly
       - run: rustup component add miri
       - run: cargo install xargo
       - run: cargo +nightly miri test
