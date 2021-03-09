@@ -341,8 +341,8 @@ void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_
 bool rustls_result_is_cert_error(enum rustls_result result);
 
 /**
- * Retrieve the nth element from the input slice of slices. If the input
- * pointer is NULL, returns 0.
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
  */
 size_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
 
@@ -355,13 +355,13 @@ struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice
                                                        size_t n);
 
 /**
- * Retrieve the nth element from the input slice of slices. If the input
- * pointer is NULL, returns 0.
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
  */
 size_t rustls_slice_str_len(const struct rustls_slice_str *input);
 
 /**
- * Retrieve the nth element from the input slice of slices. If the input
+ * Retrieve the nth element from the input slice of `&str`s. If the input
  * pointer is NULL, or n is greater than the length of the
  * rustls_slice_str, returns rustls_str{NULL, 0}.
  */
