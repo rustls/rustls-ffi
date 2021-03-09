@@ -130,6 +130,78 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 typedef struct rustls_server_session rustls_server_session;
 
 /**
+ * A read-only view of a slice of Rust byte slices.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+ * provide access via a pointer to an opaque struct and an accessor method
+ * that acts on that struct to get entries of type `rustls_slice_bytes`.
+ * Internally, the pointee is a `&[&[u8]]`.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not call its methods beyond the
+ * allowed lifetime.
+ */
+typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
+
+/**
+ * A read-only view of a slice of multiple Rust `&str`'s (that is, multiple
+ * strings). Like `rustls_str`, this guarantees that each string contains
+ * UTF-8 and no NUL bytes. Strings are not NUL-terminated.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
+ * can't provide a straightforward `data` and `len` structure. Instead, we
+ * provide access via a pointer to an opaque struct and accessor methods.
+ * Internally, the pointee is a `&[&str]`.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not call its methods beyond the
+ * allowed lifetime.
+ */
+typedef struct rustls_slice_str rustls_slice_str;
+
+/**
+ * A read-only view on a Rust byte slice.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_bytes {
+  const uint8_t *data;
+  size_t len;
+} rustls_slice_bytes;
+
+/**
+ * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
+ * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_str {
+  const char *data;
+  size_t len;
+} rustls_str;
+
+/**
  * Write the version of the crustls C bindings and rustls itself into the
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
  * and NUL terminated. Returns the number of bytes written before the NUL.
@@ -267,6 +339,33 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
 void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_n);
 
 bool rustls_result_is_cert_error(enum rustls_result result);
+
+/**
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
+ */
+size_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
+
+/**
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, or n is greater than the length of the
+ * rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
+ */
+struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
+                                                       size_t n);
+
+/**
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
+ */
+size_t rustls_slice_str_len(const struct rustls_slice_str *input);
+
+/**
+ * Retrieve the nth element from the input slice of `&str`s. If the input
+ * pointer is NULL, or n is greater than the length of the
+ * rustls_slice_str, returns rustls_str{NULL, 0}.
+ */
+struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, size_t n);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
