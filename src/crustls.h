@@ -433,7 +433,7 @@ struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice
 size_t rustls_slice_str_len(const struct rustls_slice_str *input);
 
 /**
- * Retrieve the nth element from the input slice of slices. If the input
+ * Retrieve the nth element from the input slice of `&str`s. If the input
  * pointer is NULL, or n is greater than the length of the
  * rustls_slice_str, returns rustls_str{NULL, 0}.
  */

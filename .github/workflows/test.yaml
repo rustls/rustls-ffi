@@ -11,14 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: make CC=${{ matrix.cc }} PROFILE=release test
-      - run: NO_CHECK_CERTIFICATE= ./target/crustls-demo wrong.host.badssl.com /
 
   ensure-header-updated:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: make src/crustls.h
-      - run: git diff
+      - run: git diff --exit-code
 
   cargo-fmt:
     runs-on: ubuntu-latest
@@ -30,7 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - rustup toolchain install nightly
-      - rustup component add miri
-      - cargo install xargo
+      - run: rustup toolchain install nightly
+      - run: rustup default nightly
+      - run: rustup component add miri
+      - run: cargo install xargo
       - run: cargo +nightly miri test
