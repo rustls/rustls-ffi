@@ -12,7 +12,7 @@ use crate::error::{map_error, rustls_result};
 use crate::rslice::{
     rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str, VecSliceBytes,
 };
-use crate::{arc_with_incref_from_raw, cipher::rustls_cipher_certified_key};
+use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
@@ -141,7 +141,7 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
 /// will want the ECSDA to go first in the list.
 ///
 /// The built configuration will keep a reference to all certified keys
-/// provided. The client may `rustls_cipher_certified_key_free()` afterwards
+/// provided. The client may `rustls_certified_key_free()` afterwards
 /// without the configuration losing them. The same certified key may also
 /// be appear in multiple configs.
 ///
@@ -151,7 +151,7 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_certified_keys(
     builder: *mut rustls_server_config_builder,
-    certified_keys: *const *const rustls_cipher_certified_key,
+    certified_keys: *const *const rustls_certified_key,
     certified_keys_len: size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
@@ -618,17 +618,16 @@ pub type rustls_client_hello_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_client_hello_userdata,
         hello: *const rustls_client_hello,
-    ) -> *const rustls_cipher_certified_key,
+    ) -> *const rustls_certified_key,
 >;
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
 // the Option (which is equivalent to checking for null).
 #[allow(non_camel_case_types)]
-type non_null_rustls_client_hello_callback =
-    unsafe extern "C" fn(
-        userdata: rustls_client_hello_userdata,
-        hello: *const rustls_client_hello,
-    ) -> *const rustls_cipher_certified_key;
+type non_null_rustls_client_hello_callback = unsafe extern "C" fn(
+    userdata: rustls_client_hello_userdata,
+    hello: *const rustls_client_hello,
+) -> *const rustls_certified_key;
 
 struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values

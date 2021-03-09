@@ -96,7 +96,7 @@ pub extern "C" fn rustls_cipher_get_signature_scheme_name(
 /// The complete chain of certificates plus private key for
 /// being certified against someones list of trust anchors (commonly
 /// called root store). Corresponds to `CertifiedKey` in the Rust API.
-pub struct rustls_cipher_certified_key {
+pub struct rustls_certified_key {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
@@ -104,12 +104,12 @@ pub struct rustls_cipher_certified_key {
 }
 
 #[no_mangle]
-pub extern "C" fn rustls_cipher_certified_key_build(
+pub extern "C" fn rustls_certified_key_build(
     cert_chain: *const u8,
     cert_chain_len: size_t,
     private_key: *const u8,
     private_key_len: size_t,
-    certified_key_out: *mut *const rustls_cipher_certified_key,
+    certified_key_out: *mut *const rustls_certified_key,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let certified_key = match certified_key_build(
@@ -125,13 +125,13 @@ pub extern "C" fn rustls_cipher_certified_key_build(
 }
 
 /// "Free" a certified_key previously returned from
-/// rustls_cipher_certified_key_build. Since certified_key is actually an
+/// rustls_certified_key_build. Since certified_key is actually an
 /// atomically reference-counted pointer, extant certified_key may still
 /// hold an internal reference to the Rust object. However, C code must
 /// consider this pointer unusable after "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
-pub extern "C" fn rustls_cipher_certified_key_free(config: *const rustls_cipher_certified_key) {
+pub extern "C" fn rustls_certified_key_free(config: *const rustls_certified_key) {
     ffi_panic_boundary_unit! {
         let key: &CertifiedKey = try_ref_from_ptr!(config, &mut CertifiedKey, ());
         // To free the certified_key, we reconstruct the Arc. It should have a refcount of 1,
@@ -141,7 +141,7 @@ pub extern "C" fn rustls_cipher_certified_key_free(config: *const rustls_cipher_
         let strong_count = Arc::strong_count(&arc);
         if strong_count < 1 {
             eprintln!(
-                "rustls_cipher_certified_key_free: invariant failed: arc.strong_count was < 1: {}. \
+                "rustls_certified_key_free: invariant failed: arc.strong_count was < 1: {}. \
                 You must not free the same certified_key multiple times.",
                 strong_count
             );

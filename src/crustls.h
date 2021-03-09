@@ -94,7 +94,7 @@ typedef enum rustls_result {
  * being certified against someones list of trust anchors (commonly
  * called root store). Corresponds to `CertifiedKey` in the Rust API.
  */
-typedef struct rustls_cipher_certified_key rustls_cipher_certified_key;
+typedef struct rustls_certified_key rustls_certified_key;
 
 /**
  * A client config that is done being constructed and is now read-only.
@@ -251,7 +251,7 @@ typedef struct rustls_client_hello {
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
-typedef const struct rustls_cipher_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
+typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
 
 /**
  * Write the version of the crustls C bindings and rustls itself into the
@@ -275,21 +275,21 @@ void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
                                              size_t len,
                                              size_t *out_n);
 
-enum rustls_result rustls_cipher_certified_key_build(const uint8_t *cert_chain,
-                                                     size_t cert_chain_len,
-                                                     const uint8_t *private_key,
-                                                     size_t private_key_len,
-                                                     const struct rustls_cipher_certified_key **certified_key_out);
+enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
+                                              size_t cert_chain_len,
+                                              const uint8_t *private_key,
+                                              size_t private_key_len,
+                                              const struct rustls_certified_key **certified_key_out);
 
 /**
  * "Free" a certified_key previously returned from
- * rustls_cipher_certified_key_build. Since certified_key is actually an
+ * rustls_certified_key_build. Since certified_key is actually an
  * atomically reference-counted pointer, extant certified_key may still
  * hold an internal reference to the Rust object. However, C code must
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_cipher_certified_key_free(const struct rustls_cipher_certified_key *config);
+void rustls_certified_key_free(const struct rustls_certified_key *config);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -469,7 +469,7 @@ enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_serv
  * will want the ECSDA to go first in the list.
  *
  * The built configuration will keep a reference to all certified keys
- * provided. The client may `rustls_cipher_certified_key_free()` afterwards
+ * provided. The client may `rustls_certified_key_free()` afterwards
  * without the configuration losing them. The same certified key may also
  * be appear in multiple configs.
  *
@@ -478,7 +478,7 @@ enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_serv
  * set_single_cert variant.
  */
 enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
-                                                                   const struct rustls_cipher_certified_key *const *certified_keys,
+                                                                   const struct rustls_certified_key *const *certified_keys,
                                                                    size_t certified_keys_len);
 
 /**
