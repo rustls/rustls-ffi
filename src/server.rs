@@ -168,8 +168,8 @@ pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
 }
 
 /// Provide the configuration a list of certificates where the session
-/// will select the first one that is compatible with the client's signing
-/// capabilities. Servers that want to support ECDSA and RSA certificates
+/// will select the first one that is compatible with the client's signature
+/// verification capabilities. Servers that want to support ECDSA and RSA certificates
 /// will want the ECSDA to go first in the list.
 ///
 /// The built configuration will keep a reference to all certified keys
