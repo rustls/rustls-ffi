@@ -264,10 +264,8 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  *
  * The callback receives certificate chain information as raw bytes.
  * Currently this library offers no functions for C code to parse the
- * certificates, so it's only possible to implement verifiers that either
- * (a) always succeed (or fail), or (b) compare the certificates against
- * static bytes. We plan to export parsing code in the future to make it
- * possible to implement other strategies.
+ * certificates, so you'll need to bring your own certificate parsing library
+ * if you need to parse them.
  *
  * If you intend to write a verifier that accepts all certificates, be aware
  * that special measures are required for IP addresses. Rustls currently

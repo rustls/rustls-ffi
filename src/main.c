@@ -470,8 +470,6 @@ cleanup:
   return ret;
 }
 
-#define VERIFY_ARG = 28831
-
 enum rustls_result
 verify(void *userdata, const rustls_verify_server_cert_params *params) {
   size_t i = 0;

@@ -88,11 +88,11 @@ pub struct rustls_root_cert_store {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
-    end_entity_cert_der: rustls_slice_bytes<'a>,
-    intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
-    roots: *const rustls_root_cert_store,
-    dns_name: rustls_str<'a>,
-    ocsp_response: rustls_slice_bytes<'a>,
+    pub end_entity_cert_der: rustls_slice_bytes<'a>,
+    pub intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
+    pub roots: *const rustls_root_cert_store,
+    pub dns_name: rustls_str<'a>,
+    pub ocsp_response: rustls_slice_bytes<'a>,
 }
 
 /// User-provided input to a custom certificate verifier callback. See
@@ -198,10 +198,8 @@ impl rustls::ServerCertVerifier for Verifier {
 ///
 /// The callback receives certificate chain information as raw bytes.
 /// Currently this library offers no functions for C code to parse the
-/// certificates, so it's only possible to implement verifiers that either
-/// (a) always succeed (or fail), or (b) compare the certificates against
-/// static bytes. We plan to export parsing code in the future to make it
-/// possible to implement other strategies.
+/// certificates, so you'll need to bring your own certificate parsing library
+/// if you need to parse them.
 ///
 /// If you intend to write a verifier that accepts all certificates, be aware
 /// that special measures are required for IP addresses. Rustls currently
