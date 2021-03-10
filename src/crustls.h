@@ -240,7 +240,7 @@ typedef struct rustls_slice_u16 {
  * library. See:
  * https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
  * `alpn` carries the list of ALPN protocol names that the client proposed to
- * the server. Again, the length of this list will be 0 if non were supplied.
+ * the server. Again, the length of this list will be 0 if none were supplied.
  *
  * All this data, when passed to a callback function, is only accessible during
  * the call and may not be modified. Users of this API must copy any values that
@@ -260,7 +260,7 @@ typedef struct rustls_client_hello {
  * `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
  * once the TLS client hello message has been received.
  * `userdata` will be supplied as provided when registering the callback.
- * `hello`gives the value of the available client announcements, as interpreted
+ * `hello` gives the value of the available client announcements, as interpreted
  * by rustls. See the definition of `rustls_client_hello` for details.
  *
  * NOTE: the passed in `hello` and all its values are only availabe during the
@@ -516,7 +516,7 @@ enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_serv
  * The built configuration will keep a reference to all certified keys
  * provided. The client may `rustls_certified_key_free()` afterwards
  * without the configuration losing them. The same certified key may also
- * be appear in multiple configs.
+ * be used in multiple configs.
  *
  * EXPERIMENTAL: installing a client_hello callback will replace any
  * configured certified keys and vice versa. Same holds true for the
@@ -643,6 +643,7 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
  * Register a callback to be invoked when a session created from this config
  * is seeing a TLS ClientHello message. The given `userdata` will be passed
  * to the callback when invoked.
+ *
  * Any existing `ResolvesServerCert` implementation currently installed in the
  * `rustls_server_config` will be replaced. This also means registering twice
  * will overwrite the first registration. It is not permitted to pass a NULL

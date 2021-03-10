@@ -47,16 +47,6 @@ fn signature_scheme_name(n: u16) -> String {
     format!("Unknown({:#06x})", n)
 }
 
-/// Collect the u16 values of the given SignatureScheme slice, so they
-/// can be exposed in our API.
-pub(crate) fn rustls_cipher_map_signature_schemes(schemes: &[rustls::SignatureScheme]) -> Vec<u16> {
-    let mut mapped_schemes: Vec<u16> = Vec::new();
-    for s in schemes {
-        mapped_schemes.push(s.get_u16());
-    }
-    mapped_schemes
-}
-
 /// Get the name of a SignatureScheme, represented by the `scheme` short value,
 /// if known by the rustls library. For unknown schemes, this returns a string
 /// with the scheme value in hex notation.
