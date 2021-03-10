@@ -297,6 +297,12 @@ enum rustls_result rustls_client_session_write(struct rustls_client_session *ses
  * available have been read, but more bytes may become available after
  * subsequent calls to rustls_client_session_read_tls and
  * rustls_client_session_process_new_packets."
+ *
+ * Subtle note: Even though this function only writes to `buf` and does not
+ * read from it, the memory in `buf` must be initialized before the call (for
+ * Rust-internal reasons). Initializing a buffer once and then using it
+ * multiple times without zeroizing before each call is fine.
+ *
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
  */
 enum rustls_result rustls_client_session_read(struct rustls_client_session *session,
@@ -323,6 +329,12 @@ enum rustls_result rustls_client_session_read_tls(struct rustls_client_session *
  * Write up to `count` TLS bytes from the ClientSession into `buf`. Those
  * bytes should then be written to a socket. On success, store the number of
  * bytes actually written in *out_n (this maybe less than `count`).
+ *
+ * Subtle note: Even though this function only writes to `buf` and does not
+ * read from it, the memory in `buf` must be initialized before the call (for
+ * Rust-internal reasons). Initializing a buffer once and then using it
+ * multiple times without zeroizing before each call is fine.
+ *
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 enum rustls_result rustls_client_session_write_tls(struct rustls_client_session *session,
@@ -468,6 +480,12 @@ enum rustls_result rustls_server_session_write(struct rustls_server_session *ses
  * available have been read, but more bytes may become available after
  * subsequent calls to rustls_server_session_read_tls and
  * rustls_server_session_process_new_packets."
+ *
+ * Subtle note: Even though this function only writes to `buf` and does not
+ * read from it, the memory in `buf` must be initialized before the call (for
+ * Rust-internal reasons). Initializing a buffer once and then using it
+ * multiple times without zeroizing before each call is fine.
+ *
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.read
  */
 enum rustls_result rustls_server_session_read(struct rustls_server_session *session,
@@ -494,6 +512,12 @@ enum rustls_result rustls_server_session_read_tls(struct rustls_server_session *
  * Write up to `count` TLS bytes from the ServerSession into `buf`. Those
  * bytes should then be written to a socket. On success, store the number of
  * bytes actually written in *out_n (this maybe less than `count`).
+ *
+ * Subtle note: Even though this function only writes to `buf` and does not
+ * read from it, the memory in `buf` must be initialized before the call (for
+ * Rust-internal reasons). Initializing a buffer once and then using it
+ * multiple times without zeroizing before each call is fine.
+ *
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 enum rustls_result rustls_server_session_write_tls(struct rustls_server_session *session,
