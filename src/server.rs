@@ -10,7 +10,7 @@ use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{
-    rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str, VecSliceBytes,
+    rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str,
 };
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
@@ -593,7 +593,7 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
-    alpn: rustls_slice_slice_bytes<'a>,
+    alpn: *const rustls_slice_slice_bytes<'a>,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -660,12 +660,12 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
         let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
-        let alpn: VecSliceBytes = VecSliceBytes::new(alpn);
+        let alpn: rustls_slice_slice_bytes = rustls_slice_slice_bytes{inner: alpn};
         let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
         let hello = rustls_client_hello {
             sni_name,
             signature_schemes,
-            alpn: (&alpn).into(),
+            alpn: &alpn,
         };
         let cb = self.callback;
         let key_ptr = unsafe { cb(self.userdata, &hello) };
