@@ -1,20 +1,22 @@
 use libc::{c_char, size_t};
-use std::io::ErrorKind::ConnectionAborted;
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
+use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
+use webpki::DNSNameRef;
 
-use rustls::{ClientConfig, ClientSession, Session};
-
-use crate::{
-    arc_with_incref_from_raw,
-    error::{map_error, rustls_result},
+use rustls::{
+    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
+
+use crate::error::{self, map_error, result_to_tlserror, rustls_result};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
+    arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte,
+    try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
 
@@ -74,6 +76,162 @@ pub extern "C" fn rustls_client_config_builder_build(
     }
 }
 
+/// Currently just a placeholder with no accessors yet.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
+#[allow(non_camel_case_types)]
+pub struct rustls_root_cert_store {
+    _private: [u8; 0],
+}
+
+/// Input to a custom certificate verifier callback. See
+/// rustls_client_config_builder_dangerous_set_certificate_verifier().
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct rustls_verify_server_cert_params<'a> {
+    pub end_entity_cert_der: rustls_slice_bytes<'a>,
+    pub intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
+    pub roots: *const rustls_root_cert_store,
+    pub dns_name: rustls_str<'a>,
+    pub ocsp_response: rustls_slice_bytes<'a>,
+}
+
+/// User-provided input to a custom certificate verifier callback. See
+/// rustls_client_config_builder_dangerous_set_certificate_verifier().
+#[allow(non_camel_case_types)]
+type rustls_verify_server_cert_user_data = *mut libc::c_void;
+
+// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
+// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
+// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
+// So we use Option<...> here. This is the type that is passed from C code.
+#[allow(non_camel_case_types)]
+type rustls_verify_server_cert_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_verify_server_cert_user_data,
+        params: *const rustls_verify_server_cert_params,
+    ) -> rustls_result,
+>;
+
+// This is the same as a rustls_verify_server_cert_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+type VerifyCallback = unsafe extern "C" fn(
+    userdata: rustls_verify_server_cert_user_data,
+    params: *const rustls_verify_server_cert_params,
+) -> rustls_result;
+
+// An implementation of rustls::ServerCertVerifier based on a C callback.
+struct Verifier {
+    callback: VerifyCallback,
+    userdata: rustls_verify_server_cert_user_data,
+}
+
+/// Safety: Verifier is Send because we don't allocate or deallocate any of its
+/// fields.
+unsafe impl Send for Verifier {}
+/// Safety: Verifier is Sync if the C code that passes us a callback that
+/// obeys the concurrency safety requirements documented in
+/// rustls_client_config_builder_dangerous_set_certificate_verifier.
+unsafe impl Sync for Verifier {}
+
+impl rustls::ServerCertVerifier for Verifier {
+    fn verify_server_cert(
+        &self,
+        roots: &RootCertStore,
+        presented_certs: &[Certificate],
+        dns_name: DNSNameRef<'_>,
+        ocsp_response: &[u8],
+    ) -> Result<ServerCertVerified, TLSError> {
+        let cb = self.callback;
+        let dns_name: &str = dns_name.into();
+        let dns_name: rustls_str = match dns_name.try_into() {
+            Ok(r) => r,
+            Err(NulByte {}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+        };
+        let mut certificates: Vec<&[u8]> = presented_certs
+            .iter()
+            .map(|cert: &Certificate| cert.as_ref())
+            .collect();
+        // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
+        // rustls changed the verifier API to separate the end entity and intermediates.
+        // We anticipate that API by doing it ourselves.
+        let end_entity = match certificates.pop() {
+            Some(c) => c,
+            None => {
+                return Err(TLSError::General(
+                    "missing end-entity certificate".to_string(),
+                ))
+            }
+        };
+        let intermediates = rustls_slice_slice_bytes {
+            inner: &*certificates,
+        };
+
+        let params = rustls_verify_server_cert_params {
+            roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
+            end_entity_cert_der: end_entity.into(),
+            intermediate_certs_der: &intermediates,
+            dns_name: dns_name.into(),
+            ocsp_response: ocsp_response.into(),
+        };
+        let result: rustls_result = unsafe { cb(self.userdata, &params) };
+        match result {
+            rustls_result::Ok => Ok(ServerCertVerified::assertion()),
+            r => match result_to_tlserror(&r) {
+                error::Either::TLSError(te) => Err(te),
+                error::Either::String(se) => Err(TLSError::General(se)),
+            },
+        }
+    }
+}
+
+/// Set a custom server certificate verifier.
+///
+/// The userdata pointer must stay valid until (a) all sessions created with this
+/// config have been freed, and (b) the config itself has been freed.
+/// The callback must not capture any of the pointers in its
+/// rustls_verify_server_cert_params.
+///
+/// The callback must be safe to call on any thread at any time, including
+/// multiple concurrent calls. So, for instance, if the callback mutates
+/// userdata (or other shared state), it must use synchronization primitives
+/// to make such mutation safe.
+///
+/// The callback receives certificate chain information as raw bytes.
+/// Currently this library offers no functions for C code to parse the
+/// certificates, so you'll need to bring your own certificate parsing library
+/// if you need to parse them.
+///
+/// If you intend to write a verifier that accepts all certificates, be aware
+/// that special measures are required for IP addresses. Rustls currently
+/// (0.19.0) doesn't support building a ClientSession with an IP address
+/// (because it's not a valid DNSNameRef). One workaround is to detect IP
+/// addresses and rewrite them to `example.invalid`, and _also_ to disable
+/// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
+/// need SNI).
+///
+/// If the custom verifier accepts the certificate, it should return
+/// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
+/// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
+/// section.
+///
+/// https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
+    config: *mut rustls_client_config_builder,
+    callback: rustls_verify_server_cert_callback,
+    userdata: rustls_verify_server_cert_user_data,
+) {
+    ffi_panic_boundary_unit! {
+        let callback: VerifyCallback = match callback {
+            Some(cb) => cb,
+            None => return,
+        };
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
+        let verifier: Verifier = Verifier{callback: callback, userdata};
+        config.dangerous().set_certificate_verifier(Arc::new(verifier));
+    }
+}
+
 /// Add certificates from platform's native root store, using
 /// https://github.com/ctz/rustls-native-certs#readme.
 #[no_mangle]
@@ -125,6 +283,19 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     }
 }
 
+/// Enable or disable SNI.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_enable_sni(
+    config: *mut rustls_client_config_builder,
+    enable: bool,
+) {
+    ffi_panic_boundary_unit! {
+        let config: &mut ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
+        config.enable_sni = enable;
+    }
+}
+
 /// "Free" a client_config previously returned from
 /// rustls_client_config_builder_build. Since client_config is actually an
 /// atomically reference-counted pointer, extant client_sessions may still
@@ -134,7 +305,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
     ffi_panic_boundary_unit! {
-        let config: &ClientConfig = try_ref_from_ptr!(config, &mut ClientConfig, ());
+        let config: &ClientConfig = try_ref_from_ptr!(config, &ClientConfig, ());
         // To free the client_config, we reconstruct the Arc and then drop it. It should
         // have a refcount of 1, representing the C code's copy. When it drops, that
         // refcount will go down to 0 and the inner ClientConfig will be dropped.
@@ -290,6 +461,12 @@ pub extern "C" fn rustls_client_session_write(
 /// available have been read, but more bytes may become available after
 /// subsequent calls to rustls_client_session_read_tls and
 /// rustls_client_session_process_new_packets."
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
 #[no_mangle]
 pub extern "C" fn rustls_client_session_read(
@@ -312,12 +489,6 @@ pub extern "C" fn rustls_client_session_read(
                 None => return NullParameter,
             }
         };
-        // Since it's *possible* for a Read impl to consume the possibly-uninitialized memory from buf,
-        // zero it out just in case. TODO: use Initializer once it's stabilized.
-        // https://doc.rust-lang.org/nightly/std/io/trait.Read.html#method.initializer
-        for c in read_buf.iter_mut() {
-            *c = 0;
-        }
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
@@ -376,6 +547,12 @@ pub extern "C" fn rustls_client_session_read_tls(
 /// Write up to `count` TLS bytes from the ClientSession into `buf`. Those
 /// bytes should then be written to a socket. On success, store the number of
 /// bytes actually written in *out_n (this maybe less than `count`).
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_client_session_write_tls(

@@ -1,26 +1,23 @@
 use libc::size_t;
+use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
+use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
 use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
+use rustls::{sign::CertifiedKey, ResolvesServerCert};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
+use rustls_result::NullParameter;
 
-use crate::cipher::rustls_cipher_map_signature_schemes;
 use crate::error::{map_error, rustls_result};
-use crate::rslice::{
-    rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str, VecSliceBytes,
-};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
-use rustls::sign::CertifiedKey;
-use rustls_result::NullParameter;
-use std::ffi::c_void;
-use std::ops::Deref;
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -87,15 +84,8 @@ pub extern "C" fn rustls_server_config_builder_from_config(
     config: *const rustls_server_config,
 ) -> *mut rustls_server_config_builder {
     ffi_panic_boundary_ptr! {
-        let config: Arc<ServerConfig> = unsafe {
-            match (config as *const ServerConfig).as_ref() {
-                Some(c) => arc_with_incref_from_raw(c),
-                None => Arc::new(rustls::ServerConfig::new(Arc::new(NoClientAuth))),
-            }
-        };
-        let nconfig: ServerConfig = config.deref().clone();
-        let b = Box::new(nconfig);
-        Box::into_raw(b) as *mut _
+        let config: &ServerConfig = try_ref_from_ptr!(config, & ServerConfig, null_mut());
+        Box::into_raw(Box::new(config.clone())) as *mut _
     }
 }
 
@@ -123,14 +113,24 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let mut v: Vec<Vec<u8>> = Vec::new();
-        unsafe {
-            let x: &[rustls_slice_bytes] = slice::from_raw_parts(protocols, len);
-            for s in x {
-                v.push(slice::from_raw_parts(s.data, s.len).to_vec());
+        let protocols: &[rustls_slice_bytes] = unsafe {
+            if protocols.is_null() {
+                return NullParameter;
             }
+                slice::from_raw_parts(protocols, len)
+        };
+
+        let mut vv: Vec<Vec<u8>> = Vec::new();
+        for p in protocols {
+            let v: &[u8] = unsafe {
+                if p.data.is_null() {
+                    return NullParameter;
+                }
+                slice::from_raw_parts(p.data, p.len)
+            };
+            vv.push(v.to_vec());
         }
-        config.set_protocols(&v);
+        config.set_protocols(&vv);
         rustls_result::Ok
     }
 }
@@ -143,7 +143,7 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
 /// The built configuration will keep a reference to all certified keys
 /// provided. The client may `rustls_certified_key_free()` afterwards
 /// without the configuration losing them. The same certified key may also
-/// be appear in multiple configs.
+/// be used in multiple configs.
 ///
 /// EXPERIMENTAL: installing a client_hello callback will replace any
 /// configured certified keys and vice versa. Same holds true for the
@@ -156,12 +156,14 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
-        let keys_ptrs = unsafe {
+        let keys_ptrs: &[*const rustls_certified_key] = unsafe {
+            if certified_keys.is_null() {
+                return NullParameter;
+            }
             slice::from_raw_parts(certified_keys, certified_keys_len)
         };
-        for key_ptr_ref in keys_ptrs {
-            let key_ptr = *key_ptr_ref;
+        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+        for &key_ptr in keys_ptrs {
             let certified_key: Arc<CertifiedKey> = unsafe {
                 match (key_ptr as *const CertifiedKey).as_ref() {
                     Some(c) => arc_with_incref_from_raw(c),
@@ -347,6 +349,12 @@ pub extern "C" fn rustls_server_session_write(
 /// available have been read, but more bytes may become available after
 /// subsequent calls to rustls_server_session_read_tls and
 /// rustls_server_session_process_new_packets."
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.read
 #[no_mangle]
 pub extern "C" fn rustls_server_session_read(
@@ -369,46 +377,6 @@ pub extern "C" fn rustls_server_session_read(
                 None => return NullParameter,
             }
         };
-        // This is disabled hew for now, since the performance drop of this is
-        // significant in IO intense applications like a web server. The reason
-        // of why it is here in the first place is the discussion around Rust
-        // language handling (or not handling) of "uninitialized" memory:
-        // <https://github.com/rust-lang/rfcs/blob/master/text/2930-read-buf.md#summary>
-        //
-        // From a language viewpoint, this is understandable, from an application
-        // view this is unacceptable. The application has no need to clear a buffer that
-        // is never written to, nor read from, e.g. when it checks if any data is
-        // available.
-        //
-        // There are ways around this in Rust currently. However they would require
-        // significant changes in the `rustls` API and eventually even the Rust
-        // std::io::Read trait. See
-        // https://doc.rust-lang.org/nomicon/unchecked-uninit.html
-        //
-        // TODO: For the time being, we need to decide if we enable the code here
-        // again and pay the price, or if we require the C part to NUL the buffer,
-        // with memset() for example. If we do that, we should also define clearly
-        // - if a buffer needs to be NUL again every time is is passed to this
-        //   function. Specifically:
-        //   memset(buffer, 0, sizeof(buffer));
-        //   result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
-        //   if (result.OK && len == 0) {
-        //     /* do we need to NUL buffer again? */
-        //     result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
-        //   }
-        // - if the results of a previous read to a buffer count as the buffer being
-        //   'initialized', e.g. the user pattern:
-        //   memset(buffer, 0, sizeof(buffer));
-        //   do {
-        //     result = rustls_server_session_read(session, buffer, sizeof(buffer), &len);
-        //     if (!result.OK) break;
-        //     /* copy buffer content somewhere */
-        //     /* do we need to NUL buffer again? */
-        //   } while (len > 0);
-        //
-        //for c in read_buf.iter_mut() {
-        //    *c = 0;
-        //}
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
@@ -467,6 +435,12 @@ pub extern "C" fn rustls_server_session_read_tls(
 /// Write up to `count` TLS bytes from the ServerSession into `buf`. Those
 /// bytes should then be written to a socket. On success, store the number of
 /// bytes actually written in *out_n (this maybe less than `count`).
+///
+/// Subtle note: Even though this function only writes to `buf` and does not
+/// read from it, the memory in `buf` must be initialized before the call (for
+/// Rust-internal reasons). Initializing a buffer once and then using it
+/// multiple times without zeroizing before each call is fine.
+///
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_server_session_write_tls(
@@ -547,26 +521,23 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
 /// Will pick the first CertfiedKey available that is suitable for
 /// the SignatureSchemes supported by the client.
 struct ResolvesServerCertFromChoices {
-    choices: Vec<Arc<rustls::sign::CertifiedKey>>,
+    choices: Vec<Arc<CertifiedKey>>,
 }
 
 impl ResolvesServerCertFromChoices {
-    pub fn new(choices: &[Arc<rustls::sign::CertifiedKey>]) -> ResolvesServerCertFromChoices {
+    pub fn new(choices: &[Arc<CertifiedKey>]) -> Self {
         ResolvesServerCertFromChoices {
             choices: Vec::from(choices),
         }
     }
 }
 
-impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
-    fn resolve(&self, client_hello: ClientHello) -> Option<rustls::sign::CertifiedKey> {
+impl ResolvesServerCert for ResolvesServerCertFromChoices {
+    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
         for key in self.choices.iter() {
-            match key.key.choose_scheme(client_hello.sigschemes()) {
-                Some(_) => {
-                    return Some(key.as_ref().clone());
-                }
-                None => (),
-            };
+            if key.key.choose_scheme(client_hello.sigschemes()).is_some() {
+                return Some(key.as_ref().clone());
+            }
         }
         None
     }
@@ -580,7 +551,7 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 /// library. See:
 /// https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
-/// the server. Again, the length of this list will be 0 if non were supplied.
+/// the server. Again, the length of this list will be 0 if none were supplied.
 ///
 /// All this data, when passed to a callback function, is only accessible during
 /// the call and may not be modified. Users of this API must copy any values that
@@ -588,23 +559,21 @@ impl rustls::ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
-#[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
-    alpn: rustls_slice_slice_bytes<'a>,
+    alpn: *const rustls_slice_slice_bytes<'a>,
 }
 
 /// Any context information the callback will receive when invoked.
-#[allow(non_camel_case_types)]
 pub type rustls_client_hello_userdata = *mut c_void;
 
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
 /// once the TLS client hello message has been received.
 /// `userdata` will be supplied as provided when registering the callback.
-/// `hello`gives the value of the available client announcements, as interpreted
+/// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
 ///
 /// NOTE: the passed in `hello` and all its values are only availabe during the
@@ -612,8 +581,6 @@ pub type rustls_client_hello_userdata = *mut c_void;
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
-#[allow(non_camel_case_types)]
-#[allow(dead_code)]
 pub type rustls_client_hello_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_client_hello_userdata,
@@ -623,8 +590,7 @@ pub type rustls_client_hello_callback = Option<
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
 // the Option (which is equivalent to checking for null).
-#[allow(non_camel_case_types)]
-type non_null_rustls_client_hello_callback = unsafe extern "C" fn(
+type ClientHelloCallback = unsafe extern "C" fn(
     userdata: rustls_client_hello_userdata,
     hello: *const rustls_client_hello,
 ) -> *const rustls_certified_key;
@@ -632,21 +598,21 @@ type non_null_rustls_client_hello_callback = unsafe extern "C" fn(
 struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values
     /// from the supplied ClientHello to the callback function.
-    pub callback: non_null_rustls_client_hello_callback,
+    pub callback: ClientHelloCallback,
     pub userdata: rustls_client_hello_userdata,
 }
 
 impl ClientHelloResolver {
     pub fn new(
-        callback: non_null_rustls_client_hello_callback,
+        callback: ClientHelloCallback,
         userdata: rustls_client_hello_userdata,
     ) -> ClientHelloResolver {
         ClientHelloResolver { callback, userdata }
     }
 }
 
-impl rustls::ResolvesServerCert for ClientHelloResolver {
-    fn resolve(&self, client_hello: ClientHello<'_>) -> Option<CertifiedKey> {
+impl ResolvesServerCert for ClientHelloResolver {
+    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
         let sni_name: &str = {
             match client_hello.server_name() {
                 Some(c) => c.into(),
@@ -657,24 +623,23 @@ impl rustls::ResolvesServerCert for ClientHelloResolver {
             Ok(r) => r,
             Err(_) => return None,
         };
-        let mapped_sigs: Vec<u16> = rustls_cipher_map_signature_schemes(client_hello.sigschemes());
+        let mapped_sigs: Vec<u16> = client_hello
+            .sigschemes()
+            .iter()
+            .map(|s| s.get_u16())
+            .collect();
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
-        let alpn: VecSliceBytes = VecSliceBytes::new(alpn);
+        let alpn: rustls_slice_slice_bytes = rustls_slice_slice_bytes { inner: alpn };
         let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
         let hello = rustls_client_hello {
             sni_name,
             signature_schemes,
-            alpn: (&alpn).into(),
+            alpn: &alpn,
         };
         let cb = self.callback;
         let key_ptr = unsafe { cb(self.userdata, &hello) };
-        let certified_key: &CertifiedKey = unsafe {
-            match (key_ptr as *const CertifiedKey).as_ref() {
-                Some(c) => c,
-                None => return None,
-            }
-        };
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr, &CertifiedKey, None);
         Some(certified_key.clone())
     }
 }
@@ -685,6 +650,7 @@ unsafe impl Send for ClientHelloResolver {}
 /// Register a callback to be invoked when a session created from this config
 /// is seeing a TLS ClientHello message. The given `userdata` will be passed
 /// to the callback when invoked.
+///
 /// Any existing `ResolvesServerCert` implementation currently installed in the
 /// `rustls_server_config` will be replaced. This also means registering twice
 /// will overwrite the first registration. It is not permitted to pass a NULL
@@ -701,7 +667,7 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     userdata: rustls_client_hello_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let callback: non_null_rustls_client_hello_callback = match callback {
+        let callback: ClientHelloCallback = match callback {
             Some(cb) => cb,
             None => return rustls_result::NullParameter,
         };
