@@ -4,6 +4,7 @@ use libc::{c_char, size_t};
 use std::{cmp::min, sync::Arc};
 use std::{mem, slice};
 
+mod cipher;
 mod client;
 mod error;
 mod rslice;

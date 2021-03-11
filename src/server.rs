@@ -1,20 +1,23 @@
 use libc::size_t;
-use std::io::ErrorKind::ConnectionAborted;
+use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
+use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
+use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
-use rustls::{Certificate, NoClientAuth, PrivateKey, ServerConfig, ServerSession, Session};
-use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
+use rustls::{sign::CertifiedKey, ResolvesServerCert};
+use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
+use rustls_result::NullParameter;
 
-use crate::arc_with_incref_from_raw;
 use crate::error::{map_error, rustls_result};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
+use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
-use rustls_result::NullParameter;
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -59,6 +62,33 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
     }
 }
 
+/// "Free" a server_config_builder before transmogrifying it into a server_config.
+/// Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+/// and may not be free'd or otherwise used afterwards.
+/// Use free only when the building of a config has to be aborted before a config
+/// was created.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
+    ffi_panic_boundary_unit! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(config, &mut ServerConfig, ());
+        // Convert the pointer to a Box and drop it.
+        unsafe { Box::from_raw(config); }
+    }
+}
+
+/// Create a rustls_server_config_builder from an existing rustls_server_config. The
+/// builder will be used to create a new, separate config that starts with the settings
+/// from the supplied configuration.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_from_config(
+    config: *const rustls_server_config,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary_ptr! {
+        let config: &ServerConfig = try_ref_from_ptr!(config, & ServerConfig, null_mut());
+        Box::into_raw(Box::new(config.clone())) as *mut _
+    }
+}
+
 /// With `ignore` != 0, the server will ignore the client ordering of cipher
 /// suites, aka preference, during handshake and respect its own ordering
 /// as configured.
@@ -75,62 +105,75 @@ pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
     }
 }
 
-/// Sets a single certificate chain and matching private key.
-/// This certificate and key is used for all subsequent connections,
-/// irrespective of things like SNI hostname.
-/// cert_chain must point to a byte array of length cert_chain_len containing
-/// a series of PEM-encoded certificates, with the end-entity certificate
-/// first.
-/// private_key must point to a byte array of length private_key_len containing
-/// a private key in PEM-encoded PKCS#8 or PKCS#1 format.
 #[no_mangle]
-pub extern "C" fn rustls_server_config_builder_set_single_cert_pem(
+pub extern "C" fn rustls_server_config_builder_set_protocols(
     builder: *mut rustls_server_config_builder,
-    cert_chain: *const u8,
-    cert_chain_len: size_t,
-    private_key: *const u8,
-    private_key_len: size_t,
+    protocols: *const rustls_slice_bytes,
+    len: size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
-        let mut cert_chain: &[u8] = unsafe {
-            if cert_chain.is_null() {
+        let protocols: &[rustls_slice_bytes] = unsafe {
+            if protocols.is_null() {
                 return NullParameter;
             }
-            slice::from_raw_parts(cert_chain, cert_chain_len as usize)
+                slice::from_raw_parts(protocols, len)
         };
-        let private_key: &[u8] = unsafe {
-            if private_key.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(private_key, private_key_len as usize)
-        };
-        let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key)) {
-            Ok(v) => v,
-            Err(_) => return rustls_result::PrivateKeyParseError,
-        };
-        let private_key: PrivateKey = match private_keys.pop() {
-            Some(p) => PrivateKey(p),
-            None => {
-                private_keys = match rsa_private_keys(&mut Cursor::new(private_key)) {
-                    Ok(v) => v,
-                    Err(_) => return rustls_result::PrivateKeyParseError,
-                };
-                let rsa_private_key: PrivateKey = match private_keys.pop() {
-                    Some(p) => PrivateKey(p),
-                    None => return rustls_result::PrivateKeyParseError,
-                };
-                rsa_private_key
-            }
-        };
-        let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
-            Ok(v) => v.into_iter().map(Certificate).collect(),
-            Err(_) => return rustls_result::CertificateParseError,
-        };
-        match config.set_single_cert(parsed_chain, private_key) {
-            Ok(()) => rustls_result::Ok,
-            Err(e) => map_error(e),
+
+        let mut vv: Vec<Vec<u8>> = Vec::new();
+        for p in protocols {
+            let v: &[u8] = unsafe {
+                if p.data.is_null() {
+                    return NullParameter;
+                }
+                slice::from_raw_parts(p.data, p.len)
+            };
+            vv.push(v.to_vec());
         }
+        config.set_protocols(&vv);
+        rustls_result::Ok
+    }
+}
+
+/// Provide the configuration a list of certificates where the session
+/// will select the first one that is compatible with the client's signature
+/// verification capabilities. Servers that want to support ECDSA and RSA certificates
+/// will want the ECSDA to go first in the list.
+///
+/// The built configuration will keep a reference to all certified keys
+/// provided. The client may `rustls_certified_key_free()` afterwards
+/// without the configuration losing them. The same certified key may also
+/// be used in multiple configs.
+///
+/// EXPERIMENTAL: installing a client_hello callback will replace any
+/// configured certified keys and vice versa. Same holds true for the
+/// set_single_cert variant.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_certified_keys(
+    builder: *mut rustls_server_config_builder,
+    certified_keys: *const *const rustls_certified_key,
+    certified_keys_len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        let keys_ptrs: &[*const rustls_certified_key] = unsafe {
+            if certified_keys.is_null() {
+                return NullParameter;
+            }
+            slice::from_raw_parts(certified_keys, certified_keys_len)
+        };
+        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+        for &key_ptr in keys_ptrs {
+            let certified_key: Arc<CertifiedKey> = unsafe {
+                match (key_ptr as *const CertifiedKey).as_ref() {
+                    Some(c) => arc_with_incref_from_raw(c),
+                    None => return NullParameter,
+                }
+            };
+            keys.push(certified_key);
+        }
+        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&keys));
+        rustls_result::Ok
     }
 }
 
@@ -470,6 +513,168 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
         unsafe {
             *out_n = len;
         }
+        rustls_result::Ok
+    }
+}
+
+/// Choose the server certificate to be used for a session.
+/// Will pick the first CertfiedKey available that is suitable for
+/// the SignatureSchemes supported by the client.
+struct ResolvesServerCertFromChoices {
+    choices: Vec<Arc<CertifiedKey>>,
+}
+
+impl ResolvesServerCertFromChoices {
+    pub fn new(choices: &[Arc<CertifiedKey>]) -> Self {
+        ResolvesServerCertFromChoices {
+            choices: Vec::from(choices),
+        }
+    }
+}
+
+impl ResolvesServerCert for ResolvesServerCertFromChoices {
+    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
+        for key in self.choices.iter() {
+            if key.key.choose_scheme(client_hello.sigschemes()).is_some() {
+                return Some(key.as_ref().clone());
+            }
+        }
+        None
+    }
+}
+
+/// The TLS Client Hello information provided to a ClientHelloCallback function.
+/// `sni_name` is the SNI servername provided by the client. If the client
+/// did not provide an SNI, the length of this `rustls_string` will be 0.
+/// The signature_schemes carries the values supplied by the client or, should
+/// the client not use this TLS extension, the default schemes in the rustls
+/// library. See:
+/// https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+/// `alpn` carries the list of ALPN protocol names that the client proposed to
+/// the server. Again, the length of this list will be 0 if none were supplied.
+///
+/// All this data, when passed to a callback function, is only accessible during
+/// the call and may not be modified. Users of this API must copy any values that
+/// they want to access when the callback returned.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
+#[repr(C)]
+pub struct rustls_client_hello<'a> {
+    sni_name: rustls_str<'a>,
+    signature_schemes: rustls_slice_u16<'a>,
+    alpn: *const rustls_slice_slice_bytes<'a>,
+}
+
+/// Any context information the callback will receive when invoked.
+pub type rustls_client_hello_userdata = *mut c_void;
+
+/// Prototype of a callback that can be installed by the application at the
+/// `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
+/// once the TLS client hello message has been received.
+/// `userdata` will be supplied as provided when registering the callback.
+/// `hello` gives the value of the available client announcements, as interpreted
+/// by rustls. See the definition of `rustls_client_hello` for details.
+///
+/// NOTE: the passed in `hello` and all its values are only availabe during the
+/// callback invocations.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
+pub type rustls_client_hello_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_client_hello_userdata,
+        hello: *const rustls_client_hello,
+    ) -> *const rustls_certified_key,
+>;
+
+// This is the same as a rustls_verify_server_cert_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+type ClientHelloCallback = unsafe extern "C" fn(
+    userdata: rustls_client_hello_userdata,
+    hello: *const rustls_client_hello,
+) -> *const rustls_certified_key;
+
+struct ClientHelloResolver {
+    /// Implementation of rustls::ResolvesServerCert that passes values
+    /// from the supplied ClientHello to the callback function.
+    pub callback: ClientHelloCallback,
+    pub userdata: rustls_client_hello_userdata,
+}
+
+impl ClientHelloResolver {
+    pub fn new(
+        callback: ClientHelloCallback,
+        userdata: rustls_client_hello_userdata,
+    ) -> ClientHelloResolver {
+        ClientHelloResolver { callback, userdata }
+    }
+}
+
+impl ResolvesServerCert for ClientHelloResolver {
+    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
+        let sni_name: &str = {
+            match client_hello.server_name() {
+                Some(c) => c.into(),
+                None => "",
+            }
+        };
+        let sni_name: rustls_str = match sni_name.try_into() {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
+        let mapped_sigs: Vec<u16> = client_hello
+            .sigschemes()
+            .iter()
+            .map(|s| s.get_u16())
+            .collect();
+        // Unwrap the Option. None becomes an empty slice.
+        let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
+        let alpn: rustls_slice_slice_bytes = rustls_slice_slice_bytes { inner: alpn };
+        let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
+        let hello = rustls_client_hello {
+            sni_name,
+            signature_schemes,
+            alpn: &alpn,
+        };
+        let cb = self.callback;
+        let key_ptr = unsafe { cb(self.userdata, &hello) };
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr, &CertifiedKey, None);
+        Some(certified_key.clone())
+    }
+}
+
+unsafe impl Sync for ClientHelloResolver {}
+unsafe impl Send for ClientHelloResolver {}
+
+/// Register a callback to be invoked when a session created from this config
+/// is seeing a TLS ClientHello message. The given `userdata` will be passed
+/// to the callback when invoked.
+///
+/// Any existing `ResolvesServerCert` implementation currently installed in the
+/// `rustls_server_config` will be replaced. This also means registering twice
+/// will overwrite the first registration. It is not permitted to pass a NULL
+/// value for `callback`, but it is possible to have `userdata` as NULL.
+///
+/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// the rustls library is re-evaluating their current approach to client hello handling.
+/// Installing a client_hello callback will replace any configured certified keys
+/// and vice versa. Same holds true for the set_single_cert variant.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_hello_callback(
+    builder: *mut rustls_server_config_builder,
+    callback: rustls_client_hello_callback,
+    userdata: rustls_client_hello_userdata,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let callback: ClientHelloCallback = match callback {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.cert_resolver = Arc::new(ClientHelloResolver::new(
+            callback, userdata
+        ));
         rustls_result::Ok
     }
 }
