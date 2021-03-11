@@ -90,6 +90,14 @@ typedef enum rustls_result {
 } rustls_result;
 
 /**
+ * The complete chain of certificates to send during a TLS handshake,
+ * plus a private key that matches the end-entity (leaf) certificate.
+ * Corresponds to `CertifiedKey` in the Rust API.
+ * https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+ */
+typedef struct rustls_certified_key rustls_certified_key;
+
+/**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
@@ -228,11 +236,121 @@ typedef struct rustls_verify_server_cert_params {
 typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
 
 /**
+ * Any context information the callback will receive when invoked.
+ */
+typedef void *rustls_client_hello_userdata;
+
+/**
+ * A read-only view on a Rust slice of 16-bit integers in platform endianness.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_u16 {
+  const uint16_t *data;
+  size_t len;
+} rustls_slice_u16;
+
+/**
+ * The TLS Client Hello information provided to a ClientHelloCallback function.
+ * `sni_name` is the SNI servername provided by the client. If the client
+ * did not provide an SNI, the length of this `rustls_string` will be 0.
+ * The signature_schemes carries the values supplied by the client or, should
+ * the client not use this TLS extension, the default schemes in the rustls
+ * library. See:
+ * https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+ * `alpn` carries the list of ALPN protocol names that the client proposed to
+ * the server. Again, the length of this list will be 0 if none were supplied.
+ *
+ * All this data, when passed to a callback function, is only accessible during
+ * the call and may not be modified. Users of this API must copy any values that
+ * they want to access when the callback returned.
+ *
+ * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * the rustls library is re-evaluating their current approach to client hello handling.
+ */
+typedef struct rustls_client_hello {
+  struct rustls_str sni_name;
+  struct rustls_slice_u16 signature_schemes;
+  const struct rustls_slice_slice_bytes *alpn;
+} rustls_client_hello;
+
+/**
+ * Prototype of a callback that can be installed by the application at the
+ * `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
+ * once the TLS client hello message has been received.
+ * `userdata` will be supplied as provided when registering the callback.
+ * `hello` gives the value of the available client announcements, as interpreted
+ * by rustls. See the definition of `rustls_client_hello` for details.
+ *
+ * NOTE: the passed in `hello` and all its values are only availabe during the
+ * callback invocations.
+ *
+ * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * the rustls library is re-evaluating their current approach to client hello handling.
+ */
+typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
+
+/**
  * Write the version of the crustls C bindings and rustls itself into the
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
  * and NUL terminated. Returns the number of bytes written before the NUL.
  */
 size_t rustls_version(char *buf, size_t len);
+
+/**
+ * Get the name of a SignatureScheme, represented by the `scheme` short value,
+ * if known by the rustls library. For unknown schemes, this returns a string
+ * with the scheme value in hex notation. Mainly useful for debugging output.
+ *
+ * The caller provides `buf` for holding the string and gives its size as `len`
+ * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
+ * `buf` is not NUL-terminated.
+ */
+void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
+                                             char *buf,
+                                             size_t len,
+                                             size_t *out_n);
+
+/**
+ * Build a `rustls_certified_key` from a certificate chain and a private key.
+ * `cert_chain` must point to an array of `cert_chain_len` bytes, containing
+ * a series of PEM-encoded certificates, with the end-entity (leaf)
+ * certificate first.
+ *
+ * `private_key` must point to an array of `private_key_len` bytes, containing
+ * a PEM-encoded private key in either PKCS#1 or PKCS#8 format.
+ *
+ * On success, this writes a pointer to the newly created
+ * `rustls_certified_key` in `certified_key_out`. That pointer must later
+ * be freed with `rustls_certified_key_free` to avoid memory leaks. Note that
+ * internally, this is an atomically reference-counted pointer, so even after
+ * the original caller has called `rustls_certified_key_free`, other objects
+ * may retain a pointer to the object. The memory will be freed when all
+ * references are gone.
+ */
+enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
+                                              size_t cert_chain_len,
+                                              const uint8_t *private_key,
+                                              size_t private_key_len,
+                                              const struct rustls_certified_key **certified_key_out);
+
+/**
+ * "Free" a certified_key previously returned from
+ * rustls_certified_key_build. Since certified_key is actually an
+ * atomically reference-counted pointer, extant certified_key may still
+ * hold an internal reference to the Rust object. However, C code must
+ * consider this pointer unusable after "free"ing it.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_certified_key_free(const struct rustls_certified_key *config);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -460,6 +578,22 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
+ * "Free" a server_config_builder before transmogrifying it into a server_config.
+ * Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
+ */
+void rustls_server_config_builder_free(struct rustls_server_config_builder *config);
+
+/**
+ * Create a rustls_server_config_builder from an existing rustls_server_config. The
+ * builder will be used to create a new, separate config that starts with the settings
+ * from the supplied configuration.
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_from_config(const struct rustls_server_config *config);
+
+/**
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
@@ -469,20 +603,39 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
                                                                         bool ignore);
 
 /**
- * Sets a single certificate chain and matching private key.
- * This certificate and key is used for all subsequent connections,
- * irrespective of things like SNI hostname.
- * cert_chain must point to a byte array of length cert_chain_len containing
- * a series of PEM-encoded certificates, with the end-entity certificate
- * first.
- * private_key must point to a byte array of length private_key_len containing
- * a private key in PEM-encoded PKCS#8 or PKCS#1 format.
+ * Set the ALPN protocol list to the given protocols. `protocols` must point
+ * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+ * elements. Each element of th buffer must point to a slice of bytes that
+ * contains a single ALPN protocol from
+ * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+ *
+ * This function makes a copy of the data in `protocols` and does not retain
+ * any pointers, so the caller can free the pointed-to memory after calling.
+ *
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.set_protocols
  */
-enum rustls_result rustls_server_config_builder_set_single_cert_pem(struct rustls_server_config_builder *builder,
-                                                                    const uint8_t *cert_chain,
-                                                                    size_t cert_chain_len,
-                                                                    const uint8_t *private_key,
-                                                                    size_t private_key_len);
+enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_server_config_builder *builder,
+                                                              const struct rustls_slice_bytes *protocols,
+                                                              size_t len);
+
+/**
+ * Provide the configuration a list of certificates where the session
+ * will select the first one that is compatible with the client's signature
+ * verification capabilities. Servers that want to support both ECDSA and
+ * RSA certificates will want the ECSDA to go first in the list.
+ *
+ * The built configuration will keep a reference to all certified keys
+ * provided. The client may `rustls_certified_key_free()` afterwards
+ * without the configuration losing them. The same certified key may also
+ * be used in multiple configs.
+ *
+ * EXPERIMENTAL: installing a client_hello callback will replace any
+ * configured certified keys and vice versa. Same holds true for the
+ * set_single_cert variant.
+ */
+enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
+                                                                   const struct rustls_certified_key *const *certified_keys,
+                                                                   size_t certified_keys_len);
 
 /**
  * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
@@ -608,5 +761,24 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           uint8_t *buf,
                                                           size_t count,
                                                           size_t *out_n);
+
+/**
+ * Register a callback to be invoked when a session created from this config
+ * is seeing a TLS ClientHello message. The given `userdata` will be passed
+ * to the callback when invoked.
+ *
+ * Any existing `ResolvesServerCert` implementation currently installed in the
+ * `rustls_server_config` will be replaced. This also means registering twice
+ * will overwrite the first registration. It is not permitted to pass a NULL
+ * value for `callback`, but it is possible to have `userdata` as NULL.
+ *
+ * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * the rustls library is re-evaluating their current approach to client hello handling.
+ * Installing a client_hello callback will replace any configured certified keys
+ * and vice versa. Same holds true for the set_single_cert variant.
+ */
+enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
+                                                                   rustls_client_hello_callback callback,
+                                                                   rustls_client_hello_userdata userdata);
 
 #endif /* CRUSTLS_H */
