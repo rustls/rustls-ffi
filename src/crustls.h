@@ -321,11 +321,11 @@ void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
- * `cert_chain` must point to an array of `cert_chain_len` bytes, containing
+ * `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
  * a series of PEM-encoded certificates, with the end-entity (leaf)
  * certificate first.
  *
- * `private_key` must point to an array of `private_key_len` bytes, containing
+ * `private_key` must point to a buffer of `private_key_len` bytes, containing
  * a PEM-encoded private key in either PKCS#1 or PKCS#8 format.
  *
  * On success, this writes a pointer to the newly created
@@ -605,7 +605,7 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
  * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
- * elements. Each element of th buffer must point to a slice of bytes that
+ * elements. Each element of the buffer must point to a slice of bytes that
  * contains a single ALPN protocol from
  * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
  *

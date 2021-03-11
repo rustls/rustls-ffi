@@ -61,10 +61,10 @@ pub extern "C" fn rustls_cipher_get_signature_scheme_name(
     out_n: *mut size_t,
 ) {
     ffi_panic_boundary_unit! {
+        if buf.is_null() {
+            return;
+        }
         let write_buf: &mut [u8] = unsafe {
-            if buf.is_null() {
-                return;
-            }
             slice::from_raw_parts_mut(buf as *mut u8, len as usize)
         };
         let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t, ());
@@ -87,11 +87,11 @@ pub struct rustls_certified_key {
 }
 
 /// Build a `rustls_certified_key` from a certificate chain and a private key.
-/// `cert_chain` must point to an array of `cert_chain_len` bytes, containing
+/// `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
 /// a series of PEM-encoded certificates, with the end-entity (leaf)
 /// certificate first.
 ///
-/// `private_key` must point to an array of `private_key_len` bytes, containing
+/// `private_key` must point to a buffer of `private_key_len` bytes, containing
 /// a PEM-encoded private key in either PKCS#1 or PKCS#8 format.
 ///
 /// On success, this writes a pointer to the newly created
