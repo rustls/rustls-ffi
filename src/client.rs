@@ -483,12 +483,7 @@ pub extern "C" fn rustls_client_session_read(
             }
             slice::from_raw_parts_mut(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
@@ -528,12 +523,7 @@ pub extern "C" fn rustls_client_session_read_tls(
             }
             slice::from_raw_parts(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let mut cursor = Cursor::new(input_buf);
         let n_read: usize = match session.read_tls(&mut cursor) {
             Ok(n) => n,
@@ -569,12 +559,7 @@ pub extern "C" fn rustls_client_session_write_tls(
             }
             slice::from_raw_parts_mut(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_written: usize = match session.write_tls(&mut output_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,

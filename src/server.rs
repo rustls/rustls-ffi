@@ -84,7 +84,7 @@ pub extern "C" fn rustls_server_config_builder_from_config(
     config: *const rustls_server_config,
 ) -> *mut rustls_server_config_builder {
     ffi_panic_boundary_ptr! {
-        let config: &ServerConfig = try_ref_from_ptr!(config, & ServerConfig, null_mut());
+        let config: &ServerConfig = try_ref_from_ptr!(config, &ServerConfig, null_mut());
         Box::into_raw(Box::new(config.clone())) as *mut _
     }
 }
@@ -105,6 +105,16 @@ pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
     }
 }
 
+/// Set the ALPN protocol list to the given protocols. `protocols` must point
+/// to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+/// elements. Each element of the buffer must point to a slice of bytes that
+/// contains a single ALPN protocol from
+/// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+///
+/// This function makes a copy of the data in `protocols` and does not retain
+/// any pointers, so the caller can free the pointed-to memory after calling.
+///
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.set_protocols
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_protocols(
     builder: *mut rustls_server_config_builder,
@@ -117,7 +127,7 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
             if protocols.is_null() {
                 return NullParameter;
             }
-                slice::from_raw_parts(protocols, len)
+            slice::from_raw_parts(protocols, len)
         };
 
         let mut vv: Vec<Vec<u8>> = Vec::new();
@@ -137,8 +147,8 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
 
 /// Provide the configuration a list of certificates where the session
 /// will select the first one that is compatible with the client's signature
-/// verification capabilities. Servers that want to support ECDSA and RSA certificates
-/// will want the ECSDA to go first in the list.
+/// verification capabilities. Servers that want to support both ECDSA and
+/// RSA certificates will want the ECSDA to go first in the list.
 ///
 /// The built configuration will keep a reference to all certified keys
 /// provided. The client may `rustls_certified_key_free()` afterwards
@@ -164,6 +174,8 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
         };
         let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
         for &key_ptr in keys_ptrs {
+            let key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr,
+                &CertifiedKey);
             let certified_key: Arc<CertifiedKey> = unsafe {
                 match (key_ptr as *const CertifiedKey).as_ref() {
                     Some(c) => arc_with_incref_from_raw(c),
@@ -204,15 +216,7 @@ pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config)
         // To free the server_config, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0
         // and the inner ServerConfig will be dropped.
-        let arc: Arc<ServerConfig> = unsafe { Arc::from_raw(config) };
-        let strong_count = Arc::strong_count(&arc);
-        if strong_count < 1 {
-            eprintln!(
-                "rustls_server_config_free: invariant failed: arc.strong_count was < 1: {}. \
-                You must not free the same server_config multiple times.",
-                strong_count
-            );
-        }
+        unsafe { drop(Arc::from_raw(config)) };
     }
 }
 
@@ -371,12 +375,7 @@ pub extern "C" fn rustls_server_session_read(
             }
             slice::from_raw_parts_mut(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
@@ -416,12 +415,7 @@ pub extern "C" fn rustls_server_session_read_tls(
             }
             slice::from_raw_parts(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let mut cursor = Cursor::new(input_buf);
         let n_read: usize = match session.read_tls(&mut cursor) {
             Ok(n) => n,
@@ -457,12 +451,7 @@ pub extern "C" fn rustls_server_session_write_tls(
             }
             slice::from_raw_parts_mut(buf, count as usize)
         };
-        let out_n = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_written: usize = match session.write_tls(&mut output_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
@@ -489,16 +478,12 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
     ffi_panic_boundary! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, NullParameter);
         let write_buf: &mut [u8] = unsafe {
-            let out_n: &mut size_t = match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            };
-            *out_n = 0;
             if buf.is_null() {
                 return NullParameter;
             }
             slice::from_raw_parts_mut(buf as *mut u8, count as usize)
         };
+        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let sni_hostname = match session.get_sni_hostname() {
             Some(sni_hostname) => sni_hostname,
             None => {
@@ -510,15 +495,13 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
             return rustls_result::InsufficientSize;
         }
         write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
-        unsafe {
-            *out_n = len;
-        }
+        *out_n = len;
         rustls_result::Ok
     }
 }
 
-/// Choose the server certificate to be used for a session.
-/// Will pick the first CertfiedKey available that is suitable for
+/// Choose the server certificate to be used for a session based on certificate
+/// type. Will pick the first CertfiedKey available that is suitable for
 /// the SignatureSchemes supported by the client.
 struct ResolvesServerCertFromChoices {
     choices: Vec<Arc<CertifiedKey>>,
@@ -630,7 +613,7 @@ impl ResolvesServerCert for ClientHelloResolver {
             .collect();
         // Unwrap the Option. None becomes an empty slice.
         let alpn: &[&[u8]] = client_hello.alpn().unwrap_or(&[]);
-        let alpn: rustls_slice_slice_bytes = rustls_slice_slice_bytes { inner: alpn };
+        let alpn = rustls_slice_slice_bytes { inner: alpn };
         let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
         let hello = rustls_client_hello {
             sni_name,
@@ -638,7 +621,7 @@ impl ResolvesServerCert for ClientHelloResolver {
             alpn: &alpn,
         };
         let cb = self.callback;
-        let key_ptr = unsafe { cb(self.userdata, &hello) };
+        let key_ptr: *const rustls_certified_key = unsafe { cb(self.userdata, &hello) };
         let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr, &CertifiedKey, None);
         Some(certified_key.clone())
     }
