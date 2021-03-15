@@ -13,6 +13,11 @@ use rustls_result::NullParameter;
 
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
+use crate::session::{
+    rustls_session_store_get_callback, rustls_session_store_put_callback,
+    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
+    SessionStorePutCallback,
+};
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -658,6 +663,34 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
         config.cert_resolver = Arc::new(ClientHelloResolver::new(
             callback, userdata
         ));
+        rustls_result::Ok
+    }
+}
+
+/// Register callbacks for persistence of TLS session IDs and secrets. Both
+/// keys and values are highly sensitive data, containing enough information
+/// to break the security of the sessions involved.
+///
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_persistence(
+    builder: *mut rustls_server_config_builder,
+    userdata: rustls_session_store_userdata,
+    get_cb: rustls_session_store_get_callback,
+    put_cb: rustls_session_store_put_callback,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let get_cb: SessionStoreGetCallback = match get_cb {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
+        let put_cb: SessionStorePutCallback = match put_cb {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.set_persistence(Arc::new(SessionStoreBroker::new(
+            userdata, get_cb, put_cb
+        )));
         rustls_result::Ok
     }
 }

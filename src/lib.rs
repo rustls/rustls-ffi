@@ -9,6 +9,7 @@ mod client;
 mod error;
 mod rslice;
 mod server;
+mod session;
 
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
