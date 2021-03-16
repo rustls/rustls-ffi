@@ -238,6 +238,55 @@ typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_s
 /**
  * Any context information the callback will receive when invoked.
  */
+typedef void *rustls_session_store_userdata;
+
+/**
+ * Prototype of a callback that can be installed by the application at the
+ * `rustls_server_config` or `rustls_client_config`. This callback will be
+ * invoked by a TLS session when looking up the data for a TLS session id.
+ * `userdata` will be supplied as provided when registering the callback.
+ *
+ * The `buf` points to a buffer of `count` consecutive bytes where the
+ * callback is expected to copy the result to. The number of copied bytes
+ * needs to be written to `out_n`.
+ *
+ * If the value to copy is larger than `count`, the callback should never
+ * do a partial copy but instead remove the value from its store and
+ * act as if it was never found.
+ *
+ * The callback should return != 0 to indicate that a value was retrieved
+ * and written in its entirety into `buf`.
+ *
+ * When `remove_after` is != 0, the returned data needs to be removed
+ * from the store.
+ *
+ * NOTE: the passed in `key` and `buf` are only availabe during the
+ * callback invocation.
+ * NOTE: callbacks used in several sessions via a common config
+ * must be implemented thread-safe.
+ */
+typedef int (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, uint8_t *buf, size_t count, int remove_after, size_t *out_n);
+
+/**
+ * Prototype of a callback that can be installed by the application at the
+ * `rustls_server_config` or `rustls_client_config`. This callback will be
+ * invoked by a TLS session when a TLS session has been created and an id
+ * for later use is handed to the client/has been received from the server.
+ * `userdata` will be supplied as provided when registering the callback.
+ *
+ * The callback should return != 0 to indicate that the value has been
+ * successfully persisted in its store.
+ *
+ * NOTE: the passed in `key` and `val` are only availabe during the
+ * callback invocation.
+ * NOTE: callbacks used in several sessions via a common config
+ * must be implemented thread-safe.
+ */
+typedef int (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
+
+/**
+ * Any context information the callback will receive when invoked.
+ */
 typedef void *rustls_client_hello_userdata;
 
 /**
@@ -297,55 +346,6 @@ typedef struct rustls_client_hello {
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
-
-/**
- * Any context information the callback will receive when invoked.
- */
-typedef void *rustls_session_store_userdata;
-
-/**
- * Prototype of a callback that can be installed by the application at the
- * `rustls_server_config` or `rustls_client_config`. This callback will be
- * invoked by a TLS session when looking up the data for a TLS session id.
- * `userdata` will be supplied as provided when registering the callback.
- *
- * The `buf` points to a buffer of `count` consecutive bytes where the
- * callback is expected to copy the result to. The number of copied bytes
- * needs to be written to `out_n`.
- *
- * If the value to copy is larger than `count`, the callback should never
- * do a partial copy but instead remove the value from its store and
- * act as if it was never found.
- *
- * The callback should return != 0 to indicate that a value was retrieved
- * and written in its entirety into `buf`.
- *
- * When `remove_after` is != 0, the returned data needs to be removed
- * from the store.
- *
- * NOTE: the passed in `key` and `buf` are only availabe during the
- * callback invocation.
- * NOTE: callbacks used in several sessions via a common config
- * must be implemented thread-safe.
- */
-typedef int (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, uint8_t *buf, size_t count, int remove_after, size_t *out_n);
-
-/**
- * Prototype of a callback that can be installed by the application at the
- * `rustls_server_config` or `rustls_client_config`. This callback will be
- * invoked by a TLS session when a TLS session has been created and an id
- * for later use is handed to the client/has been received from the server.
- * `userdata` will be supplied as provided when registering the callback.
- *
- * The callback should return != 0 to indicate that the value has been
- * successfully persisted in its store.
- *
- * NOTE: the passed in `key` and `val` are only availabe during the
- * callback invocation.
- * NOTE: callbacks used in several sessions via a common config
- * must be implemented thread-safe.
- */
-typedef int (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
  * Write the version of the crustls C bindings and rustls itself into the
@@ -578,6 +578,17 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
                                                    uint8_t *buf,
                                                    size_t count,
                                                    size_t *out_n);
+
+/**
+ * Register callbacks for persistence of TLS session IDs and secrets. Both
+ * keys and values are highly sensitive data, containing enough information
+ * to break the security of the sessions involved.
+ *
+ */
+enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
+                                                                rustls_session_store_userdata userdata,
+                                                                rustls_session_store_get_callback get_cb,
+                                                                rustls_session_store_put_callback put_cb);
 
 /**
  * After a rustls_client_session method returns an error, you may call

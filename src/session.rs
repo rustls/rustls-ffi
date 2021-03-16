@@ -11,9 +11,10 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// invoked by a TLS session when looking up the data for a TLS session id.
 /// `userdata` will be supplied as provided when registering the callback.
 ///
-/// The `buf` points to a buffer of `count` consecutive bytes where the
+/// The `buf` points to `count` consecutive bytes where the
 /// callback is expected to copy the result to. The number of copied bytes
-/// needs to be written to `out_n`.
+/// needs to be written to `out_n`. The callback should not read any
+/// data from `buf`.
 ///
 /// If the value to copy is larger than `count`, the callback should never
 /// do a partial copy but instead remove the value from its store and
@@ -97,7 +98,9 @@ impl SessionStoreBroker {
 
     fn retrieve(&self, key: &[u8], remove: bool) -> Option<Vec<u8>> {
         let key: rustls_slice_bytes = key.into();
-        let mut data: Vec<u8> = Vec::with_capacity(8192);
+        // TODO: we need a buffer where th client can store the retrieved
+        // session value. What size should it have? 10k seems excessive...
+        let mut data: Vec<u8> = vec![0 as u8; 10 * 1024];
         let buffer = data.as_mut_slice();
         let mut out_n: size_t = 0;
         unsafe {
