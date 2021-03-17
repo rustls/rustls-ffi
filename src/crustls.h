@@ -90,6 +90,18 @@ typedef enum rustls_result {
 } rustls_result;
 
 /**
+ * Definitions of known TLS protocol versions.
+ */
+typedef enum rustls_tls_version {
+  RUSTLS_TLS_VERSION_SSLV2 = 512,
+  RUSTLS_TLS_VERSION_SSSLV3 = 768,
+  RUSTLS_TLS_VERSION_TLSV1_0 = 769,
+  RUSTLS_TLS_VERSION_TLSV1_1 = 770,
+  RUSTLS_TLS_VERSION_TLSV1_2 = 771,
+  RUSTLS_TLS_VERSION_TLSV1_3 = 772,
+} rustls_tls_version;
+
+/**
  * The complete chain of certificates to send during a TLS handshake,
  * plus a private key that matches the end-entity (leaf) certificate.
  * Corresponds to `CertifiedKey` in the Rust API.

@@ -29,7 +29,7 @@ test: all
 target:
 	mkdir -p $@
 
-src/crustls.h: src/*.rs
+src/crustls.h: src/*.rs cbindgen.toml
 	cargo check
 	cbindgen --lang C > $@
 
