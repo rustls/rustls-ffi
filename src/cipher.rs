@@ -1,8 +1,7 @@
-use libc::{c_char, size_t};
+use libc::size_t;
 use std::io::Cursor;
-use std::os::raw::c_ushort;
+use std::slice;
 use std::sync::Arc;
-use std::{cmp::min, slice};
 
 use rustls::sign::CertifiedKey;
 use rustls::{Certificate, PrivateKey};
@@ -13,67 +12,6 @@ use crate::{
     ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
-
-/// All SignatureScheme currently defined in rustls.
-/// At the moment not exposed by rustls itself.
-#[no_mangle]
-pub(crate) static ALL_SIGNATURE_SCHEMES: &[rustls::SignatureScheme] = &[
-    rustls::SignatureScheme::RSA_PKCS1_SHA1,
-    rustls::SignatureScheme::ECDSA_SHA1_Legacy,
-    rustls::SignatureScheme::RSA_PKCS1_SHA256,
-    rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
-    rustls::SignatureScheme::RSA_PKCS1_SHA384,
-    rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
-    rustls::SignatureScheme::RSA_PKCS1_SHA512,
-    rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
-    rustls::SignatureScheme::RSA_PSS_SHA256,
-    rustls::SignatureScheme::RSA_PSS_SHA384,
-    rustls::SignatureScheme::RSA_PSS_SHA512,
-    rustls::SignatureScheme::ED25519,
-    rustls::SignatureScheme::ED448,
-];
-
-/// rustls has the names in its Debug trait implementation, which
-/// we use for all known schemes. For all others we return the hex value.
-/// Note that this u16 values are used in protocol handshake by both sides,
-/// so we have to expect unknown values to arrive here.
-fn signature_scheme_name(n: u16) -> String {
-    for scheme in ALL_SIGNATURE_SCHEMES {
-        if scheme.get_u16() == n {
-            return format!("{:?}", scheme);
-        }
-    }
-    format!("Unknown({:#06x})", n)
-}
-
-/// Get the name of a SignatureScheme, represented by the `scheme` short value,
-/// if known by the rustls library. For unknown schemes, this returns a string
-/// with the scheme value in hex notation. Mainly useful for debugging output.
-///
-/// The caller provides `buf` for holding the string and gives its size as `len`
-/// bytes. On return `out_n` carries the number of bytes copied into `buf`. The
-/// `buf` is not NUL-terminated.
-#[no_mangle]
-pub extern "C" fn rustls_cipher_get_signature_scheme_name(
-    scheme: c_ushort,
-    buf: *mut c_char,
-    len: size_t,
-    out_n: *mut size_t,
-) {
-    ffi_panic_boundary_unit! {
-        if buf.is_null() {
-            return;
-        }
-        let write_buf: &mut [u8] = unsafe {
-            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-        };
-        let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t, ());
-        let name = signature_scheme_name(scheme);
-        let len: usize = min(write_buf.len() - 1, name.len());
-        write_buf[..len].copy_from_slice(&name.as_bytes()[..len]);
-        *out_n = len;
-    }
-}
 
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.

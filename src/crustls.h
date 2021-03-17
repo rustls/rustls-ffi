@@ -306,20 +306,6 @@ typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustl
 size_t rustls_version(char *buf, size_t len);
 
 /**
- * Get the name of a SignatureScheme, represented by the `scheme` short value,
- * if known by the rustls library. For unknown schemes, this returns a string
- * with the scheme value in hex notation. Mainly useful for debugging output.
- *
- * The caller provides `buf` for holding the string and gives its size as `len`
- * bytes. On return `out_n` carries the number of bytes copied into `buf`. The
- * `buf` is not NUL-terminated.
- */
-void rustls_cipher_get_signature_scheme_name(unsigned short scheme,
-                                             char *buf,
-                                             size_t len,
-                                             size_t *out_n);
-
-/**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
  * `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
  * a series of PEM-encoded certificates, with the end-entity (leaf)
