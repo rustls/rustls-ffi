@@ -579,6 +579,9 @@ pub extern "C" fn rustls_client_session_write_tls(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
+/// `userdata` must live as long as the config object and any sessions
+/// or other config created from that config object.
+///
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_persistence(
     builder: *mut rustls_client_config_builder,

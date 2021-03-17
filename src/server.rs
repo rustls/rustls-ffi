@@ -564,8 +564,13 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
 ///
-/// NOTE: the passed in `hello` and all its values are only availabe during the
-/// callback invocations.
+/// NOTE:
+/// - the passed in `hello` and all its values are only available during the
+///   callback invocations.
+/// - the passed callback function must be implemented thread-safe, unless
+///   there is only a single config and session where it is installed.
+/// - `userdata` must live as long as the config object and any sessions
+///   or other config created from that config object.
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
@@ -632,6 +637,9 @@ impl ResolvesServerCert for ClientHelloResolver {
     }
 }
 
+/// This struct can be considered thread safe, as long
+/// as the registered callbacks are thread safe. This is
+/// documented as a requirement in the API.
 unsafe impl Sync for ClientHelloResolver {}
 unsafe impl Send for ClientHelloResolver {}
 
@@ -671,6 +679,8 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
+/// `userdata` must live as long as the config object and any sessions
+/// or other config created from that config object.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_persistence(
     builder: *mut rustls_server_config_builder,
