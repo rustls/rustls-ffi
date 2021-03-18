@@ -11,6 +11,7 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
+use crate::cipher::rustls_cipher_from_u16;
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
@@ -20,8 +21,8 @@ use crate::session::{
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
-    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte,
-    try_ref_from_ptr,
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_u16,
+    ffi_panic_boundary_unit, rslice::NulByte, try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
 
@@ -301,6 +302,41 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     }
 }
 
+/// Set the TLS ciphers to use when negotiating a TLS session.
+///
+/// `ciphers` is the is the 16 bit cipher identifier as defined in
+///  <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+///
+/// `ciphers` will only be used during the call and the application retains
+/// ownership. `len` is the number of consecutive `uint16_t` pointed to by `ciphers`.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_ciphers(
+    builder: *mut rustls_client_config_builder,
+    ciphers: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_ref_from_ptr!(builder, &mut ClientConfig);
+        if ciphers.is_null() {
+            return NullParameter;
+        }
+        if len == 0 {
+            return NullParameter;
+        }
+        config.ciphersuites.clear();
+        unsafe {
+            for i in slice::from_raw_parts(ciphers, len) {
+                match rustls_cipher_from_u16(*i) {
+                    Some(suite) => config.ciphersuites.push(suite),
+                    None => return rustls_result::NotImplemented,
+                };
+
+            }
+        }
+        rustls_result::Ok
+    }
+}
+
 /// "Free" a client_config previously returned from
 /// rustls_client_config_builder_build. Since client_config is actually an
 /// atomically reference-counted pointer, extant client_sessions may still
@@ -387,6 +423,22 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     ffi_panic_boundary_bool! {
         let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession, false);
         session.is_handshaking()
+    }
+}
+
+/// Get the negotiated TLS cipher suite, once the handshake is complete. The
+/// returned uint16_t is the IANA registered cipher value. Until the cipher
+/// has been negotiated, this function will return 0 as the cipher value.
+#[no_mangle]
+pub extern "C" fn rustls_client_session_get_negotiated_cipher(
+    session: *const rustls_client_session,
+) -> u16 {
+    ffi_panic_boundary_u16! {
+        let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession, 0);
+        match session.get_negotiated_ciphersuite() {
+            Some(s) => s.suite.get_u16(),
+            None => 0
+        }
     }
 }
 

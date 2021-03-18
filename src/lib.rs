@@ -53,6 +53,13 @@ macro_rules! ffi_panic_boundary_bool {
 }
 
 #[macro_export]
+macro_rules! ffi_panic_boundary_u16 {
+    ( $($tt:tt)* ) => {
+        ffi_panic_boundary_generic!(0, $($tt)*)
+    }
+}
+
+#[macro_export]
 macro_rules! ffi_panic_boundary_ptr {
     ( $($tt:tt)* ) => {
         ffi_panic_boundary_generic!(std::ptr::null_mut(), $($tt)*)

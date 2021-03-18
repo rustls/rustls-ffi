@@ -1,4 +1,4 @@
-use libc::size_t;
+use libc::{c_void, size_t};
 use std::io::Cursor;
 use std::slice;
 use std::sync::Arc;
@@ -8,6 +8,7 @@ use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
+use crate::rslice::rustls_slice_u16;
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit, try_ref_from_ptr,
 };
@@ -127,4 +128,55 @@ fn certified_key_build(
         parsed_chain,
         Arc::new(signing_key),
     ))
+}
+
+pub(crate) fn rustls_cipher_from_u16(cipher: u16) -> Option<&'static rustls::SupportedCipherSuite> {
+    rustls::ALL_CIPHERSUITES
+        .iter()
+        .find(|x| x.suite.get_u16() == cipher)
+        .map(|x| *x)
+}
+
+/// Provide a callback that can inspect all supported TLS cipher suites
+/// by their 16 bit value as defined in:
+///  <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+///
+/// Note: the supplied data is only valid for the duration of the call.
+pub type rustls_cipher_visit_supported_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_cipher_visit_supported_userdata,
+        supported: *const rustls_slice_u16,
+    ),
+>;
+
+/// Any context information the callback will receive when invoked.
+pub type rustls_cipher_visit_supported_userdata = *mut c_void;
+
+// This is the same as a rustls_cipher_visit_supported_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+type CipherVisitSupportedCallback = unsafe extern "C" fn(
+    userdata: rustls_cipher_visit_supported_userdata,
+    supported: *const rustls_slice_u16,
+);
+
+/// Lets a provided callback inspect all TLS cipher suites supported by rustls.
+///
+/// Note: the supplied data is only valid for the duration of the call.
+#[no_mangle]
+pub fn rustls_cipher_visit_supported(
+    callback: rustls_cipher_visit_supported_callback,
+    userdata: rustls_cipher_visit_supported_userdata,
+) {
+    let cb: CipherVisitSupportedCallback = match callback {
+        Some(cb) => cb,
+        None => return,
+    };
+    let ciphers: Vec<u16> = rustls::ALL_CIPHERSUITES
+        .iter()
+        .map(|c| c.suite.get_u16())
+        .collect();
+    let rciphers = rustls_slice_u16::from(ciphers.as_slice());
+    unsafe {
+        cb(userdata, &rciphers);
+    }
 }

@@ -16,6 +16,7 @@ typedef enum rustls_result {
   RUSTLS_RESULT_PRIVATE_KEY_PARSE_ERROR = 7006,
   RUSTLS_RESULT_INSUFFICIENT_SIZE = 7007,
   RUSTLS_RESULT_NOT_FOUND = 7008,
+  RUSTLS_RESULT_NOT_IMPLEMENTED = 7010,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -467,6 +468,19 @@ void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_bui
                                                  bool enable);
 
 /**
+ * Set the TLS ciphers to use when negotiating a TLS session.
+ *
+ * `ciphers` is the is the 16 bit cipher identifier as defined in
+ *  <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+ *
+ * `ciphers` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `uint16_t` pointed to by `ciphers`.
+ */
+enum rustls_result rustls_client_config_builder_set_ciphers(struct rustls_client_config_builder *builder,
+                                                            const uint16_t *ciphers,
+                                                            size_t len);
+
+/**
  * "Free" a client_config previously returned from
  * rustls_client_config_builder_build. Since client_config is actually an
  * atomically reference-counted pointer, extant client_sessions may still
@@ -492,6 +506,13 @@ bool rustls_client_session_wants_read(const struct rustls_client_session *sessio
 bool rustls_client_session_wants_write(const struct rustls_client_session *session);
 
 bool rustls_client_session_is_handshaking(const struct rustls_client_session *session);
+
+/**
+ * Get the negotiated TLS cipher suite, once the handshake is complete. The
+ * returned uint16_t is the IANA registered cipher value. Until the cipher
+ * has been negotiated, this function will return 0 as the cipher value.
+ */
+uint16_t rustls_client_session_get_negotiated_cipher(const struct rustls_client_session *session);
 
 enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
@@ -660,6 +681,19 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
                                                                         bool ignore);
 
 /**
+ * Set the TLS ciphers to use when negotiating a TLS session.
+ *
+ * `ciphers` is the is the 16 bit cipher identifier as defined in
+ *  <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+ *
+ * `ciphers` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `uint16_t` pointed to by `ciphers`.
+ */
+enum rustls_result rustls_server_config_builder_set_ciphers(struct rustls_server_config_builder *builder,
+                                                            const uint16_t *ciphers,
+                                                            size_t len);
+
+/**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
  * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
  * elements. Each element of the buffer must point to a slice of bytes that
@@ -818,6 +852,13 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           uint8_t *buf,
                                                           size_t count,
                                                           size_t *out_n);
+
+/**
+ * Get the negotiated TLS cipher suite, once the handshake is complete. The
+ * returned uint16_t is the IANA registered cipher value. Until the cipher
+ * has been negotiated, this function will return 0 as the cipher value.
+ */
+uint16_t rustls_server_session_get_negotiated_cipher(const struct rustls_server_session *session);
 
 /**
  * Register a callback to be invoked when a session created from this config
