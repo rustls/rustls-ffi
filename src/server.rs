@@ -14,6 +14,11 @@ use rustls_result::NullParameter;
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
+use crate::session::{
+    rustls_session_store_get_callback, rustls_session_store_put_callback,
+    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
+    SessionStorePutCallback,
+};
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
@@ -625,8 +630,13 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
 ///
-/// NOTE: the passed in `hello` and all its values are only availabe during the
-/// callback invocations.
+/// NOTE:
+/// - the passed in `hello` and all its values are only available during the
+///   callback invocations.
+/// - the passed callback function must be implemented thread-safe, unless
+///   there is only a single config and session where it is installed.
+/// - `userdata` must live as long as the config object and any sessions
+///   or other config created from that config object.
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
@@ -693,6 +703,9 @@ impl ResolvesServerCert for ClientHelloResolver {
     }
 }
 
+/// This struct can be considered thread safe, as long
+/// as the registered callbacks are thread safe. This is
+/// documented as a requirement in the API.
 unsafe impl Sync for ClientHelloResolver {}
 unsafe impl Send for ClientHelloResolver {}
 
@@ -724,6 +737,36 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
         config.cert_resolver = Arc::new(ClientHelloResolver::new(
             callback, userdata
         ));
+        rustls_result::Ok
+    }
+}
+
+/// Register callbacks for persistence of TLS session IDs and secrets. Both
+/// keys and values are highly sensitive data, containing enough information
+/// to break the security of the sessions involved.
+///
+/// `userdata` must live as long as the config object and any sessions
+/// or other config created from that config object.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_persistence(
+    builder: *mut rustls_server_config_builder,
+    userdata: rustls_session_store_userdata,
+    get_cb: rustls_session_store_get_callback,
+    put_cb: rustls_session_store_put_callback,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let get_cb: SessionStoreGetCallback = match get_cb {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
+        let put_cb: SessionStorePutCallback = match put_cb {
+            Some(cb) => cb,
+            None => return rustls_result::NullParameter,
+        };
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.set_persistence(Arc::new(SessionStoreBroker::new(
+            userdata, get_cb, put_cb
+        )));
         rustls_result::Ok
     }
 }
