@@ -331,7 +331,19 @@ do_read(int sockfd, struct rustls_client_session *client_session)
     return CRUSTLS_DEMO_ERROR;
   }
 
-  return copy_plaintext_to_stdout(client_session);
+  result = copy_plaintext_to_stdout(client_session);
+  if(result != CRUSTLS_DEMO_CLOSE_NOTIFY) {
+    return result;
+  }
+
+  /* If we got a close_notify, verify that the sender then
+   * closed the TCP connection. */
+  n = read(sockfd, buf, sizeof(buf));
+  if(n != 0) {
+    fprintf(stderr, "read returned %ld after receiving close_notify\n", n);
+    return CRUSTLS_DEMO_ERROR;
+  }
+  return CRUSTLS_DEMO_CLOSE_NOTIFY;
 }
 
 /*
