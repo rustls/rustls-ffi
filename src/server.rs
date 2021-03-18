@@ -1,11 +1,11 @@
 use libc::size_t;
+use std::convert::TryInto;
 use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
 use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
-use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
 use rustls::{sign::CertifiedKey, ResolvesServerCert};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
@@ -23,6 +23,7 @@ use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
     ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, try_ref_from_ptr,
+    is_close_notify
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -429,12 +430,10 @@ pub extern "C" fn rustls_server_session_read(
         let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
-            // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
-            // https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#impl-Read.
-            // Log it and return EOF.
-            Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-                *out_n = 0;
-                return rustls_result::Ok;
+            // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
+            // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
+            Err(e) if is_close_notify(&e) => {
+                return rustls_result::AlertCloseNotify;
             }
             Err(_) => return rustls_result::Io,
         };
