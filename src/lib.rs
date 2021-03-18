@@ -8,6 +8,7 @@ use std::{io, mem, slice};
 
 mod cipher;
 mod client;
+mod enums;
 mod error;
 mod rslice;
 mod server;
@@ -42,6 +43,13 @@ macro_rules! ffi_panic_boundary {
 
 #[macro_export]
 macro_rules! ffi_panic_boundary_size_t {
+    ( $($tt:tt)* ) => {
+        ffi_panic_boundary_generic!(0, $($tt)*)
+    }
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_u16 {
     ( $($tt:tt)* ) => {
         ffi_panic_boundary_generic!(0, $($tt)*)
     }
