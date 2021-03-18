@@ -1,8 +1,10 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
 use libc::{c_char, size_t};
-use std::{cmp::min, sync::Arc};
-use std::{mem, slice};
+use std::cmp::min;
+use std::io::ErrorKind::ConnectionAborted;
+use std::sync::Arc;
+use std::{io, mem, slice};
 
 mod cipher;
 mod client;
@@ -145,4 +147,8 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     let val = Arc::clone(&r);
     mem::forget(r);
     val
+}
+
+pub(crate) fn is_close_notify(e: &io::Error) -> bool {
+    e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify")
 }
