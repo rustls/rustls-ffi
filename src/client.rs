@@ -1,8 +1,8 @@
 use libc::{c_char, size_t};
+use std::convert::TryInto;
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
-use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
 use webpki::DNSNameRef;
@@ -15,8 +15,8 @@ use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, ffi_panic_boundary_bool,
-    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, rslice::NulByte,
-    try_ref_from_ptr,
+    ffi_panic_boundary_generic, ffi_panic_boundary_ptr, ffi_panic_boundary_unit, is_close_notify,
+    rslice::NulByte, try_ref_from_ptr,
 };
 use rustls_result::NullParameter;
 
@@ -488,7 +488,7 @@ pub extern "C" fn rustls_client_session_read(
             Ok(n) => n,
             // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
             // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
-            Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
+            Err(e) if is_close_notify(&e) => {
                 return rustls_result::AlertCloseNotify;
             }
             Err(_) => return rustls_result::Io,
