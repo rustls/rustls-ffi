@@ -16,6 +16,7 @@ typedef enum rustls_result {
   RUSTLS_RESULT_PRIVATE_KEY_PARSE_ERROR = 7006,
   RUSTLS_RESULT_INSUFFICIENT_SIZE = 7007,
   RUSTLS_RESULT_NOT_FOUND = 7008,
+  RUSTLS_RESULT_INVALID_PARAMETER = 7009,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -675,16 +676,6 @@ struct rustls_server_config_builder *rustls_server_config_builder_from_config(co
 enum rustls_result rustls_server_config_builder_set_versions(struct rustls_server_config_builder *builder,
                                                              const uint16_t *tls_versions,
                                                              size_t len);
-
-/**
- * Find out if the given TLS protocol version is suported in the
- * `rustls_server_config` that is being built.
- * `tls_version` is the version of the protocol, as defined in rfc8446,
- *  ch. 4.2.1 and end of ch. 5.1. Some values are defined in
- * `rustls_tls_version` for convenience.
- */
-bool rustls_server_config_builder_supports_version(struct rustls_server_config_builder *builder,
-                                                   uint16_t tls_version);
 
 /**
  * With `ignore` != 0, the server will ignore the client ordering of cipher

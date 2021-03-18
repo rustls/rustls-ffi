@@ -113,34 +113,18 @@ pub extern "C" fn rustls_server_config_builder_set_versions(
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
         config.versions.clear();
         unsafe {
+            // rustls does not support an `Unkown(u16)` protocol version,
+            // so we have to fail on any version numbers not implemented
+            // in rustls.
             let x: &[u16] = slice::from_raw_parts(tls_versions, len);
             for i in x {
                 match rustls_tls_version_from_u16(*i) {
                     Some(pversion) => config.versions.push(pversion),
-                    None => return rustls_result::AlertIllegalParameter
+                    None => return rustls_result::InvalidParameter
                 }
             }
         }
         rustls_result::Ok
-    }
-}
-
-/// Find out if the given TLS protocol version is suported in the
-/// `rustls_server_config` that is being built.
-/// `tls_version` is the version of the protocol, as defined in rfc8446,
-///  ch. 4.2.1 and end of ch. 5.1. Some values are defined in
-/// `rustls_tls_version` for convenience.
-#[no_mangle]
-pub extern "C" fn rustls_server_config_builder_supports_version(
-    builder: *mut rustls_server_config_builder,
-    tls_version: u16,
-) -> bool {
-    ffi_panic_boundary_bool! {
-        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig, false);
-        match rustls_tls_version_from_u16(tls_version) {
-            Some(pversion) => config.supports_version(pversion),
-            None => false
-        }
     }
 }
 
