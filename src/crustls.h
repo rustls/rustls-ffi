@@ -182,6 +182,38 @@ typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
 typedef struct rustls_slice_str rustls_slice_str;
 
 /**
+ * Any context information the callback will receive when invoked.
+ */
+typedef void *rustls_cipher_visit_supported_userdata;
+
+/**
+ * A read-only view on a Rust slice of 16-bit integers in platform endianness.
+ *
+ * This is used to pass data from crustls to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_u16 {
+  const uint16_t *data;
+  size_t len;
+} rustls_slice_u16;
+
+/**
+ * Provide a callback that can inspect all supported TLS cipher suites
+ * by their 16 bit value as defined in:
+ *  <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+ *
+ * Note: the supplied data is only valid for the duration of the call.
+ */
+typedef void (*rustls_cipher_visit_supported_callback)(rustls_cipher_visit_supported_userdata userdata, const struct rustls_slice_u16 *supported);
+
+/**
  * User-provided input to a custom certificate verifier callback. See
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
@@ -293,24 +325,6 @@ typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_s
 typedef void *rustls_client_hello_userdata;
 
 /**
- * A read-only view on a Rust slice of 16-bit integers in platform endianness.
- *
- * This is used to pass data from crustls to callback functions provided
- * by the user of the API.
- * `len` indicates the number of bytes than can be safely read.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_slice_u16 {
-  const uint16_t *data;
-  size_t len;
-} rustls_slice_u16;
-
-/**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
  * `sni_name` is the SNI servername provided by the client. If the client
  * did not provide an SNI, the length of this `rustls_string` will be 0.
@@ -394,6 +408,14 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
 void rustls_certified_key_free(const struct rustls_certified_key *config);
+
+/**
+ * Lets a provided callback inspect all TLS cipher suites supported by rustls.
+ *
+ * Note: the supplied data is only valid for the duration of the call.
+ */
+void rustls_cipher_visit_supported(rustls_cipher_visit_supported_callback callback,
+                                   rustls_cipher_visit_supported_userdata userdata);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must

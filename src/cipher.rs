@@ -163,7 +163,7 @@ type CipherVisitSupportedCallback = unsafe extern "C" fn(
 ///
 /// Note: the supplied data is only valid for the duration of the call.
 #[no_mangle]
-pub fn rustls_cipher_visit_supported(
+pub extern "C" fn rustls_cipher_visit_supported(
     callback: rustls_cipher_visit_supported_callback,
     userdata: rustls_cipher_visit_supported_userdata,
 ) {
