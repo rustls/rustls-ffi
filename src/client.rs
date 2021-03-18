@@ -486,12 +486,10 @@ pub extern "C" fn rustls_client_session_read(
         let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
-            // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
+            // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
             // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
-            // Log it and return EOF.
             Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-                *out_n = 0;
-                return rustls_result::Ok;
+                return rustls_result::AlertCloseNotify;
             }
             Err(_) => return rustls_result::Io,
         };
