@@ -116,12 +116,8 @@ pub extern "C" fn rustls_server_config_builder_set_versions(
             // rustls does not support an `Unkown(u16)` protocol version,
             // so we have to fail on any version numbers not implemented
             // in rustls.
-            let x: &[u16] = slice::from_raw_parts(tls_versions, len);
-            for i in x {
-                match rustls_tls_version_from_u16(*i) {
-                    Some(pversion) => config.versions.push(pversion),
-                    None => return rustls_result::InvalidParameter
-                }
+            for i in slice::from_raw_parts(tls_versions, len) {
+                config.versions.push(rustls_tls_version_from_u16(*i));
             }
         }
         rustls_result::Ok

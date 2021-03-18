@@ -671,7 +671,7 @@ struct rustls_server_config_builder *rustls_server_config_builder_from_config(co
  * `rustls_tls_version` for convenience.
  *
  * `versions` will only be used during the call and the application retains
- * ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
  */
 enum rustls_result rustls_server_config_builder_set_versions(struct rustls_server_config_builder *builder,
                                                              const uint16_t *tls_versions,
