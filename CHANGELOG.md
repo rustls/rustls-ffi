@@ -4,6 +4,21 @@
 
  - (empty)
 
+## 0.4.0 - 2021-03-18
+
+### Added
+
+ - Session storage (#64)
+ - TLS version numbers (#65)
+
+### Changed
+
+ - Reading plaintext can now return RUSTLS_ALERT_CLOSE_NOTIFY. (#67)
+
+### Removed
+
+ - The rustls_cipher_signature_scheme name lookup. (#66)
+
 ## 0.3.0 - 2021-03-11
 
 ### Added
