@@ -22,8 +22,8 @@ use crate::session::{
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, try_ref_from_ptr,
-    is_close_notify
+    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, is_close_notify,
+    try_ref_from_ptr,
 };
 
 /// A server config being constructed. A builder can be modified by,
