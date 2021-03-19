@@ -16,6 +16,7 @@ typedef enum rustls_result {
   RUSTLS_RESULT_PRIVATE_KEY_PARSE_ERROR = 7006,
   RUSTLS_RESULT_INSUFFICIENT_SIZE = 7007,
   RUSTLS_RESULT_NOT_FOUND = 7008,
+  RUSTLS_RESULT_INVALID_PARAMETER = 7009,
   RUSTLS_RESULT_NOT_IMPLEMENTED = 7010,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
@@ -90,6 +91,18 @@ typedef enum rustls_result {
   RUSTLS_RESULT_CERT_SCT_UNSUPPORTED_VERSION = 7322,
   RUSTLS_RESULT_CERT_SCT_UNKNOWN_LOG = 7323,
 } rustls_result;
+
+/**
+ * Definitions of known TLS protocol versions.
+ */
+typedef enum rustls_tls_version {
+  RUSTLS_TLS_VERSION_SSLV2 = 512,
+  RUSTLS_TLS_VERSION_SSSLV3 = 768,
+  RUSTLS_TLS_VERSION_TLSV1_0 = 769,
+  RUSTLS_TLS_VERSION_TLSV1_1 = 770,
+  RUSTLS_TLS_VERSION_TLSV1_2 = 771,
+  RUSTLS_TLS_VERSION_TLSV1_3 = 772,
+} rustls_tls_version;
 
 /**
  * The complete chain of certificates to send during a TLS handshake,
@@ -694,6 +707,20 @@ void rustls_server_config_builder_free(struct rustls_server_config_builder *conf
 struct rustls_server_config_builder *rustls_server_config_builder_from_config(const struct rustls_server_config *config);
 
 /**
+ * Set the TLS protocol versions to use when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ */
+enum rustls_result rustls_server_config_builder_set_versions(struct rustls_server_config_builder *builder,
+                                                             const uint16_t *tls_versions,
+                                                             size_t len);
+
+/**
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
@@ -781,6 +808,13 @@ bool rustls_server_session_wants_read(const struct rustls_server_session *sessio
 bool rustls_server_session_wants_write(const struct rustls_server_session *session);
 
 bool rustls_server_session_is_handshaking(const struct rustls_server_session *session);
+
+/**
+ * Return the TLS protocol version that has been negotiated. Before this
+ * has been decided during the handshake, this will return 0. Otherwise,
+ * the u16 version number as defined in the relevant RFC is returned.
+ */
+uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
 
 enum rustls_result rustls_server_session_process_new_packets(struct rustls_server_session *session);
 

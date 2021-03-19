@@ -57,6 +57,7 @@ pub enum rustls_result {
     PrivateKeyParseError = 7006,
     InsufficientSize = 7007,
     NotFound = 7008,
+    InvalidParameter = 7009,
     NotImplemented = 7010,
 
     // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
@@ -275,6 +276,7 @@ pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
         PrivateKeyParseError => return Either::String("error parsing private key".to_string()),
         InsufficientSize => return Either::String("provided buffer is of insufficient size".to_string()),
         NotFound => return Either::String("the item was not found".to_string()),
+        InvalidParameter => return Either::String("a parameter had an invalid value".to_string()),
         NotImplemented => return Either::String("the feature is not implemented".to_string()),
 
         // These variants correspond to a TLSError variant with a field,
@@ -300,6 +302,7 @@ pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
         PrivateKeyParseError => unreachable!(),
         InsufficientSize => unreachable!(),
         NotFound => unreachable!(),
+        InvalidParameter => unreachable!(),
         NotImplemented => unreachable!(),
 
         InappropriateMessage => unreachable!(),

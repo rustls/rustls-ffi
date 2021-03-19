@@ -50,6 +50,7 @@ enum crustls_demo_result
   CRUSTLS_DEMO_ERROR,
   CRUSTLS_DEMO_AGAIN,
   CRUSTLS_DEMO_EOF,
+  CRUSTLS_DEMO_CLOSE_NOTIFY,
 };
 
 void
@@ -241,7 +242,9 @@ fail:
  * Note that EOF here indicates "no more bytes until
  * process_new_packets", not "stream is closed".
  *
- * Returns 0 for success, 1 for error.
+ * Returns CRUSTLS_DEMO_OK for success,
+ * CRUSTLS_DEMO_ERROR for error,
+ * CRUSTLS_DEMO_CLOSE_NOTIFY for "received close_notify"
  */
 int
 copy_plaintext_to_stdout(struct rustls_client_session *client_session)
@@ -254,23 +257,27 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
     bzero(buf, sizeof(buf));
     result = rustls_client_session_read(
       client_session, (uint8_t *)buf, sizeof(buf), &n);
+    if(result == RUSTLS_RESULT_ALERT_CLOSE_NOTIFY) {
+      fprintf(stderr, "Received close_notify, cleanly ending connection\n");
+      return CRUSTLS_DEMO_CLOSE_NOTIFY;
+    }
     if(result != RUSTLS_RESULT_OK) {
       fprintf(stderr, "Error in ClientSession::read\n");
-      return 1;
+      return CRUSTLS_DEMO_ERROR;
     }
     if(n == 0) {
       /* EOF from ClientSession::read. This is expected. */
-      return 0;
+      return CRUSTLS_DEMO_OK;
     }
 
     result = write_all(STDOUT_FILENO, buf, n);
     if(result != 0) {
-      return result;
+      return CRUSTLS_DEMO_ERROR;
     }
   }
 
   fprintf(stderr, "copy_plaintext_to_stdout: fell through loop\n");
-  return 1;
+  return CRUSTLS_DEMO_ERROR;
 }
 
 /*
@@ -325,11 +332,18 @@ do_read(int sockfd, struct rustls_client_session *client_session)
   }
 
   result = copy_plaintext_to_stdout(client_session);
-  if(result != 0) {
-    return CRUSTLS_DEMO_ERROR;
+  if(result != CRUSTLS_DEMO_CLOSE_NOTIFY) {
+    return result;
   }
 
-  return CRUSTLS_DEMO_OK;
+  /* If we got a close_notify, verify that the sender then
+   * closed the TCP connection. */
+  n = read(sockfd, buf, sizeof(buf));
+  if(n != 0) {
+    fprintf(stderr, "read returned %ld after receiving close_notify\n", n);
+    return CRUSTLS_DEMO_ERROR;
+  }
+  return CRUSTLS_DEMO_CLOSE_NOTIFY;
 }
 
 /*
@@ -396,7 +410,7 @@ send_request_and_read_response(int sockfd,
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
-        else if(result == CRUSTLS_DEMO_EOF) {
+        else if(result == CRUSTLS_DEMO_CLOSE_NOTIFY) {
           ret = 0;
           goto cleanup;
         }

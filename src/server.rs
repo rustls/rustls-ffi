@@ -1,17 +1,18 @@
 use libc::size_t;
+use std::convert::TryInto;
 use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::ptr::null;
 use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
-use std::{convert::TryInto, io::ErrorKind::ConnectionAborted};
 
 use rustls::{sign::CertifiedKey, ResolvesServerCert};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 use rustls_result::NullParameter;
 
 use crate::cipher::rustls_cipher_from_u16;
+use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::session::{
@@ -22,7 +23,8 @@ use crate::session::{
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
 use crate::{
     ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, try_ref_from_ptr,
+    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, is_close_notify,
+    try_ref_from_ptr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -92,6 +94,35 @@ pub extern "C" fn rustls_server_config_builder_from_config(
     ffi_panic_boundary_ptr! {
         let config: &ServerConfig = try_ref_from_ptr!(config, &ServerConfig, null_mut());
         Box::into_raw(Box::new(config.clone())) as *mut _
+    }
+}
+
+/// Set the TLS protocol versions to use when negotiating a TLS session.
+///
+/// `tls_version` is the version of the protocol, as defined in rfc8446,
+/// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+/// `rustls_tls_version` for convenience.
+///
+/// `versions` will only be used during the call and the application retains
+/// ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_versions(
+    builder: *mut rustls_server_config_builder,
+    tls_versions: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig);
+        config.versions.clear();
+        unsafe {
+            // rustls does not support an `Unkown(u16)` protocol version,
+            // so we have to fail on any version numbers not implemented
+            // in rustls.
+            for i in slice::from_raw_parts(tls_versions, len) {
+                config.versions.push(rustls_tls_version_from_u16(*i));
+            }
+        }
+        rustls_result::Ok
     }
 }
 
@@ -318,6 +349,22 @@ pub extern "C" fn rustls_server_session_is_handshaking(
     }
 }
 
+/// Return the TLS protocol version that has been negotiated. Before this
+/// has been decided during the handshake, this will return 0. Otherwise,
+/// the u16 version number as defined in the relevant RFC is returned.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_protocol_version(
+    session: *const rustls_server_session,
+) -> u16 {
+    ffi_panic_boundary_u16! {
+        let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, 0);
+        match session.get_protocol_version() {
+            Some(v) => v.get_u16(),
+            None => 0
+        }
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn rustls_server_session_process_new_packets(
     session: *mut rustls_server_session,
@@ -419,12 +466,10 @@ pub extern "C" fn rustls_server_session_read(
         let out_n: &mut size_t = try_ref_from_ptr!(out_n, &mut size_t);
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
-            // The CloseNotify TLS alert is benign, but rustls returns it as an Error. See comment on
-            // https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#impl-Read.
-            // Log it and return EOF.
-            Err(e) if e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify") => {
-                *out_n = 0;
-                return rustls_result::Ok;
+            // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
+            // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
+            Err(e) if is_close_notify(&e) => {
+                return rustls_result::AlertCloseNotify;
             }
             Err(_) => return rustls_result::Io,
         };
