@@ -23,7 +23,7 @@ pub struct rustls_certified_key {
 }
 
 impl CastPtr for rustls_certified_key {
-    type RustTy = CertifiedKey;
+    type RustType = CertifiedKey;
 }
 
 /// Build a `rustls_certified_key` from a certificate chain and a private key.

@@ -42,7 +42,7 @@ pub struct rustls_server_config_builder {
 }
 
 impl CastPtr for rustls_server_config_builder {
-    type RustTy = ServerConfig;
+    type RustType = ServerConfig;
 }
 
 /// A server config that is done being constructed and is now read-only.
@@ -56,7 +56,7 @@ pub struct rustls_server_config {
 }
 
 impl CastPtr for rustls_server_config {
-    type RustTy = ServerConfig;
+    type RustType = ServerConfig;
 }
 
 pub struct rustls_server_session {
@@ -64,7 +64,7 @@ pub struct rustls_server_session {
 }
 
 impl CastPtr for rustls_server_session {
-    type RustTy = ServerSession;
+    type RustType = ServerSession;
 }
 
 /// Create a rustls_server_config_builder. Caller owns the memory and must

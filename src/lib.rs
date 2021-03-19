@@ -19,19 +19,20 @@ const RUSTLS_CRATE_VERSION: &str = "0.19.0";
 
 /// CastPtr represents the relationship between a snake case type (like rustls_client_session)
 /// and the corresponding Rust type (like ClientSession). For each matched pair of types, there
-/// should be an `impl CastPtr for snake_case { RustTy = SnakeCase }`.
+/// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
 ///
 /// This allows us to avoid using `as` in most places, and ensure that when we cast, we're
 /// preserving const-ness, and casting between the correct types.
-/// Implementing this is required in order to use `try_ref_from_ptr!`.
+/// Implementing this is required in order to use `try_ref_from_ptr!` or
+/// `try_mut_from_ptr!`.
 pub(crate) trait CastPtr {
-    type RustTy;
+    type RustType;
 
-    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustTy {
+    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
         ptr as *const _
     }
 
-    fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustTy {
+    fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
         ptr as *mut _
     }
 }
@@ -40,23 +41,23 @@ pub(crate) trait CastPtr {
 /// rather than part of the CastPtr trait because (a) const pointers can't act
 /// as "self" for trait methods, and (b) we want to rely on type inference
 /// against T (the cast-to type) rather than across F (the from type).
-pub(crate) fn try_from<F, T>(from: *const F) -> Option<&'static T>
+pub(crate) fn try_from<'a, F, T>(from: *const F) -> Option<&'a T>
 where
-    F: CastPtr<RustTy = T>,
+    F: CastPtr<RustType = T>,
 {
     unsafe { F::cast_const_ptr(from).as_ref() }
 }
 
 /// Turn a raw mut pointer into a mutable reference.
-pub(crate) fn try_from_mut<F, T>(from: *mut F) -> Option<&'static mut T>
+pub(crate) fn try_from_mut<'a, F, T>(from: *mut F) -> Option<&'a mut T>
 where
-    F: CastPtr<RustTy = T>,
+    F: CastPtr<RustType = T>,
 {
     unsafe { F::cast_mut_ptr(from).as_mut() }
 }
 
 impl CastPtr for size_t {
-    type RustTy = size_t;
+    type RustType = size_t;
 }
 
 #[macro_export]
