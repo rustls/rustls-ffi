@@ -8,9 +8,7 @@ use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
-use crate::{
-    ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit, try_ref_from_ptr,
-};
+use crate::{ffi_panic_boundary, try_ref_from_ptr};
 use rustls_result::NullParameter;
 
 /// The complete chain of certificates to send during a TLS handshake,
@@ -69,7 +67,7 @@ pub extern "C" fn rustls_certified_key_build(
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_certified_key_free(config: *const rustls_certified_key) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let key: &CertifiedKey = try_ref_from_ptr!(config, &mut CertifiedKey, ());
         // To free the certified_key, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0

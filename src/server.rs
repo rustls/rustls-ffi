@@ -20,11 +20,7 @@ use crate::session::{
     SessionStorePutCallback,
 };
 use crate::{arc_with_incref_from_raw, cipher::rustls_certified_key};
-use crate::{
-    ffi_panic_boundary, ffi_panic_boundary_bool, ffi_panic_boundary_generic,
-    ffi_panic_boundary_ptr, ffi_panic_boundary_u16, ffi_panic_boundary_unit, is_close_notify,
-    try_ref_from_ptr,
-};
+use crate::{ffi_panic_boundary, is_close_notify, try_ref_from_ptr};
 
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
@@ -62,7 +58,7 @@ pub struct rustls_server_session {
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
-    ffi_panic_boundary_ptr! {
+    ffi_panic_boundary! {
         let config = rustls::ServerConfig::new(Arc::new(NoClientAuth));
         let b = Box::new(config);
         Box::into_raw(b) as *mut _
@@ -76,7 +72,7 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
 /// was created.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(config, &mut ServerConfig, ());
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(config); }
@@ -90,7 +86,7 @@ pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_c
 pub extern "C" fn rustls_server_config_builder_from_config(
     config: *const rustls_server_config,
 ) -> *mut rustls_server_config_builder {
-    ffi_panic_boundary_ptr! {
+    ffi_panic_boundary! {
         let config: &ServerConfig = try_ref_from_ptr!(config, &ServerConfig, null_mut());
         Box::into_raw(Box::new(config.clone())) as *mut _
     }
@@ -231,7 +227,7 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
 pub extern "C" fn rustls_server_config_builder_build(
     builder: *mut rustls_server_config_builder,
 ) -> *const rustls_server_config {
-    ffi_panic_boundary_ptr! {
+    ffi_panic_boundary! {
         let config: &mut ServerConfig = try_ref_from_ptr!(builder, &mut ServerConfig,
              null::<rustls_server_config>());
         let b = unsafe { Box::from_raw(config) };
@@ -247,7 +243,7 @@ pub extern "C" fn rustls_server_config_builder_build(
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let config: &ServerConfig = try_ref_from_ptr!(config, &mut ServerConfig, ());
         // To free the server_config, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0
@@ -289,7 +285,7 @@ pub extern "C" fn rustls_server_session_new(
 
 #[no_mangle]
 pub extern "C" fn rustls_server_session_wants_read(session: *const rustls_server_session) -> bool {
-    ffi_panic_boundary_bool! {
+    ffi_panic_boundary! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, false);
         session.wants_read()
     }
@@ -297,7 +293,7 @@ pub extern "C" fn rustls_server_session_wants_read(session: *const rustls_server
 
 #[no_mangle]
 pub extern "C" fn rustls_server_session_wants_write(session: *const rustls_server_session) -> bool {
-    ffi_panic_boundary_bool! {
+    ffi_panic_boundary! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, false);
         session.wants_write()
     }
@@ -307,7 +303,7 @@ pub extern "C" fn rustls_server_session_wants_write(session: *const rustls_serve
 pub extern "C" fn rustls_server_session_is_handshaking(
     session: *const rustls_server_session,
 ) -> bool {
-    ffi_panic_boundary_bool! {
+    ffi_panic_boundary! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, false);
         session.is_handshaking()
     }
@@ -320,7 +316,7 @@ pub extern "C" fn rustls_server_session_is_handshaking(
 pub extern "C" fn rustls_server_session_get_protocol_version(
     session: *const rustls_server_session,
 ) -> u16 {
-    ffi_panic_boundary_u16! {
+    ffi_panic_boundary! {
         let session: &ServerSession = try_ref_from_ptr!(session, &ServerSession, 0);
         match session.get_protocol_version() {
             Some(v) => v.get_u16(),
@@ -346,7 +342,7 @@ pub extern "C" fn rustls_server_session_process_new_packets(
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
 #[no_mangle]
 pub extern "C" fn rustls_server_session_send_close_notify(session: *mut rustls_server_session) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let session: &mut ServerSession = try_ref_from_ptr!(session, &mut ServerSession, ());
         session.send_close_notify()
     }
@@ -356,7 +352,7 @@ pub extern "C" fn rustls_server_session_send_close_notify(session: *mut rustls_s
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_free(session: *mut rustls_server_session) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let session: &mut ServerSession = try_ref_from_ptr!(session, &mut ServerSession, ());
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }

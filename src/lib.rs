@@ -10,71 +10,15 @@ mod cipher;
 mod client;
 mod enums;
 mod error;
+mod panic;
 mod rslice;
 mod server;
 mod session;
 
+use crate::panic::PanicOrDefault;
+
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_generic {
-    ( $retval:expr, $($tt:tt)* ) => {
-        match ::std::panic::catch_unwind(|| {
-            $($tt)*
-        }) {
-            Ok(ret) => ret,
-            Err(_) => return $retval,
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary {
-    ( $($tt:tt)* ) => {
-        match ::std::panic::catch_unwind(|| {
-            $($tt)*
-        }) {
-            Ok(ret) => ret,
-            Err(_) => return rustls_result::Panic,
-        }
-  }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_size_t {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(0, $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_u16 {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(0, $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_bool {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(false, $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_ptr {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(std::ptr::null_mut(), $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_unit {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!((), $($tt)*)
-    }
-}
 
 /// If the provided pointer is non-null, convert it to the reference
 /// type in the second argument.
@@ -116,7 +60,7 @@ macro_rules! try_ref_from_ptr {
 /// and NUL terminated. Returns the number of bytes written before the NUL.
 #[no_mangle]
 pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
-    ffi_panic_boundary_size_t! {
+    ffi_panic_boundary! {
         let write_buf: &mut [u8] = unsafe {
             if buf.is_null() {
                 return 0;
