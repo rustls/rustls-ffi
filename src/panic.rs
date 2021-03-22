@@ -7,10 +7,6 @@ use std::ptr::{null, null_mut};
 // rustls_result, we return a dedicated error code: `Panic`. For functions
 // that don't return rustls_result, we return a default value: false, 0, or
 // null. This trait provides that logic.
-// Note: It's tempting to do a blanket `impl<T> PanicOrDefault for T: Default`.
-// However, that would conflict with the impls for `*mut T` and `*const T`.
-// Though those types currently don't implement Default, Rust disallows the
-// conflict because upstream might later implement it for them.
 pub(crate) trait PanicOrDefault {
     fn value() -> Self;
 }
