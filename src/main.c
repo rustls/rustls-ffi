@@ -339,8 +339,8 @@ do_read(int sockfd, struct rustls_client_session *client_session)
   /* If we got a close_notify, verify that the sender then
    * closed the TCP connection. */
   n = read(sockfd, buf, sizeof(buf));
-  if(n != 0) {
-    fprintf(stderr, "read returned %ld after receiving close_notify\n", n);
+  if(n != 0 && errno != EWOULDBLOCK) {
+    fprintf(stderr, "read returned %ld after receiving close_notify: %s\n", n, strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
   return CRUSTLS_DEMO_CLOSE_NOTIFY;
