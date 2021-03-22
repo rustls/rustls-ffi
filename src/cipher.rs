@@ -8,7 +8,7 @@ use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
-use crate::{ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit, CastPtr};
+use crate::{ffi_panic_boundary, CastPtr};
 use rustls_result::NullParameter;
 
 /// The complete chain of certificates to send during a TLS handshake,
@@ -75,7 +75,7 @@ pub extern "C" fn rustls_certified_key_build(
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
 pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         if key.is_null() {
             return;
         }
