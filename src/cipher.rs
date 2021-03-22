@@ -50,7 +50,7 @@ pub extern "C" fn rustls_certified_key_build(
     certified_key_out: *mut *const rustls_certified_key,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let certified_key_out: &mut *const rustls_certified_key= unsafe {
+        let certified_key_out: &mut *const rustls_certified_key = unsafe {
             match certified_key_out.as_mut() {
                 Some(c) => c,
                 None => return NullParameter,
