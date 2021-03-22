@@ -15,30 +15,19 @@ pub(crate) trait PanicOrDefault {
     fn value() -> Self;
 }
 
-impl PanicOrDefault for rustls_result {
-    fn value() -> Self {
-        rustls_result::Panic
-    }
-}
+// Defaultable is a subset of Default that can be returned by crustls.
+// We use this rather than Default directly so that we can do a blanket
+// impl for `T: Defaultable`. The compiler disallows a blanket impl for
+// `T: Default` because `std::default` could later implement `Default`
+// for `*mut T` and `*const T`.
+pub(crate) trait Defaultable: Default {}
 
-impl PanicOrDefault for u16 {
-    fn value() -> Self {
-        Default::default()
-    }
-}
+impl Defaultable for u16 {}
+impl Defaultable for usize {}
+impl Defaultable for bool {}
+impl Defaultable for () {}
 
-impl PanicOrDefault for usize {
-    fn value() -> Self {
-        Default::default()
-    }
-}
-impl PanicOrDefault for bool {
-    fn value() -> Self {
-        Default::default()
-    }
-}
-
-impl PanicOrDefault for () {
+impl<T: Defaultable> PanicOrDefault for T {
     fn value() -> Self {
         Default::default()
     }
@@ -53,6 +42,12 @@ impl<T> PanicOrDefault for *mut T {
 impl<T> PanicOrDefault for *const T {
     fn value() -> Self {
         null()
+    }
+}
+
+impl PanicOrDefault for rustls_result {
+    fn value() -> Self {
+        rustls_result::Panic
     }
 }
 
