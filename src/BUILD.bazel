@@ -3,13 +3,16 @@ load("@rules_rust//rust:rust.bzl", "rust_library", "rust_test")
 rust_library(
     name = "crustls_rust",
     srcs = [
-    	"cipher.rs",
-    	"client.rs",
-    	"enums.rs",
-    	"error.rs",
-    	"lib.rs",
-    	"rslice.rs",
-    	"server.rs",
-    	"session.rs",
+    	 "cipher.rs",
+	 "client.rs",
+	 "enums.rs",
+	 "error.rs",
+	 "lib.rs",
+	 "rslice.rs",
+	 "server.rs",
+	 "session.rs",
+    ],
+    deps = [
+	 "//:rustls"
     ],
 )
