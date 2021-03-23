@@ -40,6 +40,40 @@ pub(crate) trait CastPtr {
     }
 }
 
+#[macro_export]
+macro_rules! try_slice {
+    ( $ptr:expr, $count:expr ) => {
+        if $ptr.is_null() {
+            return NullParameter;
+        } else {
+            unsafe { slice::from_raw_parts($ptr, $count as usize) }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_mut_slice {
+    ( $ptr:expr, $count:expr ) => {
+        if $ptr.is_null() {
+            return crate::error::rustls_result::NullParameter;
+        } else {
+            unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! ffi_panic_boundary_generic {
+    ( $retval:expr, $($tt:tt)* ) => {
+        match ::std::panic::catch_unwind(|| {
+            $($tt)*
+        }) {
+            Ok(ret) => ret,
+            Err(_) => return $retval,
+        }
+    }
+}
+
 /// Turn a raw const pointer into a reference. This is a generic function
 /// rather than part of the CastPtr trait because (a) const pointers can't act
 /// as "self" for trait methods, and (b) we want to rely on type inference

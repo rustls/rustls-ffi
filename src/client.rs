@@ -19,7 +19,7 @@ use crate::session::{
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
-    try_mut_from_ptr, try_ref_from_ptr, CastPtr,
+    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, CastPtr,
 };
 use rustls_result::NullParameter;
 
@@ -448,12 +448,7 @@ pub extern "C" fn rustls_client_session_write(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut ClientSession = try_mut_from_ptr!(session);
-        let write_buf: &[u8] = unsafe {
-            if buf.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(buf, count as usize)
-        };
+        let write_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = unsafe {
             match out_n.as_mut() {
                 Some(out_n) => out_n,
@@ -491,13 +486,9 @@ pub extern "C" fn rustls_client_session_read(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut ClientSession = try_mut_from_ptr!(session);
-        let read_buf: &mut [u8] = unsafe {
-            if buf.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts_mut(buf, count as usize)
-        };
+        let read_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+
         let n_read: usize = match session.read(read_buf) {
             Ok(n) => n,
             // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
@@ -529,13 +520,9 @@ pub extern "C" fn rustls_client_session_read_tls(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut ClientSession = try_mut_from_ptr!(session);
-        let input_buf: &[u8] = unsafe {
-            if buf.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(buf, count as usize)
-        };
+        let input_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+
         let mut cursor = Cursor::new(input_buf);
         let n_read: usize = match session.read_tls(&mut cursor) {
             Ok(n) => n,
@@ -565,13 +552,9 @@ pub extern "C" fn rustls_client_session_write_tls(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut ClientSession = try_mut_from_ptr!(session);
-        let mut output_buf: &mut [u8] = unsafe {
-            if buf.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts_mut(buf, count as usize)
-        };
+        let mut output_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+
         let n_written: usize = match session.write_tls(&mut output_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
