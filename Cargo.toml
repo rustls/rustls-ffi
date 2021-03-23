@@ -44,3 +44,9 @@ targets = [
 # is used to indicate whether the user is using a non-vendored or
 # vendored set of dependencies.
 genmode = "Vendored"
+
+[package.metadata.raze.crates.ring.'0.16.20']
+data_attr = 'glob(["**/src/data/*", "**/src/ec/**/*.der"])'
+
+[package.metadata.raze.crates.webpki.'0.21.4']
+data_attr = 'glob(["**/src/data/*"])'

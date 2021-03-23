@@ -13,6 +13,11 @@ rust_library(
 	 "session.rs",
     ],
     deps = [
-	 "//:rustls"
+    	 "//:libc",
+	 "//:rustls",
+	 "//:rustls_native_certs",
+	 "//:rustls_pemfile",
+	 "//:sct",
+	 "//:webpki",
     ],
 )
