@@ -1,7 +1,6 @@
 use libc::{c_char, size_t};
 use std::convert::TryInto;
 use std::io::{BufReader, Cursor, Read, Write};
-use std::ptr::null;
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
@@ -85,7 +84,7 @@ pub extern "C" fn rustls_client_config_builder_build(
     builder: *mut rustls_client_config_builder,
 ) -> *const rustls_client_config {
     ffi_panic_boundary! {
-        let config: &mut ClientConfig = try_mut_from_ptr!(builder, null::<rustls_client_config>());
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
     }
@@ -241,7 +240,7 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
             Some(cb) => cb,
             None => return,
         };
-        let config: &mut ClientConfig = try_mut_from_ptr!(config,  ());
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
         let verifier: Verifier = Verifier{callback: callback, userdata};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
     }
@@ -306,7 +305,7 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     enable: bool,
 ) {
     ffi_panic_boundary! {
-        let config: &mut ClientConfig = try_mut_from_ptr!(config, ());
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
         config.enable_sni = enable;
     }
 }
@@ -320,7 +319,7 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
     ffi_panic_boundary! {
-        let config: &ClientConfig = try_ref_from_ptr!(config,  ());
+        let config: &ClientConfig = try_ref_from_ptr!(config);
         // To free the client_config, we reconstruct the Arc and then drop it. It should
         // have a refcount of 1, representing the C code's copy. When it drops, that
         // refcount will go down to 0 and the inner ClientConfig will be dropped.
@@ -377,7 +376,7 @@ pub extern "C" fn rustls_client_session_new(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session, false);
+        let session: &ClientSession = try_ref_from_ptr!(session);
         session.wants_read()
     }
 }
@@ -385,7 +384,7 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session,  false);
+        let session: &ClientSession = try_ref_from_ptr!(session);
         session.wants_write()
     }
 }
@@ -395,7 +394,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session,  false);
+        let session: &ClientSession = try_ref_from_ptr!(session);
         session.is_handshaking()
     }
 }
@@ -418,7 +417,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session,  ());
+        let session: &mut ClientSession = try_mut_from_ptr!(session);
         session.send_close_notify()
     }
 }
@@ -428,7 +427,7 @@ pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_c
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session,  ());
+        let session: &mut ClientSession = try_mut_from_ptr!(session);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }
     }

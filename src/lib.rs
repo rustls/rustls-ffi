@@ -63,24 +63,17 @@ impl CastPtr for size_t {
     type RustType = size_t;
 }
 
-/// If the provided pointer is non-null, convert it to the reference
-/// type in the second argument.
-/// Otherwise, return NullParameter (in the two-argument form) or the provided
-/// value (in the three-argument form).
-/// Examples:
-///   let config: &mut ClientConfig = try_ref_from_ptr!(builder, &mut ClientConfig,
-///        null::<rustls_client_config>());
-///   let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession);
-///
+/// If the provided pointer is non-null, convert it to a reference.
+/// Otherwise, return NullParameter, or an appropriate default (false, 0, NULL)
+/// based on the context;
+/// Example:
+///   let config: &mut ClientConfig = try_ref_from_ptr!(builder);
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
-        try_ref_from_ptr!($var, rustls_result::NullParameter)
-    };
-    ( $var:ident, $retval:expr ) => {
         match crate::try_from($var) {
             Some(c) => c,
-            None => return $retval,
+            None => return crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -88,12 +81,9 @@ macro_rules! try_ref_from_ptr {
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
-        try_mut_from_ptr!($var, rustls_result::NullParameter)
-    };
-    ( $var:ident, $retval:expr ) => {
         match crate::try_from_mut($var) {
             Some(c) => c,
-            None => return $retval,
+            None => return crate::panic::NullParameterOrDefault::value(),
         }
     };
 }

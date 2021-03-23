@@ -2,8 +2,6 @@ use libc::size_t;
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
-use std::ptr::null;
-use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
 
@@ -89,7 +87,7 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
     ffi_panic_boundary! {
-        let config: &mut ServerConfig = try_mut_from_ptr!(config, ());
+        let config: &mut ServerConfig = try_mut_from_ptr!(config);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(config); }
     }
@@ -103,7 +101,7 @@ pub extern "C" fn rustls_server_config_builder_from_config(
     config: *const rustls_server_config,
 ) -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let config: &ServerConfig = try_ref_from_ptr!(config,  null_mut());
+        let config: &ServerConfig = try_ref_from_ptr!(config);
         Box::into_raw(Box::new(config.clone())) as *mut _
     }
 }
@@ -243,7 +241,7 @@ pub extern "C" fn rustls_server_config_builder_build(
     builder: *mut rustls_server_config_builder,
 ) -> *const rustls_server_config {
     ffi_panic_boundary! {
-        let config: &mut ServerConfig = try_mut_from_ptr!(builder, null());
+        let config: &mut ServerConfig = try_mut_from_ptr!(builder);
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
     }
@@ -258,7 +256,7 @@ pub extern "C" fn rustls_server_config_builder_build(
 #[no_mangle]
 pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
     ffi_panic_boundary! {
-        let config: &ServerConfig = try_ref_from_ptr!(config, ());
+        let config: &ServerConfig = try_ref_from_ptr!(config);
         // To free the server_config, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0
         // and the inner ServerConfig will be dropped.
@@ -300,7 +298,7 @@ pub extern "C" fn rustls_server_session_new(
 #[no_mangle]
 pub extern "C" fn rustls_server_session_wants_read(session: *const rustls_server_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ServerSession = try_ref_from_ptr!(session, false);
+        let session: &ServerSession = try_ref_from_ptr!(session);
         session.wants_read()
     }
 }
@@ -308,7 +306,7 @@ pub extern "C" fn rustls_server_session_wants_read(session: *const rustls_server
 #[no_mangle]
 pub extern "C" fn rustls_server_session_wants_write(session: *const rustls_server_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ServerSession = try_ref_from_ptr!(session, false);
+        let session: &ServerSession = try_ref_from_ptr!(session);
         session.wants_write()
     }
 }
@@ -318,7 +316,7 @@ pub extern "C" fn rustls_server_session_is_handshaking(
     session: *const rustls_server_session,
 ) -> bool {
     ffi_panic_boundary! {
-        let session: &ServerSession = try_ref_from_ptr!(session, false);
+        let session: &ServerSession = try_ref_from_ptr!(session);
         session.is_handshaking()
     }
 }
@@ -331,7 +329,7 @@ pub extern "C" fn rustls_server_session_get_protocol_version(
     session: *const rustls_server_session,
 ) -> u16 {
     ffi_panic_boundary! {
-        let session: &ServerSession = try_ref_from_ptr!(session, 0);
+        let session: &ServerSession = try_ref_from_ptr!(session);
         match session.get_protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
@@ -357,7 +355,7 @@ pub extern "C" fn rustls_server_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_server_session_send_close_notify(session: *mut rustls_server_session) {
     ffi_panic_boundary! {
-        let session: &mut ServerSession = try_mut_from_ptr!(session, ());
+        let session: &mut ServerSession = try_mut_from_ptr!(session);
         session.send_close_notify()
     }
 }
@@ -367,7 +365,7 @@ pub extern "C" fn rustls_server_session_send_close_notify(session: *mut rustls_s
 #[no_mangle]
 pub extern "C" fn rustls_server_session_free(session: *mut rustls_server_session) {
     ffi_panic_boundary! {
-        let session: &mut ServerSession = try_mut_from_ptr!(session, ());
+        let session: &mut ServerSession = try_mut_from_ptr!(session);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }
     }
@@ -687,7 +685,7 @@ impl ResolvesServerCert for ClientHelloResolver {
         };
         let cb = self.callback;
         let key_ptr: *const rustls_certified_key = unsafe { cb(self.userdata, &hello) };
-        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr, None);
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
         Some(certified_key.clone())
     }
 }
