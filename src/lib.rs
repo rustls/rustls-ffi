@@ -44,7 +44,7 @@ pub(crate) trait CastPtr {
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return NullParameter;
+            return crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts($ptr, $count as usize) }
         }
@@ -55,7 +55,7 @@ macro_rules! try_slice {
 macro_rules! try_mut_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return crate::error::rustls_result::NullParameter;
+            return crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
         }
