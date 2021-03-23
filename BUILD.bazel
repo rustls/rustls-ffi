@@ -1,0 +1,76 @@
+"""
+@generated
+cargo-raze generated Bazel file.
+
+DO NOT EDIT! Replaced on runs of cargo-raze
+"""
+
+package(default_visibility = ["//visibility:public"])
+
+licenses([
+    "notice",  # See individual crates for specific licenses
+])
+
+# Aliased targets
+alias(
+    name = "cbindgen",
+    actual = "//cargo/vendor/cbindgen-0.18.0:cbindgen",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "libc",
+    actual = "//cargo/vendor/libc-0.2.91:libc",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "rustls",
+    actual = "//cargo/vendor/rustls-0.19.0:rustls",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "rustls_native_certs",
+    actual = "//cargo/vendor/rustls-native-certs-0.5.0:rustls_native_certs",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "rustls_pemfile",
+    actual = "//cargo/vendor/rustls-pemfile-0.2.0:rustls_pemfile",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "sct",
+    actual = "//cargo/vendor/sct-0.6.0:sct",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)
+
+alias(
+    name = "webpki",
+    actual = "//cargo/vendor/webpki-0.21.4:webpki",
+    tags = [
+        "cargo-raze",
+        "manual",
+    ],
+)

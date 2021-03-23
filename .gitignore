@@ -1,2 +1,6 @@
 target
 Cargo.lock
+/bazel-bin
+/bazel-crustls
+/bazel-out
+/bazel-testlogs
