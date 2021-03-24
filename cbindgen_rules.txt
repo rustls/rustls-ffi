@@ -1,12 +1,13 @@
+
 genrule(
     name = "cargo_metadata",
     srcs = [
         "Cargo.toml",
         "Cargo.lock",
         "//src:rust_srcs",
-    ],
+    ] + glob(["src/**"]),
     outs = ["cargo_metadata.json"],
-    cmd = "ls $(locations //src:rust_srcs) && RUSTC=$(location //:rustc) $(location //:cargo) metadata --offline > $(location cargo_metadata.json)",
+    cmd = "RUSTC=$(location //:rustc) $(location //:cargo) metadata --offline > $(location cargo_metadata.json)",
     tools = [
         "//:cargo",
         "//:rustc",
@@ -21,9 +22,9 @@ genrule(
         "Cargo.toml",
         "Cargo.lock",
         "//src:rust_srcs",
-    ],
+    ] + glob(["src/**"]),
     outs = ["crustls.h"],
-    cmd = "ls $(locations //src:rust_srcs) && PATH=$$PATH:$(location //:cargo) $(location //:cargo_bin_cbindgen) --lockfile $(location Cargo.lock) --metadata $(location //:cargo_metadata) --config $(location //:cbindgen.toml) --lang C > $(location crustls.h)",
+    cmd = "PATH=$$PATH:$(location //:cargo) $(location //:cargo_bin_cbindgen) --lockfile $(location Cargo.lock) --metadata $(location //:cargo_metadata) --config $(location //:cbindgen.toml) --lang C > $(location crustls.h)",
     tools = [
         "//:cargo_bin_cbindgen",
         "//:cargo",
