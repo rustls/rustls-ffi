@@ -50,3 +50,11 @@ data_attr = 'glob(["**/src/data/*", "**/src/ec/**/*.der"])'
 
 [package.metadata.raze.crates.webpki.'0.21.4']
 data_attr = 'glob(["**/src/data/*"])'
+
+[package.metadata.raze.crates.cbindgen.'0.18.0']
+extra_aliased_targets = [
+    "cargo_bin_cbindgen"
+]
+
+[package.metadata.raze.crates.opener.'0.4.1']
+data_attr = 'glob(["**/src/xdg-open"])'

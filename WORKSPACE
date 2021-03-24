@@ -5,7 +5,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 #
 http_archive(
     name = "rules_rust",
-#    sha256 = "e6d835ee673f388aa5b62dc23d82db8fc76497e93fa47d8a4afe97abaf09b10d",
+    sha256 = "419eb5b01c9bfac786b686c90fe1d732080cd8dad53ba1ffa93c0b0828d20b57",
     strip_prefix = "rules_rust-920256900c367357bf4dae5719b8ebf210e91a0f",
     urls = [
         # Master branch as of 2021-03-23
@@ -42,9 +42,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "cargo_raze",
-    sha256 = "c664e258ea79e7e4ec2f2b57bca8b1c37f11c8d5748e02b8224810da969eb681",
-    strip_prefix = "cargo-raze-0.11.0",
-    url = "https://github.com/google/cargo-raze/archive/v0.11.0.tar.gz",
+    #sha256 = "d2421524482a2912d8e07e3f7d6341f1cf2bcc4663c0d36d75b2b869e1756780",
+    strip_prefix = "cargo-raze-15487f803857089cd677c1f4faa83693c02cf4b7",
+    url = "https://github.com/grafica/cargo-raze/archive/15487f803857089cd677c1f4faa83693c02cf4b7.tar.gz",
 )
 
 load("@cargo_raze//:repositories.bzl", "cargo_raze_repositories")

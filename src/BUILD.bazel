@@ -1,23 +1,39 @@
+package(default_visibility = ["//visibility:public"])
+
 load("@rules_rust//rust:rust.bzl", "rust_library", "rust_test")
+
+filegroup(
+    name = "rust_srcs",
+    srcs = [
+        "cipher.rs",
+        "client.rs",
+        "enums.rs",
+        "error.rs",
+        "lib.rs",
+        "rslice.rs",
+        "server.rs",
+        "session.rs",
+    ]
+)
 
 rust_library(
     name = "crustls_rust",
-    srcs = [
-    	 "cipher.rs",
-	 "client.rs",
-	 "enums.rs",
-	 "error.rs",
-	 "lib.rs",
-	 "rslice.rs",
-	 "server.rs",
-	 "session.rs",
-    ],
+    srcs = [":rust_srcs"],
     deps = [
-    	 "//:libc",
-	 "//:rustls",
-	 "//:rustls_native_certs",
-	 "//:rustls_pemfile",
-	 "//:sct",
-	 "//:webpki",
+        "//:libc",
+        "//:rustls",
+        "//:rustls_native_certs",
+        "//:rustls_pemfile",
+        "//:sct",
+        "//:webpki",
     ],
+    crate_type = "staticlib",
+)
+
+cc_binary(
+    name = "main",
+    srcs = ["//:crustls_h", "main.c"],
+    deps = [
+        "crustls_rust",
+    ]
 )
