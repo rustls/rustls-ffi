@@ -55,6 +55,3 @@ data_attr = 'glob(["**/src/data/*"])'
 extra_aliased_targets = [
     "cargo_bin_cbindgen"
 ]
-
-[package.metadata.raze.crates.opener.'0.4.1']
-data_attr = 'glob(["**/src/xdg-open"])'
