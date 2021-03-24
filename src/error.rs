@@ -1,6 +1,6 @@
 use std::{cmp::min, fmt::Display, slice};
 
-use crate::{ffi_panic_boundary_generic, ffi_panic_boundary_unit};
+use crate::ffi_panic_boundary;
 use libc::{c_char, size_t};
 use rustls::TLSError;
 
@@ -15,7 +15,7 @@ pub extern "C" fn rustls_error(
     len: size_t,
     out_n: *mut size_t,
 ) {
-    ffi_panic_boundary_unit! {
+    ffi_panic_boundary! {
         let write_buf: &mut [u8] = unsafe {
             let out_n: &mut size_t = match out_n.as_mut() {
                 Some(out_n) => out_n,

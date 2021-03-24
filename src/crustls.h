@@ -420,7 +420,7 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_certified_key_free(const struct rustls_certified_key *config);
+void rustls_certified_key_free(const struct rustls_certified_key *key);
 
 /**
  * Lets a provided callback inspect all TLS cipher suites supported by rustls.

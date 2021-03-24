@@ -10,70 +10,57 @@ mod cipher;
 mod client;
 mod enums;
 mod error;
+mod panic;
 mod rslice;
 mod server;
 mod session;
 
+use crate::panic::PanicOrDefault;
+
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";
 
-#[macro_export]
-macro_rules! ffi_panic_boundary_generic {
-    ( $retval:expr, $($tt:tt)* ) => {
-        match ::std::panic::catch_unwind(|| {
-            $($tt)*
-        }) {
-            Ok(ret) => ret,
-            Err(_) => return $retval,
-        }
+/// CastPtr represents the relationship between a snake case type (like rustls_client_session)
+/// and the corresponding Rust type (like ClientSession). For each matched pair of types, there
+/// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
+///
+/// This allows us to avoid using `as` in most places, and ensure that when we cast, we're
+/// preserving const-ness, and casting between the correct types.
+/// Implementing this is required in order to use `try_ref_from_ptr!` or
+/// `try_mut_from_ptr!`.
+pub(crate) trait CastPtr {
+    type RustType;
+
+    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
+        ptr as *const _
+    }
+
+    fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
+        ptr as *mut _
     }
 }
 
-#[macro_export]
-macro_rules! ffi_panic_boundary {
-    ( $($tt:tt)* ) => {
-        match ::std::panic::catch_unwind(|| {
-            $($tt)*
-        }) {
-            Ok(ret) => ret,
-            Err(_) => return rustls_result::Panic,
-        }
-  }
+/// Turn a raw const pointer into a reference. This is a generic function
+/// rather than part of the CastPtr trait because (a) const pointers can't act
+/// as "self" for trait methods, and (b) we want to rely on type inference
+/// against T (the cast-to type) rather than across F (the from type).
+pub(crate) fn try_from<'a, F, T>(from: *const F) -> Option<&'a T>
+where
+    F: CastPtr<RustType = T>,
+{
+    unsafe { F::cast_const_ptr(from).as_ref() }
 }
 
-#[macro_export]
-macro_rules! ffi_panic_boundary_size_t {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(0, $($tt)*)
-    }
+/// Turn a raw mut pointer into a mutable reference.
+pub(crate) fn try_from_mut<'a, F, T>(from: *mut F) -> Option<&'a mut T>
+where
+    F: CastPtr<RustType = T>,
+{
+    unsafe { F::cast_mut_ptr(from).as_mut() }
 }
 
-#[macro_export]
-macro_rules! ffi_panic_boundary_bool {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(false, $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_u16 {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(0, $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_ptr {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!(std::ptr::null_mut(), $($tt)*)
-    }
-}
-
-#[macro_export]
-macro_rules! ffi_panic_boundary_unit {
-    ( $($tt:tt)* ) => {
-        ffi_panic_boundary_generic!((), $($tt)*)
-    }
+impl CastPtr for size_t {
+    type RustType = size_t;
 }
 
 /// If the provided pointer is non-null, convert it to the reference
@@ -87,27 +74,27 @@ macro_rules! ffi_panic_boundary_unit {
 ///
 #[macro_export]
 macro_rules! try_ref_from_ptr {
-    ( $var:ident, & $typ:ty ) => {
-        try_ref_from_ptr!($var, &$typ, rustls_result::NullParameter)
+    ( $var:ident ) => {
+        try_ref_from_ptr!($var, rustls_result::NullParameter)
     };
-    ( $var:ident, & $typ:ty, $retval: expr ) => {
-        unsafe {
-            match ($var as *const $typ).as_ref() {
-                Some(c) => c,
-                None => return $retval,
-            }
-        };
+    ( $var:ident, $retval:expr ) => {
+        match crate::try_from($var) {
+            Some(c) => c,
+            None => return $retval,
+        }
     };
-    ( $var:ident, &mut $typ:ty ) => {
-        try_ref_from_ptr!($var, &mut $typ, rustls_result::NullParameter)
+}
+
+#[macro_export]
+macro_rules! try_mut_from_ptr {
+    ( $var:ident ) => {
+        try_mut_from_ptr!($var, rustls_result::NullParameter)
     };
-    ( $var:ident, &mut $typ:ty, $retval:expr ) => {
-        unsafe {
-            match ($var as *mut $typ).as_mut() {
-                Some(c) => c,
-                None => return $retval,
-            }
-        };
+    ( $var:ident, $retval:expr ) => {
+        match crate::try_from_mut($var) {
+            Some(c) => c,
+            None => return $retval,
+        }
     };
 }
 
@@ -116,7 +103,7 @@ macro_rules! try_ref_from_ptr {
 /// and NUL terminated. Returns the number of bytes written before the NUL.
 #[no_mangle]
 pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
-    ffi_panic_boundary_size_t! {
+    ffi_panic_boundary! {
         let write_buf: &mut [u8] = unsafe {
             if buf.is_null() {
                 return 0;
