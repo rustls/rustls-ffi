@@ -40,6 +40,28 @@ pub(crate) trait CastPtr {
     }
 }
 
+#[macro_export]
+macro_rules! try_slice {
+    ( $ptr:expr, $count:expr ) => {
+        if $ptr.is_null() {
+            return crate::panic::NullParameterOrDefault::value();
+        } else {
+            unsafe { slice::from_raw_parts($ptr, $count as usize) }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_mut_slice {
+    ( $ptr:expr, $count:expr ) => {
+        if $ptr.is_null() {
+            return crate::panic::NullParameterOrDefault::value();
+        } else {
+            unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
+        }
+    };
+}
+
 /// Turn a raw const pointer into a reference. This is a generic function
 /// rather than part of the CastPtr trait because (a) const pointers can't act
 /// as "self" for trait methods, and (b) we want to rely on type inference
@@ -63,24 +85,17 @@ impl CastPtr for size_t {
     type RustType = size_t;
 }
 
-/// If the provided pointer is non-null, convert it to the reference
-/// type in the second argument.
-/// Otherwise, return NullParameter (in the two-argument form) or the provided
-/// value (in the three-argument form).
-/// Examples:
-///   let config: &mut ClientConfig = try_ref_from_ptr!(builder, &mut ClientConfig,
-///        null::<rustls_client_config>());
-///   let session: &ClientSession = try_ref_from_ptr!(session, &ClientSession);
-///
+/// If the provided pointer is non-null, convert it to a reference.
+/// Otherwise, return NullParameter, or an appropriate default (false, 0, NULL)
+/// based on the context;
+/// Example:
+///   let config: &mut ClientConfig = try_ref_from_ptr!(builder);
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
-        try_ref_from_ptr!($var, rustls_result::NullParameter)
-    };
-    ( $var:ident, $retval:expr ) => {
         match crate::try_from($var) {
             Some(c) => c,
-            None => return $retval,
+            None => return crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -88,12 +103,9 @@ macro_rules! try_ref_from_ptr {
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
-        try_mut_from_ptr!($var, rustls_result::NullParameter)
-    };
-    ( $var:ident, $retval:expr ) => {
         match crate::try_from_mut($var) {
             Some(c) => c,
-            None => return $retval,
+            None => return crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
