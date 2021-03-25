@@ -14,7 +14,7 @@ licenses([
 # Aliased targets
 alias(
     name = "cbindgen",
-    actual = "//cargo/vendor/cbindgen-0.18.0:cbindgen",
+    actual = "@raze__cbindgen__0_18_0//:cbindgen",
     tags = [
         "cargo-raze",
         "manual",
@@ -25,7 +25,7 @@ alias(
     # Extra aliased target, from raze configuration
     # N.B.: The exact form of this is subject to change.
     name = "cargo_bin_cbindgen",
-    actual = "//cargo/vendor/cbindgen-0.18.0:cargo_bin_cbindgen",
+    actual = "@raze__cbindgen__0_18_0//:cargo_bin_cbindgen",
     tags = [
         "cargo-raze",
         "manual",
@@ -34,7 +34,7 @@ alias(
 
 alias(
     name = "libc",
-    actual = "//cargo/vendor/libc-0.2.91:libc",
+    actual = "@raze__libc__0_2_91//:libc",
     tags = [
         "cargo-raze",
         "manual",
@@ -43,7 +43,7 @@ alias(
 
 alias(
     name = "rustls",
-    actual = "//cargo/vendor/rustls-0.19.0:rustls",
+    actual = "@raze__rustls__0_19_0//:rustls",
     tags = [
         "cargo-raze",
         "manual",
@@ -52,7 +52,7 @@ alias(
 
 alias(
     name = "rustls_native_certs",
-    actual = "//cargo/vendor/rustls-native-certs-0.5.0:rustls_native_certs",
+    actual = "@raze__rustls_native_certs__0_5_0//:rustls_native_certs",
     tags = [
         "cargo-raze",
         "manual",
@@ -61,7 +61,7 @@ alias(
 
 alias(
     name = "rustls_pemfile",
-    actual = "//cargo/vendor/rustls-pemfile-0.2.0:rustls_pemfile",
+    actual = "@raze__rustls_pemfile__0_2_0//:rustls_pemfile",
     tags = [
         "cargo-raze",
         "manual",
@@ -70,7 +70,7 @@ alias(
 
 alias(
     name = "sct",
-    actual = "//cargo/vendor/sct-0.6.0:sct",
+    actual = "@raze__sct__0_6_0//:sct",
     tags = [
         "cargo-raze",
         "manual",
@@ -79,11 +79,19 @@ alias(
 
 alias(
     name = "webpki",
-    actual = "//cargo/vendor/webpki-0.21.4:webpki",
+    actual = "@raze__webpki__0_21_4//:webpki",
     tags = [
         "cargo-raze",
         "manual",
     ],
+)
+
+# Export file for Stardoc support
+exports_files(
+    [
+        "crates.bzl",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
