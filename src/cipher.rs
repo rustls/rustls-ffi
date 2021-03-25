@@ -8,9 +8,7 @@ use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
-use crate::{
-    ffi_panic_boundary, ffi_panic_boundary_generic, ffi_panic_boundary_unit, try_ref_from_ptr,
-};
+use crate::{ffi_panic_boundary, CastPtr};
 use rustls_result::NullParameter;
 
 /// The complete chain of certificates to send during a TLS handshake,
@@ -22,6 +20,10 @@ pub struct rustls_certified_key {
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
+}
+
+impl CastPtr for rustls_certified_key {
+    type RustType = CertifiedKey;
 }
 
 /// Build a `rustls_certified_key` from a certificate chain and a private key.
@@ -48,8 +50,12 @@ pub extern "C" fn rustls_certified_key_build(
     certified_key_out: *mut *const rustls_certified_key,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let certified_key_out: &mut *const rustls_certified_key =
-            try_ref_from_ptr!(certified_key_out, &mut *const rustls_certified_key);
+        let certified_key_out: &mut *const rustls_certified_key = unsafe {
+            match certified_key_out.as_mut() {
+                Some(c) => c,
+                None => return NullParameter,
+            }
+        };
         let certified_key = match certified_key_build(
             cert_chain, cert_chain_len, private_key, private_key_len) {
             Ok(key) => Box::new(key),
@@ -68,9 +74,11 @@ pub extern "C" fn rustls_certified_key_build(
 /// consider this pointer unusable after "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
 #[no_mangle]
-pub extern "C" fn rustls_certified_key_free(config: *const rustls_certified_key) {
-    ffi_panic_boundary_unit! {
-        let key: &CertifiedKey = try_ref_from_ptr!(config, &mut CertifiedKey, ());
+pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
+    ffi_panic_boundary! {
+        if key.is_null() {
+            return;
+        }
         // To free the certified_key, we reconstruct the Arc. It should have a refcount of 1,
         // representing the C code's copy. When it drops, that refcount will go down to 0
         // and the inner ServerConfig will be dropped.
