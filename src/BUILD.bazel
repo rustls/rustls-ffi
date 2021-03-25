@@ -10,6 +10,7 @@ filegroup(
         "enums.rs",
         "error.rs",
         "lib.rs",
+        "panic.rs",
         "rslice.rs",
         "server.rs",
         "session.rs",
