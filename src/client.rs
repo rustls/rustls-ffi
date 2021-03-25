@@ -443,7 +443,7 @@ pub extern "C" fn rustls_client_session_get_negotiated_cipher(
     session: *const rustls_client_session,
 ) -> u16 {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session, 0);
+        let session: &ClientSession = try_ref_from_ptr!(session);
         match session.get_negotiated_ciphersuite() {
             Some(s) => s.suite.get_u16(),
             None => 0
