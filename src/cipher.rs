@@ -47,14 +47,11 @@ pub extern "C" fn rustls_supported_ciphersuite_get_suite(
     supported_ciphersuite.suite.get_u16()
 }
 
-/// The number of cipher suites supported by rustls. You may call `rustls_all_ciphersuites_get()`
-/// with indexes lower than this number.
-#[allow(dead_code)]
-pub const RUSTLS_ALL_CIPHERSUITES_LEN: size_t = 9;
-
 /// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
-/// for 0 <= i < RUSTLS_ALL_CIPHERSUITES_LEN. The returned pointer is valid for the lifetime of
-/// the program and may be used directly when building a ClientConfig or ServerConfig.
+/// for 0, and some number of indexes after that. To iterate through the list, you should fetch each
+/// index sequentially until this function returns NULL, indicating the end of the list.
+/// The returned pointer is valid for the lifetime of the program and may be used directly when
+/// building a ClientConfig or ServerConfig.
 #[no_mangle]
 pub extern "C" fn rustls_all_ciphersuites_get(i: size_t) -> *const rustls_supported_ciphersuite {
     match ALL_CIPHERSUITES.get(i) {
