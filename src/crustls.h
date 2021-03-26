@@ -6,12 +6,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-/**
- * The number of cipher suites supported by rustls. You may call `rustls_all_ciphersuites_get()`
- * with indexes lower than this number.
- */
-#define RUSTLS_ALL_CIPHERSUITES_LEN 9
-
 typedef enum rustls_result {
   RUSTLS_RESULT_OK = 7000,
   RUSTLS_RESULT_IO = 7001,
@@ -394,8 +388,10 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
 
 /**
  * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
- * for 0 <= i < RUSTLS_ALL_CIPHERSUITES_LEN. The returned pointer is valid for the lifetime of
- * the program and may be used directly when building a ClientConfig or ServerConfig.
+ * for 0, and some number of indexes after that. To iterate through the list, you should fetch each
+ * index sequentially until this function returns NULL, indicating the end of the list.
+ * The returned pointer is valid for the lifetime of the program and may be used directly when
+ * building a ClientConfig or ServerConfig.
  */
 const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get(size_t i);
 
