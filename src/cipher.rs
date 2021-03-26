@@ -170,13 +170,3 @@ fn certified_key_build(
         Arc::new(signing_key),
     ))
 }
-
-mod tests {
-    #[test]
-    fn rustls_all_ciphersuites_len() {
-        assert_eq!(
-            super::RUSTLS_ALL_CIPHERSUITES_LEN,
-            rustls::ALL_CIPHERSUITES.len()
-        );
-    }
-}
