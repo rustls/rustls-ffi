@@ -1,16 +1,16 @@
 use libc::size_t;
-use std::convert::TryInto;
 use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::sync::Arc;
+use std::{convert::TryInto, ptr::null};
 
-use rustls::sign::CertifiedKey;
-use rustls::ResolvesServerCert;
+use rustls::{sign::CertifiedKey, SupportedCipherSuite};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
-use rustls_result::NullParameter;
+use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
+use rustls_result::{InvalidParameter, NullParameter};
 
-use crate::cipher::rustls_certified_key;
+use crate::cipher::{rustls_certified_key, rustls_supported_ciphersuite};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
@@ -177,6 +177,33 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
             vv.push(v.to_vec());
         }
         config.set_protocols(&vv);
+        rustls_result::Ok
+    }
+}
+
+/// Set the cipher suite list, in preference order. The `ciphersuites`
+/// parameter must point to an array containing `len` pointers to
+/// `rustls_supported_ciphersuite` previously obtained from
+/// `rustls_all_ciphersuites_get()`.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
+    builder: *mut rustls_server_config_builder,
+    ciphersuites: *const *const rustls_supported_ciphersuite,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ServerConfig = try_mut_from_ptr!(builder);
+        let ciphersuites: &[*const rustls_supported_ciphersuite] = try_slice!(ciphersuites, len);
+        let mut cs_vec: Vec<&'static SupportedCipherSuite> = Vec::new();
+        for &cs in ciphersuites.into_iter() {
+            let cs = try_ref_from_ptr!(cs);
+            match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
+                Some(scs) => cs_vec.push(scs),
+                None => return InvalidParameter,
+            }
+        }
+        config.ciphersuites = cs_vec;
         rustls_result::Ok
     }
 }
@@ -518,6 +545,22 @@ pub extern "C" fn rustls_server_session_get_sni_hostname(
         write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
         *out_n = len;
         rustls_result::Ok
+    }
+}
+
+/// Retrieves the cipher suite agreed with the peer.
+/// This returns NULL until the ciphersuite is agreed.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.get_negotiated_ciphersuite
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_negotiated_ciphersuite(
+    session: *const rustls_server_session,
+) -> *const rustls_supported_ciphersuite {
+    ffi_panic_boundary! {
+        let session: &ServerSession = try_ref_from_ptr!(session);
+        match session.get_negotiated_ciphersuite() {
+            Some(cs) => cs as *const SupportedCipherSuite as *const _,
+            None => null(),
+        }
     }
 }
 
