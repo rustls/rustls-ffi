@@ -13,10 +13,3 @@ libc = "0.2"
 rustls-native-certs = "0.5.0"
 sct = "0.6.0"
 rustls-pemfile = "0.2.0"
-
-[dev_dependencies]
-cbindgen = "*"
-
-[lib]
-name = "crustls"
-crate-type = ["staticlib"]

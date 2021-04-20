@@ -8,17 +8,16 @@ to make an HTTPS request.
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) and a C
 compiler (gcc and clang should both work). Once you've got the Rust toolchain
-installed, run `cargo install cbindgen`. Then, to build in debug mode:
+installed, run `cargo install cargo-c`. Then, to build in debug mode:
 
-    make
+    cargo cbuild
 
 To install:
 
-    make install
+    cargo cinstall --destdir /tmp/staging
+    sudo cp -a /tmp/staging /
 
-To build and install in optimized mode:
-
-    make PROFILE=release install
+By default `cargo cinstall` builds a release build.
 
 # Conventions
 
