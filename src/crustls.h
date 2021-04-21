@@ -307,6 +307,21 @@ typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_s
 /**
  * Any context information the callback will receive when invoked.
  */
+typedef void *rustls_ocsp_userdata;
+
+/**
+ * Prototype of a callback that retrieves OCSP response data (DER format)
+ * for the given `certified_key`. The OCSP data has to be copied into the
+ * provided `buf`, if it's length is sufficient. The number of copied bytes
+ * need to be returned in `out_n?.
+ * If `buf` is not of sufficient size, or if not OCSP data is available,
+ * `out_n` must be set to 0.
+ */
+typedef void (*rustls_ocsp_callback)(rustls_ocsp_userdata userdata, const struct rustls_certified_key *certified_key, uint8_t *buf, size_t buf_len, size_t *out_n);
+
+/**
+ * Any context information the callback will receive when invoked.
+ */
 typedef void *rustls_client_hello_userdata;
 
 /**
@@ -751,7 +766,9 @@ enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_s
  */
 enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
                                                                    const struct rustls_certified_key *const *certified_keys,
-                                                                   size_t certified_keys_len);
+                                                                   size_t certified_keys_len,
+                                                                   rustls_ocsp_callback ocsp_callback,
+                                                                   rustls_ocsp_userdata ocsp_userdata);
 
 /**
  * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
@@ -909,7 +926,9 @@ const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
                                                                    rustls_client_hello_callback callback,
-                                                                   rustls_client_hello_userdata userdata);
+                                                                   rustls_client_hello_userdata userdata,
+                                                                   rustls_ocsp_callback ocsp_callback,
+                                                                   rustls_ocsp_userdata ocsp_userdata);
 
 /**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
