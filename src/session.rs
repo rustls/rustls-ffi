@@ -1,5 +1,6 @@
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
+use crate::userdata_get;
 use libc::{c_int, c_void, size_t};
 
 /// Any context information the callback will receive when invoked.
@@ -77,25 +78,17 @@ pub(crate) type SessionStorePutCallback = unsafe extern "C" fn(
 ) -> rustls_result;
 
 pub(crate) struct SessionStoreBroker {
-    pub userdata: rustls_session_store_userdata,
     pub get_cb: SessionStoreGetCallback,
     pub put_cb: SessionStorePutCallback,
 }
 
 impl SessionStoreBroker {
-    pub fn new(
-        userdata: rustls_session_store_userdata,
-        get_cb: SessionStoreGetCallback,
-        put_cb: SessionStorePutCallback,
-    ) -> Self {
-        SessionStoreBroker {
-            userdata,
-            get_cb,
-            put_cb,
-        }
+    pub fn new(get_cb: SessionStoreGetCallback, put_cb: SessionStorePutCallback) -> Self {
+        SessionStoreBroker { get_cb, put_cb }
     }
 
     fn retrieve(&self, key: &[u8], remove: bool) -> Option<Vec<u8>> {
+        let userdata = userdata_get();
         let key: rustls_slice_bytes = key.into();
         // This is excessive in size, but the returned data in rustls is
         // only read once and then dropped.
@@ -105,7 +98,7 @@ impl SessionStoreBroker {
         unsafe {
             let cb = self.get_cb;
             match cb(
-                self.userdata,
+                userdata,
                 &key,
                 remove as c_int,
                 data.as_mut_ptr(),
@@ -122,11 +115,12 @@ impl SessionStoreBroker {
     }
 
     fn store(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
+        let userdata = userdata_get();
         let key: rustls_slice_bytes = key.as_slice().into();
         let value: rustls_slice_bytes = value.as_slice().into();
         let cb = self.put_cb;
         unsafe {
-            match cb(self.userdata, &key, &value) {
+            match cb(userdata, &key, &value) {
                 rustls_result::Ok => true,
                 _ => false,
             }

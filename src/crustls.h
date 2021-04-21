@@ -596,7 +596,6 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
  *
  */
 enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 
@@ -745,6 +744,7 @@ void rustls_server_config_free(const struct rustls_server_config *config);
  * `rustls_server_session_free` when done with it.
  */
 enum rustls_result rustls_server_session_new(const struct rustls_server_config *config,
+                                             void *userdata,
                                              struct rustls_server_session **session_out);
 
 bool rustls_server_session_wants_read(const struct rustls_server_session *session);
@@ -881,7 +881,6 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
  * or other config created from that config object.
  */
 enum rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 

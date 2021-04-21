@@ -13,9 +13,8 @@ use rustls::{
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
-    rustls_session_store_get_callback, rustls_session_store_put_callback,
-    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
-    SessionStorePutCallback,
+    rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
+    SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
@@ -575,7 +574,6 @@ pub extern "C" fn rustls_client_session_write_tls(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_persistence(
     builder: *mut rustls_client_config_builder,
-    userdata: rustls_session_store_userdata,
     get_cb: rustls_session_store_get_callback,
     put_cb: rustls_session_store_put_callback,
 ) -> rustls_result {
@@ -590,7 +588,7 @@ pub extern "C" fn rustls_client_config_builder_set_persistence(
         };
         let config: &mut ClientConfig = try_mut_from_ptr!(builder);
         config.set_persistence(Arc::new(SessionStoreBroker::new(
-            userdata, get_cb, put_cb
+            get_cb, put_cb
         )));
         rustls_result::Ok
     }

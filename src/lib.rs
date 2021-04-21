@@ -1,9 +1,11 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
-use libc::{c_char, size_t};
-use std::cmp::min;
+use libc::{c_char, c_void, size_t};
+use std::cell::RefCell;
 use std::io::ErrorKind::ConnectionAborted;
+use std::ptr::null_mut;
 use std::sync::Arc;
+use std::cmp::min;
 use std::{io, mem, slice};
 
 mod cipher;
@@ -15,7 +17,24 @@ mod rslice;
 mod server;
 mod session;
 
-use crate::panic::PanicOrDefault;
+thread_local! {
+    pub static USERDATA: RefCell<*mut c_void> = RefCell::new(null_mut());
+}
+
+// TODO: use try_with and try_borrow_mut
+pub fn userdata_set(u: *mut c_void) {
+    USERDATA.with(|userdata| *userdata.borrow_mut() = u);
+}
+
+pub fn userdata_clear() {
+    USERDATA.with(|userdata| *userdata.borrow_mut() = null_mut());
+}
+
+pub fn userdata_get() -> *mut c_void {
+    USERDATA.with(|userdata| *userdata.borrow_mut())
+}
+
+// use crate::panic::PanicOrDefault;
 
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";

@@ -81,11 +81,11 @@ impl NullParameterOrDefault for rustls_result {
 #[macro_export]
 macro_rules! ffi_panic_boundary {
     ( $($tt:tt)* ) => {
-        match ::std::panic::catch_unwind(|| {
+        // match ::std::panic::catch_unwind(|| {
             $($tt)*
-        }) {
-            Ok(ret) => ret,
-            Err(_) => return crate::PanicOrDefault::value(),
-        }
+        // }) {
+        //     Ok(ret) => ret,
+        //     Err(_) => return crate::PanicOrDefault::value(),
+        // }
     }
 }
