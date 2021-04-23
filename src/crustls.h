@@ -194,6 +194,11 @@ typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
 typedef struct rustls_slice_str rustls_slice_str;
 
 /**
+ * A cipher suite supported by rustls.
+ */
+typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
+
+/**
  * User-provided input to a custom certificate verifier callback. See
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
@@ -373,6 +378,26 @@ typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustl
  * and NUL terminated. Returns the number of bytes written before the NUL.
  */
 size_t rustls_version(char *buf, size_t len);
+
+/**
+ * Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
+ * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+ * The bytes from the assignment are interpreted in network order.
+ */
+uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
+
+/**
+ * Return the length of rustls' list of supported cipher suites.
+ */
+uintptr_t rustls_all_ciphersuites_len(void);
+
+/**
+ * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
+ * for i < rustls_all_ciphersuites_len().
+ * The returned pointer is valid for the lifetime of the program and may be used directly when
+ * building a ClientConfig or ServerConfig.
+ */
+const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get_entry(size_t i);
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
@@ -703,6 +728,17 @@ enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_serv
                                                               size_t len);
 
 /**
+ * Set the cipher suite list, in preference order. The `ciphersuites`
+ * parameter must point to an array containing `len` pointers to
+ * `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+ */
+enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_server_config_builder *builder,
+                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
+                                                                 size_t len);
+
+/**
  * Provide the configuration a list of certificates where the session
  * will select the first one that is compatible with the client's signature
  * verification capabilities. Servers that want to support both ECDSA and
@@ -852,6 +888,13 @@ enum rustls_result rustls_server_session_get_sni_hostname(const struct rustls_se
                                                           uint8_t *buf,
                                                           size_t count,
                                                           size_t *out_n);
+
+/**
+ * Retrieves the cipher suite agreed with the peer.
+ * This returns NULL until the ciphersuite is agreed.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.get_negotiated_ciphersuite
+ */
+const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_ciphersuite(const struct rustls_server_session *session);
 
 /**
  * Register a callback to be invoked when a session created from this config

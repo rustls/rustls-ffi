@@ -1,14 +1,15 @@
 use libc::size_t;
 use std::io::Cursor;
+use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use rustls::sign::CertifiedKey;
+use rustls::{sign::CertifiedKey, SupportedCipherSuite, ALL_CIPHERSUITES};
 use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
-use crate::{ffi_panic_boundary, CastPtr};
+use crate::{ffi_panic_boundary, try_ref_from_ptr, CastPtr};
 use rustls_result::NullParameter;
 
 /// The complete chain of certificates to send during a TLS handshake,
@@ -24,6 +25,46 @@ pub struct rustls_certified_key {
 
 impl CastPtr for rustls_certified_key {
     type RustType = CertifiedKey;
+}
+
+/// A cipher suite supported by rustls.
+pub struct rustls_supported_ciphersuite {
+    _private: [u8; 0],
+}
+
+impl CastPtr for rustls_supported_ciphersuite {
+    type RustType = SupportedCipherSuite;
+}
+
+/// Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
+/// <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+/// The bytes from the assignment are interpreted in network order.
+#[no_mangle]
+pub extern "C" fn rustls_supported_ciphersuite_get_suite(
+    supported_ciphersuite: *const rustls_supported_ciphersuite,
+) -> u16 {
+    let supported_ciphersuite = try_ref_from_ptr!(supported_ciphersuite);
+    supported_ciphersuite.suite.get_u16()
+}
+
+/// Return the length of rustls' list of supported cipher suites.
+#[no_mangle]
+pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
+    ALL_CIPHERSUITES.len()
+}
+
+/// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
+/// for i < rustls_all_ciphersuites_len().
+/// The returned pointer is valid for the lifetime of the program and may be used directly when
+/// building a ClientConfig or ServerConfig.
+#[no_mangle]
+pub extern "C" fn rustls_all_ciphersuites_get_entry(
+    i: size_t,
+) -> *const rustls_supported_ciphersuite {
+    match ALL_CIPHERSUITES.get(i) {
+        Some(&cs) => cs as *const SupportedCipherSuite as *const _,
+        None => null(),
+    }
 }
 
 /// Build a `rustls_certified_key` from a certificate chain and a private key.
