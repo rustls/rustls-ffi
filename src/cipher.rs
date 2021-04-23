@@ -58,7 +58,9 @@ pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
 /// The returned pointer is valid for the lifetime of the program and may be used directly when
 /// building a ClientConfig or ServerConfig.
 #[no_mangle]
-pub extern "C" fn rustls_all_ciphersuites_get_entry(i: size_t) -> *const rustls_supported_ciphersuite {
+pub extern "C" fn rustls_all_ciphersuites_get_entry(
+    i: size_t,
+) -> *const rustls_supported_ciphersuite {
     match ALL_CIPHERSUITES.get(i) {
         Some(&cs) => cs as *const SupportedCipherSuite as *const _,
         None => null(),
