@@ -85,6 +85,10 @@ impl CastPtr for size_t {
     type RustType = size_t;
 }
 
+impl CastPtr for *const u8 {
+    type RustType = *const u8;
+}
+
 /// If the provided pointer is non-null, convert it to a reference.
 /// Otherwise, return NullParameter, or an appropriate default (false, 0, NULL)
 /// based on the context;

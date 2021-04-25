@@ -1,6 +1,7 @@
 use libc::{c_char, size_t};
 use std::convert::TryInto;
 use std::io::{BufReader, Cursor, Read, Write};
+use std::ptr::null;
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
@@ -297,6 +298,36 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     }
 }
 
+/// Set the ALPN protocol list to the given protocols. `protocols` must point
+/// to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+/// elements. Each element of the buffer must point to a slice of bytes that
+/// contains a single ALPN protocol from
+/// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+///
+/// This function makes a copy of the data in `protocols` and does not retain
+/// any pointers, so the caller can free the pointed-to memory after calling.
+///
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#method.set_protocols
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_protocols(
+    builder: *mut rustls_client_config_builder,
+    protocols: *const rustls_slice_bytes,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let protocols: &[rustls_slice_bytes] = try_slice!(protocols, len);
+
+        let mut vv: Vec<Vec<u8>> = Vec::new();
+        for p in protocols {
+            let v: &[u8] = try_slice!(p.data, p.len);
+            vv.push(v.to_vec());
+        }
+        config.set_protocols(&vv);
+        rustls_result::Ok
+    }
+}
+
 /// Enable or disable SNI.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
 #[no_mangle]
@@ -396,6 +427,53 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     ffi_panic_boundary! {
         let session: &ClientSession = try_ref_from_ptr!(session);
         session.is_handshaking()
+    }
+}
+
+/// Return the TLS protocol version that has been negotiated. Before this
+/// has been decided during the handshake, this will return 0. Otherwise,
+/// the u16 version number as defined in the relevant RFC is returned.
+/// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+#[no_mangle]
+pub extern "C" fn rustls_client_session_get_protocol_version(
+    session: *const rustls_client_session,
+) -> u16 {
+    ffi_panic_boundary! {
+        let session: &ClientSession = try_ref_from_ptr!(session);
+        match session.get_protocol_version() {
+            Some(v) => v.get_u16(),
+            None => 0
+        }
+    }
+}
+
+/// Get the ALPN protocol that was negotiated, if any. Store a pointer to a
+/// borrowed buffer of bytes, and that buffer's len, in the output parameters.
+/// The borrow lives as long as the session.
+/// If the session is still handshaking, or no ALPN protocol was negotiated,
+/// store NULL and 0 in the output parameters.
+/// https://www.iana.org/assignments/tls-parameters/
+/// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
+#[no_mangle]
+pub extern "C" fn rustls_client_session_get_alpn_protocol(
+    session: *const rustls_client_session,
+    protocol_out: *mut *const u8,
+    protocol_out_len: *mut usize,
+) {
+    ffi_panic_boundary! {
+        let session: &ClientSession = try_ref_from_ptr!(session);
+        let protocol_out = try_mut_from_ptr!(protocol_out);
+        let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
+        match session.get_alpn_protocol() {
+            Some(p) => {
+                *protocol_out = p.as_ptr();
+                *protocol_out_len = p.len();
+            },
+            None => {
+                *protocol_out = null();
+                *protocol_out_len = 0;
+            }
+        }
     }
 }
 
