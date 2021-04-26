@@ -1,5 +1,5 @@
 use libc::{c_char, c_void, size_t};
-use std::{convert::TryInto, ptr::null_mut};
+use std::convert::TryInto;
 use std::io::{BufReader, Cursor, Read, Write};
 use std::slice;
 use std::{ffi::CStr, sync::Arc};
@@ -337,9 +337,13 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
 /// If this returns a non-error, the memory pointed to by `session_out` is modified to point
 /// at a valid ClientSession. The caller now owns the ClientSession and must call
 /// `rustls_client_session_free` when done with it.
+/// The userdata pointer points to arbitrary data to be associated with this session
+/// for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
+/// data must outlive the session.
 #[no_mangle]
 pub extern "C" fn rustls_client_session_new(
     config: *const rustls_client_config,
+    userdata: *mut c_void,
     hostname: *const c_char,
     session_out: *mut *mut rustls_client_session,
 ) -> rustls_result {
@@ -370,7 +374,7 @@ pub extern "C" fn rustls_client_session_new(
         // caller knows it is responsible for this memory.
         let c = Sess {
             session: ClientSession::new(&config, name_ref),
-            userdata: null_mut(),
+            userdata: userdata,
         };
         unsafe {
             *session_out = Box::into_raw(Box::new(c)) as *mut _;

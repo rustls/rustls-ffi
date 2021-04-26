@@ -1,5 +1,5 @@
 use libc::size_t;
-use std::{ffi::c_void, ptr::null_mut};
+use std::ffi::c_void;
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::sync::Arc;
@@ -286,9 +286,13 @@ pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config)
 /// If this returns a non-error, the memory pointed to by `session_out` is modified to point
 /// at a valid ServerSession. The caller now owns the ServerSession and must call
 /// `rustls_server_session_free` when done with it.
+/// The userdata pointer points to arbitrary data to be associated with this session
+/// for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
+/// data must outlive the session.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_new(
     config: *const rustls_server_config,
+    userdata: *mut c_void,
     session_out: *mut *mut rustls_server_session,
 ) -> rustls_result {
     ffi_panic_boundary! {
@@ -304,7 +308,7 @@ pub extern "C" fn rustls_server_session_new(
         // caller knows it is responsible for this memory.
         let c = Sess {
             session: ServerSession::new(&config),
-            userdata: null_mut(),
+            userdata: userdata,
         };
         unsafe {
             *session_out = Box::into_raw(Box::new(c)) as *mut _;
