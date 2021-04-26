@@ -1,6 +1,8 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
-use libc::{c_char, size_t};
+use libc::{c_char, c_void, size_t};
+use std::cell::RefCell;
+use std::ptr::null_mut;
 use std::cmp::min;
 use std::io::ErrorKind::ConnectionAborted;
 use std::sync::Arc;
@@ -16,6 +18,33 @@ mod server;
 mod session;
 
 use crate::panic::PanicOrDefault;
+
+thread_local! {
+    pub static USERDATA: RefCell<Vec<*mut c_void>> = RefCell::new(Vec::new());
+}
+
+pub struct UserdataGuard();
+
+impl Drop for UserdataGuard {
+    fn drop(&mut self) {
+        userdata_pop();
+    }
+}
+
+// TODO: use try_with and try_borrow_mut
+#[must_use = "If you drop the guard, userdata will be unset"]
+pub fn userdata_push(u: *mut c_void) -> UserdataGuard {
+    USERDATA.with(|userdata| userdata.borrow_mut().push(u));
+    UserdataGuard()
+}
+
+pub fn userdata_get() -> *mut c_void {
+    USERDATA.with(|userdata| *userdata.borrow_mut().last().unwrap_or(&null_mut()))
+}
+
+pub fn userdata_pop() {
+    USERDATA.with(|userdata| userdata.borrow_mut().pop().unwrap_or(null_mut()));
+}
 
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.19.0";

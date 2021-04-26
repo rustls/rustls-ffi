@@ -16,12 +16,11 @@ use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback,
-    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
-    SessionStorePutCallback,
+    SessionStoreBroker, SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, try_mut_from_ptr, try_mut_slice,
-    try_ref_from_ptr, try_slice, CastPtr,
+    try_ref_from_ptr, try_slice, CastPtr, userdata_push, userdata_get,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -366,6 +365,7 @@ pub extern "C" fn rustls_server_session_process_new_packets(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
+        let _guard = userdata_push(session.userdata);
         match session.session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
             Err(e) => return map_error(e),
@@ -662,15 +662,13 @@ struct ClientHelloResolver {
     /// Implementation of rustls::ResolvesServerCert that passes values
     /// from the supplied ClientHello to the callback function.
     pub callback: ClientHelloCallback,
-    pub userdata: rustls_client_hello_userdata,
 }
 
 impl ClientHelloResolver {
     pub fn new(
         callback: ClientHelloCallback,
-        userdata: rustls_client_hello_userdata,
     ) -> ClientHelloResolver {
-        ClientHelloResolver { callback, userdata }
+        ClientHelloResolver { callback }
     }
 }
 
@@ -701,7 +699,7 @@ impl ResolvesServerCert for ClientHelloResolver {
             alpn: &alpn,
         };
         let cb = self.callback;
-        let key_ptr: *const rustls_certified_key = unsafe { cb(self.userdata, &hello) };
+        let key_ptr: *const rustls_certified_key = unsafe { cb(userdata_get(), &hello) };
         let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
         Some(certified_key.clone())
     }
@@ -730,7 +728,6 @@ unsafe impl Send for ClientHelloResolver {}
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
     callback: rustls_client_hello_callback,
-    userdata: rustls_client_hello_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let callback: ClientHelloCallback = match callback {
@@ -739,7 +736,7 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
         };
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
         config.cert_resolver = Arc::new(ClientHelloResolver::new(
-            callback, userdata
+            callback
         ));
         rustls_result::Ok
     }
@@ -754,7 +751,6 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_persistence(
     builder: *mut rustls_server_config_builder,
-    userdata: rustls_session_store_userdata,
     get_cb: rustls_session_store_get_callback,
     put_cb: rustls_session_store_put_callback,
 ) -> rustls_result {
@@ -769,7 +765,7 @@ pub extern "C" fn rustls_server_config_builder_set_persistence(
         };
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
         config.set_persistence(Arc::new(SessionStoreBroker::new(
-            userdata, get_cb, put_cb
+            get_cb, put_cb
         )));
         rustls_result::Ok
     }

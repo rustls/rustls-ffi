@@ -481,8 +481,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
 void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                     rustls_verify_server_cert_callback callback,
-                                                                     rustls_verify_server_cert_user_data userdata);
+                                                                     rustls_verify_server_cert_callback callback);
 
 /**
  * Add certificates from platform's native root store, using
@@ -520,8 +519,12 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * If this returns a non-error, the memory pointed to by `session_out` is modified to point
  * at a valid ClientSession. The caller now owns the ClientSession and must call
  * `rustls_client_session_free` when done with it.
+ * The userdata pointer points to arbitrary data to be associated with this session
+ * for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
+ * data must outlive the session.
  */
 enum rustls_result rustls_client_session_new(const struct rustls_client_config *config,
+                                             void *userdata,
                                              const char *hostname,
                                              struct rustls_client_session **session_out);
 
@@ -621,7 +624,6 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
  *
  */
 enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 
@@ -779,8 +781,12 @@ void rustls_server_config_free(const struct rustls_server_config *config);
  * If this returns a non-error, the memory pointed to by `session_out` is modified to point
  * at a valid ServerSession. The caller now owns the ServerSession and must call
  * `rustls_server_session_free` when done with it.
+ * The userdata pointer points to arbitrary data to be associated with this session
+ * for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
+ * data must outlive the session.
  */
 enum rustls_result rustls_server_session_new(const struct rustls_server_config *config,
+                                             void *userdata,
                                              struct rustls_server_session **session_out);
 
 bool rustls_server_session_wants_read(const struct rustls_server_session *session);
@@ -912,8 +918,7 @@ const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_
  * and vice versa. Same holds true for the set_single_cert variant.
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
-                                                                   rustls_client_hello_callback callback,
-                                                                   rustls_client_hello_userdata userdata);
+                                                                   rustls_client_hello_callback callback);
 
 /**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
@@ -924,7 +929,6 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
  * or other config created from that config object.
  */
 enum rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 

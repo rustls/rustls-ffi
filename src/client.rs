@@ -14,12 +14,12 @@ use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback,
-    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
-    SessionStorePutCallback,
+    SessionStoreBroker, SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
     try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, CastPtr,
+    userdata_push, userdata_get,
 };
 use rustls_result::NullParameter;
 
@@ -141,7 +141,6 @@ type VerifyCallback = unsafe extern "C" fn(
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
     callback: VerifyCallback,
-    userdata: rustls_verify_server_cert_user_data,
 }
 
 /// Safety: Verifier is Send because we don't allocate or deallocate any of its
@@ -192,7 +191,7 @@ impl rustls::ServerCertVerifier for Verifier {
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };
-        let result: rustls_result = unsafe { cb(self.userdata, &params) };
+        let result: rustls_result = unsafe { cb(userdata_get(), &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => match result_to_tlserror(&r) {
@@ -238,7 +237,6 @@ impl rustls::ServerCertVerifier for Verifier {
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,
     callback: rustls_verify_server_cert_callback,
-    userdata: rustls_verify_server_cert_user_data,
 ) {
     ffi_panic_boundary! {
         let callback: VerifyCallback = match callback {
@@ -246,7 +244,7 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
             None => return,
         };
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
-        let verifier: Verifier = Verifier{callback: callback, userdata};
+        let verifier: Verifier = Verifier{callback: callback};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
     }
 }
@@ -416,6 +414,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
+        let _guard = userdata_push(session.userdata);
         match session.session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
             Err(e) => return map_error(e),
@@ -586,7 +585,6 @@ pub extern "C" fn rustls_client_session_write_tls(
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_persistence(
     builder: *mut rustls_client_config_builder,
-    userdata: rustls_session_store_userdata,
     get_cb: rustls_session_store_get_callback,
     put_cb: rustls_session_store_put_callback,
 ) -> rustls_result {
@@ -601,7 +599,7 @@ pub extern "C" fn rustls_client_config_builder_set_persistence(
         };
         let config: &mut ClientConfig = try_mut_from_ptr!(builder);
         config.set_persistence(Arc::new(SessionStoreBroker::new(
-            userdata, get_cb, put_cb
+            get_cb, put_cb
         )));
         rustls_result::Ok
     }

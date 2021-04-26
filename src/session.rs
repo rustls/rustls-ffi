@@ -1,5 +1,6 @@
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
+use crate::userdata_get;
 use libc::{c_int, c_void, size_t};
 
 /// Any context information the callback will receive when invoked.
@@ -77,19 +78,16 @@ pub(crate) type SessionStorePutCallback = unsafe extern "C" fn(
 ) -> rustls_result;
 
 pub(crate) struct SessionStoreBroker {
-    pub userdata: rustls_session_store_userdata,
     pub get_cb: SessionStoreGetCallback,
     pub put_cb: SessionStorePutCallback,
 }
 
 impl SessionStoreBroker {
     pub fn new(
-        userdata: rustls_session_store_userdata,
         get_cb: SessionStoreGetCallback,
         put_cb: SessionStorePutCallback,
     ) -> Self {
         SessionStoreBroker {
-            userdata,
             get_cb,
             put_cb,
         }
@@ -105,7 +103,7 @@ impl SessionStoreBroker {
         unsafe {
             let cb = self.get_cb;
             match cb(
-                self.userdata,
+                userdata_get(),
                 &key,
                 remove as c_int,
                 data.as_mut_ptr(),
@@ -126,7 +124,7 @@ impl SessionStoreBroker {
         let value: rustls_slice_bytes = value.as_slice().into();
         let cb = self.put_cb;
         unsafe {
-            match cb(self.userdata, &key, &value) {
+            match cb(userdata_get(), &key, &value) {
                 rustls_result::Ok => true,
                 _ => false,
             }
