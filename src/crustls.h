@@ -501,7 +501,8 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
  * Set the ALPN protocol list to the given protocols. `protocols` must point
  * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
  * elements. Each element of the buffer must point to a slice of bytes that
- * contains a single ALPN protocol from
+ * containinng a single ALPN protocol ID. Standard ALPN protocol IDs are
+ * defined at
  * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
  *
  * This function makes a copy of the data in `protocols` and does not retain
