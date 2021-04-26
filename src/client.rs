@@ -300,9 +300,9 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 
 /// Set the ALPN protocol list to the given protocols. `protocols` must point
 /// to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
-/// elements. Each element of the buffer must point to a slice of bytes that
-/// containinng a single ALPN protocol ID. Standard ALPN protocol IDs are
-/// defined at
+/// elements. Each element of the buffer must be a rustls_slice_bytes whose
+/// data field points to a single ALPN protocol ID. Standard ALPN protocol
+/// IDs are defined at
 /// https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
 ///
 /// This function makes a copy of the data in `protocols` and does not retain
@@ -435,6 +435,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
 /// has been decided during the handshake, this will return 0. Otherwise,
 /// the u16 version number as defined in the relevant RFC is returned.
 /// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+/// https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
 #[no_mangle]
 pub extern "C" fn rustls_client_session_get_protocol_version(
     session: *const rustls_client_session,
@@ -448,11 +449,11 @@ pub extern "C" fn rustls_client_session_get_protocol_version(
     }
 }
 
-/// Get the ALPN protocol that was negotiated, if any. Store a pointer to a
+/// Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
 /// borrowed buffer of bytes, and that buffer's len, in the output parameters.
 /// The borrow lives as long as the session.
 /// If the session is still handshaking, or no ALPN protocol was negotiated,
-/// store NULL and 0 in the output parameters.
+/// stores NULL and 0 in the output parameters.
 /// https://www.iana.org/assignments/tls-parameters/
 /// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
 #[no_mangle]
