@@ -24,26 +24,32 @@ thread_local! {
 }
 
 pub struct UserdataGuard();
+pub struct UserdataError();
 
 impl Drop for UserdataGuard {
     fn drop(&mut self) {
-        userdata_pop();
+        USERDATA.try_with(|userdata| {
+            if let Ok(mut v) = userdata.try_borrow_mut() {
+                v.pop();
+            }
+        }).ok();
     }
 }
 
-// TODO: use try_with and try_borrow_mut
-#[must_use = "If you drop the guard, userdata will be unset"]
-pub fn userdata_push(u: *mut c_void) -> UserdataGuard {
-    USERDATA.with(|userdata| userdata.borrow_mut().push(u));
-    UserdataGuard()
+#[must_use = "If you drop the guard, userdata will be immediately cleared"]
+pub fn userdata_push(u: *mut c_void) -> Result<UserdataGuard, UserdataError> {
+    USERDATA.try_with(|userdata| match userdata.try_borrow_mut() {
+        Ok(mut v) => v.push(u),
+        _ => (),
+    }).map_err(|_| UserdataError())?;
+    Ok(UserdataGuard())
 }
 
 pub fn userdata_get() -> *mut c_void {
-    USERDATA.with(|userdata| *userdata.borrow_mut().last().unwrap_or(&null_mut()))
-}
-
-pub fn userdata_pop() {
-    USERDATA.with(|userdata| userdata.borrow_mut().pop().unwrap_or(null_mut()));
+    USERDATA.try_with(|userdata| match userdata.try_borrow_mut() {
+        Ok(v) => *v.last().unwrap_or(&null_mut()),
+        _ => null_mut(),
+    }).unwrap_or(null_mut())
 }
 
 // Keep in sync with Cargo.toml.
