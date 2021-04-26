@@ -788,7 +788,7 @@ pub type rustls_ocsp_userdata = *mut c_void;
 /// Prototype of a callback that retrieves OCSP response data (DER format)
 /// for the given `certified_key`. The OCSP data has to be copied into the
 /// provided `buf`, if it's length is sufficient. The number of copied bytes
-/// need to be returned in `out_n?.
+/// need to be returned in `out_n`.
 /// If `buf` is not of sufficient size, or if not OCSP data is available,
 /// `out_n` must be set to 0.
 pub type rustls_ocsp_callback = Option<
