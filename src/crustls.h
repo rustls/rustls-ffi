@@ -498,6 +498,23 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
                                                                      const char *filename);
 
 /**
+ * Set the ALPN protocol list to the given protocols. `protocols` must point
+ * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+ * elements. Each element of the buffer must be a rustls_slice_bytes whose
+ * data field points to a single ALPN protocol ID. Standard ALPN protocol
+ * IDs are defined at
+ * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+ *
+ * This function makes a copy of the data in `protocols` and does not retain
+ * any pointers, so the caller can free the pointed-to memory after calling.
+ *
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#method.set_protocols
+ */
+enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_client_config_builder *builder,
+                                                              const struct rustls_slice_bytes *protocols,
+                                                              size_t len);
+
+/**
  * Enable or disable SNI.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
  */
@@ -530,6 +547,28 @@ bool rustls_client_session_wants_read(const struct rustls_client_session *sessio
 bool rustls_client_session_wants_write(const struct rustls_client_session *session);
 
 bool rustls_client_session_is_handshaking(const struct rustls_client_session *session);
+
+/**
+ * Return the TLS protocol version that has been negotiated. Before this
+ * has been decided during the handshake, this will return 0. Otherwise,
+ * the u16 version number as defined in the relevant RFC is returned.
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+ * https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
+ */
+uint16_t rustls_client_session_get_protocol_version(const struct rustls_client_session *session);
+
+/**
+ * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
+ * borrowed buffer of bytes, and that buffer's len, in the output parameters.
+ * The borrow lives as long as the session.
+ * If the session is still handshaking, or no ALPN protocol was negotiated,
+ * stores NULL and 0 in the output parameters.
+ * https://www.iana.org/assignments/tls-parameters/
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
+ */
+void rustls_client_session_get_alpn_protocol(const struct rustls_client_session *session,
+                                             const uint8_t **protocol_out,
+                                             uintptr_t *protocol_out_len);
 
 enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
@@ -793,6 +832,7 @@ bool rustls_server_session_is_handshaking(const struct rustls_server_session *se
  * Return the TLS protocol version that has been negotiated. Before this
  * has been decided during the handshake, this will return 0. Otherwise,
  * the u16 version number as defined in the relevant RFC is returned.
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
  */
 uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
 
