@@ -528,6 +528,7 @@ main(int argc, const char **argv)
   struct rustls_client_config_builder *config_builder =
     rustls_client_config_builder_new();
   const struct rustls_client_config *client_config = NULL;
+  const struct rustls_slice_bytes alpn_http11 = { (const uint8_t *)"http/1.1", 8 };
 
 #ifdef _WIN32
   WSADATA wsa;
@@ -545,6 +546,8 @@ main(int argc, const char **argv)
     rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify,
       "verify_arg");
   }
+
+  rustls_client_config_builder_set_protocols(config_builder, &alpn_http11, 1);
 
   client_config = rustls_client_config_builder_build(config_builder);
 
