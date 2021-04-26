@@ -463,7 +463,7 @@ do_request(const struct rustls_client_config *client_config,
   }
 
   rustls_result result =
-    rustls_client_session_new(client_config, hostname, &client_session);
+    rustls_client_session_new(client_config, "verify arg", hostname, &client_session);
   if(result != RUSTLS_RESULT_OK) {
     print_error("client_session_new", result);
     goto cleanup;
@@ -542,8 +542,7 @@ main(int argc, const char **argv)
   }
 
   if(getenv("NO_CHECK_CERTIFICATE")) {
-    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify,
-      "verify_arg");
+    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify);
   }
 
   client_config = rustls_client_config_builder_build(config_builder);
