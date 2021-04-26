@@ -4,6 +4,7 @@ version = "0.3.0"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 description = "C-to-rustls bindings"
 edition = "2018"
+links = "crustls"
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in lib.rs
@@ -19,4 +20,4 @@ cbindgen = "*"
 
 [lib]
 name = "crustls"
-crate-type = ["staticlib"]
+crate-type = ["lib", "staticlib"]

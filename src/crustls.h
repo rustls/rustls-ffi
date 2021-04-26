@@ -402,13 +402,17 @@ size_t rustls_version(char *buf, size_t len);
 uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
+ * Return the length of rustls' list of supported cipher suites.
+ */
+uintptr_t rustls_all_ciphersuites_len(void);
+
+/**
  * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
- * for 0, and some number of indexes after that. To iterate through the list, you should fetch each
- * index sequentially until this function returns NULL, indicating the end of the list.
+ * for i < rustls_all_ciphersuites_len().
  * The returned pointer is valid for the lifetime of the program and may be used directly when
  * building a ClientConfig or ServerConfig.
  */
-const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get(size_t i);
+const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get_entry(size_t i);
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
