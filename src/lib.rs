@@ -2,9 +2,9 @@
 #![allow(non_camel_case_types)]
 use libc::{c_char, c_void, size_t};
 use std::cell::RefCell;
-use std::ptr::null_mut;
 use std::cmp::min;
 use std::io::ErrorKind::ConnectionAborted;
+use std::ptr::null_mut;
 use std::sync::Arc;
 use std::{io, mem, slice};
 
@@ -28,28 +28,34 @@ pub struct UserdataError();
 
 impl Drop for UserdataGuard {
     fn drop(&mut self) {
-        USERDATA.try_with(|userdata| {
-            if let Ok(mut v) = userdata.try_borrow_mut() {
-                v.pop();
-            }
-        }).ok();
+        USERDATA
+            .try_with(|userdata| {
+                if let Ok(mut v) = userdata.try_borrow_mut() {
+                    v.pop();
+                }
+            })
+            .ok();
     }
 }
 
 #[must_use = "If you drop the guard, userdata will be immediately cleared"]
 pub fn userdata_push(u: *mut c_void) -> Result<UserdataGuard, UserdataError> {
-    USERDATA.try_with(|userdata| match userdata.try_borrow_mut() {
-        Ok(mut v) => v.push(u),
-        _ => (),
-    }).map_err(|_| UserdataError())?;
+    USERDATA
+        .try_with(|userdata| match userdata.try_borrow_mut() {
+            Ok(mut v) => v.push(u),
+            _ => (),
+        })
+        .map_err(|_| UserdataError())?;
     Ok(UserdataGuard())
 }
 
 pub fn userdata_get() -> *mut c_void {
-    USERDATA.try_with(|userdata| match userdata.try_borrow_mut() {
-        Ok(v) => *v.last().unwrap_or(&null_mut()),
-        _ => null_mut(),
-    }).unwrap_or(null_mut())
+    USERDATA
+        .try_with(|userdata| match userdata.try_borrow_mut() {
+            Ok(v) => *v.last().unwrap_or(&null_mut()),
+            _ => null_mut(),
+        })
+        .unwrap_or(null_mut())
 }
 
 // Keep in sync with Cargo.toml.

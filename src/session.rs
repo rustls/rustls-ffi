@@ -83,14 +83,8 @@ pub(crate) struct SessionStoreBroker {
 }
 
 impl SessionStoreBroker {
-    pub fn new(
-        get_cb: SessionStoreGetCallback,
-        put_cb: SessionStorePutCallback,
-    ) -> Self {
-        SessionStoreBroker {
-            get_cb,
-            put_cb,
-        }
+    pub fn new(get_cb: SessionStoreGetCallback, put_cb: SessionStorePutCallback) -> Self {
+        SessionStoreBroker { get_cb, put_cb }
     }
 
     fn retrieve(&self, key: &[u8], remove: bool) -> Option<Vec<u8>> {

@@ -1,9 +1,9 @@
 use libc::size_t;
-use std::{ffi::c_void, ptr::null_mut};
 use std::io::{Cursor, Read, Write};
 use std::slice;
 use std::sync::Arc;
 use std::{convert::TryInto, ptr::null};
+use std::{ffi::c_void, ptr::null_mut};
 
 use rustls::{sign::CertifiedKey, SupportedCipherSuite};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
@@ -15,12 +15,12 @@ use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::session::{
-    rustls_session_store_get_callback, rustls_session_store_put_callback,
-    SessionStoreBroker, SessionStoreGetCallback, SessionStorePutCallback,
+    rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
+    SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, try_mut_from_ptr, try_mut_slice,
-    try_ref_from_ptr, try_slice, CastPtr, userdata_push, userdata_get,
+    try_ref_from_ptr, try_slice, userdata_get, userdata_push, CastPtr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -321,8 +321,8 @@ pub extern "C" fn rustls_server_session_set_userdata(
     session: *mut rustls_server_session,
     userdata: *mut c_void,
 ) {
-  let session: &mut Sess = try_mut_from_ptr!(session);
-  session.userdata = userdata;
+    let session: &mut Sess = try_mut_from_ptr!(session);
+    session.userdata = userdata;
 }
 
 #[no_mangle]
@@ -673,9 +673,7 @@ struct ClientHelloResolver {
 }
 
 impl ClientHelloResolver {
-    pub fn new(
-        callback: ClientHelloCallback,
-    ) -> ClientHelloResolver {
+    pub fn new(callback: ClientHelloCallback) -> ClientHelloResolver {
         ClientHelloResolver { callback }
     }
 }

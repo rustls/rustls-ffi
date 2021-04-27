@@ -1,7 +1,7 @@
 use libc::{c_char, c_void, size_t};
-use std::{convert::TryInto, ptr::null_mut};
 use std::io::{BufReader, Cursor, Read, Write};
 use std::slice;
+use std::{convert::TryInto, ptr::null_mut};
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
 use webpki::DNSNameRef;
@@ -13,13 +13,13 @@ use rustls::{
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
-    rustls_session_store_get_callback, rustls_session_store_put_callback,
-    SessionStoreBroker, SessionStoreGetCallback, SessionStorePutCallback,
+    rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
+    SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
-    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, CastPtr,
-    userdata_push, userdata_get,
+    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, userdata_get, userdata_push,
+    CastPtr,
 };
 use rustls_result::NullParameter;
 
@@ -386,8 +386,8 @@ pub extern "C" fn rustls_client_session_set_userdata(
     session: *mut rustls_client_session,
     userdata: *mut c_void,
 ) {
-  let session: &mut Sess = try_mut_from_ptr!(session);
-  session.userdata = userdata;
+    let session: &mut Sess = try_mut_from_ptr!(session);
+    session.userdata = userdata;
 }
 
 #[no_mangle]
