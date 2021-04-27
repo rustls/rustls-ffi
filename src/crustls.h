@@ -263,7 +263,7 @@ typedef void *rustls_session_store_userdata;
  * Prototype of a callback that can be installed by the application at the
  * `rustls_server_config` or `rustls_client_config`. This callback will be
  * invoked by a TLS session when looking up the data for a TLS session id.
- * `userdata` will be supplied as provided when registering the callback.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
  *
  * The `buf` points to `count` consecutive bytes where the
  * callback is expected to copy the result to. The number of copied bytes
@@ -292,7 +292,7 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  * `rustls_server_config` or `rustls_client_config`. This callback will be
  * invoked by a TLS session when a TLS session has been created and an id
  * for later use is handed to the client/has been received from the server.
- * `userdata` will be supplied as provided when registering the callback.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
  *
  * The callback should return != 0 to indicate that the value has been
  * successfully persisted in its store.
