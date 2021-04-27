@@ -519,14 +519,17 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * If this returns a non-error, the memory pointed to by `session_out` is modified to point
  * at a valid ClientSession. The caller now owns the ClientSession and must call
  * `rustls_client_session_free` when done with it.
- * The userdata pointer points to arbitrary data to be associated with this session
- * for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
- * data must outlive the session.
  */
 enum rustls_result rustls_client_session_new(const struct rustls_client_config *config,
-                                             void *userdata,
                                              const char *hostname,
                                              struct rustls_client_session **session_out);
+
+/**
+ * Set the userdata pointer associated with this session. This will be passed
+ * to any callbacks invoked by the session, if you've set up callbacks in the config.
+ * The pointed-to data must outlive the session.
+ */
+void rustls_client_session_set_userdata(struct rustls_client_session *session, void *userdata);
 
 bool rustls_client_session_wants_read(const struct rustls_client_session *session);
 
@@ -781,13 +784,16 @@ void rustls_server_config_free(const struct rustls_server_config *config);
  * If this returns a non-error, the memory pointed to by `session_out` is modified to point
  * at a valid ServerSession. The caller now owns the ServerSession and must call
  * `rustls_server_session_free` when done with it.
- * The userdata pointer points to arbitrary data to be associated with this session
- * for the purpose of callbacks. It may be NULL. If it is non-NULL, the pointed-to
- * data must outlive the session.
  */
 enum rustls_result rustls_server_session_new(const struct rustls_server_config *config,
-                                             void *userdata,
                                              struct rustls_server_session **session_out);
+
+/**
+ * Set the userdata pointer associated with this session. This will be passed
+ * to any callbacks invoked by the session, if you've set up callbacks in the config.
+ * The pointed-to data must outlive the session.
+ */
+void rustls_server_session_set_userdata(struct rustls_server_session *session, void *userdata);
 
 bool rustls_server_session_wants_read(const struct rustls_server_session *session);
 

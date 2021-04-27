@@ -463,11 +463,13 @@ do_request(const struct rustls_client_config *client_config,
   }
 
   rustls_result result =
-    rustls_client_session_new(client_config, "verify arg", hostname, &client_session);
+    rustls_client_session_new(client_config, hostname, &client_session);
   if(result != RUSTLS_RESULT_OK) {
     print_error("client_session_new", result);
     goto cleanup;
   }
+
+  rustls_client_session_set_userdata(client_session, "verify arg");
 
   ret = send_request_and_read_response(sockfd, client_session, hostname, path);
   if(ret != RUSTLS_RESULT_OK) {
