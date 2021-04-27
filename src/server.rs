@@ -5,12 +5,12 @@ use std::slice;
 use std::sync::Arc;
 use std::{convert::TryInto, ptr::null};
 
-use rustls::{sign::CertifiedKey, SupportedCipherSuite};
+use rustls::{sign::CertifiedKey, Certificate, SupportedCipherSuite};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 use rustls_result::{InvalidParameter, NullParameter};
 
-use crate::cipher::{rustls_certified_key, rustls_supported_ciphersuite};
+use crate::cipher::{rustls_certificate, rustls_certified_key, rustls_supported_ciphersuite};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
@@ -351,6 +351,28 @@ pub extern "C" fn rustls_server_session_get_protocol_version(
         match session.get_protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
+        }
+    }
+}
+
+/// Return the i-th certificate provided by the client. If no client
+/// certificate was exchanged during the handshake, this will always
+/// return NULL.
+/// Otherwise, this will return the chain, starting with the client
+/// certificate itself at index 0, followed by the chain provided.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_peer_certificate(
+    session: *const rustls_server_session,
+    i: size_t,
+) -> *const rustls_certificate {
+    ffi_panic_boundary! {
+        let session: &ServerSession = try_ref_from_ptr!(session);
+        match session.get_peer_certificates() {
+            Some(v) => match v.get(i) {
+                Some(cert) => cert as *const Certificate as *const _,
+                None => null()
+            },
+            None => null()
         }
     }
 }

@@ -12,6 +12,20 @@ use crate::error::rustls_result;
 use crate::{ffi_panic_boundary, try_ref_from_ptr, CastPtr};
 use rustls_result::NullParameter;
 
+/// A X509 certificate, as used in rustls.
+/// Corresponds to `Certificate` in the Rust API.
+/// https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+pub struct rustls_certificate {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+}
+
+impl CastPtr for rustls_certificate {
+    type RustType = Certificate;
+}
+
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.

@@ -104,6 +104,13 @@ typedef enum rustls_tls_version {
 } rustls_tls_version;
 
 /**
+ * A X509 certificate, as used in rustls.
+ * Corresponds to `Certificate` in the Rust API.
+ * https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+ */
+typedef struct rustls_certificate rustls_certificate;
+
+/**
  * The complete chain of certificates to send during a TLS handshake,
  * plus a private key that matches the end-entity (leaf) certificate.
  * Corresponds to `CertifiedKey` in the Rust API.
@@ -812,6 +819,16 @@ bool rustls_server_session_is_handshaking(const struct rustls_server_session *se
  * the u16 version number as defined in the relevant RFC is returned.
  */
 uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
+
+/**
+ * Return the i-th certificate provided by the client. If no client
+ * certificate was exchanged during the handshake, this will always
+ * return NULL.
+ * Otherwise, this will return the chain, starting with the client
+ * certificate itself at index 0, followed by the chain provided.
+ */
+const struct rustls_certificate *rustls_server_session_get_peer_certificate(const struct rustls_server_session *session,
+                                                                            size_t i);
 
 enum rustls_result rustls_server_session_process_new_packets(struct rustls_server_session *session);
 
