@@ -469,7 +469,7 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
-  rustls_client_session_set_userdata(client_session, "verify arg");
+  rustls_client_session_set_userdata(client_session, "verify_arg");
 
   ret = send_request_and_read_response(sockfd, client_session, hostname, path);
   if(ret != RUSTLS_RESULT_OK) {
