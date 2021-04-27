@@ -638,7 +638,7 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
 /// once the TLS client hello message has been received.
-/// `userdata` will be supplied as provided when registering the callback.
+/// `userdata` will be set based on rustls_server_session_set_userdata.
 /// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
 ///
@@ -647,8 +647,6 @@ pub type rustls_client_hello_userdata = *mut c_void;
 ///   callback invocations.
 /// - the passed callback function must be implemented thread-safe, unless
 ///   there is only a single config and session where it is installed.
-/// - `userdata` must live as long as the config object and any sessions
-///   or other config created from that config object.
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
@@ -718,13 +716,14 @@ unsafe impl Sync for ClientHelloResolver {}
 unsafe impl Send for ClientHelloResolver {}
 
 /// Register a callback to be invoked when a session created from this config
-/// is seeing a TLS ClientHello message. The given `userdata` will be passed
-/// to the callback when invoked.
+/// is seeing a TLS ClientHello message. If `userdata` has been set with
+/// rustls_server_session_set_userdata, it will be passed to the callback.
+/// Otherwise the userdata param passed to the callback will be NULL.
 ///
 /// Any existing `ResolvesServerCert` implementation currently installed in the
 /// `rustls_server_config` will be replaced. This also means registering twice
 /// will overwrite the first registration. It is not permitted to pass a NULL
-/// value for `callback`, but it is possible to have `userdata` as NULL.
+/// value for `callback`.
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
@@ -752,8 +751,9 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
-/// `userdata` must live as long as the config object and any sessions
-/// or other config created from that config object.
+/// If `userdata` has been set with rustls_server_session_set_userdata, it
+/// will be passed to the callbacks. Otherwise the userdata param passed to
+/// the callbacks will be NULL.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_persistence(
     builder: *mut rustls_server_config_builder,

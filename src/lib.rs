@@ -19,10 +19,22 @@ mod session;
 
 use crate::panic::PanicOrDefault;
 
+// For C callbacks, we need to offer a `void *userdata` parameter, so the
+// application can associate callbacks with particular pieces of state. We
+// allow setting a userdata pointer on a per-session basis, but the rustls
+// session objects don't offer a way to store a `c_void` attached to a session.
+// So we use thread-locals. Before calling out to rustls code that may call
+// a callback, we set USERDATA for the current thread to the userdata pointer
+// for the current session. Before returning to the C caller, we restore
+// USERDATA to its previous value. Because a C callback may call back into
+// Rust code, we model these thread locals as a stack, so we can always
+// restore the previous version.
 thread_local! {
     pub static USERDATA: RefCell<Vec<*mut c_void>> = RefCell::new(Vec::new());
 }
 
+/// UserdataGuard pops an entry off the USERDATA stack, restoring the
+/// thread-local state to its value previous to the creation of the UserdataGuard.
 pub struct UserdataGuard();
 pub struct UserdataError();
 
