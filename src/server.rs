@@ -342,6 +342,7 @@ pub extern "C" fn rustls_server_session_is_handshaking(
 /// Return the TLS protocol version that has been negotiated. Before this
 /// has been decided during the handshake, this will return 0. Otherwise,
 /// the u16 version number as defined in the relevant RFC is returned.
+/// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
 #[no_mangle]
 pub extern "C" fn rustls_server_session_get_protocol_version(
     session: *const rustls_server_session,
