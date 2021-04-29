@@ -373,10 +373,17 @@ pub extern "C" fn rustls_server_session_process_new_packets(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
-        let _guard = userdata_push(session.userdata);
-        match session.session.process_new_packets() {
+        let guard = match userdata_push(session.userdata) {
+            Ok(g) => g,
+            Err(_) => return rustls_result::Panic,
+        };
+        let result = match session.session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
-            Err(e) => return map_error(e),
+            Err(e) => map_error(e),
+        };
+        match guard.try_drop() {
+            Ok(()) => result,
+            Err(_) => return rustls_result::Panic,
         }
     }
 }
@@ -703,7 +710,11 @@ impl ResolvesServerCert for ClientHelloResolver {
             alpn: &alpn,
         };
         let cb = self.callback;
-        let key_ptr: *const rustls_certified_key = unsafe { cb(userdata_get(), &hello) };
+        let userdata = match userdata_get() {
+            Ok(u) => u,
+            Err(_) => return None,
+        };
+        let key_ptr: *const rustls_certified_key = unsafe { cb(userdata, &hello) };
         let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
         Some(certified_key.clone())
     }

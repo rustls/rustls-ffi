@@ -191,7 +191,10 @@ impl rustls::ServerCertVerifier for Verifier {
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };
-        let result: rustls_result = unsafe { cb(userdata_get(), &params) };
+        let userdata = userdata_get().map_err(|_| {
+            TLSError::General("internal error with thread-local storage".to_string())
+        })?;
+        let result: rustls_result = unsafe { cb(userdata, &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => match result_to_tlserror(&r) {
@@ -423,10 +426,17 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
-        let _guard = userdata_push(session.userdata);
-        match session.session.process_new_packets() {
+        let guard = match userdata_push(session.userdata) {
+            Ok(g) => g,
+            Err(_) => return rustls_result::Panic,
+        };
+        let result = match session.session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
-            Err(e) => return map_error(e),
+            Err(e) => map_error(e),
+        };
+        match guard.try_drop() {
+            Ok(()) => result,
+            Err(_) => return rustls_result::Panic,
         }
     }
 }
