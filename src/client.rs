@@ -59,7 +59,7 @@ pub struct rustls_client_session {
     _private: [u8; 0],
 }
 
-pub struct Sess {
+pub(crate) struct Sess {
     session: ClientSession,
     userdata: *mut c_void,
 }
