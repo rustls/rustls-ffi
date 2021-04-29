@@ -206,12 +206,6 @@ typedef struct rustls_slice_str rustls_slice_str;
 typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
 
 /**
- * User-provided input to a custom certificate verifier callback. See
- * rustls_client_config_builder_dangerous_set_certificate_verifier().
- */
-typedef void *rustls_verify_server_cert_user_data;
-
-/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from crustls to callback functions provided
@@ -228,6 +222,12 @@ typedef struct rustls_slice_bytes {
   const uint8_t *data;
   size_t len;
 } rustls_slice_bytes;
+
+/**
+ * User-provided input to a custom certificate verifier callback. See
+ * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ */
+typedef void *rustls_verify_server_cert_user_data;
 
 /**
  * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
@@ -310,21 +310,6 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  * must be implemented thread-safe.
  */
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
-
-/**
- * Any context information the callback will receive when invoked.
- */
-typedef void *rustls_ocsp_userdata;
-
-/**
- * Prototype of a callback that retrieves OCSP response data (DER format)
- * for the given `certified_key`. The OCSP data has to be copied into the
- * provided `buf`, if it's length is sufficient. The number of copied bytes
- * need to be returned in `out_n`.
- * If `buf` is not of sufficient size, or if not OCSP data is available,
- * `out_n` must be set to 0.
- */
-typedef void (*rustls_ocsp_callback)(rustls_ocsp_userdata userdata, const struct rustls_certified_key *certified_key, uint8_t *buf, size_t buf_len, size_t *out_n);
 
 /**
  * Any context information the callback will receive when invoked.
@@ -445,6 +430,17 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                               const struct rustls_certified_key **certified_key_out);
 
 /**
+ * Create a copy of the rustls_certified_key with the given OCSP response data
+ * as DER encoded bytes. The OCSP response may be given as NULL to clear any
+ * possibly present OCSP data from the cloned key.
+ * The cloned key is independant from its original and needs to be freed
+ * by the application.
+ */
+enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *key,
+                                                        const struct rustls_slice_bytes *ocsp_response,
+                                                        const struct rustls_certified_key **cloned_key_out);
+
+/**
  * "Free" a certified_key previously returned from
  * rustls_certified_key_build. Since certified_key is actually an
  * atomically reference-counted pointer, extant certified_key may still
@@ -520,6 +516,23 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
                                                                      const char *filename);
 
 /**
+ * Set the ALPN protocol list to the given protocols. `protocols` must point
+ * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+ * elements. Each element of the buffer must be a rustls_slice_bytes whose
+ * data field points to a single ALPN protocol ID. Standard ALPN protocol
+ * IDs are defined at
+ * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+ *
+ * This function makes a copy of the data in `protocols` and does not retain
+ * any pointers, so the caller can free the pointed-to memory after calling.
+ *
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#method.set_protocols
+ */
+enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_client_config_builder *builder,
+                                                              const struct rustls_slice_bytes *protocols,
+                                                              size_t len);
+
+/**
  * Enable or disable SNI.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
  */
@@ -552,6 +565,28 @@ bool rustls_client_session_wants_read(const struct rustls_client_session *sessio
 bool rustls_client_session_wants_write(const struct rustls_client_session *session);
 
 bool rustls_client_session_is_handshaking(const struct rustls_client_session *session);
+
+/**
+ * Return the TLS protocol version that has been negotiated. Before this
+ * has been decided during the handshake, this will return 0. Otherwise,
+ * the u16 version number as defined in the relevant RFC is returned.
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+ * https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
+ */
+uint16_t rustls_client_session_get_protocol_version(const struct rustls_client_session *session);
+
+/**
+ * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
+ * borrowed buffer of bytes, and that buffer's len, in the output parameters.
+ * The borrow lives as long as the session.
+ * If the session is still handshaking, or no ALPN protocol was negotiated,
+ * stores NULL and 0 in the output parameters.
+ * https://www.iana.org/assignments/tls-parameters/
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
+ */
+void rustls_client_session_get_alpn_protocol(const struct rustls_client_session *session,
+                                             const uint8_t **protocol_out,
+                                             uintptr_t *protocol_out_len);
 
 enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
@@ -777,9 +812,7 @@ enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_s
  */
 enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
                                                                    const struct rustls_certified_key *const *certified_keys,
-                                                                   size_t certified_keys_len,
-                                                                   rustls_ocsp_callback ocsp_callback,
-                                                                   rustls_ocsp_userdata ocsp_userdata);
+                                                                   size_t certified_keys_len);
 
 /**
  * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
@@ -817,6 +850,7 @@ bool rustls_server_session_is_handshaking(const struct rustls_server_session *se
  * Return the TLS protocol version that has been negotiated. Before this
  * has been decided during the handshake, this will return 0. Otherwise,
  * the u16 version number as defined in the relevant RFC is returned.
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
  */
 uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_session *session);
 
@@ -947,9 +981,7 @@ const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
                                                                    rustls_client_hello_callback callback,
-                                                                   rustls_client_hello_userdata userdata,
-                                                                   rustls_ocsp_callback ocsp_callback,
-                                                                   rustls_ocsp_userdata ocsp_userdata);
+                                                                   rustls_client_hello_userdata userdata);
 
 /**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
