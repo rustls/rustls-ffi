@@ -172,8 +172,5 @@ fn certified_key_build(
         Err(_) => return Err(rustls_result::CertificateParseError),
     };
 
-    Ok(rustls::sign::CertifiedKey::new(
-        parsed_chain,
-        Arc::new(signing_key),
-    ))
+    Ok(rustls::sign::CertifiedKey::new(parsed_chain, signing_key))
 }

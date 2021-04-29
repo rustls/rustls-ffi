@@ -3,12 +3,14 @@ use std::convert::TryInto;
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
+use std::time::SystemTime;
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
-use webpki::DNSNameRef;
+use webpki::DnsNameRef;
 
 use rustls::{
-    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
+    Certificate, ClientConfig, ClientConnection, Connection, Error, RootCertStore,
+    ServerCertVerified,
 };
 
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
@@ -61,7 +63,7 @@ pub struct rustls_client_session {
 }
 
 impl CastPtr for rustls_client_session {
-    type RustType = ClientSession;
+    type RustType = ClientConnection;
 }
 
 /// Create a rustls_client_config_builder. Caller owns the memory and must
@@ -136,6 +138,7 @@ type VerifyCallback = unsafe extern "C" fn(
 
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
+    roots: RootCertStore,
     callback: VerifyCallback,
     userdata: rustls_verify_server_cert_user_data,
 }
@@ -151,39 +154,32 @@ unsafe impl Sync for Verifier {}
 impl rustls::ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
-        roots: &RootCertStore,
-        presented_certs: &[Certificate],
-        dns_name: DNSNameRef<'_>,
+        end_entity: &Certificate,
+        intermediates: &[Certificate],
+        dns_name: DnsNameRef<'_>,
+        scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
-    ) -> Result<ServerCertVerified, TLSError> {
+        now: SystemTime,
+    ) -> Result<ServerCertVerified, Error> {
         let cb = self.callback;
         let dns_name: &str = dns_name.into();
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
-            Err(NulByte {}) => return Err(TLSError::General("NUL byte in SNI".to_string())),
+            Err(NulByte {}) => return Err(Error::General("NUL byte in SNI".to_string())),
         };
-        let mut certificates: Vec<&[u8]> = presented_certs
-            .iter()
-            .map(|cert: &Certificate| cert.as_ref())
+
+        let intermediates: Vec<_> = intermediates
+            .into_iter()
+            .map(|cert| cert.as_ref())
             .collect();
-        // In https://github.com/ctz/rustls/pull/462 (unreleased as of 0.19.0),
-        // rustls changed the verifier API to separate the end entity and intermediates.
-        // We anticipate that API by doing it ourselves.
-        let end_entity = match certificates.pop() {
-            Some(c) => c,
-            None => {
-                return Err(TLSError::General(
-                    "missing end-entity certificate".to_string(),
-                ))
-            }
-        };
+
         let intermediates = rustls_slice_slice_bytes {
-            inner: &*certificates,
+            inner: &*intermediates,
         };
 
         let params = rustls_verify_server_cert_params {
-            roots: (roots as *const RootCertStore) as *const rustls_root_cert_store,
-            end_entity_cert_der: end_entity.into(),
+            roots: (&self.roots as *const RootCertStore) as *const rustls_root_cert_store,
+            end_entity_cert_der: end_entity.as_ref().into(),
             intermediate_certs_der: &intermediates,
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
@@ -193,7 +189,7 @@ impl rustls::ServerCertVerifier for Verifier {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => match result_to_tlserror(&r) {
                 error::Either::TLSError(te) => Err(te),
-                error::Either::String(se) => Err(TLSError::General(se)),
+                error::Either::String(se) => Err(Error::General(se)),
             },
         }
     }
@@ -387,11 +383,11 @@ pub extern "C" fn rustls_client_session_new(
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let name_ref = match webpki::DNSNameRef::try_from_ascii_str(hostname) {
+        let name_ref = match webpki::DnsNameRef::try_from_ascii_str(hostname) {
             Ok(nr) => nr,
-            Err(webpki::InvalidDNSNameError { .. }) => return rustls_result::InvalidDnsNameError,
+            Err(webpki::InvalidDnsNameError { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let client = ClientSession::new(&config, name_ref);
+        let client = ClientConnection::new(&config, name_ref);
 
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
@@ -408,7 +404,7 @@ pub extern "C" fn rustls_client_session_new(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &ClientConnection = try_ref_from_ptr!(session);
         session.wants_read()
     }
 }
@@ -416,7 +412,7 @@ pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &ClientConnection = try_ref_from_ptr!(session);
         session.wants_write()
     }
 }
@@ -426,7 +422,7 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &ClientConnection = try_ref_from_ptr!(session);
         session.is_handshaking()
     }
 }
@@ -441,8 +437,8 @@ pub extern "C" fn rustls_client_session_get_protocol_version(
     session: *const rustls_client_session,
 ) -> u16 {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        match session.get_protocol_version() {
+        let session: &ClientConnection = try_ref_from_ptr!(session);
+        match session.protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
         }
@@ -463,10 +459,10 @@ pub extern "C" fn rustls_client_session_get_alpn_protocol(
     protocol_out_len: *mut usize,
 ) {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &ClientConnection = try_ref_from_ptr!(session);
         let protocol_out = try_mut_from_ptr!(protocol_out);
         let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
-        match session.get_alpn_protocol() {
+        match session.alpn_protocol() {
             Some(p) => {
                 *protocol_out = p.as_ptr();
                 *protocol_out_len = p.len();
@@ -484,9 +480,9 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         match session.process_new_packets() {
-            Ok(()) => rustls_result::Ok,
+            Ok(_) => rustls_result::Ok, // TODO: return `IoState` to the caller?
             Err(e) => return map_error(e),
         }
     }
@@ -497,7 +493,7 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         session.send_close_notify()
     }
 }
@@ -507,7 +503,7 @@ pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_c
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }
     }
@@ -527,7 +523,7 @@ pub extern "C" fn rustls_client_session_write(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         let write_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = unsafe {
             match out_n.as_mut() {
@@ -535,7 +531,7 @@ pub extern "C" fn rustls_client_session_write(
                 None => return NullParameter,
             }
         };
-        let n_written: usize = match session.write(write_buf) {
+        let n_written: usize = match session.writer().write(write_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
         };
@@ -565,11 +561,11 @@ pub extern "C" fn rustls_client_session_read(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         let read_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
-        let n_read: usize = match session.read(read_buf) {
+        let n_read: usize = match session.reader().read(read_buf) {
             Ok(n) => n,
             // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
             // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
@@ -599,7 +595,7 @@ pub extern "C" fn rustls_client_session_read_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         let input_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
@@ -631,7 +627,7 @@ pub extern "C" fn rustls_client_session_write_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut ClientConnection = try_mut_from_ptr!(session);
         let mut output_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
