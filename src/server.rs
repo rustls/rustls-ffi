@@ -226,8 +226,6 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
     builder: *mut rustls_server_config_builder,
     certified_keys: *const *const rustls_certified_key,
     certified_keys_len: size_t,
-    ocsp_callback: rustls_ocsp_callback,
-    ocsp_userdata: rustls_ocsp_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
@@ -243,11 +241,7 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
             };
             keys.push(certified_key);
         }
-        let ocsp = OcspProvider {
-            callback: ocsp_callback,
-            userdata: ocsp_userdata
-        };
-        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&keys, ocsp));
+        config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&keys));
         rustls_result::Ok
     }
 }
@@ -576,14 +570,12 @@ pub extern "C" fn rustls_server_session_get_negotiated_ciphersuite(
 /// the SignatureSchemes supported by the client.
 struct ResolvesServerCertFromChoices {
     choices: Vec<Arc<CertifiedKey>>,
-    ocsp: OcspProvider,
 }
 
 impl ResolvesServerCertFromChoices {
-    pub fn new(choices: &[Arc<CertifiedKey>], ocsp: OcspProvider) -> Self {
+    pub fn new(choices: &[Arc<CertifiedKey>]) -> Self {
         ResolvesServerCertFromChoices {
             choices: Vec::from(choices),
-            ocsp: ocsp,
         }
     }
 }
@@ -592,7 +584,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
     fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
         for key in self.choices.iter() {
             if key.key.choose_scheme(client_hello.sigschemes()).is_some() {
-                return Some(self.ocsp.clone_and_add_ocsp(key.as_ref()));
+                return Some(key.as_ref().clone());
             }
         }
         None
@@ -661,20 +653,14 @@ struct ClientHelloResolver {
     /// from the supplied ClientHello to the callback function.
     pub callback: ClientHelloCallback,
     pub userdata: rustls_client_hello_userdata,
-    pub ocsp: OcspProvider,
 }
 
 impl ClientHelloResolver {
     pub fn new(
         callback: ClientHelloCallback,
         userdata: rustls_client_hello_userdata,
-        ocsp: OcspProvider,
     ) -> ClientHelloResolver {
-        ClientHelloResolver {
-            callback,
-            userdata,
-            ocsp,
-        }
+        ClientHelloResolver { callback, userdata }
     }
 }
 
@@ -706,10 +692,8 @@ impl ResolvesServerCert for ClientHelloResolver {
         };
         let cb = self.callback;
         let key_ptr: *const rustls_certified_key = unsafe { cb(self.userdata, &hello) };
-        if key_ptr.is_null() {
-            return None;
-        }
-        Some(self.ocsp.clone_and_add_ocsp(try_ref_from_ptr!(key_ptr)))
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+        Some(certified_key.clone())
     }
 }
 
@@ -737,8 +721,6 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
     callback: rustls_client_hello_callback,
     userdata: rustls_client_hello_userdata,
-    ocsp_callback: rustls_ocsp_callback,
-    ocsp_userdata: rustls_ocsp_userdata,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let callback: ClientHelloCallback = match callback {
@@ -747,7 +729,7 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
         };
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
         config.cert_resolver = Arc::new(ClientHelloResolver::new(
-            callback, userdata, OcspProvider{ callback: ocsp_callback, userdata: ocsp_userdata },
+            callback, userdata
         ));
         rustls_result::Ok
     }
@@ -782,58 +764,3 @@ pub extern "C" fn rustls_server_config_builder_set_persistence(
         rustls_result::Ok
     }
 }
-
-/// Any context information the callback will receive when invoked.
-pub type rustls_ocsp_userdata = *mut c_void;
-
-/// Prototype of a callback that retrieves OCSP response data (DER format)
-/// for the given `certified_key`. The OCSP data has to be copied into the
-/// provided `buf`, if it's length is sufficient. The number of copied bytes
-/// need to be returned in `out_n`.
-/// If `buf` is not of sufficient size, or if not OCSP data is available,
-/// `out_n` must be set to 0.
-pub type rustls_ocsp_callback = Option<
-    unsafe extern "C" fn(
-        userdata: rustls_ocsp_userdata,
-        certified_key: *const rustls_certified_key,
-        buf: *mut u8,
-        buf_len: size_t,
-        out_n: *mut size_t,
-    ),
->;
-
-struct OcspProvider {
-    callback: rustls_ocsp_callback,
-    userdata: rustls_ocsp_userdata,
-}
-
-impl OcspProvider {
-    pub fn clone_and_add_ocsp(&self, key: &CertifiedKey) -> CertifiedKey {
-        match self.callback {
-            Some(cb) => {
-                let mut buf: Vec<u8> = vec![0; 10 * 1024];
-                let mut out_n: usize = 0;
-                unsafe {
-                    cb(
-                        self.userdata,
-                        (key as *const CertifiedKey) as *const rustls_certified_key,
-                        buf.as_mut_ptr(),
-                        buf.len(),
-                        &mut out_n,
-                    );
-                };
-                if out_n > 0 {
-                    buf.truncate(out_n);
-                    let mut nkey = key.clone();
-                    nkey.ocsp = Some(buf);
-                    return nkey;
-                }
-            }
-            None => (),
-        };
-        return key.clone();
-    }
-}
-
-unsafe impl Sync for OcspProvider {}
-unsafe impl Send for OcspProvider {}
