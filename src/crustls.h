@@ -450,7 +450,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  *
  * The callback must not capture any of the pointers in its
  * rustls_verify_server_cert_params.
- * If `userdata` has been set with rustls_server_session_set_userdata, it
+ * If `userdata` has been set with rustls_client_session_set_userdata, it
  * will be passed to the callback. Otherwise the userdata param passed to
  * the callback will be NULL.
  *
@@ -621,7 +621,7 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
  * keys and values are highly sensitive data, containing enough information
  * to break the security of the sessions involved.
  *
- * If `userdata` has been set with rustls_server_session_set_userdata, it
+ * If `userdata` has been set with rustls_client_session_set_userdata, it
  * will be passed to the callbacks. Otherwise the userdata param passed to
  * the callbacks will be NULL.
  */
