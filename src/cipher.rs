@@ -138,8 +138,7 @@ pub extern "C" fn rustls_certified_key_clone_with_ocsp(
         if !ocsp_response.is_null() {
             let ocsp_slice = unsafe{ &*ocsp_response };
             new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
-        }
-        else {
+        } else {
             new_key.ocsp = None;
         }
         *cloned_key_out = Arc::into_raw(Arc::new(new_key)) as *const _;
