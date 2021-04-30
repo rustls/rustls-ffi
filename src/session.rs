@@ -1,5 +1,6 @@
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
+use crate::userdata_get;
 use libc::{c_int, c_void, size_t};
 
 /// Any context information the callback will receive when invoked.
@@ -8,7 +9,7 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config` or `rustls_client_config`. This callback will be
 /// invoked by a TLS session when looking up the data for a TLS session id.
-/// `userdata` will be supplied as provided when registering the callback.
+/// `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
 ///
 /// The `buf` points to `count` consecutive bytes where the
 /// callback is expected to copy the result to. The number of copied bytes
@@ -53,7 +54,7 @@ pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
 /// `rustls_server_config` or `rustls_client_config`. This callback will be
 /// invoked by a TLS session when a TLS session has been created and an id
 /// for later use is handed to the client/has been received from the server.
-/// `userdata` will be supplied as provided when registering the callback.
+/// `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
 ///
 /// The callback should return != 0 to indicate that the value has been
 /// successfully persisted in its store.
@@ -77,26 +78,18 @@ pub(crate) type SessionStorePutCallback = unsafe extern "C" fn(
 ) -> rustls_result;
 
 pub(crate) struct SessionStoreBroker {
-    pub userdata: rustls_session_store_userdata,
     pub get_cb: SessionStoreGetCallback,
     pub put_cb: SessionStorePutCallback,
 }
 
 impl SessionStoreBroker {
-    pub fn new(
-        userdata: rustls_session_store_userdata,
-        get_cb: SessionStoreGetCallback,
-        put_cb: SessionStorePutCallback,
-    ) -> Self {
-        SessionStoreBroker {
-            userdata,
-            get_cb,
-            put_cb,
-        }
+    pub fn new(get_cb: SessionStoreGetCallback, put_cb: SessionStorePutCallback) -> Self {
+        SessionStoreBroker { get_cb, put_cb }
     }
 
     fn retrieve(&self, key: &[u8], remove: bool) -> Option<Vec<u8>> {
         let key: rustls_slice_bytes = key.into();
+        let userdata = userdata_get().ok()?;
         // This is excessive in size, but the returned data in rustls is
         // only read once and then dropped.
         // See <https://github.com/abetterinternet/crustls/pull/64#issuecomment-800766940>
@@ -105,7 +98,7 @@ impl SessionStoreBroker {
         unsafe {
             let cb = self.get_cb;
             match cb(
-                self.userdata,
+                userdata,
                 &key,
                 remove as c_int,
                 data.as_mut_ptr(),
@@ -125,8 +118,12 @@ impl SessionStoreBroker {
         let key: rustls_slice_bytes = key.as_slice().into();
         let value: rustls_slice_bytes = value.as_slice().into();
         let cb = self.put_cb;
+        let userdata = match userdata_get() {
+            Ok(u) => u,
+            Err(_) => return false,
+        };
         unsafe {
-            match cb(self.userdata, &key, &value) {
+            match cb(userdata, &key, &value) {
                 rustls_result::Ok => true,
                 _ => false,
             }
