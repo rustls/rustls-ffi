@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(userdata_get().unwrap(), hello_ptr);
 
         let thread1 = thread::spawn(|| {
-            let yo = "hello";
+            let yo = "yo";
             let yo_ptr: *mut c_void = yo as *const _ as _;
             let guard2 = userdata_push(yo_ptr).unwrap();
             assert_eq!(userdata_get().unwrap(), yo_ptr);
