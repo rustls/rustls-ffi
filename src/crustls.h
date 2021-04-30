@@ -199,12 +199,6 @@ typedef struct rustls_slice_str rustls_slice_str;
 typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
 
 /**
- * User-provided input to a custom certificate verifier callback. See
- * rustls_client_config_builder_dangerous_set_certificate_verifier().
- */
-typedef void *rustls_verify_server_cert_user_data;
-
-/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from crustls to callback functions provided
@@ -221,6 +215,12 @@ typedef struct rustls_slice_bytes {
   const uint8_t *data;
   size_t len;
 } rustls_slice_bytes;
+
+/**
+ * User-provided input to a custom certificate verifier callback. See
+ * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ */
+typedef void *rustls_verify_server_cert_user_data;
 
 /**
  * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
@@ -421,6 +421,17 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                               const uint8_t *private_key,
                                               size_t private_key_len,
                                               const struct rustls_certified_key **certified_key_out);
+
+/**
+ * Create a copy of the rustls_certified_key with the given OCSP response data
+ * as DER encoded bytes. The OCSP response may be given as NULL to clear any
+ * possibly present OCSP data from the cloned key.
+ * The cloned key is independent from its original and needs to be freed
+ * by the application.
+ */
+enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *key,
+                                                        const struct rustls_slice_bytes *ocsp_response,
+                                                        const struct rustls_certified_key **cloned_key_out);
 
 /**
  * "Free" a certified_key previously returned from
