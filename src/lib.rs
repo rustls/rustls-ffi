@@ -60,25 +60,19 @@ impl UserdataGuard {
     }
 
     fn try_pop(&mut self) -> Result<(), UserdataError> {
-        let expected_data = match self.data {
-            Some(d) => d,
-            None => return Err(UserdataError::AlreadyPopped),
-        };
-        eprintln!("popping");
+        let expected_data = self.data.ok_or(UserdataError::AlreadyPopped)?;
         USERDATA
             .try_with(|userdata| {
                 userdata.try_borrow_mut().map_or_else(
                     |_| Err(UserdataError::AlreadyBorrowed),
-                    |mut v| match v.pop() {
-                        Some(u) => {
-                            self.data = None;
-                            if u == expected_data {
-                                Ok(())
-                            } else {
-                                Err(UserdataError::WrongData)
-                            }
+                    |mut v| {
+                        let u = v.pop().ok_or(UserdataError::EmptyStack)?;
+                        self.data = None;
+                        if u == expected_data {
+                            Ok(())
+                        } else {
+                            Err(UserdataError::WrongData)
                         }
-                        None => Err(UserdataError::EmptyStack),
                     },
                 )
             })

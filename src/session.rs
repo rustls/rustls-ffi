@@ -89,10 +89,7 @@ impl SessionStoreBroker {
 
     fn retrieve(&self, key: &[u8], remove: bool) -> Option<Vec<u8>> {
         let key: rustls_slice_bytes = key.into();
-        let userdata = match userdata_get() {
-            Ok(u) => u,
-            Err(_) => return None,
-        };
+        let userdata = userdata_get().ok()?;
         // This is excessive in size, but the returned data in rustls is
         // only read once and then dropped.
         // See <https://github.com/abetterinternet/crustls/pull/64#issuecomment-800766940>
