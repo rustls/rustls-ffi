@@ -209,7 +209,7 @@ impl rustls::ServerCertVerifier for Verifier {
 ///
 /// The callback must not capture any of the pointers in its
 /// rustls_verify_server_cert_params.
-/// If `userdata` has been set with rustls_server_session_set_userdata, it
+/// If `userdata` has been set with rustls_client_session_set_userdata, it
 /// will be passed to the callback. Otherwise the userdata param passed to
 /// the callback will be NULL.
 ///
@@ -598,7 +598,7 @@ pub extern "C" fn rustls_client_session_write_tls(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
-/// If `userdata` has been set with rustls_server_session_set_userdata, it
+/// If `userdata` has been set with rustls_client_session_set_userdata, it
 /// will be passed to the callbacks. Otherwise the userdata param passed to
 /// the callbacks will be NULL.
 #[no_mangle]
