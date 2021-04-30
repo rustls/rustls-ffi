@@ -426,7 +426,7 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
  * Create a copy of the rustls_certified_key with the given OCSP response data
  * as DER encoded bytes. The OCSP response may be given as NULL to clear any
  * possibly present OCSP data from the cloned key.
- * The cloned key is independant from its original and needs to be freed
+ * The cloned key is independent from its original and needs to be freed
  * by the application.
  */
 enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *key,
