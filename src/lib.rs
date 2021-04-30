@@ -86,7 +86,7 @@ impl Drop for UserdataGuard {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UserdataError {
     /// try_pop was called twice.
     AlreadyPopped,
