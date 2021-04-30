@@ -4,6 +4,13 @@
 
  - (empty)
 
+## 0.4.0 - 2021-04-29
+
+### Added
+
+ - ALPN support for clients (#84)
+ - Enumeration of ciphersuites (#79)
+
 ## 0.4.0 - 2021-03-18
 
 ### Added
