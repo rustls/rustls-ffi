@@ -462,8 +462,8 @@ pub extern "C" fn rustls_client_session_get_protocol_version(
     session: *const rustls_client_session,
 ) -> u16 {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        match session.get_protocol_version() {
+        let session: &Sess = try_ref_from_ptr!(session);
+        match session.session.get_protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
         }
@@ -484,10 +484,10 @@ pub extern "C" fn rustls_client_session_get_alpn_protocol(
     protocol_out_len: *mut usize,
 ) {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &Sess = try_ref_from_ptr!(session);
         let protocol_out = try_mut_from_ptr!(protocol_out);
         let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
-        match session.get_alpn_protocol() {
+        match session.session.get_alpn_protocol() {
             Some(p) => {
                 *protocol_out = p.as_ptr();
                 *protocol_out_len = p.len();
