@@ -638,6 +638,17 @@ pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
     alpn: *const rustls_slice_slice_bytes<'a>,
+    internals: *const rustls_client_hello_internals<'a>,
+}
+
+/// An opaque structure as member of `rustls_client_hello` for
+/// internal book-keeping.
+pub struct rustls_client_hello_internals<'a> {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+    hello: &'a ClientHello<'a>,
 }
 
 /// Any context information the callback will receive when invoked.
@@ -709,6 +720,10 @@ impl ResolvesServerCert for ClientHelloResolver {
             sni_name,
             signature_schemes,
             alpn: &alpn,
+            internals: &rustls_client_hello_internals {
+                _private: [],
+                hello: &client_hello,
+            },
         };
         let cb = self.callback;
         let userdata = match userdata_get() {
@@ -756,6 +771,60 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
             callback
         ));
         rustls_result::Ok
+    }
+}
+
+/// Select a `rustls_certified_key` from the list that is cryptographic compatible
+/// with the client's hello announcements. This does ignore the SNI. It is
+/// the applications responsibility to only present certified keys that are
+/// suitable for the server name indication sent by the client.
+///
+/// Return only RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+/// if none was suitable.
+///
+/// This is intended for servers that are configured with several keys for the
+/// same domain name(s), for example ECDSA and RSA types. The presented keys are
+/// inspected in the order given and keys first in the list are given preference,
+/// all else being equal. However rustls is free to choose whichever it considers
+/// to be the best key with its knowledge about security issues and possible future
+/// extensions of the protocol.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_select_certified_key(
+    hello: *const rustls_client_hello,
+    certified_keys: *const *const rustls_certified_key,
+    certified_keys_len: size_t,
+    out_key: *mut *const rustls_certified_key,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        if hello.is_null() {
+            return NullParameter;
+        }
+        let hello = unsafe { &*hello };
+        if hello.internals.is_null() {
+            return NullParameter;
+        }
+        let internals = unsafe { &*hello.internals };
+        let out_key: &mut *const rustls_certified_key = unsafe {
+            match out_key.as_mut() {
+                Some(out_key) => out_key,
+                None => return NullParameter,
+            }
+        };
+        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+        for &key_ptr in keys_ptrs {
+            let cert_key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+            let key: Arc<CertifiedKey> = unsafe {
+                match (cert_key_ptr as *const CertifiedKey).as_ref() {
+                    Some(c) => arc_with_incref_from_raw(c),
+                    None => return NullParameter,
+                }
+            };
+            if key.key.choose_scheme(internals.hello.sigschemes()).is_some() {
+                *out_key = key_ptr;
+                return rustls_result::Ok;
+            }
+        }
+        rustls_result::NotFound
     }
 }
 
