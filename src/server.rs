@@ -731,13 +731,8 @@ impl ResolvesServerCert for ClientHelloResolver {
             Err(_) => return None,
         };
         let key_ptr: *const rustls_certified_key = unsafe { cb(userdata, &hello) };
-        let certified_key: Arc<CertifiedKey> = unsafe {
-            match (key_ptr as *const CertifiedKey).as_ref() {
-                Some(c) => arc_with_incref_from_raw(c),
-                None => return None,
-            }
-        };
-        Some(certified_key.as_ref().clone())
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+        Some(certified_key.clone())
     }
 }
 
