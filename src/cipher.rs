@@ -10,7 +10,7 @@ use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
-use crate::{arc_with_incref_from_raw, ffi_panic_boundary, try_ref_from_ptr, CastPtr};
+use crate::{arc_with_incref_from_raw, ffi_panic_boundary, try_ref_from_ptr, try_slice, CastPtr};
 use rustls_result::NullParameter;
 use std::ops::Deref;
 
@@ -27,7 +27,6 @@ pub struct rustls_certificate {
 impl CastPtr for rustls_certificate {
     type RustType = Certificate;
 }
-
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
@@ -127,7 +126,7 @@ pub extern "C" fn rustls_certified_key_build(
 /// Create a copy of the rustls_certified_key with the given OCSP response data
 /// as DER encoded bytes. The OCSP response may be given as NULL to clear any
 /// possibly present OCSP data from the cloned key.
-/// The cloned key is independant from its original and needs to be freed
+/// The cloned key is independent from its original and needs to be freed
 /// by the application.
 #[no_mangle]
 pub extern "C" fn rustls_certified_key_clone_with_ocsp(
@@ -148,17 +147,14 @@ pub extern "C" fn rustls_certified_key_clone_with_ocsp(
                 None => return NullParameter,
             }
         };
-        let mut nkey = certified_key.deref().clone();
+        let mut new_key = certified_key.deref().clone();
         if !ocsp_response.is_null() {
-            unsafe {
-                nkey.ocsp = Some(Vec::from(slice::from_raw_parts((*ocsp_response).data, (*ocsp_response).len)));
-            }
+            let ocsp_slice = unsafe{ &*ocsp_response };
+            new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
+        } else {
+            new_key.ocsp = None;
         }
-        else {
-            nkey.ocsp = None;
-        }
-        let ncertified_key = Arc::into_raw(Arc::new(nkey)) as *const _;
-        *cloned_key_out = ncertified_key;
+        *cloned_key_out = Arc::into_raw(Arc::new(new_key)) as *const _;
         return rustls_result::Ok
     }
 }

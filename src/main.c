@@ -469,6 +469,8 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
+  rustls_client_session_set_userdata(client_session, "verify_arg");
+
   ret = send_request_and_read_response(sockfd, client_session, hostname, path);
   if(ret != RUSTLS_RESULT_OK) {
     goto cleanup;
@@ -543,8 +545,7 @@ main(int argc, const char **argv)
   }
 
   if(getenv("NO_CHECK_CERTIFICATE")) {
-    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify,
-      "verify_arg");
+    rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify);
   }
 
   rustls_client_config_builder_set_protocols(config_builder, &alpn_http11, 1);

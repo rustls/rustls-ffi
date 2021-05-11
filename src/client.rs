@@ -1,8 +1,8 @@
-use libc::{c_char, size_t};
-use std::convert::TryInto;
+use libc::{c_char, c_void, size_t};
 use std::io::{BufReader, Cursor, Read, Write};
 use std::ptr::null;
 use std::slice;
+use std::{convert::TryInto, ptr::null_mut};
 use std::{ffi::CStr, sync::Arc};
 use std::{ffi::OsStr, fs::File};
 use webpki::DNSNameRef;
@@ -14,13 +14,13 @@ use rustls::{
 use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
-    rustls_session_store_get_callback, rustls_session_store_put_callback,
-    rustls_session_store_userdata, SessionStoreBroker, SessionStoreGetCallback,
-    SessionStorePutCallback,
+    rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
+    SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
-    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, CastPtr,
+    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, userdata_get, userdata_push,
+    CastPtr,
 };
 use rustls_result::NullParameter;
 
@@ -60,8 +60,13 @@ pub struct rustls_client_session {
     _private: [u8; 0],
 }
 
+pub(crate) struct Sess {
+    session: ClientSession,
+    userdata: *mut c_void,
+}
+
 impl CastPtr for rustls_client_session {
-    type RustType = ClientSession;
+    type RustType = Sess;
 }
 
 /// Create a rustls_client_config_builder. Caller owns the memory and must
@@ -137,7 +142,6 @@ type VerifyCallback = unsafe extern "C" fn(
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
     callback: VerifyCallback,
-    userdata: rustls_verify_server_cert_user_data,
 }
 
 /// Safety: Verifier is Send because we don't allocate or deallocate any of its
@@ -188,7 +192,10 @@ impl rustls::ServerCertVerifier for Verifier {
             dns_name: dns_name.into(),
             ocsp_response: ocsp_response.into(),
         };
-        let result: rustls_result = unsafe { cb(self.userdata, &params) };
+        let userdata = userdata_get().map_err(|_| {
+            TLSError::General("internal error with thread-local storage".to_string())
+        })?;
+        let result: rustls_result = unsafe { cb(userdata, &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => match result_to_tlserror(&r) {
@@ -201,10 +208,11 @@ impl rustls::ServerCertVerifier for Verifier {
 
 /// Set a custom server certificate verifier.
 ///
-/// The userdata pointer must stay valid until (a) all sessions created with this
-/// config have been freed, and (b) the config itself has been freed.
 /// The callback must not capture any of the pointers in its
 /// rustls_verify_server_cert_params.
+/// If `userdata` has been set with rustls_client_session_set_userdata, it
+/// will be passed to the callback. Otherwise the userdata param passed to
+/// the callback will be NULL.
 ///
 /// The callback must be safe to call on any thread at any time, including
 /// multiple concurrent calls. So, for instance, if the callback mutates
@@ -234,7 +242,6 @@ impl rustls::ServerCertVerifier for Verifier {
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     config: *mut rustls_client_config_builder,
     callback: rustls_verify_server_cert_callback,
-    userdata: rustls_verify_server_cert_user_data,
 ) {
     ffi_panic_boundary! {
         let callback: VerifyCallback = match callback {
@@ -242,7 +249,7 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
             None => return,
         };
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
-        let verifier: Verifier = Verifier{callback: callback, userdata};
+        let verifier: Verifier = Verifier{callback: callback};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
     }
 }
@@ -391,33 +398,47 @@ pub extern "C" fn rustls_client_session_new(
             Ok(nr) => nr,
             Err(webpki::InvalidDNSNameError { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let client = ClientSession::new(&config, name_ref);
 
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let b = Box::new(client);
+        let c = Sess {
+            session: ClientSession::new(&config, name_ref),
+            userdata: null_mut(),
+        };
         unsafe {
-            *session_out = Box::into_raw(b) as *mut _;
+            *session_out = Box::into_raw(Box::new(c)) as *mut _;
         }
 
         return rustls_result::Ok;
     }
 }
 
+/// Set the userdata pointer associated with this session. This will be passed
+/// to any callbacks invoked by the session, if you've set up callbacks in the config.
+/// The pointed-to data must outlive the session.
+#[no_mangle]
+pub extern "C" fn rustls_client_session_set_userdata(
+    session: *mut rustls_client_session,
+    userdata: *mut c_void,
+) {
+    let session: &mut Sess = try_mut_from_ptr!(session);
+    session.userdata = userdata;
+}
+
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        session.wants_read()
+        let session: &Sess = try_ref_from_ptr!(session);
+        session.session.wants_read()
     }
 }
 
 #[no_mangle]
 pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        session.wants_write()
+        let session: &Sess = try_ref_from_ptr!(session);
+        session.session.wants_write()
     }
 }
 
@@ -426,8 +447,8 @@ pub extern "C" fn rustls_client_session_is_handshaking(
     session: *const rustls_client_session,
 ) -> bool {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        session.is_handshaking()
+        let session: &Sess = try_ref_from_ptr!(session);
+        session.session.is_handshaking()
     }
 }
 
@@ -441,8 +462,8 @@ pub extern "C" fn rustls_client_session_get_protocol_version(
     session: *const rustls_client_session,
 ) -> u16 {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
-        match session.get_protocol_version() {
+        let session: &Sess = try_ref_from_ptr!(session);
+        match session.session.get_protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
         }
@@ -463,10 +484,10 @@ pub extern "C" fn rustls_client_session_get_alpn_protocol(
     protocol_out_len: *mut usize,
 ) {
     ffi_panic_boundary! {
-        let session: &ClientSession = try_ref_from_ptr!(session);
+        let session: &Sess = try_ref_from_ptr!(session);
         let protocol_out = try_mut_from_ptr!(protocol_out);
         let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
-        match session.get_alpn_protocol() {
+        match session.session.get_alpn_protocol() {
             Some(p) => {
                 *protocol_out = p.as_ptr();
                 *protocol_out_len = p.len();
@@ -484,10 +505,18 @@ pub extern "C" fn rustls_client_session_process_new_packets(
     session: *mut rustls_client_session,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
-        match session.process_new_packets() {
+        let session: &mut Sess = try_mut_from_ptr!(session);
+        let guard = match userdata_push(session.userdata) {
+            Ok(g) => g,
+            Err(_) => return rustls_result::Panic,
+        };
+        let result = match session.session.process_new_packets() {
             Ok(()) => rustls_result::Ok,
-            Err(e) => return map_error(e),
+            Err(e) => map_error(e),
+        };
+        match guard.try_drop() {
+            Ok(()) => result,
+            Err(_) => return rustls_result::Panic,
         }
     }
 }
@@ -497,8 +526,8 @@ pub extern "C" fn rustls_client_session_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
-        session.send_close_notify()
+        let session: &mut Sess = try_mut_from_ptr!(session);
+        session.session.send_close_notify()
     }
 }
 
@@ -507,7 +536,7 @@ pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_c
 #[no_mangle]
 pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut Sess = try_mut_from_ptr!(session);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(session); }
     }
@@ -527,7 +556,7 @@ pub extern "C" fn rustls_client_session_write(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut Sess = try_mut_from_ptr!(session);
         let write_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = unsafe {
             match out_n.as_mut() {
@@ -535,7 +564,7 @@ pub extern "C" fn rustls_client_session_write(
                 None => return NullParameter,
             }
         };
-        let n_written: usize = match session.write(write_buf) {
+        let n_written: usize = match session.session.write(write_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
         };
@@ -565,11 +594,11 @@ pub extern "C" fn rustls_client_session_read(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut Sess = try_mut_from_ptr!(session);
         let read_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
-        let n_read: usize = match session.read(read_buf) {
+        let n_read: usize = match session.session.read(read_buf) {
             Ok(n) => n,
             // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
             // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
@@ -599,12 +628,12 @@ pub extern "C" fn rustls_client_session_read_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut Sess = try_mut_from_ptr!(session);
         let input_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
         let mut cursor = Cursor::new(input_buf);
-        let n_read: usize = match session.read_tls(&mut cursor) {
+        let n_read: usize = match session.session.read_tls(&mut cursor) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
         };
@@ -631,11 +660,11 @@ pub extern "C" fn rustls_client_session_write_tls(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let session: &mut ClientSession = try_mut_from_ptr!(session);
+        let session: &mut Sess = try_mut_from_ptr!(session);
         let mut output_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
-        let n_written: usize = match session.write_tls(&mut output_buf) {
+        let n_written: usize = match session.session.write_tls(&mut output_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
         };
@@ -649,13 +678,12 @@ pub extern "C" fn rustls_client_session_write_tls(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
-/// `userdata` must live as long as the config object and any sessions
-/// or other config created from that config object.
-///
+/// If `userdata` has been set with rustls_client_session_set_userdata, it
+/// will be passed to the callbacks. Otherwise the userdata param passed to
+/// the callbacks will be NULL.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_persistence(
     builder: *mut rustls_client_config_builder,
-    userdata: rustls_session_store_userdata,
     get_cb: rustls_session_store_get_callback,
     put_cb: rustls_session_store_put_callback,
 ) -> rustls_result {
@@ -670,7 +698,7 @@ pub extern "C" fn rustls_client_config_builder_set_persistence(
         };
         let config: &mut ClientConfig = try_mut_from_ptr!(builder);
         config.set_persistence(Arc::new(SessionStoreBroker::new(
-            userdata, get_cb, put_cb
+            get_cb, put_cb
         )));
         rustls_result::Ok
     }

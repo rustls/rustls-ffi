@@ -136,6 +136,12 @@ typedef struct rustls_client_config rustls_client_config;
  */
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
+/**
+ * An opaque structure as member of `rustls_client_hello` for
+ * internal book-keeping.
+ */
+typedef struct rustls_client_hello_internals rustls_client_hello_internals;
+
 typedef struct rustls_client_session rustls_client_session;
 
 /**
@@ -270,7 +276,7 @@ typedef void *rustls_session_store_userdata;
  * Prototype of a callback that can be installed by the application at the
  * `rustls_server_config` or `rustls_client_config`. This callback will be
  * invoked by a TLS session when looking up the data for a TLS session id.
- * `userdata` will be supplied as provided when registering the callback.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
  *
  * The `buf` points to `count` consecutive bytes where the
  * callback is expected to copy the result to. The number of copied bytes
@@ -299,7 +305,7 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  * `rustls_server_config` or `rustls_client_config`. This callback will be
  * invoked by a TLS session when a TLS session has been created and an id
  * for later use is handed to the client/has been received from the server.
- * `userdata` will be supplied as provided when registering the callback.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
  *
  * The callback should return != 0 to indicate that the value has been
  * successfully persisted in its store.
@@ -356,13 +362,14 @@ typedef struct rustls_client_hello {
   struct rustls_str sni_name;
   struct rustls_slice_u16 signature_schemes;
   const struct rustls_slice_slice_bytes *alpn;
+  const struct rustls_client_hello_internals *internals;
 } rustls_client_hello;
 
 /**
  * Prototype of a callback that can be installed by the application at the
  * `rustls_server_config`. This callback will be invoked by a `rustls_server_session`
  * once the TLS client hello message has been received.
- * `userdata` will be supplied as provided when registering the callback.
+ * `userdata` will be set based on rustls_server_session_set_userdata.
  * `hello` gives the value of the available client announcements, as interpreted
  * by rustls. See the definition of `rustls_client_hello` for details.
  *
@@ -371,8 +378,6 @@ typedef struct rustls_client_hello {
  *   callback invocations.
  * - the passed callback function must be implemented thread-safe, unless
  *   there is only a single config and session where it is installed.
- * - `userdata` must live as long as the config object and any sessions
- *   or other config created from that config object.
  *
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
@@ -433,7 +438,7 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
  * Create a copy of the rustls_certified_key with the given OCSP response data
  * as DER encoded bytes. The OCSP response may be given as NULL to clear any
  * possibly present OCSP data from the cloned key.
- * The cloned key is independant from its original and needs to be freed
+ * The cloned key is independent from its original and needs to be freed
  * by the application.
  */
 enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *key,
@@ -468,10 +473,11 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
 /**
  * Set a custom server certificate verifier.
  *
- * The userdata pointer must stay valid until (a) all sessions created with this
- * config have been freed, and (b) the config itself has been freed.
  * The callback must not capture any of the pointers in its
  * rustls_verify_server_cert_params.
+ * If `userdata` has been set with rustls_client_session_set_userdata, it
+ * will be passed to the callback. Otherwise the userdata param passed to
+ * the callback will be NULL.
  *
  * The callback must be safe to call on any thread at any time, including
  * multiple concurrent calls. So, for instance, if the callback mutates
@@ -499,8 +505,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
 void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                     rustls_verify_server_cert_callback callback,
-                                                                     rustls_verify_server_cert_user_data userdata);
+                                                                     rustls_verify_server_cert_callback callback);
 
 /**
  * Add certificates from platform's native root store, using
@@ -559,6 +564,13 @@ void rustls_client_config_free(const struct rustls_client_config *config);
 enum rustls_result rustls_client_session_new(const struct rustls_client_config *config,
                                              const char *hostname,
                                              struct rustls_client_session **session_out);
+
+/**
+ * Set the userdata pointer associated with this session. This will be passed
+ * to any callbacks invoked by the session, if you've set up callbacks in the config.
+ * The pointed-to data must outlive the session.
+ */
+void rustls_client_session_set_userdata(struct rustls_client_session *session, void *userdata);
 
 bool rustls_client_session_wants_read(const struct rustls_client_session *session);
 
@@ -673,12 +685,11 @@ enum rustls_result rustls_client_session_write_tls(struct rustls_client_session 
  * keys and values are highly sensitive data, containing enough information
  * to break the security of the sessions involved.
  *
- * `userdata` must live as long as the config object and any sessions
- * or other config created from that config object.
- *
+ * If `userdata` has been set with rustls_client_session_set_userdata, it
+ * will be passed to the callbacks. Otherwise the userdata param passed to
+ * the callbacks will be NULL.
  */
 enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 
@@ -840,6 +851,13 @@ void rustls_server_config_free(const struct rustls_server_config *config);
 enum rustls_result rustls_server_session_new(const struct rustls_server_config *config,
                                              struct rustls_server_session **session_out);
 
+/**
+ * Set the userdata pointer associated with this session. This will be passed
+ * to any callbacks invoked by the session, if you've set up callbacks in the config.
+ * The pointed-to data must outlive the session.
+ */
+void rustls_server_session_set_userdata(struct rustls_server_session *session, void *userdata);
+
 bool rustls_server_session_wants_read(const struct rustls_server_session *session);
 
 bool rustls_server_session_wants_write(const struct rustls_server_session *session);
@@ -966,13 +984,14 @@ const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_
 
 /**
  * Register a callback to be invoked when a session created from this config
- * is seeing a TLS ClientHello message. The given `userdata` will be passed
- * to the callback when invoked.
+ * is seeing a TLS ClientHello message. If `userdata` has been set with
+ * rustls_server_session_set_userdata, it will be passed to the callback.
+ * Otherwise the userdata param passed to the callback will be NULL.
  *
  * Any existing `ResolvesServerCert` implementation currently installed in the
  * `rustls_server_config` will be replaced. This also means registering twice
  * will overwrite the first registration. It is not permitted to pass a NULL
- * value for `callback`, but it is possible to have `userdata` as NULL.
+ * value for `callback`.
  *
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
@@ -980,19 +999,39 @@ const struct rustls_supported_ciphersuite *rustls_server_session_get_negotiated_
  * and vice versa. Same holds true for the set_single_cert variant.
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
-                                                                   rustls_client_hello_callback callback,
-                                                                   rustls_client_hello_userdata userdata);
+                                                                   rustls_client_hello_callback callback);
+
+/**
+ * Select a `rustls_certified_key` from the list that is cryptographic compatible
+ * with the client's hello announcements. This does ignore the SNI. It is
+ * the applications responsibility to only present certified keys that are
+ * suitable for the server name indication sent by the client.
+ *
+ * Return only RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+ * if none was suitable.
+ *
+ * This is intended for servers that are configured with several keys for the
+ * same domain name(s), for example ECDSA and RSA types. The presented keys are
+ * inspected in the order given and keys first in the list are given preference,
+ * all else being equal. However rustls is free to choose whichever it considers
+ * to be the best key with its knowledge about security issues and possible future
+ * extensions of the protocol.
+ */
+enum rustls_result rustls_server_session_select_certified_key(const struct rustls_client_hello *hello,
+                                                              const struct rustls_certified_key *const *certified_keys,
+                                                              size_t certified_keys_len,
+                                                              const struct rustls_certified_key **out_key);
 
 /**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
  * keys and values are highly sensitive data, containing enough information
  * to break the security of the sessions involved.
  *
- * `userdata` must live as long as the config object and any sessions
- * or other config created from that config object.
+ * If `userdata` has been set with rustls_server_session_set_userdata, it
+ * will be passed to the callbacks. Otherwise the userdata param passed to
+ * the callbacks will be NULL.
  */
 enum rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
-                                                                rustls_session_store_userdata userdata,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
 
