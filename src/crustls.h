@@ -145,10 +145,22 @@ typedef struct rustls_client_hello_internals rustls_client_hello_internals;
 typedef struct rustls_client_session rustls_client_session;
 
 /**
- * Currently just a placeholder with no accessors yet.
+ * A root cert store that is done being constructed and is now read-only.
+ * Under the hood, this object corresponds to an Arc<RootCertStore>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
  */
 typedef struct rustls_root_cert_store rustls_root_cert_store;
+
+/**
+ * A root cert store being constructed. A builder can be modified by,
+ * e.g. rustls_root_cert_store_builder_new_add_pem. Once you're
+ * done adding certificates, call rustls_root_cert_store_builder_build
+ * to turn it into a *rustls_root_cert_store. This object is not safe
+ * for concurrent mutation. Under the hood, it corresponds to a
+ * Box<RootCertStore>.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
+ */
+typedef struct rustls_root_cert_store_builder rustls_root_cert_store_builder;
 
 /**
  * A server config that is done being constructed and is now read-only.
@@ -456,6 +468,59 @@ enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_cert
 void rustls_certified_key_free(const struct rustls_certified_key *key);
 
 /**
+ * Create a rustls_root_cert_store_builder. Caller owns the memory and must
+ * eventually call rustls_root_cert_store_builder_build, then free the
+ * resulting rustls_root_cert_store. This starts out empty.
+ * Caller must add root certificates with rustls_root_cert_store_builder_new_add_pem.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html#method.empty
+ */
+struct rustls_root_cert_store_builder *rustls_root_cert_store_builder_new(void);
+
+/**
+ * Add one or more certificates to the root cert store being build
+ * using PEM encorded data.
+ *
+ * Unless `strict` is `true`, the parsing will ignore ill-formatted data
+ * and invalid certificate silently. With ´strict` as `true` any error will
+ * return a `CertificateParseError` result. Same, when no certificates could
+ * be detected in the presented data.
+ * (Note that this operation is not atomic. Certificates might already have been
+ * added before the error was encountered.)
+ *
+ * The `strict` behaviours reflect the difference in requirement and quality of
+ * root certificate collections used to verify server or client certificates.
+ */
+enum rustls_result rustls_root_cert_store_builder_add_pem(struct rustls_root_cert_store_builder *builder,
+                                                          const uint8_t *pem,
+                                                          size_t pem_len,
+                                                          bool strict);
+
+/**
+ * Turn a *rustls_root_cert_store_builder (mutable) into a *rustls_root_cert_store
+ * (read-only).
+ */
+const struct rustls_root_cert_store *rustls_root_cert_store_builder_build(struct rustls_root_cert_store_builder *builder);
+
+/**
+ * "Free" a rustls_root_cert_store_builder before transmogrifying it into a
+ * rustls_root_cert_store_builder.
+ * Normally builders are consumed to root stores via `rustls_root_cert_store_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a store has to be aborted before it was created.
+ */
+void rustls_root_cert_store_builder_free(struct rustls_root_cert_store_builder *builder);
+
+/**
+ * "Free" a rustls_root_cert_store previously returned from
+ * rustls_root_cert_store_builder_build. Since rustls_root_cert_store is actually an
+ * atomically reference-counted pointer, extant rustls_root_cert_store may still
+ * hold an internal reference to the Rust object. However, C code must
+ * consider this pointer unusable after "free"ing it.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_root_cert_store_free(const struct rustls_root_cert_store *store);
+
+/**
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
  * resulting rustls_client_config. This starts out with no trusted roots.
@@ -739,6 +804,10 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
  */
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
+
+enum rustls_result rustls_server_config_builder_for_client_auth(const struct rustls_root_cert_store *root_store,
+                                                                bool mandatory,
+                                                                struct rustls_server_config_builder **out_builder);
 
 /**
  * "Free" a server_config_builder before transmogrifying it into a server_config.

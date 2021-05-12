@@ -6,11 +6,16 @@ use std::{convert::TryInto, ptr::null};
 use std::{ffi::c_void, ptr::null_mut};
 
 use rustls::{sign::CertifiedKey, Certificate, SupportedCipherSuite};
-use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
-use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
+use rustls::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
+    ServerConfig, ServerSession, Session,
+};
+use rustls::{ResolvesServerCert, RootCertStore, ALL_CIPHERSUITES};
 use rustls_result::{InvalidParameter, NullParameter};
 
-use crate::cipher::{rustls_certificate, rustls_certified_key, rustls_supported_ciphersuite};
+use crate::cipher::{
+    rustls_certificate, rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite,
+};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
@@ -80,6 +85,36 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
         let config = rustls::ServerConfig::new(Arc::new(NoClientAuth));
         let b = Box::new(config);
         Box::into_raw(b) as *mut _
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_for_client_auth(
+    root_store: *const rustls_root_cert_store,
+    mandatory: bool,
+    out_builder: *mut *mut rustls_server_config_builder,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let store: Arc<RootCertStore> = unsafe {
+            match (root_store as *const RootCertStore).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return NullParameter,
+            }
+        };
+        let out_builder: &mut *mut rustls_server_config_builder = unsafe {
+            match out_builder.as_mut() {
+                Some(out_builder) => out_builder,
+                None => return NullParameter,
+            }
+        };
+        let verifier = match mandatory {
+          true => AllowAnyAuthenticatedClient::new(store.as_ref().clone()),
+          false => AllowAnyAnonymousOrAuthenticatedClient::new(store.as_ref().clone()),
+        };
+        let config = rustls::ServerConfig::new(verifier);
+        let b = Box::new(config);
+        *out_builder = Box::into_raw(b) as *mut rustls_server_config_builder;
+        rustls_result::Ok
     }
 }
 
