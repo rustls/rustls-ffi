@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::{convert::TryInto, ptr::null};
 use std::{ffi::c_void, ptr::null_mut};
 
-use rustls::{sign::CertifiedKey, SupportedCipherSuite};
+use rustls::{sign::CertifiedKey, SignatureScheme, SupportedCipherSuite};
 use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 use rustls_result::{InvalidParameter, NullParameter};
@@ -640,6 +640,10 @@ pub struct rustls_client_hello<'a> {
     alpn: *const rustls_slice_slice_bytes<'a>,
 }
 
+impl<'a> CastPtr for rustls_client_hello<'a> {
+    type RustType = rustls_client_hello<'a>;
+}
+
 /// Any context information the callback will receive when invoked.
 pub type rustls_client_hello_userdata = *mut c_void;
 
@@ -756,6 +760,73 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
             callback
         ));
         rustls_result::Ok
+    }
+}
+
+// Turn a slice of u16's into a vec of SignatureScheme as needed by rustls.
+fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
+    use rustls::SignatureScheme::*;
+    input
+        .iter()
+        .map(|n| match n {
+            // TODO: Once rustls 0.20.0+ is released, we can use `.into()` instead of this match.
+            0x0201 => RSA_PKCS1_SHA1,
+            0x0203 => ECDSA_SHA1_Legacy,
+            0x0401 => RSA_PKCS1_SHA256,
+            0x0403 => ECDSA_NISTP256_SHA256,
+            0x0501 => RSA_PKCS1_SHA384,
+            0x0503 => ECDSA_NISTP384_SHA384,
+            0x0601 => RSA_PKCS1_SHA512,
+            0x0603 => ECDSA_NISTP521_SHA512,
+            0x0804 => RSA_PSS_SHA256,
+            0x0805 => RSA_PSS_SHA384,
+            0x0806 => RSA_PSS_SHA512,
+            0x0807 => ED25519,
+            0x0808 => ED448,
+            n => SignatureScheme::Unknown(*n),
+        })
+        .collect()
+}
+
+/// Select a `rustls_certified_key` from the list that matches the cryptographic
+/// parameters of a TLS client hello. Note that this does not do any SNI matching.
+/// The input certificates should already have been filtered to ones matching the
+/// SNI from the client hello.
+///
+/// This is intended for servers that are configured with several keys for the
+/// same domain name(s), for example ECDSA and RSA types. The presented keys are
+/// inspected in the order given and keys first in the list are given preference,
+/// all else being equal. However rustls is free to choose whichever it considers
+/// to be the best key with its knowledge about security issues and possible future
+/// extensions of the protocol.
+///
+/// Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+/// if none was suitable.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_select_certified_key(
+    hello: *const rustls_client_hello,
+    certified_keys: *const *const rustls_certified_key,
+    certified_keys_len: size_t,
+    out_key: *mut *const rustls_certified_key,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let hello = try_ref_from_ptr!(hello);
+        let schemes: Vec<SignatureScheme> = sigschemes(try_slice!(hello.signature_schemes.data, hello.signature_schemes.len));
+        let out_key: &mut *const rustls_certified_key = unsafe {
+            match out_key.as_mut() {
+                Some(out_key) => out_key,
+                None => return NullParameter,
+            }
+        };
+        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+        for &key_ptr in keys_ptrs {
+            let key_ref: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+            if key_ref.key.choose_scheme(&schemes).is_some() {
+                *out_key = key_ptr;
+                return rustls_result::Ok;
+            }
+        }
+        rustls_result::NotFound
     }
 }
 

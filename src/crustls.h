@@ -978,6 +978,27 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
                                                                    rustls_client_hello_callback callback);
 
 /**
+ * Select a `rustls_certified_key` from the list that matches the cryptographic
+ * parameters of a TLS client hello. Note that this does not do any SNI matching.
+ * The input certificates should already have been filtered to ones matching the
+ * SNI from the client hello.
+ *
+ * This is intended for servers that are configured with several keys for the
+ * same domain name(s), for example ECDSA and RSA types. The presented keys are
+ * inspected in the order given and keys first in the list are given preference,
+ * all else being equal. However rustls is free to choose whichever it considers
+ * to be the best key with its knowledge about security issues and possible future
+ * extensions of the protocol.
+ *
+ * Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+ * if none was suitable.
+ */
+enum rustls_result rustls_server_session_select_certified_key(const struct rustls_client_hello *hello,
+                                                              const struct rustls_certified_key *const *certified_keys,
+                                                              size_t certified_keys_len,
+                                                              const struct rustls_certified_key **out_key);
+
+/**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
  * keys and values are highly sensitive data, containing enough information
  * to break the security of the sessions involved.
