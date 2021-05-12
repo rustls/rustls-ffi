@@ -129,12 +129,6 @@ typedef struct rustls_client_config rustls_client_config;
  */
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
-/**
- * An opaque structure as member of `rustls_client_hello` for
- * internal book-keeping.
- */
-typedef struct rustls_client_hello_internals rustls_client_hello_internals;
-
 typedef struct rustls_client_session rustls_client_session;
 
 /**
@@ -355,7 +349,6 @@ typedef struct rustls_client_hello {
   struct rustls_str sni_name;
   struct rustls_slice_u16 signature_schemes;
   const struct rustls_slice_slice_bytes *alpn;
-  const struct rustls_client_hello_internals *internals;
 } rustls_client_hello;
 
 /**
@@ -985,13 +978,10 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
                                                                    rustls_client_hello_callback callback);
 
 /**
- * Select a `rustls_certified_key` from the list that is cryptographic compatible
- * with the client's hello announcements. This does ignore the SNI. It is
- * the applications responsibility to only present certified keys that are
- * suitable for the server name indication sent by the client.
- *
- * Return only RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
- * if none was suitable.
+ * Select a `rustls_certified_key` from the list that matches the cryptographic
+ * parameters of a TLS client hello. Note that this does not do any SNI matching.
+ * The input certificates should already have been filtered to ones matching the
+ * SNI from the client hello.
  *
  * This is intended for servers that are configured with several keys for the
  * same domain name(s), for example ECDSA and RSA types. The presented keys are
@@ -999,6 +989,9 @@ enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls
  * all else being equal. However rustls is free to choose whichever it considers
  * to be the best key with its knowledge about security issues and possible future
  * extensions of the protocol.
+ *
+ * Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+ * if none was suitable.
  */
 enum rustls_result rustls_server_session_select_certified_key(const struct rustls_client_hello *hello,
                                                               const struct rustls_certified_key *const *certified_keys,
