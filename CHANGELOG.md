@@ -1,10 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (unreleased)
 
- - (empty)
+### Added
 
-## 0.4.0 - 2021-04-29
+ - Add clone with OCSP for certified key (#85)
+ - Make userdata a per-session config (#86). This makes it so callbacks
+   can receive data associated with a specific TLS connection, whereas
+   before they would receive data associated with a connection config
+   (which might be shared across multiple connections).
+
+### Changed
+
+ - rustls_client_session_read_tls, rustls_client_session_write_tls,
+   rustls_server_session_read_tls, and rustls_server_session_write_tls
+   take a callback rather than copying bytes into a buffer. This can simplify
+   user code significantly and in particular makes it harder for user code
+   to accidentally drop bytes from the buffer. This introduces a new
+   rustls_io_error type that is an alias for c_int. It wraps a value from
+   `errno`. Both the updated read/write functions and the callbacks they
+   receive return rustls_io_error.
+
+## 0.5.0 - 2021-04-29
 
 ### Added
 
