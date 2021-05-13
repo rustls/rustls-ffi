@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -387,7 +388,7 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
 /**
  * Return the length of rustls' list of supported cipher suites.
  */
-uintptr_t rustls_all_ciphersuites_len(void);
+size_t rustls_all_ciphersuites_len(void);
 
 /**
  * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
@@ -584,7 +585,7 @@ uint16_t rustls_client_session_get_protocol_version(const struct rustls_client_s
  */
 void rustls_client_session_get_alpn_protocol(const struct rustls_client_session *session,
                                              const uint8_t **protocol_out,
-                                             uintptr_t *protocol_out_len);
+                                             size_t *protocol_out_len);
 
 enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
