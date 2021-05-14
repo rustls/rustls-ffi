@@ -2,7 +2,7 @@ use std::io::{Error, Read, Result, Write};
 
 use libc::{c_void, size_t};
 
-use crate::{error::rustls_io_error, userdata_get};
+use crate::error::rustls_io_error;
 
 /// A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
 /// An implementation of this callback should attempt to read up to n bytes from the
@@ -30,15 +30,16 @@ pub(crate) type ReadCallback = unsafe extern "C" fn(
     out_n: *mut usize,
 ) -> rustls_io_error;
 
-pub(crate) struct CallbackReader(pub(crate) ReadCallback);
+pub(crate) struct CallbackReader {
+    pub callback: ReadCallback,
+    pub userdata: *mut c_void,
+}
 
 impl Read for CallbackReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let userdata = userdata_get().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "internal error getting userdata")
-        })?;
         let mut out_n: usize = 0;
-        let result = unsafe { self.0(userdata, buf.as_mut_ptr(), buf.len(), &mut out_n) };
+        let cb = self.callback;
+        let result = unsafe { cb(self.userdata, buf.as_mut_ptr(), buf.len(), &mut out_n) };
         match result.0 {
             0 => Ok(out_n),
             e => Err(Error::from_raw_os_error(e)),
@@ -72,15 +73,16 @@ pub(crate) type WriteCallback = unsafe extern "C" fn(
     out_n: *mut usize,
 ) -> rustls_io_error;
 
-pub(crate) struct CallbackWriter(pub(crate) WriteCallback);
+pub(crate) struct CallbackWriter {
+    pub callback: WriteCallback,
+    pub userdata: *mut c_void,
+}
 
 impl Write for CallbackWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let userdata = userdata_get().map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::Other, "internal error getting userdata")
-        })?;
         let mut out_n: usize = 0;
-        let result = unsafe { self.0(userdata, buf.as_ptr(), buf.len(), &mut out_n) };
+        let cb = self.callback;
+        let result = unsafe { cb(self.userdata, buf.as_ptr(), buf.len(), &mut out_n) };
         match result.0 {
             0 => Ok(out_n),
             e => Err(Error::from_raw_os_error(e)),
