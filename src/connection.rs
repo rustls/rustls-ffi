@@ -6,8 +6,7 @@ use rustls::Session;
 use crate::error::rustls_io_error;
 use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
 
-// Call read_tls on a session, providing an &mut dyn Read implemented with a C
-// callback, and providing userdata on the stack.
+// Call Session::read_tls, providing an &mut dyn Write implemented with a C callback.
 pub(crate) fn read_tls(
     session: &mut dyn Session,
     callback: ReadCallback,
@@ -24,6 +23,7 @@ pub(crate) fn read_tls(
     rustls_io_error(0)
 }
 
+// Call Session::write_tls, providing an &mut dyn Write implemented with a C callback.
 pub(crate) fn write_tls(
     session: &mut dyn Session,
     callback: WriteCallback,
