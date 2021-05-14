@@ -2,6 +2,7 @@
 #![allow(non_camel_case_types)]
 use libc::{c_char, c_void, size_t};
 use std::cell::RefCell;
+use std::io::Error;
 use std::io::ErrorKind::ConnectionAborted;
 use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
@@ -388,6 +389,6 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     val
 }
 
-pub(crate) fn is_close_notify(e: &io::Error) -> bool {
+pub(crate) fn is_close_notify(e: &Error) -> bool {
     e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify")
 }

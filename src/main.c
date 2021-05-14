@@ -235,6 +235,7 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 
 struct demo_conn {
   int fd;
+  const char* verify_arg;
 };
 
 int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
@@ -435,6 +436,7 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
   conn->fd = sockfd;
+  conn->verify_arg = "verify_arg";
 
   rustls_result result =
     rustls_client_session_new(client_config, hostname, &client_session);
@@ -479,7 +481,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
     }
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
-  if(0 != strcmp((const char *)userdata, "verify_arg")) {
+  if(0 != strcmp(((struct demo_conn*)userdata)->verify_arg, "verify_arg")) {
     fprintf(stderr, "invalid argument to verify: %p\n", userdata);
     return RUSTLS_RESULT_GENERAL;
   }

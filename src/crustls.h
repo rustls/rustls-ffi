@@ -668,6 +668,12 @@ enum rustls_result rustls_client_session_read(struct rustls_client_session *sess
                                               size_t *out_n);
 
 /**
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as you get in one syscall.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
 rustls_io_error rustls_client_session_read_tls(struct rustls_client_session *session,
@@ -675,6 +681,12 @@ rustls_io_error rustls_client_session_read_tls(struct rustls_client_session *ses
                                                size_t *out_n);
 
 /**
+ * Write some TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 rustls_io_error rustls_client_session_write_tls(struct rustls_client_session *session,
@@ -922,6 +934,12 @@ enum rustls_result rustls_server_session_read(struct rustls_server_session *sess
                                               size_t *out_n);
 
 /**
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as you get in one syscall.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
 rustls_io_error rustls_server_session_read_tls(struct rustls_server_session *session,
@@ -929,6 +947,12 @@ rustls_io_error rustls_server_session_read_tls(struct rustls_server_session *ses
                                                size_t *out_n);
 
 /**
+ * Write some TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 rustls_io_error rustls_server_session_write_tls(struct rustls_server_session *session,
