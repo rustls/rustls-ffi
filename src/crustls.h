@@ -440,6 +440,16 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                               const struct rustls_certified_key **certified_key_out);
 
 /**
+ * Return the i-th rustls_certificate in the certified key. 0 gives the
+ * first certificate, followed by its chain (so present). Any index beyond
+ * that will return NULL.
+ *
+ * The returned certificate is valid until the certified key is free'ed.
+ */
+const struct rustls_certificate *rustls_certified_key_get_certificate(const struct rustls_certified_key *key,
+                                                                      size_t i);
+
+/**
  * Create a copy of the rustls_certified_key with the given OCSP response data
  * as DER encoded bytes. The OCSP response may be given as NULL to clear any
  * possibly present OCSP data from the cloned key.

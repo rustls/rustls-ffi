@@ -126,6 +126,30 @@ pub extern "C" fn rustls_certified_key_build(
     }
 }
 
+/// Return the i-th rustls_certificate in the certified key. 0 gives the
+/// first certificate, followed by its chain (so present). Any index beyond
+/// that will return NULL.
+///
+/// The returned certificate is valid until the certified key is free'ed.
+#[no_mangle]
+pub extern "C" fn rustls_certified_key_get_certificate(
+    key: *const rustls_certified_key,
+    i: size_t,
+) -> *const rustls_certificate {
+    ffi_panic_boundary! {
+        let certified_key: Arc<CertifiedKey> = unsafe {
+            match (key as *const CertifiedKey).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return null(),
+            }
+        };
+        match certified_key.cert.get(i) {
+            Some(cert) => cert as *const Certificate as *const _,
+            None => null()
+        }
+    }
+}
+
 /// Create a copy of the rustls_certified_key with the given OCSP response data
 /// as DER encoded bytes. The OCSP response may be given as NULL to clear any
 /// possibly present OCSP data from the cloned key.
