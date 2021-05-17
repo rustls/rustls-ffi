@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::{convert::TryInto, ptr::null};
 use std::{ffi::c_void, ptr::null_mut};
 
-use rustls::{sign::CertifiedKey, Certificate, SupportedCipherSuite};
+use rustls::{sign::CertifiedKey, Certificate, SignatureScheme, SupportedCipherSuite};
 use rustls::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
     ServerConfig, ServerSession, Session,
@@ -695,17 +695,10 @@ pub struct rustls_client_hello<'a> {
     sni_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
     alpn: *const rustls_slice_slice_bytes<'a>,
-    internals: *const rustls_client_hello_internals<'a>,
 }
 
-/// An opaque structure as member of `rustls_client_hello` for
-/// internal book-keeping.
-pub struct rustls_client_hello_internals<'a> {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
-    _private: [u8; 0],
-    hello: &'a ClientHello<'a>,
+impl<'a> CastPtr for rustls_client_hello<'a> {
+    type RustType = rustls_client_hello<'a>;
 }
 
 /// Any context information the callback will receive when invoked.
@@ -777,10 +770,6 @@ impl ResolvesServerCert for ClientHelloResolver {
             sni_name,
             signature_schemes,
             alpn: &alpn,
-            internals: &rustls_client_hello_internals {
-                _private: [],
-                hello: &client_hello,
-            },
         };
         let cb = self.callback;
         let userdata = match userdata_get() {
@@ -831,13 +820,35 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     }
 }
 
-/// Select a `rustls_certified_key` from the list that is cryptographic compatible
-/// with the client's hello announcements. This does ignore the SNI. It is
-/// the applications responsibility to only present certified keys that are
-/// suitable for the server name indication sent by the client.
-///
-/// Return only RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
-/// if none was suitable.
+// Turn a slice of u16's into a vec of SignatureScheme as needed by rustls.
+fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
+    use rustls::SignatureScheme::*;
+    input
+        .iter()
+        .map(|n| match n {
+            // TODO: Once rustls 0.20.0+ is released, we can use `.into()` instead of this match.
+            0x0201 => RSA_PKCS1_SHA1,
+            0x0203 => ECDSA_SHA1_Legacy,
+            0x0401 => RSA_PKCS1_SHA256,
+            0x0403 => ECDSA_NISTP256_SHA256,
+            0x0501 => RSA_PKCS1_SHA384,
+            0x0503 => ECDSA_NISTP384_SHA384,
+            0x0601 => RSA_PKCS1_SHA512,
+            0x0603 => ECDSA_NISTP521_SHA512,
+            0x0804 => RSA_PSS_SHA256,
+            0x0805 => RSA_PSS_SHA384,
+            0x0806 => RSA_PSS_SHA512,
+            0x0807 => ED25519,
+            0x0808 => ED448,
+            n => SignatureScheme::Unknown(*n),
+        })
+        .collect()
+}
+
+/// Select a `rustls_certified_key` from the list that matches the cryptographic
+/// parameters of a TLS client hello. Note that this does not do any SNI matching.
+/// The input certificates should already have been filtered to ones matching the
+/// SNI from the client hello.
 ///
 /// This is intended for servers that are configured with several keys for the
 /// same domain name(s), for example ECDSA and RSA types. The presented keys are
@@ -845,6 +856,9 @@ pub extern "C" fn rustls_server_config_builder_set_hello_callback(
 /// all else being equal. However rustls is free to choose whichever it considers
 /// to be the best key with its knowledge about security issues and possible future
 /// extensions of the protocol.
+///
+/// Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+/// if none was suitable.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_select_certified_key(
     hello: *const rustls_client_hello,
@@ -853,14 +867,8 @@ pub extern "C" fn rustls_server_session_select_certified_key(
     out_key: *mut *const rustls_certified_key,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        if hello.is_null() {
-            return NullParameter;
-        }
-        let hello = unsafe { &*hello };
-        if hello.internals.is_null() {
-            return NullParameter;
-        }
-        let internals = unsafe { &*hello.internals };
+        let hello = try_ref_from_ptr!(hello);
+        let schemes: Vec<SignatureScheme> = sigschemes(try_slice!(hello.signature_schemes.data, hello.signature_schemes.len));
         let out_key: &mut *const rustls_certified_key = unsafe {
             match out_key.as_mut() {
                 Some(out_key) => out_key,
@@ -869,14 +877,8 @@ pub extern "C" fn rustls_server_session_select_certified_key(
         };
         let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
-            let cert_key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr);
-            let key: Arc<CertifiedKey> = unsafe {
-                match (cert_key_ptr as *const CertifiedKey).as_ref() {
-                    Some(c) => arc_with_incref_from_raw(c),
-                    None => return NullParameter,
-                }
-            };
-            if key.key.choose_scheme(internals.hello.sigschemes()).is_some() {
+            let key_ref: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+            if key_ref.key.choose_scheme(&schemes).is_some() {
                 *out_key = key_ptr;
                 return rustls_result::Ok;
             }

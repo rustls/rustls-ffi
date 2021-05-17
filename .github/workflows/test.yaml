@@ -1,5 +1,7 @@
 name: test
-on: [push]
+permissions:
+  contents: read
+on: [push, pull_request]
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -10,6 +12,8 @@ jobs:
         cc: [clang, gcc]
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - run: make CC=${{ matrix.cc }} PROFILE=release test
       - run: NO_CHECK_CERTIFICATE= ./target/crustls-demo wrong.host.badssl.com /
 
@@ -17,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - run: make src/crustls.h
       - run: git diff --exit-code
 
@@ -24,4 +30,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
       - run: cargo fmt -- --check
