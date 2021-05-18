@@ -106,7 +106,7 @@ typedef enum rustls_tls_version {
 /**
  * A X509 certificate, as used in rustls.
  * Corresponds to `Certificate` in the Rust API.
- * https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+ * https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
  */
 typedef struct rustls_certificate rustls_certificate;
 
@@ -147,7 +147,7 @@ typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
  * A root cert store being constructed. A builder can be modified by,
- * e.g. rustls_root_cert_store_builder_new_add_pem. Once you're
+ * e.g. rustls_root_cert_store_builder_add_pem. Once you're
  * done adding certificates, call rustls_root_cert_store_builder_build
  * to turn it into a *rustls_root_cert_store. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a

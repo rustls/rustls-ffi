@@ -19,7 +19,7 @@ use std::ops::Deref;
 
 /// A X509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
-/// https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+/// https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
 pub struct rustls_certificate {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -257,7 +257,7 @@ fn certified_key_build(
 }
 
 /// A root cert store being constructed. A builder can be modified by,
-/// e.g. rustls_root_cert_store_builder_new_add_pem. Once you're
+/// e.g. rustls_root_cert_store_builder_add_pem. Once you're
 /// done adding certificates, call rustls_root_cert_store_builder_build
 /// to turn it into a *rustls_root_cert_store. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
@@ -322,12 +322,7 @@ pub extern "C" fn rustls_root_cert_store_builder_add_pem(
     strict: bool,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let certs_pem: &[u8] = unsafe {
-            if pem.is_null() {
-                return NullParameter;
-            }
-            slice::from_raw_parts(pem, pem_len as usize)
-        };
+        let certs_pem: &[u8] = try_slice!(pem, pem_len);
         let store: &mut RootCertStore = try_mut_from_ptr!(builder);
         match store.add_pem_file(&mut Cursor::new(certs_pem)) {
             Ok((parsed, rejected)) => {
