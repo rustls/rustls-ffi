@@ -119,6 +119,20 @@ typedef struct rustls_certificate rustls_certificate;
 typedef struct rustls_certified_key rustls_certified_key;
 
 /**
+ * A verifier of client certificates that requires all certificates to be properly
+ * signed via the given `rustls_root_cert_store`. Usable in building server
+ * configurations. server sessions without such a client certificate will not
+ * be accepted.
+ */
+typedef struct rustls_client_cert_verifier rustls_client_cert_verifier;
+
+/**
+ * Alternative to `rustls_client_cert_verifier` that allows also server sessions when
+ * the client does not present a certificate. Otherwise behaves the same.
+ */
+typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_optional;
+
+/**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
@@ -144,17 +158,6 @@ typedef struct rustls_client_session rustls_client_session;
  * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
  */
 typedef struct rustls_root_cert_store rustls_root_cert_store;
-
-/**
- * A root cert store being constructed. A builder can be modified by,
- * e.g. rustls_root_cert_store_builder_add_pem. Once you're
- * done adding certificates, call rustls_root_cert_store_builder_build
- * to turn it into a *rustls_root_cert_store. This object is not safe
- * for concurrent mutation. Under the hood, it corresponds to a
- * Box<RootCertStore>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
- */
-typedef struct rustls_root_cert_store_builder rustls_root_cert_store_builder;
 
 /**
  * A server config that is done being constructed and is now read-only.
@@ -471,17 +474,15 @@ enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_cert
 void rustls_certified_key_free(const struct rustls_certified_key *key);
 
 /**
- * Create a rustls_root_cert_store_builder. Caller owns the memory and must
- * eventually call rustls_root_cert_store_builder_build, then free the
- * resulting rustls_root_cert_store. This starts out empty.
- * Caller must add root certificates with rustls_root_cert_store_builder_new_add_pem.
+ * Create a rustls_root_cert_store. Caller owns the memory and must
+ * eventually call rustls_root_cert_store_free. The store starts out empty.
+ * Caller must add root certificates with rustls_root_cert_store_add_pem.
  * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html#method.empty
  */
-struct rustls_root_cert_store_builder *rustls_root_cert_store_builder_new(void);
+struct rustls_root_cert_store *rustls_root_cert_store_new(void);
 
 /**
- * Add one or more certificates to the root cert store being build
- * using PEM encorded data.
+ * Add one or more certificates to the root cert store using PEM encorded data.
  *
  * Unless `strict` is `true`, the parsing will ignore ill-formatted data
  * and invalid certificate silently. With ´strict` as `true` any error will
@@ -493,25 +494,10 @@ struct rustls_root_cert_store_builder *rustls_root_cert_store_builder_new(void);
  * The `strict` behaviours reflect the difference in requirement and quality of
  * root certificate collections used to verify server or client certificates.
  */
-enum rustls_result rustls_root_cert_store_builder_add_pem(struct rustls_root_cert_store_builder *builder,
-                                                          const uint8_t *pem,
-                                                          size_t pem_len,
-                                                          bool strict);
-
-/**
- * Turn a *rustls_root_cert_store_builder (mutable) into a *rustls_root_cert_store
- * (read-only).
- */
-const struct rustls_root_cert_store *rustls_root_cert_store_builder_build(struct rustls_root_cert_store_builder *builder);
-
-/**
- * "Free" a rustls_root_cert_store_builder before transmogrifying it into a
- * rustls_root_cert_store_builder.
- * Normally builders are consumed to root stores via `rustls_root_cert_store_builder_build`
- * and may not be free'd or otherwise used afterwards.
- * Use free only when the building of a store has to be aborted before it was created.
- */
-void rustls_root_cert_store_builder_free(struct rustls_root_cert_store_builder *builder);
+enum rustls_result rustls_root_cert_store_add_pem(struct rustls_root_cert_store *store,
+                                                  const uint8_t *pem,
+                                                  size_t pem_len,
+                                                  bool strict);
 
 /**
  * "Free" a rustls_root_cert_store previously returned from
@@ -521,7 +507,43 @@ void rustls_root_cert_store_builder_free(struct rustls_root_cert_store_builder *
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_root_cert_store_free(const struct rustls_root_cert_store *store);
+void rustls_root_cert_store_free(struct rustls_root_cert_store *store);
+
+/**
+ * Create a new client certificate verifier for the root store. The verifier
+ * can be used in several rustls_server_config instances. Must be freed by
+ * the application when no longer needed. See the documentation of
+ * rustls_client_cert_verifier_free for details about lifetime.
+ */
+const struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(struct rustls_root_cert_store *store);
+
+/**
+ * "Free" a verifier previously returned from
+ * rustls_client_cert_verifier_new. Since rustls_client_cert_verifier is actually an
+ * atomically reference-counted pointer, extant server_configs may still
+ * hold an internal reference to the Rust object. However, C code must
+ * consider this pointer unusable after "free"ing it.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_client_cert_verifier_free(const struct rustls_client_cert_verifier *verifier);
+
+/**
+ * Create a new optional client certificate verifier for the root store. The verifier
+ * can be used in several rustls_server_config instances. Must be freed by
+ * the application when no longer needed. See the documentation of
+ * rustls_client_cert_verifier_optional_free for details about lifetime.
+ */
+const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_optional_new(struct rustls_root_cert_store *store);
+
+/**
+ * "Free" a verifier previously returned from
+ * rustls_client_cert_verifier_optional_new. Since rustls_client_cert_verifier_optional
+ * is actually an atomically reference-counted pointer, extant server_configs may still
+ * hold an internal reference to the Rust object. However, C code must
+ * consider this pointer unusable after "free"ing it.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -801,16 +823,28 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
  * eventually call rustls_server_config_builder_build, then free the
- * resulting rustls_server_config. This starts out with no trusted roots.
- * Caller must add roots with rustls_server_config_builder_load_native_roots
- * or rustls_server_config_builder_load_roots_from_file.
+ * resulting rustls_server_config.
  * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
  */
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
-enum rustls_result rustls_server_config_builder_for_client_auth(const struct rustls_root_cert_store *root_store,
-                                                                bool mandatory,
-                                                                struct rustls_server_config_builder **out_builder);
+/**
+ * Create a rustls_server_config_builder for TLS sessions that require
+ * valid client certificates. The passed rustls_client_cert_verifier may
+ * be used in several builders.
+ * For memory lifetime, see rustls_server_config_builder_new,
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier(const struct rustls_client_cert_verifier *verifier);
+
+/**
+ * Create a rustls_server_config_builder for TLS sessions that accept
+ * valid client certificates, but do not require them. The passed
+ * rustls_client_cert_verifier_optional may be used in several builders.
+ * For memory lifetime, see rustls_server_config_builder_new,
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier_optional(const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
  * "Free" a server_config_builder before transmogrifying it into a server_config.

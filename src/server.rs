@@ -10,11 +10,12 @@ use rustls::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
     ServerConfig, ServerSession, Session,
 };
-use rustls::{ResolvesServerCert, RootCertStore, ALL_CIPHERSUITES};
+use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 use rustls_result::{InvalidParameter, NullParameter};
 
 use crate::cipher::{
-    rustls_certificate, rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite,
+    rustls_certificate, rustls_certified_key, rustls_client_cert_verifier,
+    rustls_client_cert_verifier_optional, rustls_supported_ciphersuite,
 };
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
@@ -75,9 +76,7 @@ impl CastPtr for rustls_server_session {
 
 /// Create a rustls_server_config_builder. Caller owns the memory and must
 /// eventually call rustls_server_config_builder_build, then free the
-/// resulting rustls_server_config. This starts out with no trusted roots.
-/// Caller must add roots with rustls_server_config_builder_load_native_roots
-/// or rustls_server_config_builder_load_roots_from_file.
+/// resulting rustls_server_config.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
@@ -88,33 +87,47 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
     }
 }
 
+/// Create a rustls_server_config_builder for TLS sessions that require
+/// valid client certificates. The passed rustls_client_cert_verifier may
+/// be used in several builders.
+/// For memory lifetime, see rustls_server_config_builder_new,
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
 #[no_mangle]
-pub extern "C" fn rustls_server_config_builder_for_client_auth(
-    root_store: *const rustls_root_cert_store,
-    mandatory: bool,
-    out_builder: *mut *mut rustls_server_config_builder,
-) -> rustls_result {
+pub extern "C" fn rustls_server_config_builder_with_client_verifier(
+    verifier: *const rustls_client_cert_verifier,
+) -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let store: Arc<RootCertStore> = unsafe {
-            match (root_store as *const RootCertStore).as_ref() {
+        let verifier: Arc<AllowAnyAuthenticatedClient> = unsafe {
+            match (verifier as *const AllowAnyAuthenticatedClient).as_ref() {
                 Some(c) => arc_with_incref_from_raw(c),
-                None => return NullParameter,
+                None => return rustls_server_config_builder_new(),
             }
-        };
-        let out_builder: &mut *mut rustls_server_config_builder = unsafe {
-            match out_builder.as_mut() {
-                Some(out_builder) => out_builder,
-                None => return NullParameter,
-            }
-        };
-        let verifier = match mandatory {
-          true => AllowAnyAuthenticatedClient::new(store.as_ref().clone()),
-          false => AllowAnyAnonymousOrAuthenticatedClient::new(store.as_ref().clone()),
         };
         let config = rustls::ServerConfig::new(verifier);
         let b = Box::new(config);
-        *out_builder = Box::into_raw(b) as *mut rustls_server_config_builder;
-        rustls_result::Ok
+        Box::into_raw(b) as *mut rustls_server_config_builder
+    }
+}
+
+/// Create a rustls_server_config_builder for TLS sessions that accept
+/// valid client certificates, but do not require them. The passed
+/// rustls_client_cert_verifier_optional may be used in several builders.
+/// For memory lifetime, see rustls_server_config_builder_new,
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
+    verifier: *const rustls_client_cert_verifier_optional,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary! {
+        let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = unsafe {
+            match (verifier as *const AllowAnyAnonymousOrAuthenticatedClient).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return rustls_server_config_builder_new(),
+            }
+        };
+        let config = rustls::ServerConfig::new(verifier);
+        let b = Box::new(config);
+        Box::into_raw(b) as *mut rustls_server_config_builder
     }
 }
 
