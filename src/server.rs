@@ -5,12 +5,18 @@ use std::sync::Arc;
 use std::{convert::TryInto, ptr::null};
 use std::{ffi::c_void, ptr::null_mut};
 
-use rustls::{sign::CertifiedKey, SignatureScheme, SupportedCipherSuite};
-use rustls::{ClientHello, NoClientAuth, ServerConfig, ServerSession, Session};
+use rustls::{sign::CertifiedKey, Certificate, SignatureScheme, SupportedCipherSuite};
+use rustls::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
+    ServerConfig, ServerSession, Session,
+};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 use rustls_result::{InvalidParameter, NullParameter};
 
-use crate::cipher::{rustls_certified_key, rustls_supported_ciphersuite};
+use crate::cipher::{
+    rustls_certificate, rustls_certified_key, rustls_client_cert_verifier,
+    rustls_client_cert_verifier_optional, rustls_supported_ciphersuite,
+};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
@@ -70,9 +76,7 @@ impl CastPtr for rustls_server_session {
 
 /// Create a rustls_server_config_builder. Caller owns the memory and must
 /// eventually call rustls_server_config_builder_build, then free the
-/// resulting rustls_server_config. This starts out with no trusted roots.
-/// Caller must add roots with rustls_server_config_builder_load_native_roots
-/// or rustls_server_config_builder_load_roots_from_file.
+/// resulting rustls_server_config.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
@@ -80,6 +84,50 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
         let config = rustls::ServerConfig::new(Arc::new(NoClientAuth));
         let b = Box::new(config);
         Box::into_raw(b) as *mut _
+    }
+}
+
+/// Create a rustls_server_config_builder for TLS sessions that require
+/// valid client certificates. The passed rustls_client_cert_verifier may
+/// be used in several builders.
+/// If input is NULL, this will return NULL.
+/// For memory lifetime, see rustls_server_config_builder_new.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_with_client_verifier(
+    verifier: *const rustls_client_cert_verifier,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary! {
+        let verifier: Arc<AllowAnyAuthenticatedClient> = unsafe {
+            match (verifier as *const AllowAnyAuthenticatedClient).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return null_mut(),
+            }
+        };
+        let config = rustls::ServerConfig::new(verifier);
+        let b = Box::new(config);
+        Box::into_raw(b) as *mut rustls_server_config_builder
+    }
+}
+
+/// Create a rustls_server_config_builder for TLS sessions that accept
+/// valid client certificates, but do not require them. The passed
+/// rustls_client_cert_verifier_optional may be used in several builders.
+/// If input is NULL, this will return NULL.
+/// For memory lifetime, see rustls_server_config_builder_new.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
+    verifier: *const rustls_client_cert_verifier_optional,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary! {
+        let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = unsafe {
+            match (verifier as *const AllowAnyAnonymousOrAuthenticatedClient).as_ref() {
+                Some(c) => arc_with_incref_from_raw(c),
+                None => return null_mut(),
+            }
+        };
+        let config = rustls::ServerConfig::new(verifier);
+        let b = Box::new(config);
+        Box::into_raw(b) as *mut rustls_server_config_builder
     }
 }
 
@@ -364,6 +412,28 @@ pub extern "C" fn rustls_server_session_get_protocol_version(
         match session.session.get_protocol_version() {
             Some(v) => v.get_u16(),
             None => 0
+        }
+    }
+}
+
+/// Return the i-th certificate provided by the client. If no client
+/// certificate was exchanged during the handshake, this will always
+/// return NULL.
+/// Otherwise, this will return the chain, starting with the end entity
+/// certificate at index 0, followed by the chain provided.
+#[no_mangle]
+pub extern "C" fn rustls_server_session_get_peer_certificate(
+    session: *const rustls_server_session,
+    i: size_t,
+) -> *const rustls_certificate {
+    ffi_panic_boundary! {
+        let session: &Sess = try_ref_from_ptr!(session);
+        match session.session.get_peer_certificates() {
+            Some(v) => match v.get(i) {
+                Some(cert) => cert as *const Certificate as *const _,
+                None => null()
+            },
+            None => null()
         }
     }
 }
