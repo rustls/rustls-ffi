@@ -284,7 +284,7 @@ do_read(struct demo_conn *conn, struct rustls_client_session *client_session)
   int result = 1;
   size_t n = 0;
 
-  err = rustls_client_session_read_tls(client_session, read_cb, &n);
+  err = rustls_client_session_read_tls(client_session, read_cb, conn, &n);
 
   if(err == EAGAIN || err == EWOULDBLOCK) {
     fprintf(stderr,
@@ -397,7 +397,7 @@ send_request_and_read_response(struct demo_conn *conn,
     if(rustls_client_session_wants_write(client_session) &&
        FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
-      err = rustls_client_session_write_tls(client_session, write_cb, &n);
+      err = rustls_client_session_write_tls(client_session, write_cb, conn, &n);
       if(err != 0) {
         fprintf(stderr, "Error in ClientSession::write_tls: errno %d\n", err);
         goto cleanup;

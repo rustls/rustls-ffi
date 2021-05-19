@@ -559,6 +559,9 @@ pub extern "C" fn rustls_server_session_read(
 /// I/O is performed by `callback`, which you provide. Rustls will invoke your
 /// callback with a suitable buffer to store the read bytes into. You don't have
 /// to fill it up, just fill with as many bytes as you get in one syscall.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_client_session_set_userdata`.
 /// Returns 0 for success, or an errno value on error. Passes through return values
 /// from callback. See rustls_read_callback for more details.
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
@@ -566,6 +569,7 @@ pub extern "C" fn rustls_server_session_read(
 pub extern "C" fn rustls_server_session_read_tls(
     session: *mut rustls_server_session,
     callback: rustls_read_callback,
+    userdata: *mut c_void,
     out_n: *mut size_t,
 ) -> rustls_io_error {
     ffi_panic_boundary! {
@@ -573,7 +577,7 @@ pub extern "C" fn rustls_server_session_read_tls(
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: ReadCallback = try_callback!(callback);
 
-        connection::read_tls(&mut session.session, callback, session.userdata, out_n)
+        connection::read_tls(&mut session.session, callback, userdata, out_n)
     }
 }
 
@@ -581,6 +585,9 @@ pub extern "C" fn rustls_server_session_read_tls(
 /// `callback`, which you provide. Rustls will invoke your callback with a
 /// suitable buffer containing TLS bytes to send. You don't have to write them
 /// all, just as many as you can in one syscall.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_client_session_set_userdata`.
 /// Returns 0 for success, or an errno value on error. Passes through return values
 /// from callback. See rustls_write_callback for more details.
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
@@ -588,6 +595,7 @@ pub extern "C" fn rustls_server_session_read_tls(
 pub extern "C" fn rustls_server_session_write_tls(
     session: *mut rustls_server_session,
     callback: rustls_write_callback,
+    userdata: *mut c_void,
     out_n: *mut size_t,
 ) -> rustls_io_error {
     ffi_panic_boundary! {
@@ -595,7 +603,7 @@ pub extern "C" fn rustls_server_session_write_tls(
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: WriteCallback = try_callback!(callback);
 
-        connection::write_tls(&mut session.session, callback, session.userdata, out_n)
+        connection::write_tls(&mut session.session, callback, userdata, out_n)
     }
 }
 

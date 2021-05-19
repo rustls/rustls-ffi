@@ -786,12 +786,16 @@ enum rustls_result rustls_client_session_read(struct rustls_client_session *sess
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
  * to fill it up, just fill with as many bytes as you get in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
 rustls_io_error rustls_client_session_read_tls(struct rustls_client_session *session,
                                                rustls_read_callback callback,
+                                               void *userdata,
                                                size_t *out_n);
 
 /**
@@ -799,12 +803,16 @@ rustls_io_error rustls_client_session_read_tls(struct rustls_client_session *ses
  * `callback`, which you provide. Rustls will invoke your callback with a
  * suitable buffer containing TLS bytes to send. You don't have to write them
  * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 rustls_io_error rustls_client_session_write_tls(struct rustls_client_session *session,
                                                 rustls_write_callback callback,
+                                                void *userdata,
                                                 size_t *out_n);
 
 /**
@@ -1078,12 +1086,16 @@ enum rustls_result rustls_server_session_read(struct rustls_server_session *sess
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
  * to fill it up, just fill with as many bytes as you get in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
 rustls_io_error rustls_server_session_read_tls(struct rustls_server_session *session,
                                                rustls_read_callback callback,
+                                               void *userdata,
                                                size_t *out_n);
 
 /**
@@ -1091,12 +1103,16 @@ rustls_io_error rustls_server_session_read_tls(struct rustls_server_session *ses
  * `callback`, which you provide. Rustls will invoke your callback with a
  * suitable buffer containing TLS bytes to send. You don't have to write them
  * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
 rustls_io_error rustls_server_session_write_tls(struct rustls_server_session *session,
                                                 rustls_write_callback callback,
+                                                void *userdata,
                                                 size_t *out_n);
 
 /**
