@@ -90,8 +90,8 @@ pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_confi
 /// Create a rustls_server_config_builder for TLS sessions that require
 /// valid client certificates. The passed rustls_client_cert_verifier may
 /// be used in several builders.
-/// For memory lifetime, see rustls_server_config_builder_new,
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+/// If input is NULL, this will return NULL.
+/// For memory lifetime, see rustls_server_config_builder_new.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_with_client_verifier(
     verifier: *const rustls_client_cert_verifier,
@@ -100,7 +100,7 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier(
         let verifier: Arc<AllowAnyAuthenticatedClient> = unsafe {
             match (verifier as *const AllowAnyAuthenticatedClient).as_ref() {
                 Some(c) => arc_with_incref_from_raw(c),
-                None => return rustls_server_config_builder_new(),
+                None => return null_mut(),
             }
         };
         let config = rustls::ServerConfig::new(verifier);
@@ -112,8 +112,8 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier(
 /// Create a rustls_server_config_builder for TLS sessions that accept
 /// valid client certificates, but do not require them. The passed
 /// rustls_client_cert_verifier_optional may be used in several builders.
-/// For memory lifetime, see rustls_server_config_builder_new,
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+/// If input is NULL, this will return NULL.
+/// For memory lifetime, see rustls_server_config_builder_new.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
     verifier: *const rustls_client_cert_verifier_optional,
@@ -122,7 +122,7 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
         let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = unsafe {
             match (verifier as *const AllowAnyAnonymousOrAuthenticatedClient).as_ref() {
                 Some(c) => arc_with_incref_from_raw(c),
-                None => return rustls_server_config_builder_new(),
+                None => return null_mut(),
             }
         };
         let config = rustls::ServerConfig::new(verifier);
@@ -419,8 +419,8 @@ pub extern "C" fn rustls_server_session_get_protocol_version(
 /// Return the i-th certificate provided by the client. If no client
 /// certificate was exchanged during the handshake, this will always
 /// return NULL.
-/// Otherwise, this will return the chain, starting with the client
-/// certificate itself at index 0, followed by the chain provided.
+/// Otherwise, this will return the chain, starting with the end entity
+/// certificate at index 0, followed by the chain provided.
 #[no_mangle]
 pub extern "C" fn rustls_server_session_get_peer_certificate(
     session: *const rustls_server_session,

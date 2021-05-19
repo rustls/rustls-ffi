@@ -4,23 +4,21 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
+use rustls::sign::CertifiedKey;
 use rustls::{
-    sign::CertifiedKey, AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient,
-    RootCertStore, SupportedCipherSuite, ALL_CIPHERSUITES,
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, RootCertStore,
+    SupportedCipherSuite, ALL_CIPHERSUITES,
 };
 use rustls::{Certificate, PrivateKey};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
-use crate::{
-    arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
-    CastPtr,
-};
+use crate::{ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, CastPtr};
 use rustls_result::NullParameter;
 use std::ops::Deref;
 
-/// A X509 certificate, as used in rustls.
+/// An X.509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
 pub struct rustls_certificate {
@@ -129,23 +127,18 @@ pub extern "C" fn rustls_certified_key_build(
     }
 }
 
-/// Return the i-th rustls_certificate in the certified key. 0 gives the
-/// first certificate, followed by its chain (so present). Any index beyond
-/// that will return NULL.
+/// Return the i-th rustls_certificate in the rustls_certified_key. 0 gives the
+/// end-entity certificate. 1 and higher give certificates from the chain.
+/// Indexes higher the the last available certificate return NULL.
 ///
-/// The returned certificate is valid until the certified key is free'ed.
+/// The returned certificate is valid until the rustls_certified_key is freed.
 #[no_mangle]
 pub extern "C" fn rustls_certified_key_get_certificate(
-    key: *const rustls_certified_key,
+    certified_key: *const rustls_certified_key,
     i: size_t,
 ) -> *const rustls_certificate {
     ffi_panic_boundary! {
-        let certified_key: Arc<CertifiedKey> = unsafe {
-            match (key as *const CertifiedKey).as_ref() {
-                Some(c) => arc_with_incref_from_raw(c),
-                None => return null(),
-            }
-        };
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
         match certified_key.cert.get(i) {
             Some(cert) => cert as *const Certificate as *const _,
             None => null()
@@ -160,7 +153,7 @@ pub extern "C" fn rustls_certified_key_get_certificate(
 /// by the application.
 #[no_mangle]
 pub extern "C" fn rustls_certified_key_clone_with_ocsp(
-    key: *const rustls_certified_key,
+    certified_key: *const rustls_certified_key,
     ocsp_response: *const rustls_slice_bytes,
     cloned_key_out: *mut *const rustls_certified_key,
 ) -> rustls_result {
@@ -171,12 +164,7 @@ pub extern "C" fn rustls_certified_key_clone_with_ocsp(
                 None => return NullParameter,
             }
         };
-        let certified_key: Arc<CertifiedKey> = unsafe {
-            match (key as *const CertifiedKey).as_ref() {
-                Some(c) => arc_with_incref_from_raw(c),
-                None => return NullParameter,
-            }
-        };
+        let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
         let mut new_key = certified_key.deref().clone();
         if !ocsp_response.is_null() {
             let ocsp_slice = unsafe{ &*ocsp_response };
@@ -286,17 +274,14 @@ pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
     }
 }
 
-/// Add one or more certificates to the root cert store using PEM encorded data.
+/// Add one or more certificates to the root cert store using PEM encoded data.
 ///
-/// Unless `strict` is `true`, the parsing will ignore ill-formatted data
-/// and invalid certificate silently. With ´strict` as `true` any error will
-/// return a `CertificateParseError` result. Same, when no certificates could
-/// be detected in the presented data.
-/// (Note that this operation is not atomic. Certificates might already have been
-/// added before the error was encountered.)
-///
-/// The `strict` behaviours reflect the difference in requirement and quality of
-/// root certificate collections used to verify server or client certificates.
+/// When `strict` is true an error will return a `CertificateParseError`
+/// result. So will an attempt to parse data that has zero certificates.
+
+/// When `strict` is false, unparseable root certificates will be ignored.
+/// This may be useful on systems that have syntactically invalid root
+/// certificates.
 #[no_mangle]
 pub extern "C" fn rustls_root_cert_store_add_pem(
     store: *mut rustls_root_cert_store,
@@ -307,7 +292,12 @@ pub extern "C" fn rustls_root_cert_store_add_pem(
     ffi_panic_boundary! {
         let certs_pem: &[u8] = try_slice!(pem, pem_len);
         let store: &mut RootCertStore = try_mut_from_ptr!(store);
-        match store.add_pem_file(&mut Cursor::new(certs_pem)) {
+
+        // We first copy into a temporary root store so we can uphold our
+        // API guideline that there are no partial failures or partial
+        // successes.
+        let mut new_store = RootCertStore::empty();
+        match new_store.add_pem_file(&mut Cursor::new(certs_pem)) {
             Ok((parsed, rejected)) => {
                 if strict && (rejected > 0 || parsed == 0) {
                     return rustls_result::CertificateParseError;
@@ -315,6 +305,8 @@ pub extern "C" fn rustls_root_cert_store_add_pem(
             },
             Err(_) => return rustls_result::CertificateParseError,
         }
+
+        store.roots.append(&mut new_store.roots);
         rustls_result::Ok
     }
 }
@@ -330,13 +322,13 @@ pub extern "C" fn rustls_root_cert_store_free(store: *mut rustls_root_cert_store
     ffi_panic_boundary! {
         let store: &mut RootCertStore = try_mut_from_ptr!(store);
         // Convert the pointer to a Box and drop it.
-        unsafe { Box::from_raw(store); }
+        unsafe { drop(Box::from_raw(store)) }
     }
 }
 
-/// A verifier of client certificates that requires all certificates to be properly
-/// signed via the given `rustls_root_cert_store`. Usable in building server
-/// configurations. server sessions without such a client certificate will not
+/// A verifier of client certificates that requires all certificates to be
+/// trusted based on a given`rustls_root_cert_store`. Usable in building server
+/// configurations. Connections without such a client certificate will not
 /// be accepted.
 pub struct rustls_client_cert_verifier {
     _private: [u8; 0],
@@ -377,8 +369,13 @@ pub extern "C" fn rustls_client_cert_verifier_free(verifier: *const rustls_clien
     }
 }
 
-/// Alternative to `rustls_client_cert_verifier` that allows also server sessions when
-/// the client does not present a certificate. Otherwise behaves the same.
+/// Alternative to `rustls_client_cert_verifier` that allows connections
+/// with or without a client certificate. If the client offers a certificate,
+/// it will be verified (and rejected if it is not valid). If the client
+/// does not offer a certificate, the connection will succeed.
+///
+/// The application can retrieve the certificate, if any, with
+/// rustls_server_session_get_peer_certificate.
 pub struct rustls_client_cert_verifier_optional {
     _private: [u8; 0],
 }
@@ -387,9 +384,9 @@ impl CastPtr for rustls_client_cert_verifier_optional {
     type RustType = AllowAnyAnonymousOrAuthenticatedClient;
 }
 
-/// Create a new optional client certificate verifier for the root store. The verifier
-/// can be used in several rustls_server_config instances. Must be freed by
-/// the application when no longer needed. See the documentation of
+/// Create a new rustls_client_cert_verifier_optional for the root store. The
+/// verifier can be used in several rustls_server_config instances. Must be
+/// freed by the application when no longer needed. See the documentation of
 /// rustls_client_cert_verifier_optional_free for details about lifetime.
 #[no_mangle]
 pub extern "C" fn rustls_client_cert_verifier_optional_new(

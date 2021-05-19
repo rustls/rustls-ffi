@@ -11,7 +11,6 @@ use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
 };
 
-use crate::error::{self, map_error, result_to_tlserror, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
@@ -21,6 +20,10 @@ use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
     try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, userdata_get, userdata_push,
     CastPtr,
+};
+use crate::{
+    cipher::rustls_certificate,
+    error::{self, map_error, result_to_tlserror, rustls_result},
 };
 use rustls_result::NullParameter;
 
@@ -496,6 +499,27 @@ pub extern "C" fn rustls_client_session_get_alpn_protocol(
                 *protocol_out = null();
                 *protocol_out_len = 0;
             }
+        }
+    }
+}
+
+/// Return the i-th certificate provided by the server.
+/// Index 0 is the end entity certificate. Higher indexes are certificates
+/// in the chain. Requesting an index higher than what is available returns
+/// NULL.
+#[no_mangle]
+pub extern "C" fn rustls_client_session_get_peer_certificate(
+    session: *const rustls_client_session,
+    i: size_t,
+) -> *const rustls_certificate {
+    ffi_panic_boundary! {
+        let session: &Sess = try_ref_from_ptr!(session);
+        match session.session.get_peer_certificates() {
+            Some(v) => match v.get(i) {
+                Some(cert) => cert as *const Certificate as *const _,
+                None => null()
+            },
+            None => null()
         }
     }
 }

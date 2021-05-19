@@ -104,7 +104,7 @@ typedef enum rustls_tls_version {
 } rustls_tls_version;
 
 /**
- * A X509 certificate, as used in rustls.
+ * An X.509 certificate, as used in rustls.
  * Corresponds to `Certificate` in the Rust API.
  * https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
  */
@@ -119,16 +119,21 @@ typedef struct rustls_certificate rustls_certificate;
 typedef struct rustls_certified_key rustls_certified_key;
 
 /**
- * A verifier of client certificates that requires all certificates to be properly
- * signed via the given `rustls_root_cert_store`. Usable in building server
- * configurations. server sessions without such a client certificate will not
+ * A verifier of client certificates that requires all certificates to be
+ * trusted based on a given`rustls_root_cert_store`. Usable in building server
+ * configurations. Connections without such a client certificate will not
  * be accepted.
  */
 typedef struct rustls_client_cert_verifier rustls_client_cert_verifier;
 
 /**
- * Alternative to `rustls_client_cert_verifier` that allows also server sessions when
- * the client does not present a certificate. Otherwise behaves the same.
+ * Alternative to `rustls_client_cert_verifier` that allows connections
+ * with or without a client certificate. If the client offers a certificate,
+ * it will be verified (and rejected if it is not valid). If the client
+ * does not offer a certificate, the connection will succeed.
+ *
+ * The application can retrieve the certificate, if any, with
+ * rustls_server_session_get_peer_certificate.
  */
 typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_optional;
 
@@ -443,13 +448,13 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                               const struct rustls_certified_key **certified_key_out);
 
 /**
- * Return the i-th rustls_certificate in the certified key. 0 gives the
- * first certificate, followed by its chain (so present). Any index beyond
- * that will return NULL.
+ * Return the i-th rustls_certificate in the rustls_certified_key. 0 gives the
+ * end-entity certificate. 1 and higher give certificates from the chain.
+ * Indexes higher the the last available certificate return NULL.
  *
- * The returned certificate is valid until the certified key is free'ed.
+ * The returned certificate is valid until the rustls_certified_key is freed.
  */
-const struct rustls_certificate *rustls_certified_key_get_certificate(const struct rustls_certified_key *key,
+const struct rustls_certificate *rustls_certified_key_get_certificate(const struct rustls_certified_key *certified_key,
                                                                       size_t i);
 
 /**
@@ -459,7 +464,7 @@ const struct rustls_certificate *rustls_certified_key_get_certificate(const stru
  * The cloned key is independent from its original and needs to be freed
  * by the application.
  */
-enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *key,
+enum rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified_key *certified_key,
                                                         const struct rustls_slice_bytes *ocsp_response,
                                                         const struct rustls_certified_key **cloned_key_out);
 
@@ -482,17 +487,13 @@ void rustls_certified_key_free(const struct rustls_certified_key *key);
 struct rustls_root_cert_store *rustls_root_cert_store_new(void);
 
 /**
- * Add one or more certificates to the root cert store using PEM encorded data.
+ * Add one or more certificates to the root cert store using PEM encoded data.
  *
- * Unless `strict` is `true`, the parsing will ignore ill-formatted data
- * and invalid certificate silently. With ´strict` as `true` any error will
- * return a `CertificateParseError` result. Same, when no certificates could
- * be detected in the presented data.
- * (Note that this operation is not atomic. Certificates might already have been
- * added before the error was encountered.)
- *
- * The `strict` behaviours reflect the difference in requirement and quality of
- * root certificate collections used to verify server or client certificates.
+ * When `strict` is true an error will return a `CertificateParseError`
+ * result. So will an attempt to parse data that has zero certificates.
+ * When `strict` is false, unparseable root certificates will be ignored.
+ * This may be useful on systems that have syntactically invalid root
+ * certificates.
  */
 enum rustls_result rustls_root_cert_store_add_pem(struct rustls_root_cert_store *store,
                                                   const uint8_t *pem,
@@ -528,9 +529,9 @@ const struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(struct
 void rustls_client_cert_verifier_free(const struct rustls_client_cert_verifier *verifier);
 
 /**
- * Create a new optional client certificate verifier for the root store. The verifier
- * can be used in several rustls_server_config instances. Must be freed by
- * the application when no longer needed. See the documentation of
+ * Create a new rustls_client_cert_verifier_optional for the root store. The
+ * verifier can be used in several rustls_server_config instances. Must be
+ * freed by the application when no longer needed. See the documentation of
  * rustls_client_cert_verifier_optional_free for details about lifetime.
  */
 const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_optional_new(struct rustls_root_cert_store *store);
@@ -690,6 +691,15 @@ void rustls_client_session_get_alpn_protocol(const struct rustls_client_session 
                                              const uint8_t **protocol_out,
                                              uintptr_t *protocol_out_len);
 
+/**
+ * Return the i-th certificate provided by the server.
+ * Index 0 is the end entity certificate. Higher indexes are certificates
+ * in the chain. Requesting an index higher than what is available returns
+ * NULL.
+ */
+const struct rustls_certificate *rustls_client_session_get_peer_certificate(const struct rustls_client_session *session,
+                                                                            size_t i);
+
 enum rustls_result rustls_client_session_process_new_packets(struct rustls_client_session *session);
 
 /**
@@ -832,8 +842,8 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  * Create a rustls_server_config_builder for TLS sessions that require
  * valid client certificates. The passed rustls_client_cert_verifier may
  * be used in several builders.
- * For memory lifetime, see rustls_server_config_builder_new,
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+ * If input is NULL, this will return NULL.
+ * For memory lifetime, see rustls_server_config_builder_new.
  */
 struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier(const struct rustls_client_cert_verifier *verifier);
 
@@ -841,8 +851,8 @@ struct rustls_server_config_builder *rustls_server_config_builder_with_client_ve
  * Create a rustls_server_config_builder for TLS sessions that accept
  * valid client certificates, but do not require them. The passed
  * rustls_client_cert_verifier_optional may be used in several builders.
- * For memory lifetime, see rustls_server_config_builder_new,
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+ * If input is NULL, this will return NULL.
+ * For memory lifetime, see rustls_server_config_builder_new.
  */
 struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier_optional(const struct rustls_client_cert_verifier_optional *verifier);
 
@@ -982,8 +992,8 @@ uint16_t rustls_server_session_get_protocol_version(const struct rustls_server_s
  * Return the i-th certificate provided by the client. If no client
  * certificate was exchanged during the handshake, this will always
  * return NULL.
- * Otherwise, this will return the chain, starting with the client
- * certificate itself at index 0, followed by the chain provided.
+ * Otherwise, this will return the chain, starting with the end entity
+ * certificate at index 0, followed by the chain provided.
  */
 const struct rustls_certificate *rustls_server_session_get_peer_certificate(const struct rustls_server_session *session,
                                                                             size_t i);
