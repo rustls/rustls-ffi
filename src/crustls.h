@@ -157,6 +157,8 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 typedef struct rustls_client_session rustls_client_session;
 
+typedef struct rustls_connection rustls_connection;
+
 /**
  * A root cert store that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<RootCertStore>.
@@ -828,6 +830,144 @@ rustls_io_error rustls_client_session_write_tls(struct rustls_client_session *se
 enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
                                                                 rustls_session_store_get_callback get_cb,
                                                                 rustls_session_store_put_callback put_cb);
+
+/**
+ * Set the userdata pointer associated with this connection. This will be passed
+ * to any callbacks invoked by the connection, if you've set up callbacks in the config.
+ * The pointed-to data must outlive the connection.
+ */
+void rustls_connection_set_userdata(struct rustls_connection *conn, void *userdata);
+
+/**
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as you get in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
+ */
+rustls_io_error rustls_connection_read_tls(struct rustls_connection *conn,
+                                           rustls_read_callback callback,
+                                           void *userdata,
+                                           size_t *out_n);
+
+/**
+ * Write some TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+ */
+rustls_io_error rustls_connection_write_tls(struct rustls_connection *conn,
+                                            rustls_write_callback callback,
+                                            void *userdata,
+                                            size_t *out_n);
+
+enum rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
+
+bool rustls_connection_wants_read(const struct rustls_connection *conn);
+
+bool rustls_connection_wants_write(const struct rustls_connection *conn);
+
+bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
+
+/**
+ * Sets a limit on the internal buffers used to buffer unsent plaintext (prior
+ * to completing the TLS handshake) and unsent TLS records. By default, there
+ * is no limit. The limit can be set at any time, even if the current buffer
+ * use is higher.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.set_buffer_limit
+ */
+void rustls_connection_set_buffer_limit(struct rustls_connection *conn, uintptr_t n);
+
+/**
+ * Queues a close_notify fatal alert to be sent in the next write_tls call.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
+ */
+void rustls_connection_send_close_notify(struct rustls_connection *conn);
+
+/**
+ * Return the i-th certificate provided by the peer.
+ * Index 0 is the end entity certificate. Higher indexes are certificates
+ * in the chain. Requesting an index higher than what is available returns
+ * NULL.
+ */
+const struct rustls_certificate *rustls_connection_get_peer_certificate(const struct rustls_connection *conn,
+                                                                        size_t i);
+
+/**
+ * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
+ * borrowed buffer of bytes, and that buffer's len, in the output parameters.
+ * The borrow lives as long as the session.
+ * If the session is still handshaking, or no ALPN protocol was negotiated,
+ * stores NULL and 0 in the output parameters.
+ * https://www.iana.org/assignments/tls-parameters/
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
+ */
+void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
+                                         const uint8_t **protocol_out,
+                                         uintptr_t *protocol_out_len);
+
+/**
+ * Return the TLS protocol version that has been negotiated. Before this
+ * has been decided during the handshake, this will return 0. Otherwise,
+ * the u16 version number as defined in the relevant RFC is returned.
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+ * https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
+ */
+uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *conn);
+
+/**
+ * Retrieves the cipher suite agreed with the peer.
+ * This returns NULL until the ciphersuite is agreed.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.get_negotiated_ciphersuite
+ */
+const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
+
+/**
+ * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
+ * This will increase the number of output bytes available to
+ * `rustls_connection_write_tls`.
+ * On success, store the number of bytes actually written in *out_n
+ * (this may be less than `count`).
+ */
+enum rustls_result rustls_connection_write(struct rustls_connection *conn,
+                                           const uint8_t *buf,
+                                           size_t count,
+                                           size_t *out_n);
+
+/**
+ * Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
+ * On success, store the number of bytes read in *out_n (this may be less
+ * than `count`). A success with *out_n set to 0 means "all bytes currently
+ * available have been read, but more bytes may become available after
+ * subsequent calls to rustls_connection_read_tls and
+ * rustls_connection_process_new_packets."
+ *
+ * Subtle note: Even though this function only writes to `buf` and does not
+ * read from it, the memory in `buf` must be initialized before the call (for
+ * Rust-internal reasons). Initializing a buffer once and then using it
+ * multiple times without zeroizing before each call is fine.
+ */
+enum rustls_result rustls_connection_read(struct rustls_connection *conn,
+                                          uint8_t *buf,
+                                          size_t count,
+                                          size_t *out_n);
+
+/**
+ * Free a rustls_connection. Calling with NULL is fine.
+ * Must not be called twice with the same value.
+ */
+void rustls_connection_free(struct rustls_connection *conn);
 
 /**
  * After a rustls_client_session method returns an error, you may call
