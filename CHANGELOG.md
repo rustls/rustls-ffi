@@ -12,14 +12,17 @@
 
 ### Changed
 
- - rustls_client_session_read_tls, rustls_client_session_write_tls,
-   rustls_server_session_read_tls, and rustls_server_session_write_tls
-   take a callback rather than copying bytes into a buffer. This can simplify
-   user code significantly and in particular makes it harder for user code
-   to accidentally drop bytes from the buffer. This introduces a new
-   rustls_io_error type that is an alias for c_int. It wraps a value from
-   `errno`. Both the updated read/write functions and the callbacks they
-   receive return rustls_io_error.
+ - The separate rustls_client_session and rustls_server_session types have
+   been merged into a single rustls_connection type. Merging these reduces
+   duplication in both the API and the implementation, and better reflects
+   how the underlying rustls library works. The name change, from session
+   to connection, reflects an upcoming change in the rustls library.
+ - The read_tls and write_tls methods now take a callback rather than
+   copying bytes into a buffer. This can simplify user code significantly
+   and in particular makes it harder for user code to accidentally drop
+   bytes from the buffer. This introduces a new rustls_io_error type that
+   is an alias for c_int. It wraps a value from `errno`. Both the updated
+   read/write functions and the callbacks they receive return rustls_io_error.
 
 ## 0.5.0 - 2021-04-29
 
