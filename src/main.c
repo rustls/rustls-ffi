@@ -96,7 +96,7 @@ write_all(int fd, const char *buf, int n)
       return 1;
     }
     if(m == 0) {
-      fprintf(stderr, "early EOF when writing to %s\n", "stdout");
+      fprintf(stderr, "early EOF when writing to stdout\n");
       return 1;
     }
     n -= m;
