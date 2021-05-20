@@ -28,15 +28,17 @@ pub(crate) enum Inner {
     Server(ServerSession),
 }
 
-impl Conn {
-    fn as_ref(&self) -> &dyn Session {
+impl<'conn> AsRef<dyn Session + 'conn> for Conn {
+    fn as_ref(&self) -> &(dyn Session + 'conn) {
         match &self.conn {
             Inner::Client(c) => c,
             Inner::Server(c) => c,
         }
     }
+}
 
-    fn as_mut(&mut self) -> &mut dyn Session {
+impl<'conn> AsMut<dyn Session + 'conn> for Conn {
+    fn as_mut(&mut self) -> &mut (dyn Session + 'conn) {
         match &mut self.conn {
             Inner::Client(c) => c,
             Inner::Server(c) => c,
