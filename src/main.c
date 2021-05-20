@@ -96,7 +96,7 @@ write_all(int fd, const char *buf, int n)
       return 1;
     }
     if(m == 0) {
-      fprintf(stderr, "early EOF when writing to stdout");
+      fprintf(stderr, "early EOF when writing to stdout\n");
       return 1;
     }
     n -= m;
@@ -235,7 +235,7 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 
 struct demo_conn {
   int fd;
-  const char* verify_arg;
+  const char *verify_arg;
 };
 
 int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
@@ -246,7 +246,9 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
   if(n < 0) {
     return errno;
   }
-  *out_n = n;
+  if (out_n != NULL) {
+    *out_n = n;
+  }
   return 0;
 }
 
