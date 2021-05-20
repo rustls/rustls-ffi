@@ -246,7 +246,9 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
   if(n < 0) {
     return errno;
   }
-  *out_n = n;
+  if (out_n != NULL) {
+    *out_n = n;
+  }
   return 0;
 }
 
