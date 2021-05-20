@@ -84,7 +84,14 @@ pub extern "C" fn rustls_connection_read_tls(
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: ReadCallback = try_callback!(callback);
 
-        read_tls(dyn_conn_mut(conn), callback, userdata, out_n)
+        let mut reader = CallbackReader { callback, userdata };
+        let n_read: usize = match dyn_conn_mut(conn).read_tls(&mut reader) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_read;
+
+        rustls_io_error(0)
     }
 }
 
@@ -110,42 +117,15 @@ pub extern "C" fn rustls_connection_write_tls(
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: WriteCallback = try_callback!(callback);
 
-        write_tls(dyn_conn_mut(conn), callback, userdata, out_n)
+        let mut writer = CallbackWriter { callback, userdata };
+        let n_written: usize = match dyn_conn_mut(conn).write_tls(&mut writer) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_written;
+
+        rustls_io_error(0)
     }
-}
-
-// Call Session::read_tls, providing an &mut dyn Write implemented with a C callback.
-pub(crate) fn read_tls(
-    session: &mut dyn Session,
-    callback: ReadCallback,
-    userdata: *mut c_void,
-    out_n: &mut size_t,
-) -> rustls_io_error {
-    let mut reader = CallbackReader { callback, userdata };
-    let n_read: usize = match session.read_tls(&mut reader) {
-        Ok(n) => n,
-        Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
-    };
-    *out_n = n_read;
-
-    rustls_io_error(0)
-}
-
-// Call Session::write_tls, providing an &mut dyn Write implemented with a C callback.
-pub(crate) fn write_tls(
-    session: &mut dyn Session,
-    callback: WriteCallback,
-    userdata: *mut c_void,
-    out_n: &mut size_t,
-) -> rustls_io_error {
-    let mut writer = CallbackWriter { callback, userdata };
-    let n_written: usize = match session.write_tls(&mut writer) {
-        Ok(n) => n,
-        Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
-    };
-    *out_n = n_written;
-
-    rustls_io_error(0)
 }
 
 #[no_mangle]
