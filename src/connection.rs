@@ -19,8 +19,8 @@ use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
 use rustls_result::NullParameter;
 
 pub(crate) struct Conn {
-    conn: Inner,
-    userdata: *mut c_void,
+    pub(crate) conn: Inner,
+    pub(crate) userdata: *mut c_void,
 }
 
 pub(crate) enum Inner {
