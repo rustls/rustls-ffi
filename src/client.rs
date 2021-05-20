@@ -14,7 +14,7 @@ use rustls::{
 use webpki::DNSNameRef;
 
 use crate::connection;
-use crate::error::{self, map_error, result_to_tlserror, rustls_io_error, rustls_result};
+use crate::error::{self, map_error, result_to_tlserror, rustls_io_result, rustls_result};
 use crate::io::{rustls_read_callback, rustls_write_callback, ReadCallback, WriteCallback};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
@@ -653,7 +653,7 @@ pub extern "C" fn rustls_client_session_read_tls(
     callback: rustls_read_callback,
     userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_io_error {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
@@ -679,7 +679,7 @@ pub extern "C" fn rustls_client_session_write_tls(
     callback: rustls_write_callback,
     userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_io_error {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);

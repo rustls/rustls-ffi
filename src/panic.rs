@@ -1,6 +1,6 @@
 use libc::EINVAL;
 
-use crate::error::{rustls_io_error, rustls_result};
+use crate::error::{rustls_io_result, rustls_result};
 
 use std::ptr::{null, null_mut};
 
@@ -56,9 +56,9 @@ impl PanicOrDefault for rustls_result {
     }
 }
 
-impl PanicOrDefault for rustls_io_error {
+impl PanicOrDefault for rustls_io_result {
     fn value() -> Self {
-        rustls_io_error(EINVAL)
+        rustls_io_result(EINVAL)
     }
 }
 
@@ -86,9 +86,9 @@ impl NullParameterOrDefault for rustls_result {
     }
 }
 
-impl NullParameterOrDefault for rustls_io_error {
+impl NullParameterOrDefault for rustls_io_result {
     fn value() -> Self {
-        rustls_io_error(EINVAL)
+        rustls_io_result(EINVAL)
     }
 }
 
