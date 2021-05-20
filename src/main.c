@@ -235,7 +235,7 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
 
 struct demo_conn {
   int fd;
-  const char* verify_arg;
+  const char *verify_arg;
 };
 
 int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
