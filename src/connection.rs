@@ -28,26 +28,28 @@ pub(crate) enum Inner {
     Server(ServerSession),
 }
 
+impl Conn {
+    fn as_ref(&self) -> &dyn Session {
+        match &self.conn {
+            Inner::Client(c) => c,
+            Inner::Server(c) => c,
+        }
+    }
+
+    fn as_mut(&mut self) -> &mut dyn Session {
+        match &mut self.conn {
+            Inner::Client(c) => c,
+            Inner::Server(c) => c,
+        }
+    }
+}
+
 pub struct rustls_connection {
     _private: [u8; 0],
 }
 
 impl CastPtr for rustls_connection {
     type RustType = Conn;
-}
-
-fn dyn_conn(conn: &Conn) -> &dyn Session {
-    match &conn.conn {
-        Inner::Client(c) => c,
-        Inner::Server(c) => c,
-    }
-}
-
-fn dyn_conn_mut(conn: &mut Conn) -> &mut dyn Session {
-    match &mut conn.conn {
-        Inner::Client(c) => c,
-        Inner::Server(c) => c,
-    }
 }
 
 /// Set the userdata pointer associated with this connection. This will be passed
@@ -85,7 +87,7 @@ pub extern "C" fn rustls_connection_read_tls(
         let callback: ReadCallback = try_callback!(callback);
 
         let mut reader = CallbackReader { callback, userdata };
-        let n_read: usize = match dyn_conn_mut(conn).read_tls(&mut reader) {
+        let n_read: usize = match conn.as_mut().read_tls(&mut reader) {
             Ok(n) => n,
             Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
         };
@@ -118,7 +120,7 @@ pub extern "C" fn rustls_connection_write_tls(
         let callback: WriteCallback = try_callback!(callback);
 
         let mut writer = CallbackWriter { callback, userdata };
-        let n_written: usize = match dyn_conn_mut(conn).write_tls(&mut writer) {
+        let n_written: usize = match conn.as_mut().write_tls(&mut writer) {
             Ok(n) => n,
             Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
         };
@@ -138,7 +140,7 @@ pub extern "C" fn rustls_connection_process_new_packets(
             Ok(g) => g,
             Err(_) => return rustls_result::Panic,
         };
-        let result = match dyn_conn_mut(conn).process_new_packets() {
+        let result = match conn.as_mut().process_new_packets() {
             Ok(()) => rustls_result::Ok,
             Err(e) => map_error(e),
         };
@@ -153,7 +155,7 @@ pub extern "C" fn rustls_connection_process_new_packets(
 pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        dyn_conn(conn).wants_read()
+        conn.as_ref().wants_read()
     }
 }
 
@@ -161,7 +163,7 @@ pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -
 pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        dyn_conn(conn).wants_write()
+        conn.as_ref().wants_write()
     }
 }
 
@@ -169,7 +171,7 @@ pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) 
 pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        dyn_conn(conn).is_handshaking()
+        conn.as_ref().is_handshaking()
     }
 }
 /// Sets a limit on the internal buffers used to buffer unsent plaintext (prior
@@ -181,7 +183,7 @@ pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connectio
 pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
     ffi_panic_boundary! {
         let conn: &mut Conn = try_mut_from_ptr!(conn);
-        dyn_conn_mut(conn).set_buffer_limit(n);
+        conn.as_mut().set_buffer_limit(n);
     }
 }
 
@@ -191,7 +193,7 @@ pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connectio
 pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
     ffi_panic_boundary! {
         let conn: &mut Conn = try_mut_from_ptr!(conn);
-        dyn_conn_mut(conn).send_close_notify();
+        conn.as_mut().send_close_notify();
     }
 }
 
@@ -206,7 +208,7 @@ pub extern "C" fn rustls_connection_get_peer_certificate(
 ) -> *const rustls_certificate {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        match dyn_conn(conn).get_peer_certificates() {
+        match conn.as_ref().get_peer_certificates() {
             Some(v) => match v.get(i) {
                 Some(cert) => cert as *const Certificate as *const _,
                 None => null()
@@ -233,7 +235,7 @@ pub extern "C" fn rustls_connection_get_alpn_protocol(
         let conn: &Conn = try_ref_from_ptr!(conn);
         let protocol_out = try_mut_from_ptr!(protocol_out);
         let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
-        match dyn_conn(conn).get_alpn_protocol() {
+        match conn.as_ref().get_alpn_protocol() {
             Some(p) => {
                 *protocol_out = p.as_ptr();
                 *protocol_out_len = p.len();
@@ -255,7 +257,7 @@ pub extern "C" fn rustls_connection_get_alpn_protocol(
 pub extern "C" fn rustls_connection_get_protocol_version(conn: *const rustls_connection) -> u16 {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        match dyn_conn(conn).get_protocol_version() {
+        match conn.as_ref().get_protocol_version() {
             Some(p) => p.get_u16(),
             _ => 0,
         }
@@ -271,7 +273,7 @@ pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
 ) -> *const rustls_supported_ciphersuite {
     ffi_panic_boundary! {
         let conn: &Conn = try_ref_from_ptr!(conn);
-        match dyn_conn(conn).get_negotiated_ciphersuite() {
+        match conn.as_ref().get_negotiated_ciphersuite() {
             Some(cs) => cs as *const SupportedCipherSuite as *const _,
             None => null(),
         }
@@ -298,7 +300,7 @@ pub extern "C" fn rustls_connection_write(
                 None => return NullParameter,
             }
         };
-        let n_written: usize = match dyn_conn_mut(conn).write(write_buf) {
+        let n_written: usize = match conn.as_mut().write(write_buf) {
             Ok(n) => n,
             Err(_) => return rustls_result::Io,
         };
@@ -330,7 +332,7 @@ pub extern "C" fn rustls_connection_read(
         let read_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
-        let n_read: usize = match dyn_conn_mut(conn).read(read_buf) {
+        let n_read: usize = match conn.as_mut().read(read_buf) {
             Ok(n) => n,
             // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
             // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
