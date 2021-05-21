@@ -282,6 +282,7 @@ pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
         }
     }
 }
+
 /// Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
 /// This will increase the number of output bytes available to
 /// `rustls_connection_write_tls`.
