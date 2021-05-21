@@ -1,9 +1,11 @@
-use std::slice;
 use std::{ffi::c_void, ptr::null};
+use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EIO};
 use rustls::{Certificate, ClientSession, ServerSession, Session, SupportedCipherSuite};
 
+use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
+use crate::is_close_notify;
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
@@ -11,22 +13,67 @@ use crate::{
     try_callback, try_mut_slice,
 };
 use crate::{ffi_panic_boundary, try_ref_from_ptr};
-use crate::is_close_notify;
 use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
 use rustls_result::NullParameter;
-use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
 
-pub(crate) struct Conn {
-    pub(crate) conn: Inner,
-    pub(crate) userdata: *mut c_void,
+pub(crate) struct Connection {
+    conn: Inner,
+    userdata: *mut c_void,
 }
 
-pub(crate) enum Inner {
+enum Inner {
     Client(ClientSession),
     Server(ServerSession),
 }
 
-impl<'conn> AsRef<dyn Session + 'conn> for Conn {
+impl Connection {
+    pub(crate) fn from_client(s: ClientSession) -> Self {
+        Connection {
+            conn: Inner::Client(s),
+            userdata: null_mut(),
+        }
+    }
+
+    pub(crate) fn from_server(s: ServerSession) -> Self {
+        Connection {
+            conn: Inner::Server(s),
+            userdata: null_mut(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn as_client(&self) -> Option<&ClientSession> {
+        match &self.conn {
+            Inner::Client(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_server(&self) -> Option<&ServerSession> {
+        match &self.conn {
+            Inner::Server(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn as_client_mut(&mut self) -> Option<&mut ClientSession> {
+        match &mut self.conn {
+            Inner::Client(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn as_server_mut(&mut self) -> Option<&mut ServerSession> {
+        match &mut self.conn {
+            Inner::Server(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+impl<'conn> AsRef<dyn Session + 'conn> for Connection {
     fn as_ref(&self) -> &(dyn Session + 'conn) {
         match &self.conn {
             Inner::Client(c) => c,
@@ -35,7 +82,7 @@ impl<'conn> AsRef<dyn Session + 'conn> for Conn {
     }
 }
 
-impl<'conn> AsMut<dyn Session + 'conn> for Conn {
+impl<'conn> AsMut<dyn Session + 'conn> for Connection {
     fn as_mut(&mut self) -> &mut (dyn Session + 'conn) {
         match &mut self.conn {
             Inner::Client(c) => c,
@@ -49,7 +96,7 @@ pub struct rustls_connection {
 }
 
 impl CastPtr for rustls_connection {
-    type RustType = Conn;
+    type RustType = Connection;
 }
 
 /// Set the userdata pointer associated with this connection. This will be passed
@@ -60,7 +107,7 @@ pub extern "C" fn rustls_connection_set_userdata(
     conn: *mut rustls_connection,
     userdata: *mut c_void,
 ) {
-    let conn: &mut Conn = try_mut_from_ptr!(conn);
+    let conn: &mut Connection = try_mut_from_ptr!(conn);
     conn.userdata = userdata;
 }
 
@@ -82,7 +129,7 @@ pub extern "C" fn rustls_connection_read_tls(
     out_n: *mut size_t,
 ) -> rustls_io_result {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: ReadCallback = try_callback!(callback);
 
@@ -115,7 +162,7 @@ pub extern "C" fn rustls_connection_write_tls(
     out_n: *mut size_t,
 ) -> rustls_io_result {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: WriteCallback = try_callback!(callback);
 
@@ -135,7 +182,7 @@ pub extern "C" fn rustls_connection_process_new_packets(
     conn: *mut rustls_connection,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         let guard = match userdata_push(conn.userdata) {
             Ok(g) => g,
             Err(_) => return rustls_result::Panic,
@@ -154,7 +201,7 @@ pub extern "C" fn rustls_connection_process_new_packets(
 #[no_mangle]
 pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         conn.as_ref().wants_read()
     }
 }
@@ -162,7 +209,7 @@ pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -
 #[no_mangle]
 pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         conn.as_ref().wants_write()
     }
 }
@@ -170,7 +217,7 @@ pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) 
 #[no_mangle]
 pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         conn.as_ref().is_handshaking()
     }
 }
@@ -183,7 +230,7 @@ pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connectio
 #[no_mangle]
 pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         conn.as_mut().set_buffer_limit(n);
     }
 }
@@ -193,7 +240,7 @@ pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connectio
 #[no_mangle]
 pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         conn.as_mut().send_close_notify();
     }
 }
@@ -208,7 +255,7 @@ pub extern "C" fn rustls_connection_get_peer_certificate(
     i: size_t,
 ) -> *const rustls_certificate {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         match conn.as_ref().get_peer_certificates() {
             Some(v) => match v.get(i) {
                 Some(cert) => cert as *const Certificate as *const _,
@@ -233,7 +280,7 @@ pub extern "C" fn rustls_connection_get_alpn_protocol(
     protocol_out_len: *mut usize,
 ) {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         let protocol_out = try_mut_from_ptr!(protocol_out);
         let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
         match conn.as_ref().get_alpn_protocol() {
@@ -257,7 +304,7 @@ pub extern "C" fn rustls_connection_get_alpn_protocol(
 #[no_mangle]
 pub extern "C" fn rustls_connection_get_protocol_version(conn: *const rustls_connection) -> u16 {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         match conn.as_ref().get_protocol_version() {
             Some(p) => p.get_u16(),
             _ => 0,
@@ -273,7 +320,7 @@ pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
     conn: *const rustls_connection,
 ) -> *const rustls_supported_ciphersuite {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         match conn.as_ref().get_negotiated_ciphersuite() {
             Some(cs) => cs as *const SupportedCipherSuite as *const _,
             None => null(),
@@ -294,7 +341,7 @@ pub extern "C" fn rustls_connection_write(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         let write_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = unsafe {
             match out_n.as_mut() {
@@ -330,7 +377,7 @@ pub extern "C" fn rustls_connection_read(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         let read_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
 
@@ -353,7 +400,7 @@ pub extern "C" fn rustls_connection_read(
 #[no_mangle]
 pub extern "C" fn rustls_connection_free(conn: *mut rustls_connection) {
     ffi_panic_boundary! {
-        let conn: &mut Conn = try_mut_from_ptr!(conn);
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
         // Convert the pointer to a Box and drop it.
         unsafe { Box::from_raw(conn); }
     }

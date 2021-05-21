@@ -17,8 +17,7 @@ use crate::cipher::{
     rustls_certified_key, rustls_client_cert_verifier, rustls_client_cert_verifier_optional,
     rustls_supported_ciphersuite,
 };
-use crate::connection::Inner;
-use crate::connection::{rustls_connection, Conn};
+use crate::connection::{rustls_connection, Connection};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::rustls_result;
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
@@ -340,10 +339,7 @@ pub extern "C" fn rustls_server_connection_new(
         // We've succeeded. Put the server on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let c = Conn {
-            conn: Inner::Server(ServerSession::new(&config)),
-            userdata: null_mut(),
-        };
+        let c = Connection::from_server(ServerSession::new(&config));
         unsafe {
             *conn_out = Box::into_raw(Box::new(c)) as *mut _;
         }
@@ -367,11 +363,11 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
     out_n: *mut size_t,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let conn: &Conn = try_ref_from_ptr!(conn);
+        let conn: &Connection = try_ref_from_ptr!(conn);
         let write_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
-        let server_session = match &conn.conn {
-            Inner::Server(s) => s,
+        let server_session = match conn.as_server() {
+            Some(s) => s,
             _ => return rustls_result::InvalidParameter,
         };
         let sni_hostname = match server_session.get_sni_hostname() {

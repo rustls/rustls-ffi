@@ -1,7 +1,6 @@
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::BufReader;
-use std::ptr::null_mut;
 use std::slice;
 use std::sync::Arc;
 use std::{convert::TryInto, ffi::CStr};
@@ -12,10 +11,10 @@ use rustls::{
 };
 use webpki::DNSNameRef;
 
-use crate::connection::{rustls_connection, Conn, Inner};
+use crate::connection::{rustls_connection, Connection};
 use crate::error::{self, result_to_tlserror, rustls_result};
-use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::rslice::NulByte;
+use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
     SessionStoreGetCallback, SessionStorePutCallback,
@@ -392,10 +391,7 @@ pub extern "C" fn rustls_client_connection_new(
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let c = Conn {
-            conn: Inner::Client(ClientSession::new(&config, name_ref)),
-            userdata: null_mut(),
-        };
+        let c = Connection::from_client( ClientSession::new(&config, name_ref));
         unsafe {
             *conn_out = Box::into_raw(Box::new(c)) as *mut _;
         }

@@ -686,8 +686,8 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * Create a new rustls_connection containing a client connection and return it
  * in the output parameter `out`. If this returns an error code, the memory
  * pointed to by `session_out` remains unchanged.
- * If this returns a non-error, the memory pointed to by `session_out` is modified to point
- * at a valid ClientSession. The caller now owns the rustls_connection and must call
+ * If this returns a non-error, the memory pointed to by `conn_out` is modified to point
+ * at a valid rustls_connection. The caller now owns the rustls_connection and must call
  * `rustls_client_connection_free` when done with it.
  */
 enum rustls_result rustls_client_connection_new(const struct rustls_client_config *config,
@@ -784,8 +784,8 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(const st
 /**
  * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
  * borrowed buffer of bytes, and that buffer's len, in the output parameters.
- * The borrow lives as long as the session.
- * If the session is still handshaking, or no ALPN protocol was negotiated,
+ * The borrow lives as long as the connection.
+ * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
  * https://www.iana.org/assignments/tls-parameters/
  * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
