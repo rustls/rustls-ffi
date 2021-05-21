@@ -176,6 +176,7 @@ pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connectio
         conn.as_ref().is_handshaking()
     }
 }
+
 /// Sets a limit on the internal buffers used to buffer unsent plaintext (prior
 /// to completing the TLS handshake) and unsent TLS records. By default, there
 /// is no limit. The limit can be set at any time, even if the current buffer
