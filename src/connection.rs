@@ -174,6 +174,7 @@ pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connectio
         conn.as_ref().is_handshaking()
     }
 }
+
 /// Sets a limit on the internal buffers used to buffer unsent plaintext (prior
 /// to completing the TLS handshake) and unsent TLS records. By default, there
 /// is no limit. The limit can be set at any time, even if the current buffer
@@ -220,8 +221,8 @@ pub extern "C" fn rustls_connection_get_peer_certificate(
 
 /// Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
 /// borrowed buffer of bytes, and that buffer's len, in the output parameters.
-/// The borrow lives as long as the session.
-/// If the session is still handshaking, or no ALPN protocol was negotiated,
+/// The borrow lives as long as the connection.
+/// If the connection is still handshaking, or no ALPN protocol was negotiated,
 /// stores NULL and 0 in the output parameters.
 /// https://www.iana.org/assignments/tls-parameters/
 /// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
@@ -279,6 +280,7 @@ pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
         }
     }
 }
+
 /// Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
 /// This will increase the number of output bytes available to
 /// `rustls_connection_write_tls`.
