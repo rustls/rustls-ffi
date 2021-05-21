@@ -1,32 +1,37 @@
-use libc::size_t;
-use std::io::{Cursor, Read, Write};
+use std::convert::TryInto;
+use std::ffi::c_void;
+use std::io::{Read, Write};
+use std::ptr::{null, null_mut};
 use std::slice;
 use std::sync::Arc;
-use std::{convert::TryInto, ptr::null};
-use std::{ffi::c_void, ptr::null_mut};
 
-use rustls::{sign::CertifiedKey, Certificate, SignatureScheme, SupportedCipherSuite};
+use libc::size_t;
+use rustls::sign::CertifiedKey;
 use rustls::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
     ServerConfig, ServerSession, Session,
 };
+use rustls::{Certificate, SignatureScheme, SupportedCipherSuite};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
-use rustls_result::{InvalidParameter, NullParameter};
 
 use crate::cipher::{
     rustls_certificate, rustls_certified_key, rustls_client_cert_verifier,
     rustls_client_cert_verifier_optional, rustls_supported_ciphersuite,
 };
+use crate::connection;
 use crate::enums::rustls_tls_version_from_u16;
+use crate::error::rustls_io_result;
+use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{map_error, rustls_result};
+use crate::io::{rustls_read_callback, rustls_write_callback, ReadCallback, WriteCallback};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, try_mut_from_ptr, try_mut_slice,
-    try_ref_from_ptr, try_slice, userdata_get, userdata_push, CastPtr,
+    arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, try_callback, try_mut_from_ptr,
+    try_mut_slice, try_ref_from_ptr, try_slice, userdata_get, userdata_push, CastPtr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -550,64 +555,55 @@ pub extern "C" fn rustls_server_session_read(
     }
 }
 
-/// Read up to `count` TLS bytes from `buf` (usually read from a socket) into
-/// the ServerSession. This may make packets available to
-/// `rustls_server_session_process_new_packets`, which in turn may make more
-/// bytes available to `rustls_server_session_read`.
-/// On success, store the number of bytes actually read in *out_n (this may
-/// be less than `count`). This function returns success and stores 0 in
-/// *out_n when the input count is 0.
+/// Read some TLS bytes from the network into internal buffers. The actual network
+/// I/O is performed by `callback`, which you provide. Rustls will invoke your
+/// callback with a suitable buffer to store the read bytes into. You don't have
+/// to fill it up, just fill with as many bytes as you get in one syscall.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_client_session_set_userdata`.
+/// Returns 0 for success, or an errno value on error. Passes through return values
+/// from callback. See rustls_read_callback for more details.
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
 #[no_mangle]
 pub extern "C" fn rustls_server_session_read_tls(
     session: *mut rustls_server_session,
-    buf: *const u8,
-    count: size_t,
+    callback: rustls_read_callback,
+    userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_result {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
-        let input_buf: &[u8] = try_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        let callback: ReadCallback = try_callback!(callback);
 
-        let mut cursor = Cursor::new(input_buf);
-        let n_read: usize = match session.session.read_tls(&mut cursor) {
-            Ok(n) => n,
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_read;
-        rustls_result::Ok
+        connection::read_tls(&mut session.session, callback, userdata, out_n)
     }
 }
 
-/// Write up to `count` TLS bytes from the ServerSession into `buf`. Those
-/// bytes should then be written to a socket. On success, store the number of
-/// bytes actually written in *out_n (this maybe less than `count`).
-///
-/// Subtle note: Even though this function only writes to `buf` and does not
-/// read from it, the memory in `buf` must be initialized before the call (for
-/// Rust-internal reasons). Initializing a buffer once and then using it
-/// multiple times without zeroizing before each call is fine.
-///
+/// Write some TLS bytes to the network. The actual network I/O is performed by
+/// `callback`, which you provide. Rustls will invoke your callback with a
+/// suitable buffer containing TLS bytes to send. You don't have to write them
+/// all, just as many as you can in one syscall.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_client_session_set_userdata`.
+/// Returns 0 for success, or an errno value on error. Passes through return values
+/// from callback. See rustls_write_callback for more details.
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_server_session_write_tls(
     session: *mut rustls_server_session,
-    buf: *mut u8,
-    count: size_t,
+    callback: rustls_write_callback,
+    userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_result {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let session: &mut Sess = try_mut_from_ptr!(session);
-        let mut output_buf: &mut [u8] = try_mut_slice!(buf, count);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        let callback: WriteCallback = try_callback!(callback);
 
-        let n_written: usize = match session.session.write_tls(&mut output_buf) {
-            Ok(n) => n,
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_written;
-        rustls_result::Ok
+        connection::write_tls(&mut session.session, callback, userdata, out_n)
     }
 }
 

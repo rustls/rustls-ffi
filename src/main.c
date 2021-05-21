@@ -87,20 +87,16 @@ const char *ws_strerror (int err)
 int
 write_all(int fd, const char *buf, int n)
 {
-  int m = 0, must_use_send = 0;
-
-#ifdef _WIN32
-  must_use_send = (fd > STDOUT_FILENO);
-#endif
+  int m = 0;
 
   while(n > 0) {
-    m = must_use_send ? send(fd, buf, n, 0) : write(fd, buf, n);
+    m = write(fd, buf, n);
     if(m < 0) {
-      must_use_send ? perror("writing to socket") : perror("writing to stdout");
+      perror("writing to stdout");
       return 1;
     }
     if(m == 0) {
-      fprintf(stderr, "early EOF when writing to %s\n", must_use_send ? "socket" : "stdout");
+      fprintf(stderr, "early EOF when writing to stdout\n");
       return 1;
     }
     n -= m;
@@ -194,49 +190,6 @@ cleanup:
   return -1;
 }
 
-/*
- * Copy all the ciphertext bytes from buf into the client session.
- * Returns 0 for success, 1 for error.
- */
-int
-copy_tls_bytes_into_client_session(
-  struct rustls_client_session *client_session, uint8_t *buf, size_t len,
-  size_t *out_n)
-{
-  size_t n;
-  size_t n_written = 0;
-  int result;
-
-  while(n_written < len) {
-    result = rustls_client_session_read_tls(
-      client_session, buf + n_written, len - n_written, &n);
-    if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "Error in ClientSession::read_tls\n");
-      goto fail;
-    }
-    if(n == 0) {
-      fprintf(stderr, "EOF from ClientSession::read_tls\n");
-      goto fail;
-    }
-    if(n > len) {
-      fprintf(stderr, "too many bytes written to ClientSession; overflow\n");
-      goto fail;
-    }
-    n_written += n;
-
-    result = rustls_client_session_process_new_packets(client_session);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("in process_new_packets", result);
-      goto fail;
-    }
-  }
-  *out_n = n_written;
-  return 0;
-
-fail:
-  *out_n = n_written;
-  return 1;
-}
 
 /* Read all available bytes from the client_session until EOF.
  * Note that EOF here indicates "no more bytes until
@@ -280,6 +233,42 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
   return CRUSTLS_DEMO_ERROR;
 }
 
+struct demo_conn {
+  int fd;
+  const char *verify_arg;
+};
+
+int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
+{
+  ssize_t n = 0;
+  struct demo_conn *conn = (struct demo_conn*)userdata;
+  n = read(conn->fd, buf, len);
+  if(n < 0) {
+    return errno;
+  }
+  if (out_n != NULL) {
+    *out_n = n;
+  }
+  return 0;
+}
+
+int write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n)
+{
+  ssize_t n = 0;
+  struct demo_conn *conn = (struct demo_conn*)userdata;
+
+#ifdef _WIN32
+  n = send(conn->fd, buf, len);
+#else
+  n = write(conn->fd, buf, len);
+#endif
+  if(n < 0) {
+    return errno;
+  }
+  *out_n = n;
+  return 0;
+}
+
 /*
  * Do one read from the socket, and process all resulting bytes into the
  * client_session, then copy all plaintext bytes from the session to stdout.
@@ -291,43 +280,28 @@ copy_plaintext_to_stdout(struct rustls_client_session *client_session)
  *  - CRUSTLS_DEMO_ERROR for other errors.
  */
 enum crustls_demo_result
-do_read(int sockfd, struct rustls_client_session *client_session)
+do_read(struct demo_conn *conn, struct rustls_client_session *client_session)
 {
+  int err = 1;
   int result = 1;
-  ssize_t n = 0;
-  size_t buflen = 0;
-  size_t n_from_rustls = 0;
-  char buf[2048];
+  size_t n = 0;
 
-  bzero(buf, sizeof(buf));
-  n = read(sockfd, buf, sizeof(buf));
-  if(n == 0) {
-    fprintf(stderr, "EOF reading from socket\n");
-    return CRUSTLS_DEMO_EOF;
-  }
-  else if(n < 0) {
-    if(errno == EAGAIN || errno == EWOULDBLOCK) {
-      fprintf(stderr,
-              "reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
-              strerror(errno));
-      return CRUSTLS_DEMO_AGAIN;
-    }
-    else {
-      perror("reading from socket");
-      return CRUSTLS_DEMO_ERROR;
-    }
-  }
-  buflen = (size_t)n;
+  err = rustls_client_session_read_tls(client_session, read_cb, conn, &n);
 
-  /*
-   * Now pull those bytes from the buffer into ClientSession.
-   * Note that we pass buf, n; not buf, sizeof(buf). We don't
-   * want to pull in unitialized memory that we didn't just
-   * read from the socket.
-   */
-  result = copy_tls_bytes_into_client_session(
-    client_session, (uint8_t *)buf, buflen, &n_from_rustls);
-  if(result != 0) {
+  if(err == EAGAIN || err == EWOULDBLOCK) {
+    fprintf(stderr,
+            "reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
+            strerror(errno));
+    return CRUSTLS_DEMO_AGAIN;
+  }
+  else if(err != 0) {
+    fprintf(stderr, "reading from socket: errno %d\n", err);
+    return CRUSTLS_DEMO_ERROR;
+  }
+
+  result = rustls_client_session_process_new_packets(client_session);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error("in process_new_packets", result);
     return CRUSTLS_DEMO_ERROR;
   }
 
@@ -336,9 +310,10 @@ do_read(int sockfd, struct rustls_client_session *client_session)
     return result;
   }
 
+  char buf[2048];
   /* If we got a close_notify, verify that the sender then
    * closed the TCP connection. */
-  n = read(sockfd, buf, sizeof(buf));
+  n = read(conn->fd, buf, sizeof(buf));
   if(n != 0 && errno != EWOULDBLOCK) {
     fprintf(stderr, "read returned %ld after receiving close_notify: %s\n", n, strerror(errno));
     return CRUSTLS_DEMO_ERROR;
@@ -352,11 +327,13 @@ do_read(int sockfd, struct rustls_client_session *client_session)
  * the message and return 1.
  */
 int
-send_request_and_read_response(int sockfd,
+send_request_and_read_response(struct demo_conn *conn,
                                struct rustls_client_session *client_session,
                                const char *hostname, const char *path)
 {
+  int sockfd = conn->fd;
   int ret = 1;
+  int err = 1;
   int result = 1;
   char buf[2048];
   fd_set read_fds;
@@ -406,7 +383,7 @@ send_request_and_read_response(int sockfd,
       /* Read all bytes until we get EAGAIN. Then loop again to wind up in
          select awaiting the next bit of data. */
       for(;;) {
-        result = do_read(sockfd, client_session);
+        result = do_read(conn, client_session);
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
@@ -422,20 +399,13 @@ send_request_and_read_response(int sockfd,
     if(rustls_client_session_wants_write(client_session) &&
        FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
-      bzero(buf, sizeof(buf));
-      result = rustls_client_session_write_tls(
-        client_session, (uint8_t *)buf, sizeof(buf), &n);
-      if(result != RUSTLS_RESULT_OK) {
-        fprintf(stderr, "Error in ClientSession::write_tls\n");
+      err = rustls_client_session_write_tls(client_session, write_cb, conn, &n);
+      if(err != 0) {
+        fprintf(stderr, "Error in ClientSession::write_tls: errno %d\n", err);
         goto cleanup;
       }
       else if(n == 0) {
         fprintf(stderr, "EOF from ClientSession::write_tls\n");
-        goto cleanup;
-      }
-
-      result = write_all(sockfd, buf, n);
-      if(result != 0) {
         goto cleanup;
       }
     }
@@ -455,12 +425,20 @@ do_request(const struct rustls_client_config *client_config,
            const char *hostname, const char *path)
 {
   struct rustls_client_session *client_session = NULL;
+  struct demo_conn *conn = NULL;
   int ret = 1;
   int sockfd = make_conn(hostname);
   if(sockfd < 0) {
     // No perror because make_conn printed error already.
     goto cleanup;
   }
+
+  conn = calloc(1, sizeof(struct demo_conn));
+  if(conn == NULL) {
+    goto cleanup;
+  }
+  conn->fd = sockfd;
+  conn->verify_arg = "verify_arg";
 
   rustls_result result =
     rustls_client_session_new(client_config, hostname, &client_session);
@@ -469,9 +447,9 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
-  rustls_client_session_set_userdata(client_session, "verify_arg");
+  rustls_client_session_set_userdata(client_session, conn);
 
-  ret = send_request_and_read_response(sockfd, client_session, hostname, path);
+  ret = send_request_and_read_response(conn, client_session, hostname, path);
   if(ret != RUSTLS_RESULT_OK) {
     goto cleanup;
   }
@@ -483,6 +461,7 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
+  free(conn);
   return ret;
 }
 
@@ -492,6 +471,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
   const rustls_slice_slice_bytes *intermediates = params->intermediate_certs_der;
   struct rustls_slice_bytes bytes;
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
+  struct demo_conn *conn = (struct demo_conn*)userdata;
 
   fprintf(stderr, "custom certificate verifier called for %.*s\n",
     (int)params->dns_name.len, params->dns_name.data);
@@ -504,7 +484,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
     }
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
-  if(0 != strcmp((const char *)userdata, "verify_arg")) {
+  if(0 != strcmp(conn->verify_arg, "verify_arg")) {
     fprintf(stderr, "invalid argument to verify: %p\n", userdata);
     return RUSTLS_RESULT_GENERAL;
   }

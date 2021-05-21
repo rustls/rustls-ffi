@@ -2,15 +2,18 @@
 #![allow(non_camel_case_types)]
 use libc::{c_char, c_void, size_t};
 use std::cell::RefCell;
+use std::io::Error;
 use std::io::ErrorKind::ConnectionAborted;
 use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
-use std::{io, mem, slice};
+use std::{mem, slice};
 
 mod cipher;
 mod client;
+mod connection;
 mod enums;
 mod error;
+mod io;
 mod panic;
 mod rslice;
 mod server;
@@ -331,6 +334,15 @@ macro_rules! try_mut_from_ptr {
     };
 }
 
+#[macro_export]
+macro_rules! try_callback {
+    ( $var:ident ) => {
+        match $var {
+            Some(c) => c,
+            None => return crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
 /// Write the version of the crustls C bindings and rustls itself into the
 /// provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
 /// and NUL terminated. Returns the number of bytes written before the NUL.
@@ -377,6 +389,6 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     val
 }
 
-pub(crate) fn is_close_notify(e: &io::Error) -> bool {
+pub(crate) fn is_close_notify(e: &Error) -> bool {
     e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify")
 }

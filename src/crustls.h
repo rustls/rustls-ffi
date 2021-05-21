@@ -282,6 +282,45 @@ typedef struct rustls_verify_server_cert_params {
 typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
 
 /**
+ * A return value for a function that may return either success (0) or a
+ * non-zero value representing an error.
+ */
+typedef int rustls_io_result;
+
+/**
+ * A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
+ * An implementation of this callback should attempt to read up to n bytes from the
+ * network, storing them in `buf`. If any bytes were stored, the implementation should
+ * set out_n to the number of bytes stored and return 0. If there was an error,
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * It's best to make one read attempt to the network per call. Additional reads will
+ * be triggered by subsequent calls to one of the `_read_tls` methods.
+ * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
+typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
+
+/**
+ * A callback for rustls_server_session_write_tls or rustls_client_session_write_tls.
+ * An implementation of this callback should attempt to write the `n` bytes in buf
+ * to the network. If any bytes were written, the implementation should
+ * set out_n to the number of bytes stored and return 0. If there was an error,
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
+ * It's best to make one write attempt to the network per call. Additional write will
+ * be triggered by subsequent calls to one of the `_write_tls` methods.
+ * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
+typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
+
+/**
  * Any context information the callback will receive when invoked.
  */
 typedef void *rustls_session_store_userdata;
@@ -748,36 +787,38 @@ enum rustls_result rustls_client_session_read(struct rustls_client_session *sess
                                               size_t *out_n);
 
 /**
- * Read up to `count` TLS bytes from `buf` (usually read from a socket) into
- * the ClientSession. This may make packets available to
- * `rustls_client_session_process_new_packets`, which in turn may make more
- * bytes available to `rustls_client_session_read`.
- * On success, store the number of bytes actually read in *out_n (this may
- * be less than `count`). This function returns success and stores 0 in
- * *out_n when the input count is 0.
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as are available.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-enum rustls_result rustls_client_session_read_tls(struct rustls_client_session *session,
-                                                  const uint8_t *buf,
-                                                  size_t count,
-                                                  size_t *out_n);
+rustls_io_result rustls_client_session_read_tls(struct rustls_client_session *session,
+                                                rustls_read_callback callback,
+                                                void *userdata,
+                                                size_t *out_n);
 
 /**
- * Write up to `count` TLS bytes from the ClientSession into `buf`. Those
- * bytes should then be written to a socket. On success, store the number of
- * bytes actually written in *out_n (this maybe less than `count`).
- *
- * Subtle note: Even though this function only writes to `buf` and does not
- * read from it, the memory in `buf` must be initialized before the call (for
- * Rust-internal reasons). Initializing a buffer once and then using it
- * multiple times without zeroizing before each call is fine.
- *
+ * Write some TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-enum rustls_result rustls_client_session_write_tls(struct rustls_client_session *session,
-                                                   uint8_t *buf,
-                                                   size_t count,
-                                                   size_t *out_n);
+rustls_io_result rustls_client_session_write_tls(struct rustls_client_session *session,
+                                                 rustls_write_callback callback,
+                                                 void *userdata,
+                                                 size_t *out_n);
 
 /**
  * Register callbacks for persistence of TLS session data. This means either
@@ -1046,36 +1087,38 @@ enum rustls_result rustls_server_session_read(struct rustls_server_session *sess
                                               size_t *out_n);
 
 /**
- * Read up to `count` TLS bytes from `buf` (usually read from a socket) into
- * the ServerSession. This may make packets available to
- * `rustls_server_session_process_new_packets`, which in turn may make more
- * bytes available to `rustls_server_session_read`.
- * On success, store the number of bytes actually read in *out_n (this may
- * be less than `count`). This function returns success and stores 0 in
- * *out_n when the input count is 0.
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as you get in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-enum rustls_result rustls_server_session_read_tls(struct rustls_server_session *session,
-                                                  const uint8_t *buf,
-                                                  size_t count,
-                                                  size_t *out_n);
+rustls_io_result rustls_server_session_read_tls(struct rustls_server_session *session,
+                                                rustls_read_callback callback,
+                                                void *userdata,
+                                                size_t *out_n);
 
 /**
- * Write up to `count` TLS bytes from the ServerSession into `buf`. Those
- * bytes should then be written to a socket. On success, store the number of
- * bytes actually written in *out_n (this maybe less than `count`).
- *
- * Subtle note: Even though this function only writes to `buf` and does not
- * read from it, the memory in `buf` must be initialized before the call (for
- * Rust-internal reasons). Initializing a buffer once and then using it
- * multiple times without zeroizing before each call is fine.
- *
+ * Write some TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_client_session_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-enum rustls_result rustls_server_session_write_tls(struct rustls_server_session *session,
-                                                   uint8_t *buf,
-                                                   size_t count,
-                                                   size_t *out_n);
+rustls_io_result rustls_server_session_write_tls(struct rustls_server_session *session,
+                                                 rustls_write_callback callback,
+                                                 void *userdata,
+                                                 size_t *out_n);
 
 /**
  * Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
