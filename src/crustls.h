@@ -790,7 +790,7 @@ enum rustls_result rustls_client_session_read(struct rustls_client_session *sess
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
- * to fill it up, just fill with as many bytes as you get in one syscall.
+ * to fill it up, just fill with as many bytes as are available.
  * The `userdata` parameter is passed through directly to `callback`. Note that
  * this is distinct from the `userdata` parameter set with
  * `rustls_client_session_set_userdata`.
