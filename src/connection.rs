@@ -223,8 +223,8 @@ pub extern "C" fn rustls_connection_get_peer_certificate(
 
 /// Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
 /// borrowed buffer of bytes, and that buffer's len, in the output parameters.
-/// The borrow lives as long as the session.
-/// If the session is still handshaking, or no ALPN protocol was negotiated,
+/// The borrow lives as long as the connection.
+/// If the connection is still handshaking, or no ALPN protocol was negotiated,
 /// stores NULL and 0 in the output parameters.
 /// https://www.iana.org/assignments/tls-parameters/
 /// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
