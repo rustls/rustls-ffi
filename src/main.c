@@ -96,7 +96,7 @@ write_all(int fd, const char *buf, int n)
       return 1;
     }
     if(m == 0) {
-      fprintf(stderr, "early EOF when writing to %s\n", "stdout");
+      fprintf(stderr, "early EOF when writing to stdout\n");
       return 1;
     }
     n -= m;
@@ -235,7 +235,7 @@ copy_plaintext_to_stdout(struct rustls_connection *client_conn)
 
 struct demo_conn {
   int fd;
-  const char* verify_arg;
+  const char *verify_arg;
 };
 
 int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
@@ -246,7 +246,9 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
   if(n < 0) {
     return errno;
   }
-  *out_n = n;
+  if (out_n != NULL) {
+    *out_n = n;
+  }
   return 0;
 }
 
@@ -469,6 +471,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
   const rustls_slice_slice_bytes *intermediates = params->intermediate_certs_der;
   struct rustls_slice_bytes bytes;
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
+  struct demo_conn *conn = (struct demo_conn*)userdata;
 
   fprintf(stderr, "custom certificate verifier called for %.*s\n",
     (int)params->dns_name.len, params->dns_name.data);
@@ -481,7 +484,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params) {
     }
   }
   fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
-  if(0 != strcmp(((struct demo_conn*)userdata)->verify_arg, "verify_arg")) {
+  if(0 != strcmp(conn->verify_arg, "verify_arg")) {
     fprintf(stderr, "invalid argument to verify: %p\n", userdata);
     return RUSTLS_RESULT_GENERAL;
   }

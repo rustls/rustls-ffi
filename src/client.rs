@@ -14,8 +14,8 @@ use webpki::DNSNameRef;
 
 use crate::connection::{rustls_connection, Conn, Inner};
 use crate::error::{self, result_to_tlserror, rustls_result};
-use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
+use crate::rslice::NulByte;
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
     SessionStoreGetCallback, SessionStorePutCallback,

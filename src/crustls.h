@@ -330,30 +330,35 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
- * A return value for a function that may return either success (0) or an errno
- * value.
+ * A return value for a function that may return either success (0) or a
+ * non-zero value representing an error.
  */
-typedef int rustls_io_error;
+typedef int rustls_io_result;
 
 /**
  * A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
  * An implementation of this callback should attempt to read up to n bytes from the
  * network, storing them in `buf`. If any bytes were stored, the implementation should
  * set out_n to the number of bytes stored and return 0. If there was an error,
- * (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
  * It's best to make one read attempt to the network per call. Additional reads will
  * be triggered by subsequent calls to one of the `_read_tls` methods.
  * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_error (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, uintptr_t *out_n);
+typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
 
 /**
  * A callback for rustls_server_session_write_tls or rustls_client_session_write_tls.
  * An implementation of this callback should attempt to write the `n` bytes in buf
- * to the network. If any bytes were written, the implementation should set out_n
- * to the number of bytes written and return 0. If there was an error,
+ * to the network. If any bytes were written, the implementation should
+ * set out_n to the number of bytes stored and return 0. If there was an error,
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
  * (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
  * It's best to make one write attempt to the network per call. Additional write will
  * be triggered by subsequent calls to one of the `_write_tls` methods.
@@ -361,7 +366,7 @@ typedef rustls_io_error (*rustls_read_callback)(void *userdata, uint8_t *buf, si
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_error (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, uintptr_t *out_n);
+typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
 
 /**
  * Any context information the callback will receive when invoked.
@@ -722,10 +727,10 @@ void rustls_connection_set_userdata(struct rustls_connection *conn, void *userda
  * from callback. See rustls_read_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
  */
-rustls_io_error rustls_connection_read_tls(struct rustls_connection *conn,
-                                           rustls_read_callback callback,
-                                           void *userdata,
-                                           size_t *out_n);
+rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
+                                            rustls_read_callback callback,
+                                            void *userdata,
+                                            size_t *out_n);
 
 /**
  * Write some TLS bytes to the network. The actual network I/O is performed by
@@ -739,10 +744,10 @@ rustls_io_error rustls_connection_read_tls(struct rustls_connection *conn,
  * from callback. See rustls_write_callback for more details.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
  */
-rustls_io_error rustls_connection_write_tls(struct rustls_connection *conn,
-                                            rustls_write_callback callback,
-                                            void *userdata,
-                                            size_t *out_n);
+rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
+                                             rustls_write_callback callback,
+                                             void *userdata,
+                                             size_t *out_n);
 
 enum rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
 

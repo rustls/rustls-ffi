@@ -6,17 +6,15 @@ use rustls::{Certificate, ClientSession, ServerSession, Session, SupportedCipher
 
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
-    error::{map_error, rustls_io_error, rustls_result},
+    error::{map_error, rustls_io_result, rustls_result},
     io::{rustls_read_callback, rustls_write_callback},
     try_callback, try_mut_slice,
 };
 use crate::{ffi_panic_boundary, try_ref_from_ptr};
-use crate::{
-    io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback},
-    is_close_notify,
-};
+use crate::is_close_notify;
 use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
 use rustls_result::NullParameter;
+use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
 
 pub(crate) struct Conn {
     pub(crate) conn: Inner,
@@ -82,7 +80,7 @@ pub extern "C" fn rustls_connection_read_tls(
     callback: rustls_read_callback,
     userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_io_error {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let conn: &mut Conn = try_mut_from_ptr!(conn);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
@@ -91,11 +89,11 @@ pub extern "C" fn rustls_connection_read_tls(
         let mut reader = CallbackReader { callback, userdata };
         let n_read: usize = match conn.as_mut().read_tls(&mut reader) {
             Ok(n) => n,
-            Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
         };
         *out_n = n_read;
 
-        rustls_io_error(0)
+        rustls_io_result(0)
     }
 }
 
@@ -115,7 +113,7 @@ pub extern "C" fn rustls_connection_write_tls(
     callback: rustls_write_callback,
     userdata: *mut c_void,
     out_n: *mut size_t,
-) -> rustls_io_error {
+) -> rustls_io_result {
     ffi_panic_boundary! {
         let conn: &mut Conn = try_mut_from_ptr!(conn);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
@@ -124,11 +122,11 @@ pub extern "C" fn rustls_connection_write_tls(
         let mut writer = CallbackWriter { callback, userdata };
         let n_written: usize = match conn.as_mut().write_tls(&mut writer) {
             Ok(n) => n,
-            Err(e) => return rustls_io_error(e.raw_os_error().unwrap_or(EIO)),
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
         };
         *out_n = n_written;
 
-        rustls_io_error(0)
+        rustls_io_result(0)
     }
 }
 
