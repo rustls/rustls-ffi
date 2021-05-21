@@ -359,7 +359,7 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
 /// in the output parameter `out`. If this returns an error code, the memory
 /// pointed to by `session_out` remains unchanged.
 /// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
-/// at a valid ClientSession. The caller now owns the rustls_connection and must call
+/// at a valid rustls_connection. The caller now owns the rustls_connection and must call
 /// `rustls_client_connection_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_connection_new(
