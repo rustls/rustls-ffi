@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -451,7 +452,7 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
 /**
  * Return the length of rustls' list of supported cipher suites.
  */
-uintptr_t rustls_all_ciphersuites_len(void);
+size_t rustls_all_ciphersuites_len(void);
 
 /**
  * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
@@ -764,7 +765,7 @@ bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
  * use is higher.
  * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.set_buffer_limit
  */
-void rustls_connection_set_buffer_limit(struct rustls_connection *conn, uintptr_t n);
+void rustls_connection_set_buffer_limit(struct rustls_connection *conn, size_t n);
 
 /**
  * Queues a close_notify fatal alert to be sent in the next write_tls call.
@@ -792,7 +793,7 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(const st
  */
 void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
                                          const uint8_t **protocol_out,
-                                         uintptr_t *protocol_out_len);
+                                         size_t *protocol_out_len);
 
 /**
  * Return the TLS protocol version that has been negotiated. Before this
