@@ -1,26 +1,27 @@
-use libc::{c_char, c_void, size_t};
-use std::io::{BufReader, Cursor, Read, Write};
-use std::ptr::null;
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::BufReader;
 use std::slice;
-use std::{convert::TryInto, ptr::null_mut};
-use std::{ffi::CStr, sync::Arc};
-use std::{ffi::OsStr, fs::File};
+use std::sync::Arc;
+use std::{convert::TryInto, ffi::CStr};
+
+use libc::{c_char, size_t};
+use rustls::{
+    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, TLSError,
+};
 use webpki::DNSNameRef;
 
-use rustls::{
-    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, Session, TLSError,
-};
-
-use crate::error::{self, map_error, result_to_tlserror, rustls_result};
+use crate::connection::{rustls_connection, Connection};
+use crate::error::{self, result_to_tlserror, rustls_result};
+use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    arc_with_incref_from_raw, ffi_panic_boundary, is_close_notify, rslice::NulByte,
-    try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, userdata_get, userdata_push,
-    CastPtr,
+    arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
+    userdata_get, CastPtr,
 };
 use rustls_result::NullParameter;
 
@@ -54,19 +55,6 @@ pub struct rustls_client_config {
 
 impl CastPtr for rustls_client_config {
     type RustType = ClientConfig;
-}
-
-pub struct rustls_client_session {
-    _private: [u8; 0],
-}
-
-pub(crate) struct Sess {
-    session: ClientSession,
-    userdata: *mut c_void,
-}
-
-impl CastPtr for rustls_client_session {
-    type RustType = Sess;
 }
 
 /// Create a rustls_client_config_builder. Caller owns the memory and must
@@ -210,7 +198,7 @@ impl rustls::ServerCertVerifier for Verifier {
 ///
 /// The callback must not capture any of the pointers in its
 /// rustls_verify_server_cert_params.
-/// If `userdata` has been set with rustls_client_session_set_userdata, it
+/// If `userdata` has been set with rustls_connection_set_userdata, it
 /// will be passed to the callback. Otherwise the userdata param passed to
 /// the callback will be NULL.
 ///
@@ -351,7 +339,7 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
 
 /// "Free" a client_config previously returned from
 /// rustls_client_config_builder_build. Since client_config is actually an
-/// atomically reference-counted pointer, extant client_sessions may still
+/// atomically reference-counted pointer, extant client connections may still
 /// hold an internal reference to the Rust object. However, C code must
 /// consider this pointer unusable after "free"ing it.
 /// Calling with NULL is fine. Must not be called twice with the same value.
@@ -366,16 +354,17 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
     }
 }
 
-/// Create a new rustls::ClientSession, and return it in the output parameter `out`.
-/// If this returns an error code, the memory pointed to by `session_out` remains unchanged.
-/// If this returns a non-error, the memory pointed to by `session_out` is modified to point
-/// at a valid ClientSession. The caller now owns the ClientSession and must call
-/// `rustls_client_session_free` when done with it.
+/// Create a new rustls_connection containing a client connection and return it
+/// in the output parameter `out`. If this returns an error code, the memory
+/// pointed to by `session_out` remains unchanged.
+/// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
+/// at a valid rustls_connection. The caller now owns the rustls_connection and must call
+/// `rustls_client_connection_free` when done with it.
 #[no_mangle]
-pub extern "C" fn rustls_client_session_new(
+pub extern "C" fn rustls_client_connection_new(
     config: *const rustls_client_config,
     hostname: *const c_char,
-    session_out: *mut *mut rustls_client_session,
+    conn_out: *mut *mut rustls_connection,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let hostname: &CStr = unsafe {
@@ -402,274 +391,12 @@ pub extern "C" fn rustls_client_session_new(
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let c = Sess {
-            session: ClientSession::new(&config, name_ref),
-            userdata: null_mut(),
-        };
+        let c = Connection::from_client( ClientSession::new(&config, name_ref));
         unsafe {
-            *session_out = Box::into_raw(Box::new(c)) as *mut _;
+            *conn_out = Box::into_raw(Box::new(c)) as *mut _;
         }
 
         return rustls_result::Ok;
-    }
-}
-
-/// Set the userdata pointer associated with this session. This will be passed
-/// to any callbacks invoked by the session, if you've set up callbacks in the config.
-/// The pointed-to data must outlive the session.
-#[no_mangle]
-pub extern "C" fn rustls_client_session_set_userdata(
-    session: *mut rustls_client_session,
-    userdata: *mut c_void,
-) {
-    let session: &mut Sess = try_mut_from_ptr!(session);
-    session.userdata = userdata;
-}
-
-#[no_mangle]
-pub extern "C" fn rustls_client_session_wants_read(session: *const rustls_client_session) -> bool {
-    ffi_panic_boundary! {
-        let session: &Sess = try_ref_from_ptr!(session);
-        session.session.wants_read()
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rustls_client_session_wants_write(session: *const rustls_client_session) -> bool {
-    ffi_panic_boundary! {
-        let session: &Sess = try_ref_from_ptr!(session);
-        session.session.wants_write()
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rustls_client_session_is_handshaking(
-    session: *const rustls_client_session,
-) -> bool {
-    ffi_panic_boundary! {
-        let session: &Sess = try_ref_from_ptr!(session);
-        session.session.is_handshaking()
-    }
-}
-
-/// Return the TLS protocol version that has been negotiated. Before this
-/// has been decided during the handshake, this will return 0. Otherwise,
-/// the u16 version number as defined in the relevant RFC is returned.
-/// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
-/// https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
-#[no_mangle]
-pub extern "C" fn rustls_client_session_get_protocol_version(
-    session: *const rustls_client_session,
-) -> u16 {
-    ffi_panic_boundary! {
-        let session: &Sess = try_ref_from_ptr!(session);
-        match session.session.get_protocol_version() {
-            Some(v) => v.get_u16(),
-            None => 0
-        }
-    }
-}
-
-/// Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
-/// borrowed buffer of bytes, and that buffer's len, in the output parameters.
-/// The borrow lives as long as the session.
-/// If the session is still handshaking, or no ALPN protocol was negotiated,
-/// stores NULL and 0 in the output parameters.
-/// https://www.iana.org/assignments/tls-parameters/
-/// https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
-#[no_mangle]
-pub extern "C" fn rustls_client_session_get_alpn_protocol(
-    session: *const rustls_client_session,
-    protocol_out: *mut *const u8,
-    protocol_out_len: *mut usize,
-) {
-    ffi_panic_boundary! {
-        let session: &Sess = try_ref_from_ptr!(session);
-        let protocol_out = try_mut_from_ptr!(protocol_out);
-        let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
-        match session.session.get_alpn_protocol() {
-            Some(p) => {
-                *protocol_out = p.as_ptr();
-                *protocol_out_len = p.len();
-            },
-            None => {
-                *protocol_out = null();
-                *protocol_out_len = 0;
-            }
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rustls_client_session_process_new_packets(
-    session: *mut rustls_client_session,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        let guard = match userdata_push(session.userdata) {
-            Ok(g) => g,
-            Err(_) => return rustls_result::Panic,
-        };
-        let result = match session.session.process_new_packets() {
-            Ok(()) => rustls_result::Ok,
-            Err(e) => map_error(e),
-        };
-        match guard.try_drop() {
-            Ok(()) => result,
-            Err(_) => return rustls_result::Panic,
-        }
-    }
-}
-
-/// Queues a close_notify fatal alert to be sent in the next write_tls call.
-/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
-#[no_mangle]
-pub extern "C" fn rustls_client_session_send_close_notify(session: *mut rustls_client_session) {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        session.session.send_close_notify()
-    }
-}
-
-/// Free a client_session previously returned from rustls_client_session_new.
-/// Calling with NULL is fine. Must not be called twice with the same value.
-#[no_mangle]
-pub extern "C" fn rustls_client_session_free(session: *mut rustls_client_session) {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        // Convert the pointer to a Box and drop it.
-        unsafe { Box::from_raw(session); }
-    }
-}
-
-/// Write up to `count` plaintext bytes from `buf` into the ClientSession.
-/// This will increase the number of output bytes available to
-/// `rustls_client_session_write_tls`.
-/// On success, store the number of bytes actually written in *out_n
-/// (this may be less than `count`).
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.write
-#[no_mangle]
-pub extern "C" fn rustls_client_session_write(
-    session: *mut rustls_client_session,
-    buf: *const u8,
-    count: size_t,
-    out_n: *mut size_t,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        let write_buf: &[u8] = try_slice!(buf, count);
-        let out_n: &mut size_t = unsafe {
-            match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return NullParameter,
-            }
-        };
-        let n_written: usize = match session.session.write(write_buf) {
-            Ok(n) => n,
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_written;
-        rustls_result::Ok
-    }
-}
-
-/// Read up to `count` plaintext bytes from the ClientSession into `buf`.
-/// On success, store the number of bytes read in *out_n (this may be less
-/// than `count`). A success with *out_n set to 0 means "all bytes currently
-/// available have been read, but more bytes may become available after
-/// subsequent calls to rustls_client_session_read_tls and
-/// rustls_client_session_process_new_packets."
-///
-/// Subtle note: Even though this function only writes to `buf` and does not
-/// read from it, the memory in `buf` must be initialized before the call (for
-/// Rust-internal reasons). Initializing a buffer once and then using it
-/// multiple times without zeroizing before each call is fine.
-///
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#method.read
-#[no_mangle]
-pub extern "C" fn rustls_client_session_read(
-    session: *mut rustls_client_session,
-    buf: *mut u8,
-    count: size_t,
-    out_n: *mut size_t,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        let read_buf: &mut [u8] = try_mut_slice!(buf, count);
-        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
-
-        let n_read: usize = match session.session.read(read_buf) {
-            Ok(n) => n,
-            // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
-            // https://docs.rs/rustls/0.19.0/rustls/struct.ClientSession.html#impl-Read.
-            Err(e) if is_close_notify(&e) => {
-                return rustls_result::AlertCloseNotify;
-            }
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_read;
-        rustls_result::Ok
-    }
-}
-
-/// Read up to `count` TLS bytes from `buf` (usually read from a socket) into
-/// the ClientSession. This may make packets available to
-/// `rustls_client_session_process_new_packets`, which in turn may make more
-/// bytes available to `rustls_client_session_read`.
-/// On success, store the number of bytes actually read in *out_n (this may
-/// be less than `count`). This function returns success and stores 0 in
-/// *out_n when the input count is 0.
-/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
-#[no_mangle]
-pub extern "C" fn rustls_client_session_read_tls(
-    session: *mut rustls_client_session,
-    buf: *const u8,
-    count: size_t,
-    out_n: *mut size_t,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        let input_buf: &[u8] = try_slice!(buf, count);
-        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
-
-        let mut cursor = Cursor::new(input_buf);
-        let n_read: usize = match session.session.read_tls(&mut cursor) {
-            Ok(n) => n,
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_read;
-        rustls_result::Ok
-    }
-}
-
-/// Write up to `count` TLS bytes from the ClientSession into `buf`. Those
-/// bytes should then be written to a socket. On success, store the number of
-/// bytes actually written in *out_n (this maybe less than `count`).
-///
-/// Subtle note: Even though this function only writes to `buf` and does not
-/// read from it, the memory in `buf` must be initialized before the call (for
-/// Rust-internal reasons). Initializing a buffer once and then using it
-/// multiple times without zeroizing before each call is fine.
-///
-/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
-#[no_mangle]
-pub extern "C" fn rustls_client_session_write_tls(
-    session: *mut rustls_client_session,
-    buf: *mut u8,
-    count: size_t,
-    out_n: *mut size_t,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let session: &mut Sess = try_mut_from_ptr!(session);
-        let mut output_buf: &mut [u8] = try_mut_slice!(buf, count);
-        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
-
-        let n_written: usize = match session.session.write_tls(&mut output_buf) {
-            Ok(n) => n,
-            Err(_) => return rustls_result::Io,
-        };
-        *out_n = n_written;
-        rustls_result::Ok
     }
 }
 
@@ -678,7 +405,7 @@ pub extern "C" fn rustls_client_session_write_tls(
 /// keys and values are highly sensitive data, containing enough information
 /// to break the security of the sessions involved.
 ///
-/// If `userdata` has been set with rustls_client_session_set_userdata, it
+/// If `userdata` has been set with rustls_connection_set_userdata, it
 /// will be passed to the callbacks. Otherwise the userdata param passed to
 /// the callbacks will be NULL.
 #[no_mangle]

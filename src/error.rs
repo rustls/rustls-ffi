@@ -4,6 +4,11 @@ use crate::ffi_panic_boundary;
 use libc::{c_char, size_t};
 use rustls::TLSError;
 
+/// A return value for a function that may return either success (0) or a
+/// non-zero value representing an error.
+#[repr(transparent)]
+pub struct rustls_io_result(pub libc::c_int);
+
 /// After a rustls_client_session method returns an error, you may call
 /// this method to get a pointer to a buffer containing a detailed error
 /// message. The contents of the error buffer will be out_n bytes long,
