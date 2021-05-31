@@ -443,6 +443,14 @@ typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustl
 size_t rustls_version(char *buf, size_t len);
 
 /**
+ * Get the DER data of the certificate itself.
+ * The data is owned by the certificate and has the same lifetime.
+ */
+enum rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
+                                              const uint8_t **out_der_data,
+                                              size_t *out_der_len);
+
+/**
  * Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
  * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
  * The bytes from the assignment are interpreted in network order.
@@ -779,7 +787,7 @@ void rustls_connection_send_close_notify(struct rustls_connection *conn);
  * in the chain. Requesting an index higher than what is available returns
  * NULL.
  */
-const struct rustls_certificate *rustls_connection_get_peer_certificate(const struct rustls_connection *conn,
+const struct rustls_certificate *rustls_connection_get_peer_certificate(struct rustls_connection *conn,
                                                                         size_t i);
 
 /**
