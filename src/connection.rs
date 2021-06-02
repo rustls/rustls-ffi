@@ -19,6 +19,7 @@ use rustls_result::NullParameter;
 pub(crate) struct Connection {
     conn: Inner,
     userdata: *mut c_void,
+    peer_certs: Option<Vec<Certificate>>,
 }
 
 enum Inner {
@@ -31,6 +32,7 @@ impl Connection {
         Connection {
             conn: Inner::Client(s),
             userdata: null_mut(),
+            peer_certs: None,
         }
     }
 
@@ -38,6 +40,7 @@ impl Connection {
         Connection {
             conn: Inner::Server(s),
             userdata: null_mut(),
+            peer_certs: None,
         }
     }
 
@@ -251,16 +254,28 @@ pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connecti
 /// NULL.
 #[no_mangle]
 pub extern "C" fn rustls_connection_get_peer_certificate(
-    conn: *const rustls_connection,
+    conn: *mut rustls_connection,
     i: size_t,
 ) -> *const rustls_certificate {
+    // TODO: this should be changed in the next rustls release where the
+    // API no longer returns copies but references to the certificates it
+    // keeps. We then no longer have to hold our own Vec.
     ffi_panic_boundary! {
-        let conn: &Connection = try_ref_from_ptr!(conn);
-        match conn.as_ref().get_peer_certificates() {
-            Some(v) => match v.get(i) {
-                Some(cert) => cert as *const Certificate as *const _,
-                None => null()
-            },
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let certs = match &conn.peer_certs {
+            Some(certs) => certs,
+            None => {
+                match conn.as_ref().get_peer_certificates() {
+                    Some(certs) => {
+                        conn.peer_certs = Some(certs);
+                        conn.peer_certs.as_ref().unwrap()
+                    },
+                    None => return null()
+                }
+            }
+        };
+        match certs.get(i) {
+            Some(cert) => cert as *const Certificate as *const _,
             None => null()
         }
     }

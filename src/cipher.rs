@@ -31,6 +31,26 @@ pub struct rustls_certificate {
 impl CastPtr for rustls_certificate {
     type RustType = Certificate;
 }
+
+/// Get the DER data of the certificate itself.
+/// The data is owned by the certificate and has the same lifetime.
+#[no_mangle]
+pub extern "C" fn rustls_certificate_get_der(
+    cert: *const rustls_certificate,
+    out_der_data: *mut *const u8,
+    out_der_len: *mut size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let cert = try_ref_from_ptr!(cert);
+        let out_der_data: &mut *const u8 = try_mut_from_ptr!(out_der_data);
+        let out_der_len: &mut size_t = try_mut_from_ptr!(out_der_len);
+        let der = cert.as_ref();
+        *out_der_data = der.as_ptr();
+        *out_der_len = der.len();
+        rustls_result::Ok
+    }
+}
+
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
