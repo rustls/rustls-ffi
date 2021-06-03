@@ -28,10 +28,10 @@ has other outputs, it provides them using output parameters (pointers to
 caller-provided objects). For instance:
 
 ```rust
-rustls_result rustls_client_session_read(const rustls_client_session *session,
-                                         uint8_t *buf,
-                                         size_t count,
-                                         size_t *out_n);
+rustls_result rustls_connection_read(const rustls_connection *conn,
+                                     uint8_t *buf,
+                                     size_t count,
+                                     size_t *out_n);
 ```
 
 In this example, `buf` and `out_n` are output parameters.
@@ -40,7 +40,7 @@ In this example, `buf` and `out_n` are output parameters.
 
 For a given struct, all functions that start with the name of that struct are
 either associated functions or methods of that struct. For instance,
-`rustls_client_session_read` is a method of `rustls_client_session`. A function
+`rustls_connection_read` is a method of `rustls_connection`. A function
 that takes a pointer to a struct as the first parameter is considered a method
 on that struct. Structs in this library are always created and destroyed by
 library code, so the header file only gives a declaration of the structs, not
@@ -72,7 +72,7 @@ the caller will need to take additional steps to prevent concurrent access
 (for instance mutex locking, or single-threaded I/O).
 
 When an output parameter is a pointer to a pointer (e.g. 
-`rustls_client_session **session_out`, the function will set its argument
+`rustls_connection **conn_out`, the function will set its argument
 to point to an appropriate object on success. The caller is considered to take
 ownership of that object and be responsible for the requirements above:
 preventing concurrent mutation, and freeing it exactly once.
@@ -99,7 +99,7 @@ pointed to by output arguments.
 The library checks all pointers in arguments for NULL and will return an error
 rather than dereferencing a NULL pointer. For some methods that are infallible
 except for the possibility of NULL (for instance
-`rustls_client_session_is_handshaking`), the library returns a convenient
+`rustls_connection_is_handshaking`), the library returns a convenient
 type (e.g. `bool`) and uses a suitable fallback value if an input is NULL.
 
 ## Panics
@@ -136,18 +136,26 @@ The approach to this taken with the current `rustls_client_hello` is as follows:
 
 #### One domain, one cert
 
-If you have a single site and one certificate, you can preconfigure the `rustls_server_config` accordingly and do not need to register any callback.
+If you have a single site and one certificate, you can preconfigure the
+`rustls_server_config` accordingly and do not need to register any callback.
 
 #### Multiple domains/certs/settings
 
-If you need to support multiple `rustls_server_config`s on the same connection endpoint, you can start the connection with a default `rustls_server_config` and register a client hello callback. The callback inspects the SNI/ALPN/cipher values announced by the client and selects the appropriate configuration to use.
+If you need to support multiple `rustls_server_config`s on the same connection
+endpoint, you can start the connection with a default `rustls_server_config`
+and register a client hello callback. The callback inspects the SNI/ALPN/cipher
+values announced by the client and selects the appropriate configuration
+to use.
 
-When your callback returns, the handshake of `rustls` will fail, as no certificate was configured. This will be noticeable as an error returned from `rustls_server_session_write_tls()`. You can then free this session
-and create the one with the correct setting for the domain chosen.
+When your callback returns, the handshake of `rustls` will fail, as no
+certificate was configured.  This will be noticeable as an error returned
+from `rustls_connection_write_tls()`. You can then free this connection and
+create the one with the correct setting for the domain chosen.
 
-For this to work, your connection needs to buffer the initial data from the client, so these bytes can be 
-replayed to the second session you use. Do not write any data back to the client while your are
-in the initial session. The client hellos are usually only a few hundred bytes.
+For this to work, your connection needs to buffer the initial data from the
+client, so these bytes can be replayed to the second connection you use. Do not
+write any data back to the client while your are in the initial connection. The
+client hellos are usually only a few hundred bytes.
 
 
 
