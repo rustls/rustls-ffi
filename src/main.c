@@ -77,12 +77,10 @@ const char *ws_strerror (int err)
 #endif
 
 /*
- * Write n bytes from buf to the provided fd, retrying short writes until
+ * Write n bytes from buf to the provided fd (on Windows, this must be
+ * stdout/stderr or a file, not a socket), retrying short writes until
  * we finish or hit an error. Assumes fd is blocking and therefore doesn't
  * handle EAGAIN. Returns 0 for success or 1 for error.
- *
- * For Winsock we cannot use a socket-fd in write().
- * Call send() if fd > STDOUT_FILENO.
  */
 int
 write_all(int fd, const char *buf, int n)
@@ -242,7 +240,7 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
 {
   ssize_t n = 0;
   struct demo_conn *conn = (struct demo_conn*)userdata;
-  n = read(conn->fd, buf, len);
+  n = recv(conn->fd, buf, len,0 );
   if(n < 0) {
     return errno;
   }
@@ -257,11 +255,7 @@ int write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n
   ssize_t n = 0;
   struct demo_conn *conn = (struct demo_conn*)userdata;
 
-#ifdef _WIN32
-  n = send(conn->fd, buf, len);
-#else
-  n = write(conn->fd, buf, len);
-#endif
+  n = send(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
