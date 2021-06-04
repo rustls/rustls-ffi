@@ -1,6 +1,6 @@
 [package]
 name = "crustls"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 description = "C-to-rustls bindings"
 edition = "2018"
