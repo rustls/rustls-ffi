@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.6.0 (unreleased)
+## 0.7.0 (unreleased)
+
+## 0.6.1 - 2021-06-04
+
+### Added
+
+ - rustls_certificate_get_der to get bytes of certificate (#103)
+
+### Fixed
+
+ - rustls_connect_get_peer_certificate was returning a dangling pointer.
+   This is now fixed by having it return a reference that lives as long
+   as the connection does. (#103)
+
+## 0.6.0 - 2021-05-20
 
 ### Added
 
