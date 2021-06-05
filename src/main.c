@@ -240,7 +240,7 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
 {
   ssize_t n = 0;
   struct demo_conn *conn = (struct demo_conn*)userdata;
-  n = recv(conn->fd, buf, len,0 );
+  n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
