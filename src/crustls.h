@@ -330,6 +330,12 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  */
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+typedef struct rustls_log_params {
+  struct rustls_str message;
+} rustls_log_params;
+
+typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_params *params);
+
 /**
  * A return value for a function that may return either success (0) or a
  * non-zero value representing an error.
@@ -723,6 +729,9 @@ enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_cl
  * The pointed-to data must outlive the connection.
  */
 void rustls_connection_set_userdata(struct rustls_connection *conn, void *userdata);
+
+void rustls_client_connection_set_log_callback(struct rustls_connection *conn,
+                                               rustls_log_callback cb);
 
 /**
  * Read some TLS bytes from the network into internal buffers. The actual network
