@@ -11,6 +11,7 @@ use rustls::{
 };
 use webpki::DNSNameRef;
 
+use crate::cipher::rustls_root_cert_store;
 use crate::connection::{rustls_connection, Connection};
 use crate::error::{self, result_to_tlserror, rustls_result};
 use crate::rslice::NulByte;
@@ -71,6 +72,19 @@ pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_confi
     }
 }
 
+/// Create a rustls_cleint_config_builder from an existing rustls_client_config. The
+/// builder will be used to create a new, separate config that starts with the settings
+/// from the supplied configuration.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_from_config(
+    config: *const rustls_client_config,
+) -> *mut rustls_client_config_builder {
+    ffi_panic_boundary! {
+        let config: &ClientConfig = try_ref_from_ptr!(config);
+        Box::into_raw(Box::new(config.clone())) as *mut _
+    }
+}
+
 /// Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
 /// (read-only).
 #[no_mangle]
@@ -82,13 +96,6 @@ pub extern "C" fn rustls_client_config_builder_build(
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
     }
-}
-
-/// Currently just a placeholder with no accessors yet.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
-#[allow(non_camel_case_types)]
-pub struct rustls_root_cert_store {
-    _private: [u8; 0],
 }
 
 /// Input to a custom certificate verifier callback. See
@@ -259,6 +266,23 @@ pub extern "C" fn rustls_client_config_builder_load_native_roots(
     }
 }
 
+/// Use the trusted root certificates from the loaded store.
+///
+/// This replaces any trusted roots already configured with copies
+/// from `roots`. `roots` itself is not shared.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_use_roots(
+    config: *mut rustls_client_config_builder,
+    roots: *const rustls_root_cert_store,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
+        let root_store: &RootCertStore = try_ref_from_ptr!(roots);
+        config.root_store = root_store.clone();
+        rustls_result::Ok
+    }
+}
+
 /// Add trusted root certificates from the named file, which should contain
 /// PEM-formatted certificates.
 #[no_mangle]
@@ -334,6 +358,20 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     ffi_panic_boundary! {
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
         config.enable_sni = enable;
+    }
+}
+
+/// "Free" a client_config_builder before transmogrifying it into a client_config.
+/// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+/// and may not be free'd or otherwise used afterwards.
+/// Use free only when the building of a config has to be aborted before a config
+/// was created.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_free(config: *mut rustls_client_config_builder) {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
+        // Convert the pointer to a Box and drop it.
+        unsafe { Box::from_raw(config); }
     }
 }
 

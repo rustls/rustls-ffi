@@ -602,6 +602,13 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
+ * Create a rustls_cleint_config_builder from an existing rustls_client_config. The
+ * builder will be used to create a new, separate config that starts with the settings
+ * from the supplied configuration.
+ */
+struct rustls_client_config_builder *rustls_client_config_builder_from_config(const struct rustls_client_config *config);
+
+/**
  * Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
  * (read-only).
  */
@@ -651,6 +658,15 @@ void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rust
 enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_client_config_builder *config);
 
 /**
+ * Use the trusted root certificates from the loaded store.
+ *
+ * This replaces any trusted roots already configured with copies
+ * from `roots`. `roots` itself is not shared.
+ */
+enum rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
+                                                          const struct rustls_root_cert_store *roots);
+
+/**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
@@ -680,6 +696,15 @@ enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_clie
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
+
+/**
+ * "Free" a client_config_builder before transmogrifying it into a client_config.
+ * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
+ */
+void rustls_client_config_builder_free(struct rustls_client_config_builder *config);
 
 /**
  * "Free" a client_config previously returned from
