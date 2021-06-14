@@ -13,6 +13,7 @@ use webpki::DNSNameRef;
 
 use crate::cipher::rustls_root_cert_store;
 use crate::connection::{rustls_connection, Connection};
+use crate::enums::rustls_tls_version_from_u16;
 use crate::error::{self, result_to_tlserror, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
@@ -313,6 +314,35 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
             Ok(_) => {}
             Err(_) => return rustls_result::Io,
         };
+        rustls_result::Ok
+    }
+}
+
+/// Set the TLS protocol versions to use when negotiating a TLS session.
+///
+/// `tls_version` is the version of the protocol, as defined in rfc8446,
+/// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+/// `rustls_tls_version` for convenience.
+///
+/// `versions` will only be used during the call and the application retains
+/// ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_versions(
+    builder: *mut rustls_client_config_builder,
+    tls_versions: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let tls_versions: &[u16] = try_slice!(tls_versions, len);
+        config.versions.clear();
+
+        // rustls does not support an `Unkown(u16)` protocol version,
+        // so we have to fail on any version numbers not implemented
+        // in rustls.
+        for i in tls_versions {
+            config.versions.push(rustls_tls_version_from_u16(*i));
+        }
         rustls_result::Ok
     }
 }

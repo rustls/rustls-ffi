@@ -674,6 +674,20 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
                                                                      const char *filename);
 
 /**
+ * Set the TLS protocol versions to use when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ */
+enum rustls_result rustls_client_config_builder_set_versions(struct rustls_client_config_builder *builder,
+                                                             const uint16_t *tls_versions,
+                                                             size_t len);
+
+/**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
  * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
  * elements. Each element of the buffer must be a rustls_slice_bytes whose
