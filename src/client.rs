@@ -6,14 +6,18 @@ use std::sync::Arc;
 use std::{convert::TryInto, ffi::CStr};
 
 use libc::{c_char, size_t};
+use rustls::ResolvesServerCert;
 use rustls::{
-    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, TLSError,
+    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified,
+    SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
 };
+
 use webpki::DNSNameRef;
 
-use crate::cipher::rustls_root_cert_store;
+use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
 use crate::enums::rustls_tls_version_from_u16;
+use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, result_to_tlserror, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
@@ -25,7 +29,6 @@ use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
     userdata_get, CastPtr,
 };
-use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
 /// e.g. rustls_client_config_builder_load_native_roots. Once you're
@@ -388,6 +391,33 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     ffi_panic_boundary! {
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
         config.enable_sni = enable;
+    }
+}
+
+/// Set the cipher suite list, in preference order. The `ciphersuites`
+/// parameter must point to an array containing `len` pointers to
+/// `rustls_supported_ciphersuite` previously obtained from
+/// `rustls_all_ciphersuites_get()`.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_ciphersuites(
+    builder: *mut rustls_client_config_builder,
+    ciphersuites: *const *const rustls_supported_ciphersuite,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let ciphersuites: &[*const rustls_supported_ciphersuite] = try_slice!(ciphersuites, len);
+        let mut cs_vec: Vec<&'static SupportedCipherSuite> = Vec::new();
+        for &cs in ciphersuites.into_iter() {
+            let cs = try_ref_from_ptr!(cs);
+            match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
+                Some(scs) => cs_vec.push(scs),
+                None => return InvalidParameter,
+            }
+        }
+        config.ciphersuites = cs_vec;
+        rustls_result::Ok
     }
 }
 

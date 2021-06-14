@@ -712,6 +712,17 @@ void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_bui
                                                  bool enable);
 
 /**
+ * Set the cipher suite list, in preference order. The `ciphersuites`
+ * parameter must point to an array containing `len` pointers to
+ * `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+ */
+enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_client_config_builder *builder,
+                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
+                                                                 size_t len);
+
+/**
  * "Free" a client_config_builder before transmogrifying it into a client_config.
  * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
