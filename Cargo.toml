@@ -11,7 +11,6 @@ links = "crustls"
 rustls = { version = "^0.19.0", features = [ "dangerous_configuration" ] }
 webpki = "0.21"
 libc = "0.2"
-rustls-native-certs = "0.5.0"
 sct = "0.6.0"
 rustls-pemfile = "0.2.0"
 

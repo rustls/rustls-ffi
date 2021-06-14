@@ -26,7 +26,7 @@ use crate::{
 use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
-/// e.g. rustls_client_config_builder_load_native_roots. Once you're
+/// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
 /// done configuring settings, call rustls_client_config_builder_build
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
@@ -60,8 +60,9 @@ impl CastPtr for rustls_client_config {
 /// Create a rustls_client_config_builder. Caller owns the memory and must
 /// eventually call rustls_client_config_builder_build, then free the
 /// resulting rustls_client_config. This starts out with no trusted roots.
-/// Caller must add roots with rustls_client_config_builder_load_native_roots
-/// or rustls_client_config_builder_load_roots_from_file.
+/// Caller must add roots with
+/// rustls_client_config_builder_load_roots_from_file or provide as custom
+// verifier.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
     ffi_panic_boundary! {
@@ -239,23 +240,6 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
         let verifier: Verifier = Verifier{callback: callback};
         config.dangerous().set_certificate_verifier(Arc::new(verifier));
-    }
-}
-
-/// Add certificates from platform's native root store, using
-/// https://github.com/ctz/rustls-native-certs#readme.
-#[no_mangle]
-pub extern "C" fn rustls_client_config_builder_load_native_roots(
-    config: *mut rustls_client_config_builder,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let mut config: &mut ClientConfig = try_mut_from_ptr!(config);
-        let store = match rustls_native_certs::load_native_certs() {
-            Ok(store) => store,
-            Err(_) => return rustls_result::Io,
-        };
-        config.root_store = store;
-        rustls_result::Ok
     }
 }
 
