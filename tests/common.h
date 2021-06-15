@@ -72,7 +72,7 @@ int
 copy_plaintext_to_buffer(struct conndata_t *conn);
 
 /* Polyfill */
-const void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen);
+void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen);
 
 /* If headers are done (received \r\n\r\n), return a pointer to the beginning
  * of the body. Otherwise return NULL.
