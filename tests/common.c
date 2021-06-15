@@ -226,7 +226,7 @@ copy_plaintext_to_buffer(struct conndata_t *conn)
  * Return Value
  *  pointer to the memory address of the match or NULL.
  */
-const void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen)
+void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen)
 {
    char *bf = (char*) haystack, *pt = (char*) needle, *p = bf;
  
