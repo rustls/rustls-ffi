@@ -296,7 +296,10 @@ send_request_and_read_response(struct conndata_t *conn,
         }
         if(headerslen != 0 && conn->data.len >= headerslen + contentlength) {
           /* body is done. */
-          write(STDERR_FILENO, conn->data.data, conn->data.len);
+          if(write(STDERR_FILENO, conn->data.data, conn->data.len) < 0) {
+            fprintf(stderr, "error writing to stderr\n");
+            goto cleanup;
+          }
           ret = 0;
           goto cleanup;
         }

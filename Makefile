@@ -36,7 +36,7 @@ src/crustls.h: src/*.rs cbindgen.toml
 target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
 	cargo build $(CARGOFLAGS)
 
-target/%.o: tests/%.c src/crustls.h tests/common.h
+target/%.o: tests/%.c src/crustls.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 target/client: target/client.o target/common.o target/$(PROFILE)/libcrustls.a
