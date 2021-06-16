@@ -330,12 +330,6 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
-  if(conn != NULL) {
-    if(conn->data.data != NULL) {
-      free(conn->data.data);
-    }
-    free(conn);
-  }
   return ret;
 }
 
@@ -381,7 +375,12 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
-  free(conn);
+  if(conn != NULL) {
+    if(conn->data.data != NULL) {
+      free(conn->data.data);
+    }
+    free(conn);
+  }
   return ret;
 }
 
