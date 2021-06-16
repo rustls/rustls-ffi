@@ -15,7 +15,6 @@ jobs:
         with:
           persist-credentials: false
       - run: make CC=${{ matrix.cc }} PROFILE=release test
-      - run: NO_CHECK_CERTIFICATE= ./target/crustls-demo wrong.host.badssl.com /
 
   ensure-header-updated:
     runs-on: ubuntu-latest
