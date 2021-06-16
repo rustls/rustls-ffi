@@ -1,4 +1,4 @@
-use std::io::{Error, Read, Result, Write};
+use std::io::{Error, IoSlice, Read, Result, Write};
 
 use libc::{c_void, size_t};
 
@@ -96,5 +96,16 @@ impl Write for CallbackWriter {
 
     fn flush(&mut self) -> Result<()> {
         Ok(())
+    }
+
+    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
+        let mut out_n: usize = 0;
+        for buf in bufs.iter() {
+            out_n += match self.write(buf) {
+                Ok(n) => n,
+                e => return e,
+            }
+        }
+        Ok(out_n)
     }
 }
