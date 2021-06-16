@@ -26,4 +26,4 @@ wait_tcp_port() {
 
 wait_tcp_port localhost 8443
 
-CA_FILE=minica.pem  ./target/client  localhost 8443 /
+CA_FILE=minica.pem ./target/client localhost 8443 /

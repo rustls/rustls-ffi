@@ -296,6 +296,7 @@ main(int argc, const char **argv)
   my_addr.sin_family = AF_INET;
   my_addr.sin_addr.s_addr = INADDR_ANY;
   my_addr.sin_port = htons(8443);
+  inet_aton("127.0.0.1", &my_addr.sin_addr);
 
   if(bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in)) ==
      -1) {
