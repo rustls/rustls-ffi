@@ -6,7 +6,6 @@ use std::sync::Arc;
 use std::{convert::TryInto, ffi::CStr};
 
 use libc::{c_char, size_t};
-use rustls::ResolvesServerCert;
 use rustls::{
     Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified,
     SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
