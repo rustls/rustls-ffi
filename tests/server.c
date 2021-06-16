@@ -59,8 +59,10 @@ read_file(const char *filename, char *buf, size_t buflen, size_t *n)
   *n = fread(buf, 1, buflen, f);
   if(!feof(f)) {
     fprintf(stderr, "%s\n", strerror(errno));
+    fclose(f);
     return CRUSTLS_DEMO_ERROR;
   }
+  fclose(f);
   return CRUSTLS_DEMO_OK;
 }
 
@@ -85,6 +87,7 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
   int err = 1;
   int result = 1;
   size_t n = 0;
+  char buf[1];
 
   err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EAGAIN || err == EWOULDBLOCK) {
@@ -115,7 +118,6 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
     return result;
   }
 
-  char buf[2048];
   /* If we got a close_notify, verify that the sender then
    * closed the TCP connection. */
   n = read(conn->fd, buf, sizeof(buf));
@@ -126,29 +128,31 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
   return CRUSTLS_DEMO_CLOSE_NOTIFY;
 }
 
-void
-send_response(struct conndata_t *conn) {
+enum crustls_demo_result
+send_response(struct conndata_t *conn)
+{
   struct rustls_connection *rconn = conn->rconn;
   const char* response = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nhello\n";
   size_t n;
   rustls_connection_write(rconn, (const uint8_t *)response, strlen(response), &n);
   if (n != strlen(response)) {
     fprintf(stderr, "failed to write all response bytes. wrote %ld\n", n);
-    abort();
+    return CRUSTLS_DEMO_ERROR;
   }
+  return CRUSTLS_DEMO_OK;
 }
 
-void *
-handle_conn(void *userdata) {
+void
+handle_conn(struct conndata_t *conn)
+{
   int err = 1;
   int result = 1;
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
-  conndata_t *conn = userdata;
   struct rustls_connection *rconn = conn->rconn;
   int sockfd = conn->fd;
-  struct timespec ts;
+  struct timeval tv;
   enum exchange_state state = READING_REQUEST;
 
   fprintf(stderr, "accepted conn on fd %d\n", conn->fd);
@@ -162,17 +166,17 @@ handle_conn(void *userdata) {
     if (rustls_connection_wants_write(rconn)) {
       FD_SET(sockfd, &write_fds);
     }
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
 
-    result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
+    result = select(sockfd + 1, &read_fds, &write_fds, NULL, &tv);
     if(result == -1) {
       perror("select");
       goto cleanup;
     }
     if(result == 0) {
-      fprintf(stderr, "no fds from select, sleeping\n");
-      ts.tv_sec = 0;
-      ts.tv_nsec = 1000000000;
-      nanosleep(&ts, NULL);
+      fprintf(stderr, "no fds from select, looping\n");
+      continue;
     }
 
     if(FD_ISSET(sockfd, &read_fds)) {
@@ -208,10 +212,12 @@ handle_conn(void *userdata) {
       }
     }
 
-    if (state == READING_REQUEST && body_begin(&conn->data) != NULL) {
+    if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       fprintf(stderr, "writing response\n");
-      send_response(conn);
+      if(send_response(conn) != CRUSTLS_DEMO_OK) {
+        goto cleanup;
+      };
     }
   }
 
@@ -221,7 +227,6 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
-  return NULL;
 }
 
 const struct rustls_certified_key *
@@ -256,8 +261,6 @@ main(int argc, const char **argv)
 {
   int ret = 1;
   int result = 1;
-  const char *certfile = argv[1];
-  const char *keyfile = argv[2];
   struct rustls_server_config_builder *config_builder =
     rustls_server_config_builder_new();
   const struct rustls_server_config *server_config = NULL;
@@ -272,7 +275,7 @@ main(int argc, const char **argv)
   }
 
   const struct rustls_certified_key *certified_key =
-    load_cert_and_key(certfile, keyfile);
+    load_cert_and_key(argv[1], argv[2]);
   if(certified_key == NULL) {
     goto cleanup;
   }
@@ -288,6 +291,11 @@ main(int argc, const char **argv)
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0) {
     fprintf(stderr, "making socket: %s", strerror(errno));
+  }
+
+  int enable = 1;
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+    print_error("setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
   struct sockaddr_in my_addr, peer_addr;
@@ -328,20 +336,11 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
-    pthread_t thrd;
-    conndata_t *conndata;
-    conndata = calloc(1, sizeof(conndata_t));
+ struct   conndata_t *conndata;
+    conndata = calloc(1, sizeof(struct conndata_t));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
-    ret = pthread_create(&thrd, NULL, handle_conn, conndata);
-    if (ret != 0) {
-      fprintf(stderr, "error from pthread_create: %d\n", ret);
-      goto cleanup;
-    }
-    pthread_join(thrd, NULL);
-    if (ret != 0) {
-      fprintf(stderr, "error from pthread_join: %d\n", ret);
-    }
+    handle_conn(conndata);
   }
 
   // Success!

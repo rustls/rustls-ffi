@@ -11,18 +11,18 @@ enum crustls_demo_result
 };
 
 /* A growable vector of bytes. */
-typedef struct bytevec {
+struct bytevec {
   char *data;
   size_t len;
   size_t capacity;
-} bytevec;
+};
 
-typedef struct conndata_t {
+struct conndata_t {
   int fd;
   const char *verify_arg;
   struct bytevec data;
   struct rustls_connection *rconn;
-} conndata_t;
+};
 
 void
 print_error(char *prefix, rustls_result result);
@@ -78,7 +78,7 @@ void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_
  * of the body. Otherwise return NULL.
  */
 char *
-body_begin(struct bytevec *vec);
+body_beginning(struct bytevec *vec);
 
 /* If any header matching the provided name (NUL-terminated) exists, return
  * a pointer to the beginning of the value for the first such occurrence
@@ -87,6 +87,7 @@ body_begin(struct bytevec *vec);
  * The returned pointer will be borrowed from `headers`.
  */
 const char *
-get_first_header_value(const char *headers, size_t headers_len, const char *name, size_t *n);
+get_first_header_value(const char *headers, size_t headers_len,
+  const char *name, size_t name_len, size_t *n);
 
 #endif /* COMMON_H */

@@ -6,7 +6,7 @@ trap "kill '${SERVER_PID}'" EXIT
 wait_tcp_port() {
     local host="$1" port="$2"
 
-    # see http://tldp.org/LDP/abs/html/devref1.html for description of this syntax.
+    # see https://tldp.org/LDP/abs/html/devref1.html for description of this syntax.
     local max_tries="120"
     for n in `seq 1 $max_tries` ; do
       if exec 6<>/dev/tcp/$host/$port; then

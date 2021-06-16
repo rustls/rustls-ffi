@@ -196,6 +196,8 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
   return CRUSTLS_DEMO_CLOSE_NOTIFY;
 }
 
+static const char *CONTENT_LENGTH = "Content-Length";
+
 /*
  * Given an established TCP connection, and a rustls_connection, send an
  * HTTP request and read the response. On success, return 0. On error, print
@@ -214,9 +216,9 @@ send_request_and_read_response(struct conndata_t *conn,
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
-  const char *body, *contentlengthstr, *contentlengthend;
-  unsigned long contentlength;
-  size_t headerslen = 0;
+  const char *body, *content_length_str, *content_length_end;
+  unsigned long content_length;
+  size_t headers_len = 0;
 
   bzero(buf, sizeof(buf));
   snprintf(buf,
@@ -275,26 +277,26 @@ send_request_and_read_response(struct conndata_t *conn,
         else if(result != CRUSTLS_DEMO_OK) {
           goto cleanup;
         }
-        if(headerslen == 0) {
-          body = body_begin(&conn->data);
+        if(headers_len == 0) {
+          body = body_beginning(&conn->data);
           if(body != NULL) {
-            headerslen = body - conn->data.data;
-            fprintf(stderr, "body began at %ld\n", headerslen);
-            contentlengthstr = get_first_header_value(conn->data.data, headerslen,
-              "Content-Length", &n);
-            if(contentlengthstr == NULL) {
+            headers_len = body - conn->data.data;
+            fprintf(stderr, "body began at %ld\n", headers_len);
+            content_length_str = get_first_header_value(conn->data.data, headers_len,
+              CONTENT_LENGTH, strlen(CONTENT_LENGTH), &n);
+            if(content_length_str == NULL) {
               fprintf(stderr, "content length header not found\n");
               goto cleanup;
             }
-            contentlength = strtoul(contentlengthstr, (char**)&contentlengthend, 10);
-            if(contentlengthend == contentlengthstr) {
-              fprintf(stderr, "invalid Content-Length '%.*s'\n", (int)n, contentlengthstr);
+            content_length = strtoul(content_length_str, (char**)&content_length_end, 10);
+            if(content_length_end == content_length_str) {
+              fprintf(stderr, "invalid Content-Length '%.*s'\n", (int)n, content_length_str);
               goto cleanup;
             }
-            fprintf(stderr, "content length %ld\n", contentlength);
+            fprintf(stderr, "content length %ld\n", content_length);
           }
         }
-        if(headerslen != 0 && conn->data.len >= headerslen + contentlength) {
+        if(headers_len != 0 && conn->data.len >= headers_len + content_length) {
           /* body is done. */
           if(write(STDERR_FILENO, conn->data.data, conn->data.len) < 0) {
             fprintf(stderr, "error writing to stderr\n");
