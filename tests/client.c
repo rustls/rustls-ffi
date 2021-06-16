@@ -58,7 +58,7 @@ make_conn(const char *hostname, const char* port)
   struct addrinfo *getaddrinfo_output = NULL, hints;
 
   memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM; /* looking for TCP */
 
   fprintf(stderr, "connecting to %s:%s\n", hostname, port);
