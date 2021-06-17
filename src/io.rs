@@ -117,6 +117,19 @@ impl Write for CallbackWriter {
     }
 }
 
+/// A callback for rustls_connection_write_tls_vectored.
+/// An implementation of this callback should attempt to write the bytes in
+/// the given `count` rustls_slice_bytes to the network. If any bytes were written,
+/// the implementation should set out_n to the number of bytes written and return 0.
+/// If there was an error, the implementation should return a nonzero rustls_io_result,
+/// which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
+/// On other systems, any appropriate error code works.
+/// (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
+/// It's best to make one write attempt to the network per call. Additional write will
+/// be triggered by subsequent calls to one of the `_write_tls` methods.
+/// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+/// cases that should be a struct that contains, at a minimum, a file descriptor.
+/// The buf and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_write_vectored_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,

@@ -369,6 +369,21 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, s
  */
 typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
 
+/**
+ * A callback for rustls_connection_write_tls_vectored.
+ * An implementation of this callback should attempt to write the bytes in
+ * the given `count` rustls_slice_bytes to the network. If any bytes were written,
+ * the implementation should set out_n to the number of bytes written and return 0.
+ * If there was an error, the implementation should return a nonzero rustls_io_result,
+ * which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
+ * It's best to make one write attempt to the network per call. Additional write will
+ * be triggered by subsequent calls to one of the `_write_tls` methods.
+ * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
 typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_slice_bytes *slices, size_t count, size_t *out_n);
 
 /**
@@ -760,6 +775,18 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
                                              void *userdata,
                                              size_t *out_n);
 
+/**
+ * Write all available TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with an array
+ * of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+ * You don't have to write them all, just as many as you are willing.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+ */
 rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
                                                       rustls_write_vectored_callback callback,
                                                       void *userdata,

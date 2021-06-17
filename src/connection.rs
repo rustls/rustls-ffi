@@ -183,6 +183,16 @@ pub extern "C" fn rustls_connection_write_tls(
     }
 }
 
+/// Write all available TLS bytes to the network. The actual network I/O is performed by
+/// `callback`, which you provide. Rustls will invoke your callback with an array
+/// of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+/// You don't have to write them all, just as many as you are willing.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_connection_set_userdata`.
+/// Returns 0 for success, or an errno value on error. Passes through return values
+/// from callback. See rustls_write_callback for more details.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
 #[no_mangle]
 pub extern "C" fn rustls_connection_write_tls_vectored(
     conn: *mut rustls_connection,
