@@ -4,7 +4,10 @@ use std::{ptr::null_mut, slice};
 use libc::{size_t, EIO};
 use rustls::{Certificate, ClientSession, ServerSession, Session, SupportedCipherSuite};
 
-use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
+use crate::io::{
+    rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
+    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
+};
 use crate::is_close_notify;
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
@@ -170,6 +173,29 @@ pub extern "C" fn rustls_connection_write_tls(
         let callback: WriteCallback = try_callback!(callback);
 
         let mut writer = CallbackWriter { callback, userdata };
+        let n_written: usize = match conn.as_mut().write_tls(&mut writer) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_written;
+
+        rustls_io_result(0)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rustls_connection_write_tls_vectored(
+    conn: *mut rustls_connection,
+    callback: rustls_write_vectored_callback,
+    userdata: *mut c_void,
+    out_n: *mut size_t,
+) -> rustls_io_result {
+    ffi_panic_boundary! {
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        let callback: VectoredWriteCallback = try_callback!(callback);
+
+        let mut writer = VectoredCallbackWriter { callback, userdata };
         let n_written: usize = match conn.as_mut().write_tls(&mut writer) {
             Ok(n) => n,
             Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),

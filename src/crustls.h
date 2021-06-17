@@ -369,6 +369,8 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, s
  */
 typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
 
+typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_slice_bytes *slices, size_t count, size_t *out_n);
+
 /**
  * Any context information the callback will receive when invoked.
  */
@@ -757,6 +759,11 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
                                              rustls_write_callback callback,
                                              void *userdata,
                                              size_t *out_n);
+
+rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
+                                                      rustls_write_vectored_callback callback,
+                                                      void *userdata,
+                                                      size_t *out_n);
 
 enum rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
 

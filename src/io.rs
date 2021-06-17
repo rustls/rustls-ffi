@@ -3,6 +3,8 @@ use std::io::{Error, IoSlice, Read, Result, Write};
 use libc::{c_void, size_t};
 
 use crate::error::rustls_io_result;
+use crate::rslice::rustls_slice_bytes;
+use std::ops::Deref;
 
 /// A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
 /// An implementation of this callback should attempt to read up to n bytes from the
@@ -100,12 +102,69 @@ impl Write for CallbackWriter {
 
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
         let mut out_n: usize = 0;
-        for buf in bufs.iter() {
+        for buf in bufs.iter().filter(|b| !b.is_empty()) {
             out_n += match self.write(buf) {
-                Ok(n) => n,
+                Ok(n) => {
+                    if n != buf.len() {
+                        return Ok(out_n + n);
+                    }
+                    n
+                }
                 e => return e,
             }
         }
         Ok(out_n)
+    }
+}
+
+pub type rustls_write_vectored_callback = Option<
+    unsafe extern "C" fn(
+        userdata: *mut c_void,
+        slices: *const rustls_slice_bytes,
+        count: size_t,
+        out_n: *mut size_t,
+    ) -> rustls_io_result,
+>;
+
+pub(crate) type VectoredWriteCallback = unsafe extern "C" fn(
+    userdata: *mut c_void,
+    slices: *const rustls_slice_bytes,
+    count: size_t,
+    out_n: *mut size_t,
+) -> rustls_io_result;
+
+pub(crate) struct VectoredCallbackWriter {
+    pub callback: VectoredWriteCallback,
+    pub userdata: *mut c_void,
+}
+
+impl Write for VectoredCallbackWriter {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        let mut out_n: usize = 0;
+        let cb = self.callback;
+        let slices: &[rustls_slice_bytes] = &[rustls_slice_bytes::from(buf)];
+        let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
+        match result.0 {
+            0 => Ok(out_n),
+            e => Err(Error::from_raw_os_error(e)),
+        }
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
+        let mut out_n: usize = 0;
+        let cb = self.callback;
+        let mut slices: Vec<rustls_slice_bytes> = Vec::new();
+        for buf in bufs.iter().filter(|b| !b.is_empty()) {
+            slices.push(rustls_slice_bytes::from(buf.deref()));
+        }
+        let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
+        match result.0 {
+            0 => Ok(out_n),
+            e => Err(Error::from_raw_os_error(e)),
+        }
     }
 }
