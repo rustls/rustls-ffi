@@ -66,7 +66,8 @@ read_file(const char *filename, char *buf, size_t buflen, size_t *n)
   return CRUSTLS_DEMO_OK;
 }
 
-typedef enum exchange_state {
+typedef enum exchange_state
+{
   READING_REQUEST,
   SENT_RESPONSE
 } exchange_state;
@@ -101,7 +102,7 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
     return CRUSTLS_DEMO_ERROR;
   }
 
-  if (n == 0) {
+  if(n == 0) {
     return CRUSTLS_DEMO_EOF;
   }
   fprintf(stderr, "read %ld bytes from socket\n", n);
@@ -122,7 +123,10 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
    * closed the TCP connection. */
   n = read(conn->fd, buf, sizeof(buf));
   if(n != 0 && errno != EWOULDBLOCK) {
-    fprintf(stderr, "read returned %ld after receiving close_notify: %s\n", n, strerror(errno));
+    fprintf(stderr,
+            "read returned %ld after receiving close_notify: %s\n",
+            n,
+            strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
   return CRUSTLS_DEMO_CLOSE_NOTIFY;
@@ -132,10 +136,11 @@ enum crustls_demo_result
 send_response(struct conndata_t *conn)
 {
   struct rustls_connection *rconn = conn->rconn;
-  const char* response = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nhello\n";
+  const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nhello\n";
   size_t n;
-  rustls_connection_write(rconn, (const uint8_t *)response, strlen(response), &n);
-  if (n != strlen(response)) {
+  rustls_connection_write(
+    rconn, (const uint8_t *)response, strlen(response), &n);
+  if(n != strlen(response)) {
     fprintf(stderr, "failed to write all response bytes. wrote %ld\n", n);
     return CRUSTLS_DEMO_ERROR;
   }
@@ -159,11 +164,11 @@ handle_conn(struct conndata_t *conn)
 
   for(;;) {
     FD_ZERO(&read_fds);
-    if (rustls_connection_wants_read(rconn)) {
+    if(rustls_connection_wants_read(rconn)) {
       FD_SET(sockfd, &read_fds);
     }
     FD_ZERO(&write_fds);
-    if (rustls_connection_wants_write(rconn)) {
+    if(rustls_connection_wants_write(rconn)) {
       FD_SET(sockfd, &write_fds);
     }
     tv.tv_sec = 1;
@@ -230,7 +235,8 @@ cleanup:
 }
 
 const struct rustls_certified_key *
-load_cert_and_key(const char* certfile, const char *keyfile) {
+load_cert_and_key(const char *certfile, const char *keyfile)
+{
   char certbuf[10000];
   size_t certbuf_len;
   char keybuf[10000];
@@ -247,8 +253,11 @@ load_cert_and_key(const char* certfile, const char *keyfile) {
   }
 
   const struct rustls_certified_key *certified_key;
-  result = rustls_certified_key_build(
-    (uint8_t*)certbuf, certbuf_len, (uint8_t*)keybuf, keybuf_len, &certified_key);
+  result = rustls_certified_key_build((uint8_t *)certbuf,
+                                      certbuf_len,
+                                      (uint8_t *)keybuf,
+                                      keybuf_len,
+                                      &certified_key);
   if(result != RUSTLS_RESULT_OK) {
     print_error("parsing certificate and key", result);
     return NULL;
@@ -280,7 +289,8 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  rustls_server_config_builder_set_certified_keys(config_builder, &certified_key, 1);
+  rustls_server_config_builder_set_certified_keys(
+    config_builder, &certified_key, 1);
   server_config = rustls_server_config_builder_build(config_builder);
 
 #ifdef _WIN32
@@ -294,7 +304,7 @@ main(int argc, const char **argv)
   }
 
   int enable = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+  if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
     print_error("setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
@@ -318,7 +328,7 @@ main(int argc, const char **argv)
   }
   fprintf(stderr, "listening on localhost:8443\n");
 
-  while (true) {
+  while(true) {
     socklen_t peer_addr_size;
     peer_addr_size = sizeof(struct sockaddr_in);
     int clientfd =
@@ -336,7 +346,7 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
- struct   conndata_t *conndata;
+    struct conndata_t *conndata;
     conndata = calloc(1, sizeof(struct conndata_t));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
@@ -356,4 +366,3 @@ cleanup:
 
   return ret;
 }
-

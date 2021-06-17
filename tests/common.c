@@ -1,17 +1,17 @@
 #ifdef _WIN32
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
-  #include <winsock2.h>
-  #include <ws2tcpip.h>    /* gai_strerror() */
-  #include <io.h>          /* write() */
-  #include <fcntl.h>       /* O_BINARY */
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h> /* gai_strerror() */
+#include <io.h> /* write() */
+#include <fcntl.h> /* O_BINARY */
 #else
-  #include <sys/socket.h>
-  #include <netinet/in.h>
-  #include <netdb.h>
-  #include <arpa/inet.h>
-  #include <unistd.h>
-  #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
 #endif
 
 #include <sys/types.h>
@@ -33,11 +33,12 @@ print_error(char *prefix, rustls_result result)
 }
 
 #ifdef _WIN32
-const char *ws_strerror (int err)
+const char *
+ws_strerror(int err)
 {
   static char ws_err[50];
 
-  if (err >= WSABASEERR) {
+  if(err >= WSABASEERR) {
     snprintf(ws_err, sizeof(ws_err), "Winsock err: %d", err);
     return ws_err;
   }
@@ -79,7 +80,7 @@ nonblock(int sockfd)
 #ifdef _WIN32
   u_long nonblock = 1UL;
 
-  if (ioctlsocket(sockfd, FIONBIO, &nonblock) != 0) {
+  if(ioctlsocket(sockfd, FIONBIO, &nonblock) != 0) {
     perror("Error setting socket nonblocking");
     return CRUSTLS_DEMO_ERROR;
   }
@@ -108,7 +109,7 @@ read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
   if(n < 0) {
     return errno;
   }
-  if (out_n != NULL) {
+  if(out_n != NULL) {
     *out_n = n;
   }
   return 0;
@@ -118,13 +119,13 @@ int
 write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
 {
   ssize_t n = 0;
-  struct conndata_t *conn = (struct conndata_t*)userdata;
+  struct conndata_t *conn = (struct conndata_t *)userdata;
 
   n = send(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
-  if (out_n != NULL) {
+  if(out_n != NULL) {
     *out_n = n;
   }
   return 0;
@@ -157,7 +158,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
   size_t available = vec->capacity - vec->len;
   size_t newsize;
   void *newdata;
-  if (available < n) {
+  if(available < n) {
     newsize = vec->len + n;
     if(newsize < vec->capacity * 2) {
       newsize = vec->capacity * 2;
@@ -167,7 +168,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
       fprintf(stderr, "out of memory trying to get %ld bytes\n", newsize);
       return CRUSTLS_DEMO_ERROR;
     }
-    vec->data = (char*)newdata;
+    vec->data = (char *)newdata;
     vec->capacity = newsize;
   }
   return CRUSTLS_DEMO_OK;
@@ -180,7 +181,7 @@ copy_plaintext_to_buffer(struct conndata_t *conn)
   size_t n;
   struct rustls_connection *rconn = conn->rconn;
 
-  if (bytevec_ensure_available(&conn->data, 1024) != CRUSTLS_DEMO_OK) {
+  if(bytevec_ensure_available(&conn->data, 1024) != CRUSTLS_DEMO_OK) {
     return CRUSTLS_DEMO_ERROR;
   }
 
@@ -227,76 +228,80 @@ copy_plaintext_to_buffer(struct conndata_t *conn)
  * Return Value
  *  pointer to the memory address of the match or NULL.
  */
-void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen)
+void *
+memmem(const void *haystack, size_t haystacklen, const void *needle,
+       size_t needlelen)
 {
-   const char *bf = (const char*) haystack;
-   const char *pt = (const char*) needle;
-   const char *p = bf;
- 
-   while(needlelen <= (haystacklen - (p - bf))) {
-      if(NULL != (p = memchr(p, (int)(*pt), haystacklen - (p - bf)))) {
-         if(0 == memcmp(p, needle, needlelen)) {
-            return (void *)p;
-         }
-         else {
-            ++p;
-         }
+  const char *bf = (const char *)haystack;
+  const char *pt = (const char *)needle;
+  const char *p = bf;
+
+  while(needlelen <= (haystacklen - (p - bf))) {
+    if(NULL != (p = memchr(p, (int)(*pt), haystacklen - (p - bf)))) {
+      if(0 == memcmp(p, needle, needlelen)) {
+        return (void *)p;
       }
       else {
-         break;
+        ++p;
       }
-   }
- 
-   return NULL;
+    }
+    else {
+      break;
+    }
+  }
+
+  return NULL;
 }
 
 char *
-body_beginning(struct bytevec *vec) {
-   const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
-   if(result == NULL) {
-     return NULL;
-   } else {
-     return (char *)result + 4;
-   }
+body_beginning(struct bytevec *vec)
+{
+  const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
+  if(result == NULL) {
+    return NULL;
+  }
+  else {
+    return (char *)result + 4;
+  }
 }
 
 const char *
 get_first_header_value(const char *headers, size_t headers_len,
-  const char *name, size_t name_len, size_t *n)
+                       const char *name, size_t name_len, size_t *n)
 {
-   const void *result;
-   const char *current = headers;
-   size_t len = headers_len;
-   size_t skipped;
-   
-   // We use + 3 because there needs to be room for `:` and `\r\n` after the header name
-   while(len > name_len + 3) {
-     result = memmem(current, len, "\r\n", 2);
-     if(result == NULL) {
-       return NULL;
-     }
-     skipped = (char *)result - current + 2;
-     len -= skipped;
-     current += skipped;
-     /* Make sure there's enough room to conceivably contain the header name,
-      * a colon (:), and something after that.
-      */
-     if(len < name_len + 2) {
-       return NULL;
-     }
-     if(strncasecmp(name, current, name_len) == 0 &&
-        current[name_len] == ':') {
-       /* Found it! */
-       len -= name_len + 1;
-       current += name_len + 1;
-       result = memmem(current, len, "\r\n", 2);
-       if(result == NULL) {
-         *n = len;
-         return current;
-       }
-       *n = (char *)result - current;
-       return current;
-     }
-   }
-   return NULL;
+  const void *result;
+  const char *current = headers;
+  size_t len = headers_len;
+  size_t skipped;
+
+  // We use + 3 because there needs to be room for `:` and `\r\n` after the
+  // header name
+  while(len > name_len + 3) {
+    result = memmem(current, len, "\r\n", 2);
+    if(result == NULL) {
+      return NULL;
+    }
+    skipped = (char *)result - current + 2;
+    len -= skipped;
+    current += skipped;
+    /* Make sure there's enough room to conceivably contain the header name,
+     * a colon (:), and something after that.
+     */
+    if(len < name_len + 2) {
+      return NULL;
+    }
+    if(strncasecmp(name, current, name_len) == 0 && current[name_len] == ':') {
+      /* Found it! */
+      len -= name_len + 1;
+      current += name_len + 1;
+      result = memmem(current, len, "\r\n", 2);
+      if(result == NULL) {
+        *n = len;
+        return current;
+      }
+      *n = (char *)result - current;
+      return current;
+    }
+  }
+  return NULL;
 }
