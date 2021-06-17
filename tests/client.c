@@ -433,7 +433,6 @@ main(int argc, const char **argv)
     rustls_client_config_builder_new();
   const struct rustls_client_config *client_config = NULL;
   const struct rustls_slice_bytes alpn_http11 = { (const uint8_t *)"http/1.1", 8 };
-  const char *ca_file = "/etc/ssl/certs/ca-certificates.crt";
 
 
 #ifdef _WIN32
@@ -443,14 +442,13 @@ main(int argc, const char **argv)
 #endif
 
   if(getenv("CA_FILE")) {
-    ca_file = getenv("CA_FILE");
+    result = rustls_client_config_builder_load_roots_from_file(config_builder, getenv("CA_FILE"));
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("loading trusted certificate", result);
+      goto cleanup;
+    }
   }
 
-  result = rustls_client_config_builder_load_roots_from_file(config_builder, ca_file);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("loading trusted certificate", result);
-    goto cleanup;
-}
   if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(config_builder, verify);
   }
