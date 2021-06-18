@@ -101,19 +101,12 @@ impl Write for CallbackWriter {
     }
 
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
-        let mut out_n: usize = 0;
-        for buf in bufs.iter().filter(|b| !b.is_empty()) {
-            out_n += match self.write(buf) {
-                Ok(n) => {
-                    if n != buf.len() {
-                        return Ok(out_n + n);
-                    }
-                    n
-                }
-                e => return e,
-            }
-        }
-        Ok(out_n)
+        let buf: Vec<u8> = bufs
+            .into_iter()
+            .flat_map(|x| x.into_iter())
+            .map(|x| *x)
+            .collect();
+        self.write(&buf)
     }
 }
 
