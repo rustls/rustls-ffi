@@ -155,7 +155,7 @@ impl Write for VectoredCallbackWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let mut out_n: usize = 0;
         let cb = self.callback;
-        let slices: &[rustls_slice_bytes] = &[rustls_slice_bytes::from(buf)];
+        let slices: &[rustls_slice_bytes] = &[buf.into()];
         let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
         match result.0 {
             0 => Ok(out_n),
@@ -170,10 +170,11 @@ impl Write for VectoredCallbackWriter {
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
         let mut out_n: usize = 0;
         let cb = self.callback;
-        let mut slices: Vec<rustls_slice_bytes> = Vec::new();
-        for buf in bufs.iter().filter(|b| !b.is_empty()) {
-            slices.push(rustls_slice_bytes::from(buf.deref()));
-        }
+        let slices: Vec<rustls_slice_bytes> = bufs
+            .iter()
+            .filter(|b| !b.is_empty())
+            .map(|b| b.deref().into())
+            .collect();
         let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
         match result.0 {
             0 => Ok(out_n),
