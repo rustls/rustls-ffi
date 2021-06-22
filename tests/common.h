@@ -17,7 +17,7 @@ struct bytevec {
   size_t capacity;
 };
 
-struct conndata_t {
+struct conndata {
   int fd;
   const char *verify_arg;
   struct bytevec data;
@@ -69,7 +69,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n);
  * CRUSTLS_DEMO_CLOSE_NOTIFY for "received close_notify"
  */
 int
-copy_plaintext_to_buffer(struct conndata_t *conn);
+copy_plaintext_to_buffer(struct conndata *conn);
 
 /* Polyfill */
 void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen);

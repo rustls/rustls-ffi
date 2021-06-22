@@ -83,7 +83,7 @@ typedef enum exchange_state
  *  - CRUSTLS_DEMO_ERROR for other errors.
  */
 enum crustls_demo_result
-do_read(struct conndata_t *conn, struct rustls_connection *rconn)
+do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
   int err = 1;
   int result = 1;
@@ -133,7 +133,7 @@ do_read(struct conndata_t *conn, struct rustls_connection *rconn)
 }
 
 enum crustls_demo_result
-send_response(struct conndata_t *conn)
+send_response(struct conndata *conn)
 {
   struct rustls_connection *rconn = conn->rconn;
   const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nhello\n";
@@ -148,7 +148,7 @@ send_response(struct conndata_t *conn)
 }
 
 void
-handle_conn(struct conndata_t *conn)
+handle_conn(struct conndata *conn)
 {
   int err = 1;
   int result = 1;
@@ -346,8 +346,8 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
-    struct conndata_t *conndata;
-    conndata = calloc(1, sizeof(struct conndata_t));
+    struct conndata *conndata;
+    conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
     handle_conn(conndata);
@@ -359,6 +359,9 @@ main(int argc, const char **argv)
 cleanup:
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
+  if(sockfd>0) {
+    close(sockfd);
+  }
 
 #ifdef _WIN32
   WSACleanup();

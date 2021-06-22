@@ -154,7 +154,7 @@ copy_plaintext_to_stdout(struct rustls_connection *client_conn)
  *  - CRUSTLS_DEMO_ERROR for other errors.
  */
 enum crustls_demo_result
-do_read(struct conndata_t *conn, struct rustls_connection *rconn)
+do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
   int err = 1;
   int result = 1;
@@ -206,7 +206,7 @@ static const char *CONTENT_LENGTH = "Content-Length";
  * the message and return 1.
  */
 int
-send_request_and_read_response(struct conndata_t *conn,
+send_request_and_read_response(struct conndata *conn,
                                struct rustls_connection *rconn,
                                const char *hostname, const char *path)
 {
@@ -218,7 +218,9 @@ send_request_and_read_response(struct conndata_t *conn,
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
-  const char *body, *content_length_str, *content_length_end;
+  const char *body;
+  const char *content_length_str;
+  const char *content_length_end;
   unsigned long content_length;
   size_t headers_len = 0;
 
@@ -352,7 +354,7 @@ do_request(const struct rustls_client_config *client_config,
            const char *hostname, const char *port, const char *path)
 {
   struct rustls_connection *rconn = NULL;
-  struct conndata_t *conn = NULL;
+  struct conndata *conn = NULL;
   int ret = 1;
   int sockfd = make_conn(hostname, port);
   if(sockfd < 0) {
@@ -367,7 +369,7 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
-  conn = calloc(1, sizeof(struct conndata_t));
+  conn = calloc(1, sizeof(struct conndata));
   if(conn == NULL) {
     goto cleanup;
   }
@@ -406,7 +408,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
     params->intermediate_certs_der;
   struct rustls_slice_bytes bytes;
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
-  struct conndata_t *conn = (struct conndata_t *)userdata;
+  struct conndata *conn = (struct conndata *)userdata;
 
   fprintf(stderr,
           "custom certificate verifier called for %.*s\n",
@@ -449,8 +451,10 @@ main(int argc, const char **argv)
   struct rustls_client_config_builder *config_builder =
     rustls_client_config_builder_new();
   const struct rustls_client_config *client_config = NULL;
-  const struct rustls_slice_bytes alpn_http11 = { (const uint8_t *)"http/1.1",
-                                                  8 };
+  struct rustls_slice_bytes alpn_http11;
+  
+  alpn_http11.data = (unsigned char*)"http/1.1";
+  alpn_http11.len = 8;
 
 #ifdef _WIN32
   WSADATA wsa;

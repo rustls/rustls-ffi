@@ -104,7 +104,7 @@ int
 read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 {
   ssize_t n = 0;
-  struct conndata_t *conn = (struct conndata_t *)userdata;
+  struct conndata *conn = (struct conndata *)userdata;
   n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
@@ -119,7 +119,7 @@ int
 write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
 {
   ssize_t n = 0;
-  struct conndata_t *conn = (struct conndata_t *)userdata;
+  struct conndata *conn = (struct conndata *)userdata;
 
   n = send(conn->fd, buf, len, 0);
   if(n < 0) {
@@ -168,14 +168,14 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
       fprintf(stderr, "out of memory trying to get %ld bytes\n", newsize);
       return CRUSTLS_DEMO_ERROR;
     }
-    vec->data = (char *)newdata;
+    vec->data = newdata;
     vec->capacity = newsize;
   }
   return CRUSTLS_DEMO_OK;
 }
 
 int
-copy_plaintext_to_buffer(struct conndata_t *conn)
+copy_plaintext_to_buffer(struct conndata *conn)
 {
   int result;
   size_t n;
@@ -232,8 +232,8 @@ void *
 memmem(const void *haystack, size_t haystacklen, const void *needle,
        size_t needlelen)
 {
-  const char *bf = (const char *)haystack;
-  const char *pt = (const char *)needle;
+  const char *bf = haystack;
+  const char *pt = needle;
   const char *p = bf;
 
   while(needlelen <= (haystacklen - (p - bf))) {
