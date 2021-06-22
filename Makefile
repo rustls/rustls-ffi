@@ -7,7 +7,7 @@ endif
 
 CFLAGS := -Werror -Wall -Wextra -Wpedantic -g
 
-PROFILE := debug
+PROFILE := release
 DESTDIR=/usr/local
 
 ifeq ($(CC), clang)

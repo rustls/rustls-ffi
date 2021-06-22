@@ -8,7 +8,7 @@ to make an HTTPS request.
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) and a C
 compiler (gcc and clang should both work). Once you've got the Rust toolchain
-installed, run `cargo install cbindgen`. Then, to build in debug mode:
+installed, run `cargo install cbindgen`. Then, to build in optimized mode:
 
     make
 
@@ -16,9 +16,9 @@ To install:
 
     make install
 
-To build and install in optimized mode:
+To build in debug mode:
 
-    make PROFILE=release install
+    make PROFILE=debug
 
 # Conventions
 
