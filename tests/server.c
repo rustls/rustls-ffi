@@ -277,6 +277,7 @@ main(int argc, const char **argv)
 {
   int ret = 1;
   int result = 1;
+  int sockfd = 0;
   struct rustls_server_config_builder *config_builder =
     rustls_server_config_builder_new();
   const struct rustls_server_config *server_config = NULL;
@@ -305,7 +306,7 @@ main(int argc, const char **argv)
   WSAStartup(MAKEWORD(1, 1), &wsa);
 #endif
 
-  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0) {
     fprintf(stderr, "making socket: %s", strerror(errno));
   }
