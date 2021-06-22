@@ -159,6 +159,12 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 typedef struct rustls_connection rustls_connection;
 
 /**
+ * An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
+ * `const struct iovec *`.
+ */
+typedef struct rustls_iovec rustls_iovec;
+
+/**
  * A root cert store that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<RootCertStore>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
@@ -384,7 +390,7 @@ typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t 
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_slice_bytes *slices, size_t count, size_t *out_n);
+typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n);
 
 /**
  * Any context information the callback will receive when invoked.

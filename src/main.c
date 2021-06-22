@@ -15,6 +15,7 @@
 #endif
 
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -250,6 +251,22 @@ int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n)
   return 0;
 }
 
+#ifndef _WIN32
+rustls_io_result write_vectored_cb(
+    void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n)
+{
+  ssize_t n = 0;
+  struct demo_conn *conn = (struct demo_conn*)userdata;
+
+  n = writev(conn->fd, (const struct iovec*)iov, count);
+  if(n < 0) {
+    return errno;
+  }
+  *out_n = n;
+  return 0;
+}
+#endif /* _WIN32 */
+
 int write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n)
 {
   ssize_t n = 0;
@@ -393,7 +410,18 @@ send_request_and_read_response(struct demo_conn *conn,
     if(rustls_connection_wants_write(client_conn) &&
        FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "ClientSession wants us to write_tls.\n");
+
+#ifdef _WIN32
       err = rustls_connection_write_tls(client_conn, write_cb, conn, &n);
+#else
+      if(getenv("VECTORED_IO")) {
+        fprintf(stderr, "(vectored)\n");
+        err = rustls_connection_write_tls_vectored(client_conn,
+         write_vectored_cb, conn, &n);
+      } else {
+        err = rustls_connection_write_tls(client_conn, write_cb, conn, &n);
+      }
+#endif /* _WIN32 */
       if(err != 0) {
         fprintf(stderr, "Error in ClientSession::write_tls: errno %d\n", err);
         goto cleanup;

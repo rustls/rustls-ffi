@@ -16,6 +16,7 @@ jobs:
           persist-credentials: false
       - run: make CC=${{ matrix.cc }} PROFILE=release test
       - run: NO_CHECK_CERTIFICATE= ./target/crustls-demo wrong.host.badssl.com /
+      - run: VECTORED_IO= ./target/crustls-demo httpbin.org /headers
 
   ensure-header-updated:
     runs-on: ubuntu-latest

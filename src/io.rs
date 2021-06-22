@@ -110,6 +110,13 @@ impl Write for CallbackWriter {
     }
 }
 
+/// An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
+/// `const struct iovec *`.
+#[cfg(unix)]
+pub struct rustls_iovec {
+    _private: [u8; 0],
+}
+
 /// A callback for rustls_connection_write_tls_vectored.
 /// An implementation of this callback should attempt to write the bytes in
 /// the given `count` rustls_slice_bytes to the network. If any bytes were written,
@@ -123,37 +130,34 @@ impl Write for CallbackWriter {
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
+#[cfg(unix)]
 pub type rustls_write_vectored_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,
-        slices: *const rustls_slice_bytes,
+        iov: *const rustls_iovec,
         count: size_t,
         out_n: *mut size_t,
     ) -> rustls_io_result,
 >;
 
+#[cfg(unix)]
 pub(crate) type VectoredWriteCallback = unsafe extern "C" fn(
     userdata: *mut c_void,
-    slices: *const rustls_slice_bytes,
+    iov: *const rustls_iovec,
     count: size_t,
     out_n: *mut size_t,
 ) -> rustls_io_result;
 
+#[cfg(unix)]
 pub(crate) struct VectoredCallbackWriter {
     pub callback: VectoredWriteCallback,
     pub userdata: *mut c_void,
 }
 
+#[cfg(unix)]
 impl Write for VectoredCallbackWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let mut out_n: usize = 0;
-        let cb = self.callback;
-        let slices: &[rustls_slice_bytes] = &[buf.into()];
-        let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
-        match result.0 {
-            0 => Ok(out_n),
-            e => Err(Error::from_raw_os_error(e)),
-        }
+        self.write_vectored(&[IoSlice::new(buf)])
     }
 
     fn flush(&mut self) -> Result<()> {
@@ -168,7 +172,16 @@ impl Write for VectoredCallbackWriter {
             .filter(|b| !b.is_empty())
             .map(|b| b.deref().into())
             .collect();
-        let result = unsafe { cb(self.userdata, slices.as_ptr(), slices.len(), &mut out_n) };
+        let result = unsafe {
+            cb(
+                self.userdata,
+                // This case is sound because IoSlice is documented to by ABI-compatible with
+                // iovec on Unix.
+                slices.as_ptr() as *const rustls_iovec,
+                slices.len(),
+                &mut out_n,
+            )
+        };
         match result.0 {
             0 => Ok(out_n),
             e => Err(Error::from_raw_os_error(e)),
