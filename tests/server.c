@@ -88,6 +88,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   int err = 1;
   int result = 1;
   size_t n = 0;
+  ssize_t signed_n = 0;
   char buf[1];
 
   err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
@@ -121,11 +122,16 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   /* If we got a close_notify, verify that the sender then
    * closed the TCP connection. */
-  n = read(conn->fd, buf, sizeof(buf));
-  if(n != 0 && errno != EWOULDBLOCK) {
+  signed_n = read(conn->fd, buf, sizeof(buf));
+  if(signed_n > 0) {
     fprintf(stderr,
-            "read returned %ld after receiving close_notify: %s\n",
-            n,
+            "read returned %ld bytes after receiving close_notify\n",
+            n);
+    return CRUSTLS_DEMO_ERROR;
+  }
+  else if (signed_n < 0 && errno != EWOULDBLOCK) {
+    fprintf(stderr,
+            "read returned incorrect error after receiving close_notify: %s\n",
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
@@ -232,6 +238,7 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
+  free(conn);
 }
 
 const struct rustls_certified_key *
