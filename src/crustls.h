@@ -602,6 +602,13 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
+ * Create a rustls_client_config_builder from an existing rustls_client_config. The
+ * builder will be used to create a new, separate config that starts with the settings
+ * from the supplied configuration.
+ */
+struct rustls_client_config_builder *rustls_client_config_builder_from_config(const struct rustls_client_config *config);
+
+/**
  * Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
  * (read-only).
  */
@@ -651,11 +658,36 @@ void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rust
 enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_client_config_builder *config);
 
 /**
+ * Use the trusted root certificates from the provided store.
+ *
+ * This replaces any trusted roots already configured with copies
+ * from `roots`. This adds 1 to the refcount for `roots`. When you
+ * call rustls_client_config_free or rustls_client_config_builder_free,
+ * those will subtract 1 from the refcount for `roots`.
+ */
+void rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
+                                            const struct rustls_root_cert_store *roots);
+
+/**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
 enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
                                                                      const char *filename);
+
+/**
+ * Set the TLS protocol versions to use when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ */
+enum rustls_result rustls_client_config_builder_set_versions(struct rustls_client_config_builder *builder,
+                                                             const uint16_t *tls_versions,
+                                                             size_t len);
 
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
@@ -680,6 +712,26 @@ enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_clie
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
+
+/**
+ * Set the cipher suite list, in preference order. The `ciphersuites`
+ * parameter must point to an array containing `len` pointers to
+ * `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+ */
+enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_client_config_builder *builder,
+                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
+                                                                 size_t len);
+
+/**
+ * "Free" a client_config_builder before transmogrifying it into a client_config.
+ * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
+ */
+void rustls_client_config_builder_free(struct rustls_client_config_builder *config);
 
 /**
  * "Free" a client_config previously returned from
