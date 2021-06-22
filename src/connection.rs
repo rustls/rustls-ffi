@@ -118,8 +118,11 @@ pub extern "C" fn rustls_connection_set_userdata(
     conn.userdata = userdata;
 }
 
+/// Set the logging callback for this connection. The log callback will be invoked
+/// with the userdata parameter previously set by rustls_connection_set_userdata, or
+/// NULL if no userdata was set.
 #[no_mangle]
-pub extern "C" fn rustls_client_connection_set_log_callback(
+pub extern "C" fn rustls_connection_set_log_callback(
     conn: *mut rustls_connection,
     cb: rustls_log_callback,
 ) {

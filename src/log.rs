@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use libc::c_void;
+use log::Level;
 
 use crate::{log_callback_get, rslice::rustls_str};
 
@@ -12,10 +13,16 @@ impl log::Log for Logger {
     }
     fn log(&self, record: &log::Record<'_>) {
         if let Ok((Some(cb), userdata)) = log_callback_get() {
-            let message = format!("{} {} {}", record.target(), record.level(), record.args());
+            let message = format!("{} {}", record.target(), record.args());
             if let Ok(message) = message.as_str().try_into() {
                 unsafe {
-                    cb(userdata, &rustls_log_params { message });
+                    cb(
+                        userdata,
+                        &rustls_log_params {
+                            level: record.level() as rustls_log_level,
+                            message,
+                        },
+                    );
                 }
             }
         }
@@ -28,8 +35,25 @@ pub(crate) fn ensure_log_registered() {
     log::set_max_level(log::LevelFilter::Debug)
 }
 
+type rustls_log_level = usize;
+
+/// Return a rustls_str containing the stringified version of a log level.
+#[no_mangle]
+pub extern "C" fn rustls_log_level_str(level: rustls_log_level) -> rustls_str<'static> {
+    let s = match level {
+        1 => Level::Error.as_str(),
+        2 => Level::Warn.as_str(),
+        3 => Level::Info.as_str(),
+        4 => Level::Debug.as_str(),
+        5 => Level::Trace.as_str(),
+        _ => "INVALID",
+    };
+    rustls_str::from_str_unchecked(s)
+}
+
 #[repr(C)]
 pub struct rustls_log_params<'a> {
+    level: rustls_log_level,
     message: rustls_str<'a>,
 }
 
