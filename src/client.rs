@@ -75,7 +75,7 @@ pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_confi
     }
 }
 
-/// Create a rustls_cleint_config_builder from an existing rustls_client_config. The
+/// Create a rustls_client_config_builder from an existing rustls_client_config. The
 /// builder will be used to create a new, separate config that starts with the settings
 /// from the supplied configuration.
 #[no_mangle]
@@ -269,20 +269,21 @@ pub extern "C" fn rustls_client_config_builder_load_native_roots(
     }
 }
 
-/// Use the trusted root certificates from the loaded store.
+/// Use the trusted root certificates from the provided store.
 ///
 /// This replaces any trusted roots already configured with copies
-/// from `roots`. `roots` itself is not shared.
+/// from `roots`. This adds 1 to the refcount for `roots`. When you
+/// call rustls_client_config_free or rustls_client_config_builder_free,
+/// those will subtract 1 from the refcount for `roots`.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_use_roots(
     config: *mut rustls_client_config_builder,
     roots: *const rustls_root_cert_store,
-) -> rustls_result {
+) {
     ffi_panic_boundary! {
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
         let root_store: &RootCertStore = try_ref_from_ptr!(roots);
         config.root_store = root_store.clone();
-        rustls_result::Ok
     }
 }
 

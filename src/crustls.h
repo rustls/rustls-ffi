@@ -602,7 +602,7 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
- * Create a rustls_cleint_config_builder from an existing rustls_client_config. The
+ * Create a rustls_client_config_builder from an existing rustls_client_config. The
  * builder will be used to create a new, separate config that starts with the settings
  * from the supplied configuration.
  */
@@ -658,13 +658,15 @@ void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rust
 enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_client_config_builder *config);
 
 /**
- * Use the trusted root certificates from the loaded store.
+ * Use the trusted root certificates from the provided store.
  *
  * This replaces any trusted roots already configured with copies
- * from `roots`. `roots` itself is not shared.
+ * from `roots`. This adds 1 to the refcount for `roots`. When you
+ * call rustls_client_config_free or rustls_client_config_builder_free,
+ * those will subtract 1 from the refcount for `roots`.
  */
-enum rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
-                                                          const struct rustls_root_cert_store *roots);
+void rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
+                                            const struct rustls_root_cert_store *roots);
 
 /**
  * Add trusted root certificates from the named file, which should contain
