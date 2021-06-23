@@ -6,10 +6,8 @@ use std::sync::Arc;
 
 use libc::size_t;
 use rustls::sign::CertifiedKey;
-use rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
-    ServerConfig, ServerSession,
-};
+use rustls::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello,
+    Connection, NoClientAuth, ServerConfig, ServerConnection, SupportedCipherSuite};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 use rustls::{SignatureScheme, SupportedCipherSuite};
 
@@ -244,7 +242,7 @@ pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
                 None => return InvalidParameter,
             }
         }
-        config.ciphersuites = cs_vec;
+        config.cipher_suites = cs_vec;
         rustls_result::Ok
     }
 }
@@ -339,7 +337,7 @@ pub extern "C" fn rustls_server_connection_new(
         // We've succeeded. Put the server on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let c = Connection::from_server(ServerSession::new(&config));
+        let c = Connection::from_server(ServerConnection::new(&config));
         unsafe {
             *conn_out = Box::into_raw(Box::new(c)) as *mut _;
         }
@@ -370,7 +368,7 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
             Some(s) => s,
             _ => return rustls_result::InvalidParameter,
         };
-        let sni_hostname = match server_session.get_sni_hostname() {
+        let sni_hostname = match session.sni_hostname() {
             Some(sni_hostname) => sni_hostname,
             None => {
                 return rustls_result::Ok
@@ -402,10 +400,14 @@ impl ResolvesServerCertFromChoices {
 }
 
 impl ResolvesServerCert for ResolvesServerCertFromChoices {
-    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
+    fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
         for key in self.choices.iter() {
-            if key.key.choose_scheme(client_hello.sigschemes()).is_some() {
-                return Some(key.as_ref().clone());
+            if key
+                .key
+                .choose_scheme(client_hello.signature_schemes())
+                .is_some()
+            {
+                return Some(key.clone());
             }
         }
         None
@@ -484,7 +486,7 @@ impl ClientHelloResolver {
 }
 
 impl ResolvesServerCert for ClientHelloResolver {
-    fn resolve(&self, client_hello: ClientHello) -> Option<CertifiedKey> {
+    fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
         let sni_name: &str = {
             match client_hello.server_name() {
                 Some(c) => c.into(),
@@ -496,7 +498,7 @@ impl ResolvesServerCert for ClientHelloResolver {
             Err(_) => return None,
         };
         let mapped_sigs: Vec<u16> = client_hello
-            .sigschemes()
+            .signature_schemes()
             .iter()
             .map(|s| s.get_u16())
             .collect();
@@ -516,7 +518,7 @@ impl ResolvesServerCert for ClientHelloResolver {
         };
         let key_ptr: *const rustls_certified_key = unsafe { cb(userdata, &hello) };
         let certified_key: &CertifiedKey = try_ref_from_ptr!(key_ptr);
-        Some(certified_key.clone())
+        Some(Arc::new(certified_key.clone()))
     }
 }
 
