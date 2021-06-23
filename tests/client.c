@@ -355,6 +355,15 @@ cleanup:
   return ret;
 }
 
+void
+log_cb(void *userdata, const struct rustls_log_params *params)
+{
+  struct conndata *conn = (struct conndata*)userdata;
+  struct rustls_str level_str = rustls_log_level_str(params->level);
+  fprintf(stderr, "rustls[fd %d][%.*s]: %.*s\n", conn->fd,
+    (int)level_str.len, level_str.data, (int)params->message.len, params->message.data);
+}
+
 int
 do_request(const struct rustls_client_config *client_config,
            const char *hostname, const char *port, const char *path)
@@ -384,6 +393,7 @@ do_request(const struct rustls_client_config *client_config,
   conn->verify_arg = "verify_arg";
 
   rustls_connection_set_userdata(rconn, conn);
+  rustls_connection_set_log_callback(rconn, log_cb);
 
   ret = send_request_and_read_response(conn, rconn, hostname, path);
   if(ret != RUSTLS_RESULT_OK) {

@@ -7,7 +7,7 @@ endif
 
 CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 
-PROFILE := debug
+PROFILE := release
 DESTDIR=/usr/local
 
 ifeq ($(CC), clang)
@@ -34,7 +34,7 @@ src/crustls.h: src/*.rs cbindgen.toml
 	cbindgen --lang C > $@
 
 target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
-	cargo build $(CARGOFLAGS)
+	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
 
 target/%.o: tests/%.c src/crustls.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
