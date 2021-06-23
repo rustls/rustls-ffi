@@ -5,7 +5,7 @@ else
 
 endif
 
-CFLAGS := -Werror -Wall -Wextra -Wpedantic -g
+CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 
 PROFILE := release
 DESTDIR=/usr/local
@@ -20,11 +20,11 @@ ifeq ($(PROFILE), release)
 	CARGOFLAGS += --release
 endif
 
-all: target/crustls-demo
+all: target/client target/server
 
 test: all
 	cargo test
-	target/crustls-demo httpbin.org /headers
+	./test.sh
 
 target:
 	mkdir -p $@
@@ -33,14 +33,17 @@ src/crustls.h: src/*.rs cbindgen.toml
 	cargo check
 	cbindgen --lang C > $@
 
-target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
-	$(CC) -o $@ $^ $(LDFLAGS)
-
 target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
 	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
 
-target/main.o: src/main.c src/crustls.h | target
+target/%.o: tests/%.c src/crustls.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
+
+target/client: target/client.o target/common.o target/$(PROFILE)/libcrustls.a
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+target/server: target/server.o target/common.o target/$(PROFILE)/libcrustls.a
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: target/$(PROFILE)/libcrustls.a src/crustls.h
 	mkdir -p $(DESTDIR)/lib

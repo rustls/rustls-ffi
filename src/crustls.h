@@ -1069,8 +1069,7 @@ enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_s
  * be used in multiple configs.
  *
  * EXPERIMENTAL: installing a client_hello callback will replace any
- * configured certified keys and vice versa. Same holds true for the
- * set_single_cert variant.
+ * configured certified keys and vice versa.
  */
 enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
                                                                    const struct rustls_certified_key *const *certified_keys,
@@ -1131,7 +1130,7 @@ enum rustls_result rustls_server_connection_get_sni_hostname(const struct rustls
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  * Installing a client_hello callback will replace any configured certified keys
- * and vice versa. Same holds true for the set_single_cert variant.
+ * and vice versa. Same holds true for the set_certified_keys variant.
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
                                                                    rustls_client_hello_callback callback);
