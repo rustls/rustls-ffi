@@ -163,6 +163,16 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     }
 }
 
+impl<'a> rustls_str<'a> {
+    pub fn from_str_unchecked(s: &'static str) -> rustls_str<'static> {
+        rustls_str {
+            data: s.as_ptr() as *const _,
+            len: s.len(),
+            phantom: PhantomData,
+        }
+    }
+}
+
 #[test]
 fn test_rustls_str() {
     let s = "abcd";

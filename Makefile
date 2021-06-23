@@ -37,7 +37,7 @@ target/crustls-demo: target/main.o target/$(PROFILE)/libcrustls.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
-	cargo build $(CARGOFLAGS)
+	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
 
 target/main.o: src/main.c src/crustls.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)

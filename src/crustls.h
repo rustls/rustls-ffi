@@ -330,6 +330,15 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  */
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+typedef size_t rustls_log_level;
+
+typedef struct rustls_log_params {
+  rustls_log_level level;
+  struct rustls_str message;
+} rustls_log_params;
+
+typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_params *params);
+
 /**
  * A return value for a function that may return either success (0) or a
  * non-zero value representing an error.
@@ -777,6 +786,13 @@ enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_cl
 void rustls_connection_set_userdata(struct rustls_connection *conn, void *userdata);
 
 /**
+ * Set the logging callback for this connection. The log callback will be invoked
+ * with the userdata parameter previously set by rustls_connection_set_userdata, or
+ * NULL if no userdata was set.
+ */
+void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_log_callback cb);
+
+/**
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
@@ -916,6 +932,11 @@ void rustls_connection_free(struct rustls_connection *conn);
 void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_n);
 
 bool rustls_result_is_cert_error(enum rustls_result result);
+
+/**
+ * Return a rustls_str containing the stringified version of a log level.
+ */
+struct rustls_str rustls_log_level_str(rustls_log_level level);
 
 /**
  * Return the length of the outer slice. If the input pointer is NULL,
