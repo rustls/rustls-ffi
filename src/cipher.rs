@@ -83,7 +83,11 @@ pub extern "C" fn rustls_supported_ciphersuite_get_suite(
     supported_ciphersuite: *const rustls_supported_ciphersuite,
 ) -> u16 {
     let supported_ciphersuite = try_ref_from_ptr!(supported_ciphersuite);
-    supported_ciphersuite.suite.get_u16()
+    let cs = match supported_ciphersuite {
+        rustls::SupportedCipherSuite::Tls12(sc) => sc.common,
+        rustls::SupportedCipherSuite::Tls13(sc) => sc.common,
+    };
+    cs.suite.get_u16()
 }
 
 /// Return the length of rustls' list of supported cipher suites.
@@ -101,7 +105,7 @@ pub extern "C" fn rustls_all_ciphersuites_get_entry(
     i: size_t,
 ) -> *const rustls_supported_ciphersuite {
     match ALL_CIPHERSUITES.get(i) {
-        Some(&cs) => cs as *const SupportedCipherSuite as *const _,
+        Some(cs) => cs as *const SupportedCipherSuite as *const _,
         None => null(),
     }
 }

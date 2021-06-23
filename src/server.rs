@@ -19,8 +19,8 @@ use crate::cipher::{
 };
 use crate::connection::{rustls_connection, Connection};
 use crate::enums::rustls_tls_version_from_u16;
-use crate::error::rustls_result;
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
+use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u16, rustls_str};
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
@@ -236,11 +236,11 @@ pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
     ffi_panic_boundary! {
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
         let ciphersuites: &[*const rustls_supported_ciphersuite] = try_slice!(ciphersuites, len);
-        let mut cs_vec: Vec<&'static SupportedCipherSuite> = Vec::new();
+        let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
         for &cs in ciphersuites.into_iter() {
             let cs = try_ref_from_ptr!(cs);
             match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
-                Some(scs) => cs_vec.push(scs),
+                Some(scs) => cs_vec.push(scs.clone()),
                 None => return InvalidParameter,
             }
         }
@@ -336,10 +336,14 @@ pub extern "C" fn rustls_server_connection_new(
             }
         };
 
+        let server_connection = match ServerConnection::new(config) {
+            Ok(sc) => sc,
+            Err(e) => return map_error(e),
+        };
         // We've succeeded. Put the server on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the
         // caller knows it is responsible for this memory.
-        let c = Connection::from_server(ServerConnection::new(&config));
+        let c = Connection::from_server(server_connection);
         unsafe {
             *conn_out = Box::into_raw(Box::new(c)) as *mut _;
         }

@@ -5,7 +5,6 @@ use std::io::BufReader;
 use std::slice;
 use std::sync::Arc;
 use std::time::SystemTime;
-use webpki::DnsNameRef;
 
 use libc::{c_char, size_t};
 use rustls::{
@@ -152,13 +151,16 @@ impl rustls::ServerCertVerifier for Verifier {
         &self,
         end_entity: &Certificate,
         intermediates: &[Certificate],
-        dns_name: DnsNameRef<'_>,
+        server_name: &rustls::ServerName,
         scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
         now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
-        let dns_name: &str = dns_name.into();
+        let dns_name: &str = match server_name {
+            rustls::ServerName::DnsName(n) => n.as_ref().into(),
+            _ => return Err(rustls::Error::General("unknown name type".to_string())),
+        };
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
@@ -471,11 +473,11 @@ pub extern "C" fn rustls_client_connection_new(
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let name_ref = match webpki::DnsNameRef::try_from_ascii_str(hostname) {
-            Ok(nr) => nr,
-            Err(webpki::InvalidDnsNameError { .. }) => return rustls_result::InvalidDnsNameError,
+        let server_name: rustls::ServerName = match hostname.try_into() {
+            Ok(sn) => sn,
+            Err(_) => return rustls_result::InvalidDnsNameError,
         };
-        let client = ClientConnection::new(&config, name_ref).unwrap();
+        let client = ClientConnection::new(config, server_name).unwrap();
 
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the

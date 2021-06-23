@@ -252,7 +252,7 @@ pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connectio
 pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
     ffi_panic_boundary! {
         let conn: &mut Connection = try_mut_from_ptr!(conn);
-        conn.as_mut().set_buffer_limit(n);
+        conn.as_mut().set_buffer_limit(Some(n));
     }
 }
 
@@ -354,8 +354,8 @@ pub extern "C" fn rustls_connection_negotiated_ciphersuite(
 ) -> *const rustls_supported_ciphersuite {
     ffi_panic_boundary! {
         let conn: &Connection = try_ref_from_ptr!(conn);
-        match conn.as_ref().negotiated_ciphersuite() {
-            Some(cs) => cs as *const SupportedCipherSuite as *const _,
+        match conn.as_ref().negotiated_cipher_suite() {
+            Some(cs) => &cs as *const SupportedCipherSuite as *const _,
             None => null(),
         }
     }
