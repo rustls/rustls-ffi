@@ -6,10 +6,12 @@ use std::sync::Arc;
 
 use libc::size_t;
 use rustls::sign::CertifiedKey;
-use rustls::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello,
-    Connection, NoClientAuth, ServerConfig, ServerConnection, SupportedCipherSuite};
+use rustls::SignatureScheme;
+use rustls::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
+    ServerConfig, ServerConnection, SupportedCipherSuite,
+};
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
-use rustls::{SignatureScheme, SupportedCipherSuite};
 
 use crate::cipher::{
     rustls_certified_key, rustls_client_cert_verifier, rustls_client_cert_verifier_optional,
@@ -368,7 +370,7 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
             Some(s) => s,
             _ => return rustls_result::InvalidParameter,
         };
-        let sni_hostname = match session.sni_hostname() {
+        let sni_hostname = match conn.as_server().and_then(|s| s.sni_hostname()) {
             Some(sni_hostname) => sni_hostname,
             None => {
                 return rustls_result::Ok

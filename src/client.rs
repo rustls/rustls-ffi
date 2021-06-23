@@ -1,33 +1,25 @@
-use std::ffi::OsStr;
+use std::convert::TryInto;
+use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::BufReader;
 use std::slice;
 use std::sync::Arc;
-use std::convert::TryInto;
 use std::time::SystemTime;
-use std::ffi::{CStr, OsStr};
-use std::fs::File;
 use webpki::DnsNameRef;
 
 use libc::{c_char, size_t};
 use rustls::{
     Certificate, ClientConfig, ClientConnection, RootCertStore, ServerCertVerified,
-    SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
+    SupportedCipherSuite, ALL_CIPHERSUITES,
 };
-
-use webpki::DNSNameRef;
 
 use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
-use crate::error::{self, result_to_tlserror, rustls_result};
+use crate::error::{self, result_to_error, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
-use crate::session::{
-    rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
-    SessionStoreGetCallback, SessionStorePutCallback,
-};
 use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
     userdata_get, CastPtr,
@@ -164,12 +156,12 @@ impl rustls::ServerCertVerifier for Verifier {
         scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
         now: SystemTime,
-    ) -> Result<ServerCertVerified, Error> {
+    ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let dns_name: &str = dns_name.into();
         let dns_name: rustls_str = match dns_name.try_into() {
             Ok(r) => r,
-            Err(NulByte {}) => return Err(Error::General("NUL byte in SNI".to_string())),
+            Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
         };
 
         let intermediates: Vec<_> = intermediates
@@ -189,14 +181,14 @@ impl rustls::ServerCertVerifier for Verifier {
             ocsp_response: ocsp_response.into(),
         };
         let userdata = userdata_get().map_err(|_| {
-            TLSError::General("internal error with thread-local storage".to_string())
+            rustls::Error::General("internal error with thread-local storage".to_string())
         })?;
         let result: rustls_result = unsafe { cb(userdata, &params) };
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
-            r => match result_to_tlserror(&r) {
-                error::Either::TLSError(te) => Err(te),
-                error::Either::String(se) => Err(Error::General(se)),
+            r => match result_to_error(&r) {
+                error::Either::Error(te) => Err(te),
+                error::Either::String(se) => Err(rustls::Error::General(se)),
             },
         }
     }
@@ -223,7 +215,7 @@ impl rustls::ServerCertVerifier for Verifier {
 /// If you intend to write a verifier that accepts all certificates, be aware
 /// that special measures are required for IP addresses. Rustls currently
 /// (0.19.0) doesn't support building a ClientSession with an IP address
-/// (because it's not a valid DNSNameRef). One workaround is to detect IP
+/// (because it's not a valid DnsNameRef). One workaround is to detect IP
 /// addresses and rewrite them to `example.invalid`, and _also_ to disable
 /// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
 /// need SNI).
@@ -483,7 +475,7 @@ pub extern "C" fn rustls_client_connection_new(
             Ok(nr) => nr,
             Err(webpki::InvalidDnsNameError { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let client = ClientConnection::new(&config, name_ref);
+        let client = ClientConnection::new(&config, name_ref).unwrap();
 
         // We've succeeded. Put the client on the heap, and transfer ownership
         // to the caller. After this point, we must return CRUSTLS_OK so the

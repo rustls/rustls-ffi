@@ -43,9 +43,9 @@ pub extern "C" fn rustls_error(
 
 #[no_mangle]
 pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
-    match result_to_tlserror(&result) {
-        Either::TLSError(Error::WebPkiError(_, _)) => true,
-        Either::TLSError(Error::InvalidSct(_)) => true,
+    match result_to_error(&result) {
+        Either::Error(Error::WebPkiError(_, _)) => true,
+        Either::Error(Error::InvalidSct(_)) => true,
         _ => false,
     }
 }
@@ -64,7 +64,7 @@ pub enum rustls_result {
     NotFound = 7008,
     InvalidParameter = 7009,
 
-    // From https://docs.rs/rustls/0.19.0/rustls/enum.TLSError.html
+    // From https://docs.rs/rustls/0.19.0/rustls/enum.TlsError.html
     CorruptMessage = 7100,
     NoCertificatesPresented = 7101,
     DecryptError = 7102,
@@ -74,7 +74,7 @@ pub enum rustls_result {
     PeerSentOversizedRecord = 7105,
     NoApplicationProtocol = 7106,
 
-    // From TLSError, with fields that get dropped.
+    // From Error, with fields that get dropped.
     PeerIncompatibleError = 7107,
     PeerMisbehavedError = 7108,
     InappropriateMessage = 7109,
@@ -82,7 +82,7 @@ pub enum rustls_result {
     CorruptMessagePayload = 7111,
     General = 7112,
 
-    // From TLSError, with fields that get flattened.
+    // From Error, with fields that get flattened.
     // https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.AlertDescription.html
     AlertCloseNotify = 7200,
     AlertUnexpectedMessage = 7201,
@@ -246,27 +246,27 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
 
 impl Display for rustls_result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg: String = match result_to_tlserror(self) {
+        let msg: String = match result_to_error(self) {
             Either::String(s) => s,
-            Either::TLSError(e) => e.to_string(),
+            Either::Error(e) => e.to_string(),
         };
         write!(f, "{}", msg)
     }
 }
 
-// Either a String or a TLSError
+// Either a String or a rustls::Error
 pub(crate) enum Either {
     String(String),
-    TLSError(Error),
+    Error(rustls::Error),
 }
 
-// Turn a rustls_result into a TLSError on a best-effort basis. For
-// variants that don't have a corresponding TLSError, or where we want to
-// override TLSError's Display implementation, this returns a String.
-// Otherwise, it returns a TLSError. This is used internally for determining
+// Turn a rustls_result into a rustls::Error on a best-effort basis. For
+// variants that don't have a corresponding rustls::Error, or where we want to
+// override rustls::Error's Display implementation, this returns a String.
+// Otherwise, it returns a rustls::Error. This is used internally for determining
 // whether a rustls_result is part of some top-level variant that maps to
 // several rustls_results.
-pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
+pub(crate) fn result_to_error(input: &rustls_result) -> Either {
     use rustls::internal::msgs::enums::AlertDescription as alert;
     use rustls_result::*;
     use sct::Error as sct;
@@ -286,7 +286,7 @@ pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
         NotFound => return Either::String("the item was not found".to_string()),
         InvalidParameter => return Either::String("a parameter had an invalid value".to_string()),
 
-        // These variants correspond to a TLSError variant with a field,
+        // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error
         // message. So we reproduce a simplified error string.
         InappropriateMessage => {
@@ -366,22 +366,24 @@ pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
         AlertUnknown => Error::AlertReceived(alert::Unknown(0)),
 
         CertBadDER => Error::WebPkiError(webpki::BadDer),
-        CertBadDERTime => Error::WebPkiError(webpki::BadDERTime),
-        CertCAUsedAsEndEntity => Error::WebPkiError(webpki::CAUsedAsEndEntity),
+        CertBadDERTime => Error::WebPkiError(webpki::BadDerTime),
+        CertCAUsedAsEndEntity => Error::WebPkiError(webpki::CaUsedAsEndEntity),
         CertExpired => Error::WebPkiError(webpki::CertExpired),
         CertNotValidForName => Error::WebPkiError(webpki::CertNotValidForName),
         CertNotValidYet => Error::WebPkiError(webpki::CertNotValidYet),
-        CertEndEntityUsedAsCA => Error::WebPkiError(webpki::EndEntityUsedAsCA),
+        CertEndEntityUsedAsCA => Error::WebPkiError(webpki::EndEntityUsedAsCa),
         CertExtensionValueInvalid => Error::WebPkiError(webpki::ExtensionValueInvalid),
         CertInvalidCertValidity => Error::WebPkiError(webpki::InvalidCertValidity),
         CertInvalidSignatureForPublicKey => {
             Error::WebPkiError(webpki::InvalidSignatureForPublicKey)
         }
-        CertMissingOrMalformedExtensions => Error::WebPkiError(webpki::MissingOrMalformedExtensions),
+        CertMissingOrMalformedExtensions => {
+            Error::WebPkiError(webpki::MissingOrMalformedExtensions)
+        }
         CertNameConstraintViolation => Error::WebPkiError(webpki::NameConstraintViolation),
         CertPathLenConstraintViolated => Error::WebPkiError(webpki::PathLenConstraintViolated),
         CertSignatureAlgorithmMismatch => Error::WebPkiError(webpki::SignatureAlgorithmMismatch),
-        CertRequiredEKUNotFound => Error::WebPkiError(webpki::RequiredEKUNotFound),
+        CertRequiredEKUNotFound => Error::WebPkiError(webpki::RequiredEkuNotFound),
         CertUnknownIssuer => Error::WebPkiError(webpki::UnknownIssuer),
         CertUnsupportedCertVersion => Error::WebPkiError(webpki::UnsupportedCertVersion),
         CertUnsupportedCriticalExtension => {
@@ -394,11 +396,11 @@ pub(crate) fn result_to_tlserror(input: &rustls_result) -> Either {
             Error::WebPkiError(webpki::UnsupportedSignatureAlgorithm)
         }
 
-        CertSCTMalformed => Error::InvalidSCT(sct::MalformedSCT),
-        CertSCTInvalidSignature => Error::InvalidSCT(sct::InvalidSignature),
-        CertSCTTimestampInFuture => Error::InvalidSCT(sct::TimestampInFuture),
-        CertSCTUnsupportedVersion => Error::InvalidSCT(sct::UnsupportedSCTVersion),
-        CertSCTUnknownLog => Error::InvalidSCT(sct::UnknownLog),
+        CertSCTMalformed => Error::InvalidSct(sct::MalformedSct),
+        CertSCTInvalidSignature => Error::InvalidSct(sct::InvalidSignature),
+        CertSCTTimestampInFuture => Error::InvalidSct(sct::TimestampInFuture),
+        CertSCTUnsupportedVersion => Error::InvalidSct(sct::UnsupportedSctVersion),
+        CertSCTUnknownLog => Error::InvalidSct(sct::UnknownLog),
     };
-    Either::TLSError(e)
+    Either::Error(e)
 }

@@ -310,17 +310,17 @@ pub extern "C" fn rustls_root_cert_store_add_pem(
         let certs_pem: &[u8] = try_slice!(pem, pem_len);
         let store: &mut RootCertStore = try_mut_from_ptr!(store);
 
+        let certs_der = match rustls_pemfile::certs(&mut Cursor::new(certs_pem)) {
+            Ok(vv) => vv,
+            Err(_) => return rustls_result::CertificateParseError,
+        };
         // We first copy into a temporary root store so we can uphold our
         // API guideline that there are no partial failures or partial
         // successes.
         let mut new_store = RootCertStore::empty();
-        match new_store.add_pem_file(&mut Cursor::new(certs_pem)) {
-            Ok((parsed, rejected)) => {
-                if strict && (rejected > 0 || parsed == 0) {
-                    return rustls_result::CertificateParseError;
-                }
-            },
-            Err(_) => return rustls_result::CertificateParseError,
+        let (parsed, rejected) = new_store.add_parsable_certificates(&certs_der);
+        if strict && (rejected > 0 || parsed == 0) {
+            return rustls_result::CertificateParseError;
         }
 
         store.roots.append(&mut new_store.roots);

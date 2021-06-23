@@ -645,7 +645,7 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * If you intend to write a verifier that accepts all certificates, be aware
  * that special measures are required for IP addresses. Rustls currently
  * (0.19.0) doesn't support building a ClientSession with an IP address
- * (because it's not a valid DNSNameRef). One workaround is to detect IP
+ * (because it's not a valid DnsNameRef). One workaround is to detect IP
  * addresses and rewrite them to `example.invalid`, and _also_ to disable
  * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
  * need SNI).
