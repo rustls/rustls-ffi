@@ -58,8 +58,7 @@ impl Read for CallbackReader {
 /// the implementation should return a nonzero rustls_io_result, which will be
 /// passed through to the caller. On POSIX systems, returning `errno` is convenient.
 /// On other systems, any appropriate error code works.
-/// (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
-/// It's best to make one write attempt to the network per call. Additional write will
+/// It's best to make one write attempt to the network per call. Additional writes will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
@@ -110,12 +109,11 @@ pub struct rustls_iovec {
 
 /// A callback for rustls_connection_write_tls_vectored.
 /// An implementation of this callback should attempt to write the bytes in
-/// the given `count` rustls_slice_bytes to the network. If any bytes were written,
+/// the given `count` iovecs to the network. If any bytes were written,
 /// the implementation should set out_n to the number of bytes written and return 0.
 /// If there was an error, the implementation should return a nonzero rustls_io_result,
 /// which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
 /// On other systems, any appropriate error code works.
-/// (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
 /// It's best to make one write attempt to the network per call. Additional write will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
@@ -158,11 +156,7 @@ impl Write for VectoredCallbackWriter {
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
         let mut out_n: usize = 0;
         let cb = self.callback;
-        let slices: Vec<rustls_slice_bytes> = bufs
-            .iter()
-            .filter(|b| !b.is_empty())
-            .map(|b| b.deref().into())
-            .collect();
+        let slices: Vec<rustls_slice_bytes> = bufs.iter().map(|b| b.deref().into()).collect();
         let result = unsafe {
             cb(
                 self.userdata,
