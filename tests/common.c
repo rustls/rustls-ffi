@@ -132,6 +132,21 @@ write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
   return 0;
 }
 
+rustls_io_result
+write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
+{
+#ifdef _WIN32
+  return rustls_connection_write_tls(rconn, write_cb, conn, n);
+#else
+  if(getenv("VECTORED_IO")) {
+    fprintf(stderr, "(vectored)\n");
+    return rustls_connection_write_tls_vectored(rconn, write_vectored_cb, conn, n);
+  } else {
+    return rustls_connection_write_tls(rconn, write_cb, conn, n);
+  }
+#endif /* _WIN32 */
+}
+
 #ifndef _WIN32
 rustls_io_result write_vectored_cb(
     void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n)
@@ -139,7 +154,7 @@ rustls_io_result write_vectored_cb(
   ssize_t n = 0;
   struct conndata *conn = (struct conndata *)userdata;
 
-  n = writev(conn->fd, (const struct iovec*)iov, count);
+  n = writev(conn->fd, (const struct iovec *)iov, count);
   if(n < 0) {
     return errno;
   }

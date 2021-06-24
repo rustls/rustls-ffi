@@ -38,6 +38,11 @@ nonblock(int sockfd);
 int
 read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n);
 
+/* Invoke rustls_connection_write_tls with either a vectored or unvectored
+   callback, depending on environment variable. */
+rustls_io_result
+write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n);
+
 /* A callback that reads bytes from the network. */
 int
 write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n);
