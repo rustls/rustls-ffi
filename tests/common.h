@@ -42,6 +42,11 @@ read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n);
 int
 write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n);
 
+#ifndef _WIN32
+rustls_io_result write_vectored_cb(
+    void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n);
+#endif /* _WIN32 */
+
 /* Number of bytes available for writing. */
 size_t
 bytevec_available(struct bytevec *vec);

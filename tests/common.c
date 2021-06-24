@@ -7,6 +7,7 @@
 #include <fcntl.h> /* O_BINARY */
 #else
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>

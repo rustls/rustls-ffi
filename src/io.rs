@@ -99,15 +99,6 @@ impl Write for CallbackWriter {
     fn flush(&mut self) -> Result<()> {
         Ok(())
     }
-
-    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
-        let buf: Vec<u8> = bufs
-            .into_iter()
-            .flat_map(|x| x.into_iter())
-            .map(|x| *x)
-            .collect();
-        self.write(&buf)
-    }
 }
 
 /// An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
