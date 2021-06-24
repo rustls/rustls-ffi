@@ -212,7 +212,7 @@ handle_conn(struct conndata *conn)
     }
     if(FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "rustls wants us to write_tls.\n");
-      err = rustls_connection_write_tls(rconn, write_cb, conn, &n);
+      err = write_tls(rconn, conn, &n);
       if(err != 0) {
         fprintf(stderr, "Error in write_tls: errno %d\n", err);
         goto cleanup;

@@ -15,6 +15,7 @@
 #endif
 
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -329,7 +330,7 @@ send_request_and_read_response(struct conndata *conn,
     if(FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "rustls_connection wants us to write_tls.\n");
       for(;;) {
-        err = rustls_connection_write_tls(rconn, write_cb, conn, &n);
+        err = write_tls(rconn, conn, &n);
         if(err != 0) {
           fprintf(
             stderr, "Error in rustls_connection_write_tls: errno %d\n", err);
