@@ -368,7 +368,7 @@ pub extern "C" fn rustls_client_config_builder_set_protocols(
             let v: &[u8] = try_slice!(p.data, p.len);
             vv.push(v.to_vec());
         }
-        config.set_protocols(&vv);
+        config.alpn_protocols = vv;
         rustls_result::Ok
     }
 }
@@ -400,15 +400,15 @@ pub extern "C" fn rustls_client_config_builder_set_ciphersuites(
     ffi_panic_boundary! {
         let config: &mut ClientConfig = try_mut_from_ptr!(builder);
         let ciphersuites: &[*const rustls_supported_ciphersuite] = try_slice!(ciphersuites, len);
-        let mut cs_vec: Vec<&'static SupportedCipherSuite> = Vec::new();
+        let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
         for &cs in ciphersuites.into_iter() {
             let cs = try_ref_from_ptr!(cs);
             match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
-                Some(scs) => cs_vec.push(scs),
+                Some(scs) => cs_vec.push(scs.clone()),
                 None => return InvalidParameter,
             }
         }
-        config.ciphersuites = cs_vec;
+        config.cipher_suites = cs_vec;
         rustls_result::Ok
     }
 }
