@@ -8,8 +8,8 @@ use libc::size_t;
 use rustls::sign::CertifiedKey;
 use rustls::SignatureScheme;
 use rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
-    ServerConfig, ServerConnection, SupportedCipherSuite,
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, ServerConfig,
+    ServerConnection, SupportedCipherSuite,
 };
 use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
 
@@ -36,7 +36,7 @@ use crate::{
 /// done configuring settings, call rustls_server_config_builder_build
 /// to turn it into a *rustls_server_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
-/// Box<ServerConfig>.
+/// Box<ServerConfigBuilder>.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
 pub struct rustls_server_config_builder {
     // We use the opaque struct pattern to tell C about our types without
@@ -70,7 +70,10 @@ impl CastPtr for rustls_server_config {
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let config = rustls::ServerConfig::new(Arc::new(NoClientAuth));
+        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
+            Ok(c) => c.with_no_client_auth().with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
+            Err(_) => return null_mut(),
+        };
         let b = Box::new(config);
         Box::into_raw(b) as *mut _
     }
@@ -92,7 +95,10 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier(
                 None => return null_mut(),
             }
         };
-        let config = rustls::ServerConfig::new(verifier);
+        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
+            Ok(c) => c.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
+            Err(_) => return null_mut(),
+        };
         let b = Box::new(config);
         Box::into_raw(b) as *mut rustls_server_config_builder
     }
@@ -114,7 +120,10 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
                 None => return null_mut(),
             }
         };
-        let config = rustls::ServerConfig::new(verifier);
+        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
+            Ok(c) => c.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
+            Err(_) => return null_mut(),
+        };
         let b = Box::new(config);
         Box::into_raw(b) as *mut rustls_server_config_builder
     }
@@ -155,7 +164,7 @@ pub extern "C" fn rustls_server_config_builder_from_config(
 ///
 /// `versions` will only be used during the call and the application retains
 /// ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
-#[no_mangle]
+// #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_versions(
     builder: *mut rustls_server_config_builder,
     tls_versions: *const u16,
@@ -217,7 +226,7 @@ pub extern "C" fn rustls_server_config_builder_set_protocols(
             let v: &[u8] = try_slice!(p.data, p.len);
             vv.push(v.to_vec());
         }
-        config.set_protocols(&vv);
+        config.alpn_protocols = vv;
         rustls_result::Ok
     }
 }
@@ -655,9 +664,9 @@ pub extern "C" fn rustls_server_config_builder_set_persistence(
             None => return rustls_result::NullParameter,
         };
         let config: &mut ServerConfig = try_mut_from_ptr!(builder);
-        config.set_persistence(Arc::new(SessionStoreBroker::new(
+        config.session_storage = Arc::new(SessionStoreBroker::new(
             get_cb, put_cb
-        )));
+        ));
         rustls_result::Ok
     }
 }

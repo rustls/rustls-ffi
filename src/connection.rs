@@ -3,7 +3,9 @@ use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EIO};
-use rustls::{Certificate, ClientConnection, ServerConnection, ALL_CIPHERSUITES};
+use rustls::{
+    Certificate, ClientConnection, ServerConnection, SupportedCipherSuite, ALL_CIPHERSUITES,
+};
 
 use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
 use crate::is_close_notify;
@@ -344,7 +346,7 @@ pub extern "C" fn rustls_connection_negotiated_ciphersuite(
         };
         for &cs in ALL_CIPHERSUITES {
             if negotiated == cs {
-                return &cs;
+                return &cs as *const SupportedCipherSuite as *const _;
             }
         }
         null()
