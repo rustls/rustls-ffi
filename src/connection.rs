@@ -3,7 +3,7 @@ use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EIO};
-use rustls::{Certificate, ClientConnection, ServerConnection, SupportedCipherSuite};
+use rustls::{Certificate, ClientConnection, ServerConnection, ALL_CIPHERSUITES};
 
 use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
 use crate::is_close_notify;
@@ -22,7 +22,6 @@ pub(crate) struct Connection {
     conn: Inner,
     userdata: *mut c_void,
     log_callback: rustls_log_callback,
-    peer_certs: Option<Vec<Certificate>>,
 }
 
 enum Inner {
@@ -36,7 +35,6 @@ impl Connection {
             conn: Inner::Client(s),
             userdata: null_mut(),
             log_callback: None,
-            peer_certs: None,
         }
     }
 
@@ -45,7 +43,6 @@ impl Connection {
             conn: Inner::Server(s),
             userdata: null_mut(),
             log_callback: None,
-            peer_certs: None,
         }
     }
 
@@ -270,29 +267,15 @@ pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connecti
 /// Index 0 is the end entity certificate. Higher indexes are certificates
 /// in the chain. Requesting an index higher than what is available returns
 /// NULL.
+/// The returned pointer lives as long as the rustls_connection does.
 #[no_mangle]
 pub extern "C" fn rustls_connection_peer_certificate(
     conn: *mut rustls_connection,
     i: size_t,
 ) -> *const rustls_certificate {
-    // TODO: this should be changed in the next rustls release where the
-    // API no longer returns copies but references to the certificates it
-    // keeps. We then no longer have to hold our own Vec.
     ffi_panic_boundary! {
         let conn: &mut Connection = try_mut_from_ptr!(conn);
-        let certs = match &conn.peer_certs {
-            Some(certs) => certs,
-            None => {
-                match conn.as_ref().peer_certificates() {
-                    Some(certs) => {
-                        conn.peer_certs = Some(certs);
-                        conn.peer_certs.as_ref().unwrap()
-                    },
-                    None => return null()
-                }
-            }
-        };
-        match certs.get(i) {
+        match conn.as_ref().peer_certificates().and_then(|c| c.get(i)) {
             Some(cert) => cert as *const Certificate as *const _,
             None => null()
         }
@@ -347,6 +330,7 @@ pub extern "C" fn rustls_connection_protocol_version(conn: *const rustls_connect
 
 /// Retrieves the cipher suite agreed with the peer.
 /// This returns NULL until the ciphersuite is agreed.
+/// The returned pointer lives as long as the program.
 /// https://docs.rs/rustls/0.19.0/rustls/trait.Connection.html#tymethod.get_negotiated_ciphersuite
 #[no_mangle]
 pub extern "C" fn rustls_connection_negotiated_ciphersuite(
@@ -354,10 +338,16 @@ pub extern "C" fn rustls_connection_negotiated_ciphersuite(
 ) -> *const rustls_supported_ciphersuite {
     ffi_panic_boundary! {
         let conn: &Connection = try_ref_from_ptr!(conn);
-        match conn.as_ref().negotiated_cipher_suite() {
-            Some(cs) => &cs as *const SupportedCipherSuite as *const _,
-            None => null(),
+        let negotiated = match conn.as_ref().negotiated_cipher_suite() {
+            Some(cs) => cs,
+            None => return null(),
+        };
+        for &cs in ALL_CIPHERSUITES {
+            if negotiated == cs {
+                return &cs;
+            }
         }
+        null()
     }
 }
 
