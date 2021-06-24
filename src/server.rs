@@ -260,8 +260,7 @@ pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
 /// be used in multiple configs.
 ///
 /// EXPERIMENTAL: installing a client_hello callback will replace any
-/// configured certified keys and vice versa. Same holds true for the
-/// set_single_cert variant.
+/// configured certified keys and vice versa.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_certified_keys(
     builder: *mut rustls_server_config_builder,
@@ -547,7 +546,7 @@ unsafe impl Send for ClientHelloResolver {}
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
 /// Installing a client_hello callback will replace any configured certified keys
-/// and vice versa. Same holds true for the set_single_cert variant.
+/// and vice versa. Same holds true for the set_certified_keys variant.
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_set_hello_callback(
     builder: *mut rustls_server_config_builder,
