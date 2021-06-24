@@ -166,7 +166,7 @@ impl Write for VectoredCallbackWriter {
         let result = unsafe {
             cb(
                 self.userdata,
-                // This case is sound because IoSlice is documented to by ABI-compatible with
+                // This cast is sound because IoSlice is documented to by ABI-compatible with
                 // iovec on Unix.
                 slices.as_ptr() as *const rustls_iovec,
                 slices.len(),
