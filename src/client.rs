@@ -7,11 +7,16 @@ use std::{convert::TryInto, ffi::CStr};
 
 use libc::{c_char, size_t};
 use rustls::{
-    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified, TLSError,
+    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified,
+    SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
 };
+
 use webpki::DNSNameRef;
 
+use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
+use crate::enums::rustls_tls_version_from_u16;
+use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, result_to_tlserror, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
@@ -23,7 +28,6 @@ use crate::{
     arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
     userdata_get, CastPtr,
 };
-use rustls_result::NullParameter;
 
 /// A client config being constructed. A builder can be modified by,
 /// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
@@ -72,6 +76,19 @@ pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_confi
     }
 }
 
+/// Create a rustls_client_config_builder from an existing rustls_client_config. The
+/// builder will be used to create a new, separate config that starts with the settings
+/// from the supplied configuration.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_from_config(
+    config: *const rustls_client_config,
+) -> *mut rustls_client_config_builder {
+    ffi_panic_boundary! {
+        let config: &ClientConfig = try_ref_from_ptr!(config);
+        Box::into_raw(Box::new(config.clone())) as *mut _
+    }
+}
+
 /// Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
 /// (read-only).
 #[no_mangle]
@@ -83,13 +100,6 @@ pub extern "C" fn rustls_client_config_builder_build(
         let b = unsafe { Box::from_raw(config) };
         Arc::into_raw(Arc::new(*b)) as *const _
     }
-}
-
-/// Currently just a placeholder with no accessors yet.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
-#[allow(non_camel_case_types)]
-pub struct rustls_root_cert_store {
-    _private: [u8; 0],
 }
 
 /// Input to a custom certificate verifier callback. See
@@ -243,6 +253,24 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
     }
 }
 
+/// Use the trusted root certificates from the provided store.
+///
+/// This replaces any trusted roots already configured with copies
+/// from `roots`. This adds 1 to the refcount for `roots`. When you
+/// call rustls_client_config_free or rustls_client_config_builder_free,
+/// those will subtract 1 from the refcount for `roots`.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_use_roots(
+    config: *mut rustls_client_config_builder,
+    roots: *const rustls_root_cert_store,
+) {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
+        let root_store: &RootCertStore = try_ref_from_ptr!(roots);
+        config.root_store = root_store.clone();
+    }
+}
+
 /// Add trusted root certificates from the named file, which should contain
 /// PEM-formatted certificates.
 #[no_mangle]
@@ -273,6 +301,35 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
             Ok(_) => {}
             Err(_) => return rustls_result::Io,
         };
+        rustls_result::Ok
+    }
+}
+
+/// Set the TLS protocol versions to use when negotiating a TLS session.
+///
+/// `tls_version` is the version of the protocol, as defined in rfc8446,
+/// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+/// `rustls_tls_version` for convenience.
+///
+/// `versions` will only be used during the call and the application retains
+/// ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_versions(
+    builder: *mut rustls_client_config_builder,
+    tls_versions: *const u16,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let tls_versions: &[u16] = try_slice!(tls_versions, len);
+        config.versions.clear();
+
+        // rustls does not support an `Unkown(u16)` protocol version,
+        // so we have to fail on any version numbers not implemented
+        // in rustls.
+        for i in tls_versions {
+            config.versions.push(rustls_tls_version_from_u16(*i));
+        }
         rustls_result::Ok
     }
 }
@@ -318,6 +375,47 @@ pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     ffi_panic_boundary! {
         let config: &mut ClientConfig = try_mut_from_ptr!(config);
         config.enable_sni = enable;
+    }
+}
+
+/// Set the cipher suite list, in preference order. The `ciphersuites`
+/// parameter must point to an array containing `len` pointers to
+/// `rustls_supported_ciphersuite` previously obtained from
+/// `rustls_all_ciphersuites_get()`.
+/// https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_ciphersuites(
+    builder: *mut rustls_client_config_builder,
+    ciphersuites: *const *const rustls_supported_ciphersuite,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let ciphersuites: &[*const rustls_supported_ciphersuite] = try_slice!(ciphersuites, len);
+        let mut cs_vec: Vec<&'static SupportedCipherSuite> = Vec::new();
+        for &cs in ciphersuites.into_iter() {
+            let cs = try_ref_from_ptr!(cs);
+            match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
+                Some(scs) => cs_vec.push(scs),
+                None => return InvalidParameter,
+            }
+        }
+        config.ciphersuites = cs_vec;
+        rustls_result::Ok
+    }
+}
+
+/// "Free" a client_config_builder before transmogrifying it into a client_config.
+/// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+/// and may not be free'd or otherwise used afterwards.
+/// Use free only when the building of a config has to be aborted before a config
+/// was created.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_free(config: *mut rustls_client_config_builder) {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(config);
+        // Convert the pointer to a Box and drop it.
+        unsafe { Box::from_raw(config); }
     }
 }
 

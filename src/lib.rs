@@ -14,11 +14,13 @@ mod connection;
 mod enums;
 mod error;
 mod io;
+mod log;
 mod panic;
 mod rslice;
 mod server;
 mod session;
 
+use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
 
 // For C callbacks, we need to offer a `void *userdata` parameter, so the
@@ -32,7 +34,12 @@ use crate::panic::PanicOrDefault;
 // Rust code, we model these thread locals as a stack, so we can always
 // restore the previous version.
 thread_local! {
-    pub static USERDATA: RefCell<Vec<*mut c_void>> = RefCell::new(Vec::new());
+    pub static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
+}
+
+pub struct Userdata {
+    userdata: *mut c_void,
+    log_callback: rustls_log_callback,
 }
 
 /// UserdataGuard pops an entry off the USERDATA stack, restoring the
@@ -46,12 +53,17 @@ pub struct UserdataGuard {
     // Keep a copy of the data we expect to be popping off the stack. This allows
     // us to check for consistency, and also serves to make this type !Send:
     // https://doc.rust-lang.org/nightly/std/primitive.pointer.html#impl-Send-1
-    data: Option<*mut c_void>,
+    data: Option<Userdata>,
 }
 
 impl UserdataGuard {
     fn new(u: *mut c_void) -> Self {
-        UserdataGuard { data: Some(u) }
+        UserdataGuard {
+            data: Some(Userdata {
+                userdata: u,
+                log_callback: None,
+            }),
+        }
     }
 
     /// Even though we have a Drop impl on this guard, when possible it's
@@ -63,7 +75,11 @@ impl UserdataGuard {
     }
 
     fn try_pop(&mut self) -> Result<(), UserdataError> {
-        let expected_data = self.data.ok_or(UserdataError::AlreadyPopped)?;
+        let expected_data = self
+            .data
+            .as_ref()
+            .ok_or(UserdataError::AlreadyPopped)?
+            .userdata;
         USERDATA
             .try_with(|userdata| {
                 userdata.try_borrow_mut().map_or_else(
@@ -71,7 +87,7 @@ impl UserdataGuard {
                     |mut v| {
                         let u = v.pop().ok_or(UserdataError::EmptyStack)?;
                         self.data = None;
-                        if u == expected_data {
+                        if u.userdata == expected_data {
                             Ok(())
                         } else {
                             Err(UserdataError::WrongData)
@@ -105,13 +121,19 @@ pub enum UserdataError {
 }
 
 #[must_use = "If you drop the guard, userdata will be immediately cleared"]
-pub fn userdata_push(u: *mut c_void) -> Result<UserdataGuard, UserdataError> {
+pub fn userdata_push(
+    u: *mut c_void,
+    cb: rustls_log_callback,
+) -> Result<UserdataGuard, UserdataError> {
     USERDATA
         .try_with(|userdata| {
             userdata.try_borrow_mut().map_or_else(
                 |_| Err(UserdataError::AlreadyBorrowed),
                 |mut v| {
-                    v.push(u);
+                    v.push(Userdata {
+                        userdata: u,
+                        log_callback: cb,
+                    });
                     Ok(())
                 },
             )
@@ -126,7 +148,21 @@ pub fn userdata_get() -> Result<*mut c_void, UserdataError> {
             userdata.try_borrow_mut().map_or_else(
                 |_| Err(UserdataError::AlreadyBorrowed),
                 |v| match v.last() {
-                    Some(u) => Ok(*u),
+                    Some(u) => Ok(u.userdata),
+                    None => Err(UserdataError::EmptyStack),
+                },
+            )
+        })
+        .unwrap_or(Err(UserdataError::AccessError))
+}
+
+pub fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
+    USERDATA
+        .try_with(|userdata| {
+            userdata.try_borrow_mut().map_or_else(
+                |_| Err(UserdataError::AlreadyBorrowed),
+                |v| match v.last() {
+                    Some(u) => Ok((u.log_callback, u.userdata)),
                     None => Err(UserdataError::EmptyStack),
                 },
             )
@@ -143,7 +179,7 @@ mod tests {
     fn guard_try_pop() {
         let data = "hello";
         let data_ptr: *mut c_void = data as *const _ as _;
-        let mut guard = userdata_push(data_ptr).unwrap();
+        let mut guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_pop().unwrap();
         assert!(matches!(guard.try_pop(), Err(_)));
@@ -153,7 +189,7 @@ mod tests {
     fn guard_try_drop() {
         let data = "hello";
         let data_ptr: *mut c_void = data as *const _ as _;
-        let guard = userdata_push(data_ptr).unwrap();
+        let guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_drop().unwrap();
         assert!(matches!(userdata_get(), Err(_)));
@@ -164,7 +200,7 @@ mod tests {
         let data = "hello";
         let data_ptr: *mut c_void = data as *const _ as _;
         {
-            let _guard = userdata_push(data_ptr).unwrap();
+            let _guard = userdata_push(data_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), data_ptr);
         }
         assert!(matches!(userdata_get(), Err(_)));
@@ -175,12 +211,12 @@ mod tests {
         let hello = "hello";
         let hello_ptr: *mut c_void = hello as *const _ as _;
         {
-            let guard = userdata_push(hello_ptr).unwrap();
+            let guard = userdata_push(hello_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), hello_ptr);
             {
                 let yo = "yo";
                 let yo_ptr: *mut c_void = yo as *const _ as _;
-                let guard2 = userdata_push(yo_ptr).unwrap();
+                let guard2 = userdata_push(yo_ptr, None).unwrap();
                 assert_eq!(userdata_get().unwrap(), yo_ptr);
                 guard2.try_drop().unwrap();
             }
@@ -194,12 +230,12 @@ mod tests {
     fn out_of_order_drop() {
         let hello = "hello";
         let hello_ptr: *mut c_void = hello as *const _ as _;
-        let guard = userdata_push(hello_ptr).unwrap();
+        let guard = userdata_push(hello_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), hello_ptr);
 
         let yo = "yo";
         let yo_ptr: *mut c_void = yo as *const _ as _;
-        let guard2 = userdata_push(yo_ptr).unwrap();
+        let guard2 = userdata_push(yo_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), yo_ptr);
 
         assert!(matches!(guard.try_drop(), Err(UserdataError::WrongData)));
@@ -210,19 +246,19 @@ mod tests {
     fn userdata_multi_threads() {
         let hello = "hello";
         let hello_ptr: *mut c_void = hello as *const _ as _;
-        let guard = userdata_push(hello_ptr).unwrap();
+        let guard = userdata_push(hello_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), hello_ptr);
 
         let thread1 = thread::spawn(|| {
             let yo = "yo";
             let yo_ptr: *mut c_void = yo as *const _ as _;
-            let guard2 = userdata_push(yo_ptr).unwrap();
+            let guard2 = userdata_push(yo_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), yo_ptr);
 
             let greetz = "greetz";
             let greetz_ptr: *mut c_void = greetz as *const _ as _;
 
-            let guard3 = userdata_push(greetz_ptr).unwrap();
+            let guard3 = userdata_push(greetz_ptr, None).unwrap();
 
             assert_eq!(userdata_get().unwrap(), greetz_ptr);
             guard3.try_drop().unwrap();

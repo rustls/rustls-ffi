@@ -159,6 +159,12 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 typedef struct rustls_connection rustls_connection;
 
 /**
+ * An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
+ * `const struct iovec *`.
+ */
+typedef struct rustls_iovec rustls_iovec;
+
+/**
  * A root cert store that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<RootCertStore>.
  * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
@@ -330,6 +336,15 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
  */
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+typedef size_t rustls_log_level;
+
+typedef struct rustls_log_params {
+  rustls_log_level level;
+  struct rustls_str message;
+} rustls_log_params;
+
+typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_params *params);
+
 /**
  * A return value for a function that may return either success (0) or a
  * non-zero value representing an error.
@@ -360,14 +375,29 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, s
  * the implementation should return a nonzero rustls_io_result, which will be
  * passed through to the caller. On POSIX systems, returning `errno` is convenient.
  * On other systems, any appropriate error code works.
- * (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
- * It's best to make one write attempt to the network per call. Additional write will
+ * It's best to make one write attempt to the network per call. Additional writes will
  * be triggered by subsequent calls to one of the `_write_tls` methods.
  * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
 typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
+
+/**
+ * A callback for rustls_connection_write_tls_vectored.
+ * An implementation of this callback should attempt to write the bytes in
+ * the given `count` iovecs to the network. If any bytes were written,
+ * the implementation should set out_n to the number of bytes written and return 0.
+ * If there was an error, the implementation should return a nonzero rustls_io_result,
+ * which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * It's best to make one write attempt to the network per call. Additional write will
+ * be triggered by subsequent calls to one of the `_write_tls` methods.
+ * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
+typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n);
 
 /**
  * Any context information the callback will receive when invoked.
@@ -602,6 +632,13 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
+ * Create a rustls_client_config_builder from an existing rustls_client_config. The
+ * builder will be used to create a new, separate config that starts with the settings
+ * from the supplied configuration.
+ */
+struct rustls_client_config_builder *rustls_client_config_builder_from_config(const struct rustls_client_config *config);
+
+/**
  * Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
  * (read-only).
  */
@@ -645,11 +682,36 @@ void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rust
                                                                      rustls_verify_server_cert_callback callback);
 
 /**
+ * Use the trusted root certificates from the provided store.
+ *
+ * This replaces any trusted roots already configured with copies
+ * from `roots`. This adds 1 to the refcount for `roots`. When you
+ * call rustls_client_config_free or rustls_client_config_builder_free,
+ * those will subtract 1 from the refcount for `roots`.
+ */
+void rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
+                                            const struct rustls_root_cert_store *roots);
+
+/**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
 enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
                                                                      const char *filename);
+
+/**
+ * Set the TLS protocol versions to use when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ */
+enum rustls_result rustls_client_config_builder_set_versions(struct rustls_client_config_builder *builder,
+                                                             const uint16_t *tls_versions,
+                                                             size_t len);
 
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
@@ -674,6 +736,26 @@ enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_clie
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
+
+/**
+ * Set the cipher suite list, in preference order. The `ciphersuites`
+ * parameter must point to an array containing `len` pointers to
+ * `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`.
+ * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+ */
+enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_client_config_builder *builder,
+                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
+                                                                 size_t len);
+
+/**
+ * "Free" a client_config_builder before transmogrifying it into a client_config.
+ * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
+ */
+void rustls_client_config_builder_free(struct rustls_client_config_builder *config);
 
 /**
  * "Free" a client_config previously returned from
@@ -719,6 +801,13 @@ enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_cl
 void rustls_connection_set_userdata(struct rustls_connection *conn, void *userdata);
 
 /**
+ * Set the logging callback for this connection. The log callback will be invoked
+ * with the userdata parameter previously set by rustls_connection_set_userdata, or
+ * NULL if no userdata was set.
+ */
+void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_log_callback cb);
+
+/**
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
@@ -751,6 +840,23 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
                                              rustls_write_callback callback,
                                              void *userdata,
                                              size_t *out_n);
+
+/**
+ * Write all available TLS bytes to the network. The actual network I/O is performed by
+ * `callback`, which you provide. Rustls will invoke your callback with an array
+ * of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+ * You don't have to write them all, just as many as you are willing.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_write_callback for more details.
+ * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+ */
+rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
+                                                      rustls_write_vectored_callback callback,
+                                                      void *userdata,
+                                                      size_t *out_n);
 
 enum rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
 
@@ -858,6 +964,11 @@ void rustls_connection_free(struct rustls_connection *conn);
 void rustls_error(enum rustls_result result, char *buf, size_t len, size_t *out_n);
 
 bool rustls_result_is_cert_error(enum rustls_result result);
+
+/**
+ * Return a rustls_str containing the stringified version of a log level.
+ */
+struct rustls_str rustls_log_level_str(rustls_log_level level);
 
 /**
  * Return the length of the outer slice. If the input pointer is NULL,
@@ -990,8 +1101,7 @@ enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_s
  * be used in multiple configs.
  *
  * EXPERIMENTAL: installing a client_hello callback will replace any
- * configured certified keys and vice versa. Same holds true for the
- * set_single_cert variant.
+ * configured certified keys and vice versa.
  */
 enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_server_config_builder *builder,
                                                                    const struct rustls_certified_key *const *certified_keys,
@@ -1052,7 +1162,7 @@ enum rustls_result rustls_server_connection_get_sni_hostname(const struct rustls
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  * Installing a client_hello callback will replace any configured certified keys
- * and vice versa. Same holds true for the set_single_cert variant.
+ * and vice versa. Same holds true for the set_certified_keys variant.
  */
 enum rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_server_config_builder *builder,
                                                                    rustls_client_hello_callback callback);

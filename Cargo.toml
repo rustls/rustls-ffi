@@ -13,6 +13,7 @@ webpki = "0.21"
 libc = "0.2"
 sct = "0.6.0"
 rustls-pemfile = "0.2.0"
+log = "0.4.14"
 
 [dev_dependencies]
 cbindgen = "*"

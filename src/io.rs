@@ -1,8 +1,10 @@
-use std::io::{Error, Read, Result, Write};
+use std::io::{Error, IoSlice, Read, Result, Write};
 
 use libc::{c_void, size_t};
 
 use crate::error::rustls_io_result;
+use crate::rslice::rustls_slice_bytes;
+use std::ops::Deref;
 
 /// A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
 /// An implementation of this callback should attempt to read up to n bytes from the
@@ -56,8 +58,7 @@ impl Read for CallbackReader {
 /// the implementation should return a nonzero rustls_io_result, which will be
 /// passed through to the caller. On POSIX systems, returning `errno` is convenient.
 /// On other systems, any appropriate error code works.
-/// (including EAGAIN or EWOULDBLOCK), the implementation should return `errno`.
-/// It's best to make one write attempt to the network per call. Additional write will
+/// It's best to make one write attempt to the network per call. Additional writes will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
@@ -96,5 +97,79 @@ impl Write for CallbackWriter {
 
     fn flush(&mut self) -> Result<()> {
         Ok(())
+    }
+}
+
+/// An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
+/// `const struct iovec *`.
+#[cfg(unix)]
+pub struct rustls_iovec {
+    _private: [u8; 0],
+}
+
+/// A callback for rustls_connection_write_tls_vectored.
+/// An implementation of this callback should attempt to write the bytes in
+/// the given `count` iovecs to the network. If any bytes were written,
+/// the implementation should set out_n to the number of bytes written and return 0.
+/// If there was an error, the implementation should return a nonzero rustls_io_result,
+/// which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
+/// On other systems, any appropriate error code works.
+/// It's best to make one write attempt to the network per call. Additional write will
+/// be triggered by subsequent calls to one of the `_write_tls` methods.
+/// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+/// cases that should be a struct that contains, at a minimum, a file descriptor.
+/// The buf and out_n pointers are borrowed and should not be retained across calls.
+#[cfg(unix)]
+pub type rustls_write_vectored_callback = Option<
+    unsafe extern "C" fn(
+        userdata: *mut c_void,
+        iov: *const rustls_iovec,
+        count: size_t,
+        out_n: *mut size_t,
+    ) -> rustls_io_result,
+>;
+
+#[cfg(unix)]
+pub(crate) type VectoredWriteCallback = unsafe extern "C" fn(
+    userdata: *mut c_void,
+    iov: *const rustls_iovec,
+    count: size_t,
+    out_n: *mut size_t,
+) -> rustls_io_result;
+
+#[cfg(unix)]
+pub(crate) struct VectoredCallbackWriter {
+    pub callback: VectoredWriteCallback,
+    pub userdata: *mut c_void,
+}
+
+#[cfg(unix)]
+impl Write for VectoredCallbackWriter {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
+        self.write_vectored(&[IoSlice::new(buf)])
+    }
+
+    fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
+        let mut out_n: usize = 0;
+        let cb = self.callback;
+        let slices: Vec<rustls_slice_bytes> = bufs.iter().map(|b| b.deref().into()).collect();
+        let result = unsafe {
+            cb(
+                self.userdata,
+                // This cast is sound because IoSlice is documented to by ABI-compatible with
+                // iovec on Unix.
+                slices.as_ptr() as *const rustls_iovec,
+                slices.len(),
+                &mut out_n,
+            )
+        };
+        match result.0 {
+            0 => Ok(out_n),
+            e => Err(Error::from_raw_os_error(e)),
+        }
     }
 }

@@ -4,8 +4,12 @@ use std::{ptr::null_mut, slice};
 use libc::{size_t, EIO};
 use rustls::{Certificate, ClientSession, ServerSession, Session, SupportedCipherSuite};
 
-use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
+use crate::io::{
+    rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
+    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
+};
 use crate::is_close_notify;
+use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
@@ -19,6 +23,7 @@ use rustls_result::NullParameter;
 pub(crate) struct Connection {
     conn: Inner,
     userdata: *mut c_void,
+    log_callback: rustls_log_callback,
     peer_certs: Option<Vec<Certificate>>,
 }
 
@@ -32,6 +37,7 @@ impl Connection {
         Connection {
             conn: Inner::Client(s),
             userdata: null_mut(),
+            log_callback: None,
             peer_certs: None,
         }
     }
@@ -40,6 +46,7 @@ impl Connection {
         Connection {
             conn: Inner::Server(s),
             userdata: null_mut(),
+            log_callback: None,
             peer_certs: None,
         }
     }
@@ -114,6 +121,19 @@ pub extern "C" fn rustls_connection_set_userdata(
     conn.userdata = userdata;
 }
 
+/// Set the logging callback for this connection. The log callback will be invoked
+/// with the userdata parameter previously set by rustls_connection_set_userdata, or
+/// NULL if no userdata was set.
+#[no_mangle]
+pub extern "C" fn rustls_connection_set_log_callback(
+    conn: *mut rustls_connection,
+    cb: rustls_log_callback,
+) {
+    let conn: &mut Connection = try_mut_from_ptr!(conn);
+    ensure_log_registered();
+    conn.log_callback = cb;
+}
+
 /// Read some TLS bytes from the network into internal buffers. The actual network
 /// I/O is performed by `callback`, which you provide. Rustls will invoke your
 /// callback with a suitable buffer to store the read bytes into. You don't have
@@ -180,13 +200,46 @@ pub extern "C" fn rustls_connection_write_tls(
     }
 }
 
+/// Write all available TLS bytes to the network. The actual network I/O is performed by
+/// `callback`, which you provide. Rustls will invoke your callback with an array
+/// of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+/// You don't have to write them all, just as many as you are willing.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_connection_set_userdata`.
+/// Returns 0 for success, or an errno value on error. Passes through return values
+/// from callback. See rustls_write_callback for more details.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+#[no_mangle]
+pub extern "C" fn rustls_connection_write_tls_vectored(
+    conn: *mut rustls_connection,
+    callback: rustls_write_vectored_callback,
+    userdata: *mut c_void,
+    out_n: *mut size_t,
+) -> rustls_io_result {
+    ffi_panic_boundary! {
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        let callback: VectoredWriteCallback = try_callback!(callback);
+
+        let mut writer = VectoredCallbackWriter { callback, userdata };
+        let n_written: usize = match conn.as_mut().write_tls(&mut writer) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_written;
+
+        rustls_io_result(0)
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn rustls_connection_process_new_packets(
     conn: *mut rustls_connection,
 ) -> rustls_result {
     ffi_panic_boundary! {
         let conn: &mut Connection = try_mut_from_ptr!(conn);
-        let guard = match userdata_push(conn.userdata) {
+        let guard = match userdata_push(conn.userdata, conn.log_callback) {
             Ok(g) => g,
             Err(_) => return rustls_result::Panic,
         };
