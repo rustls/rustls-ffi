@@ -9,6 +9,7 @@ use crate::io::{
     VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
 };
 use crate::is_close_notify;
+use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
@@ -22,6 +23,7 @@ use rustls_result::NullParameter;
 pub(crate) struct Connection {
     conn: Inner,
     userdata: *mut c_void,
+    log_callback: rustls_log_callback,
     peer_certs: Option<Vec<Certificate>>,
 }
 
@@ -35,6 +37,7 @@ impl Connection {
         Connection {
             conn: Inner::Client(s),
             userdata: null_mut(),
+            log_callback: None,
             peer_certs: None,
         }
     }
@@ -43,6 +46,7 @@ impl Connection {
         Connection {
             conn: Inner::Server(s),
             userdata: null_mut(),
+            log_callback: None,
             peer_certs: None,
         }
     }
@@ -115,6 +119,19 @@ pub extern "C" fn rustls_connection_set_userdata(
 ) {
     let conn: &mut Connection = try_mut_from_ptr!(conn);
     conn.userdata = userdata;
+}
+
+/// Set the logging callback for this connection. The log callback will be invoked
+/// with the userdata parameter previously set by rustls_connection_set_userdata, or
+/// NULL if no userdata was set.
+#[no_mangle]
+pub extern "C" fn rustls_connection_set_log_callback(
+    conn: *mut rustls_connection,
+    cb: rustls_log_callback,
+) {
+    let conn: &mut Connection = try_mut_from_ptr!(conn);
+    ensure_log_registered();
+    conn.log_callback = cb;
 }
 
 /// Read some TLS bytes from the network into internal buffers. The actual network
@@ -222,7 +239,7 @@ pub extern "C" fn rustls_connection_process_new_packets(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let conn: &mut Connection = try_mut_from_ptr!(conn);
-        let guard = match userdata_push(conn.userdata) {
+        let guard = match userdata_push(conn.userdata, conn.log_callback) {
             Ok(g) => g,
             Err(_) => return rustls_result::Panic,
         };
