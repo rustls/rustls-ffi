@@ -1,6 +1,26 @@
 # Changelog
 
-## 0.7.0 (unreleased)
+## 0.8.0 (unreleased)
+
+## 0.7.0 - 2021-06-24
+
+### Added
+
+  - rustls_connection_write_tls_vectored (#112)
+  - rustls_connection_set_log_callback (#107)
+  - rustls_client_config_builder methods (#108):
+     - `_from_config` `_free` `_use_roots` `_set_versions` `_set_ciphersuites`
+
+### Changed
+
+  - `make` produces optimized builds by default (#114). Use PROFILE=debug for debug builds.
+  - As part of supporting logging, this library now has to be built with
+    custom RUSTFLAGS. Those flags are provided when built with `make`.
+
+### Removed
+
+  - rustls_client_config_builder_load_native_roots (#110). This removes some
+    linking requirements, e.g. for Security.framework on macOS.
 
 ## 0.6.1 - 2021-06-04
 
