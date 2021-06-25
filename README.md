@@ -1,7 +1,8 @@
-# C Rustls
+# Rustls FFI bindings (formerly "crustls")
 
-This crate contains C bindings for the [rustls](https://docs.rs/rustls) TLS
-library. It also contains a small demo C program that uses those bindings
+This crate contains FFI bindings for the [rustls](https://docs.rs/rustls) TLS
+library, so you can use the library in C programs or any other language that
+supports FFI. It also contains a small demo C program that uses those bindings
 to make an HTTPS request.
 
 # Build
@@ -19,6 +20,15 @@ To install:
 To build in debug mode:
 
     make PROFILE=debug
+
+# Overview
+
+Rustls doesn't do any I/O on its own. It provides the protocol handling, and
+leaves it up to the user to send and receive bytes on the network. Because of
+that it can be used equally well in a blockng or non-blocking I/O context. See
+the [rustls documentation](https://docs.rs/rustls/) for a diagram
+of its input and output methods, along with a description of the TLS features it
+supports.
 
 # Conventions
 
@@ -71,7 +81,7 @@ the buffer is allocated on heap and references to it are shared among threads,
 the caller will need to take additional steps to prevent concurrent access
 (for instance mutex locking, or single-threaded I/O).
 
-When an output parameter is a pointer to a pointer (e.g. 
+When an output parameter is a pointer to a pointer (e.g.
 `rustls_connection **conn_out`, the function will set its argument
 to point to an appropriate object on success. The caller is considered to take
 ownership of that object and be responsible for the requirements above:
@@ -79,7 +89,7 @@ preventing concurrent mutation, and freeing it exactly once.
 
 For a method, the first parameter will always be a pointer to the struct being
 operated on. Next will come some number of input parameters, then some number
-of output parameters. 
+of output parameters.
 
 As a minor exception to the above: When an output parameter is a byte buffer
 (*uint8_t), the next parameter will always be a size_t denoting the size of
@@ -93,6 +103,16 @@ For fallible functions, values are only written to the output arguments if
 the function returns success. There are no partial successes or partial
 failures. Callers must check the return value before relying on the values
 pointed to by output arguments.
+
+## Callbacks and Userdata
+
+Rustls supports various types of user customization via callbacks. All callbacks
+take a `void *userdata` parameter as their first parameter. Unless otherwise
+specified, this will receive a value that was associated with a
+rustls_connection via `rustls_connection_set_userdata`. If no such value was
+set, they will receive NULL. The read and write callbacks are a particular
+exception to this rule - they receive a userdata value passed through from the
+current call to rustls_connection_{read,write}_tls.
 
 ## NULL
 
