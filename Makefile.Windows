@@ -4,13 +4,13 @@
 #
 export CL=
 
-CRUSTLS_LIB = target/i686-pc-windows-msvc/release/crustls.lib
+CRUSTLS_LIB = target/release/crustls.lib
 
 USE_CLANG_CL ?= 1
 
 CFLAGS     = -nologo -MD -Zi -W3 -O2 -I. -Dssize_t=int -D_CRT_SECURE_NO_WARNINGS
 LDFLAGS    = -nologo -incremental:no
-CARGOFLAGS = --color never --release --target i686-pc-windows-msvc
+CARGOFLAGS = --color never --release
 
 ifeq ($(USE_CLANG_CL),1)
   CC = clang-cl
