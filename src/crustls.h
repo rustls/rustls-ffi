@@ -626,8 +626,8 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
  * resulting rustls_client_config. This starts out with no trusted roots.
- * Caller must add roots with
- * rustls_client_config_builder_load_roots_from_file or provide as custom
+ * Caller must add roots with rustls_client_config_builder_load_roots_from_file
+ * or provide a custom verifier.
  */
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 

@@ -64,9 +64,8 @@ impl CastPtr for rustls_client_config {
 /// Create a rustls_client_config_builder. Caller owns the memory and must
 /// eventually call rustls_client_config_builder_build, then free the
 /// resulting rustls_client_config. This starts out with no trusted roots.
-/// Caller must add roots with
-/// rustls_client_config_builder_load_roots_from_file or provide as custom
-// verifier.
+/// Caller must add roots with rustls_client_config_builder_load_roots_from_file
+/// or provide a custom verifier.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
     ffi_panic_boundary! {
