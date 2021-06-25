@@ -159,8 +159,10 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 typedef struct rustls_connection rustls_connection;
 
 /**
- * An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
- * `const struct iovec *`.
+ * An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows. You should cast
+ * `const struct rustls_iovec *` to `const struct iovec *` on Unix, or `const *LPWSABUF`
+ * on Windows. See [`std::io::IoSlice`] for details on interoperability with platform
+ * specific vectored IO.
  */
 typedef struct rustls_iovec rustls_iovec;
 
