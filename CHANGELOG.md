@@ -17,6 +17,11 @@
   - As part of supporting logging, this library now has to be built with
     custom RUSTFLAGS. Those flags are provided when built with `make`.
 
+### Removed
+
+  - rustls_client_config_builder_load_native_roots (#110). This removes some
+    linking requirements, e.g. for Security.framework on macOS.
+
 ## 0.6.1 - 2021-06-04
 
 ### Added
