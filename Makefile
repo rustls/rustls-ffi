@@ -39,10 +39,10 @@ target/$(PROFILE)/librustls.a: src/*.rs Cargo.toml
 target/%.o: tests/%.c src/rustls.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-target/client: target/client.o target/common.o target/$(PROFILE)/librustls.a
+target/client: target/client.o target/common.o target/$(PROFILE)/librustls_ffi.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-target/server: target/server.o target/common.o target/$(PROFILE)/librustls.a
+target/server: target/server.o target/common.o target/$(PROFILE)/librustls_ffi.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 install: target/$(PROFILE)/librustls.a src/rustls.h
