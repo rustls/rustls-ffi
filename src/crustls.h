@@ -147,7 +147,7 @@ typedef struct rustls_client_config rustls_client_config;
 
 /**
  * A client config being constructed. A builder can be modified by,
- * e.g. rustls_client_config_builder_load_native_roots. Once you're
+ * e.g. rustls_client_config_builder_load_roots_from_file. Once you're
  * done configuring settings, call rustls_client_config_builder_build
  * to turn it into a *rustls_client_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
@@ -375,7 +375,7 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, s
  * the implementation should return a nonzero rustls_io_result, which will be
  * passed through to the caller. On POSIX systems, returning `errno` is convenient.
  * On other systems, any appropriate error code works.
- * It's best to make one write attempt to the network per call. Additional write will
+ * It's best to make one write attempt to the network per call. Additional writes will
  * be triggered by subsequent calls to one of the `_write_tls` methods.
  * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
@@ -626,8 +626,8 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
  * resulting rustls_client_config. This starts out with no trusted roots.
- * Caller must add roots with rustls_client_config_builder_load_native_roots
- * or rustls_client_config_builder_load_roots_from_file.
+ * Caller must add roots with rustls_client_config_builder_load_roots_from_file
+ * or provide a custom verifier.
  */
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
@@ -680,12 +680,6 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  */
 void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
                                                                      rustls_verify_server_cert_callback callback);
-
-/**
- * Add certificates from platform's native root store, using
- * https://github.com/ctz/rustls-native-certs#readme.
- */
-enum rustls_result rustls_client_config_builder_load_native_roots(struct rustls_client_config_builder *config);
 
 /**
  * Use the trusted root certificates from the provided store.
