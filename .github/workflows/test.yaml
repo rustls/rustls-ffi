@@ -16,6 +16,14 @@ jobs:
           persist-credentials: false
       - run: make CC=${{ matrix.cc }} PROFILE=release test
 
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - run: make -f Makefile.Windows
+
   ensure-header-updated:
     runs-on: ubuntu-latest
     steps:

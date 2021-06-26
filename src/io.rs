@@ -100,9 +100,10 @@ impl Write for CallbackWriter {
     }
 }
 
-/// An alias for `struct iovec` from uio.h. You should cast `const struct rustls_iovec *` to
-/// `const struct iovec *`.
-#[cfg(unix)]
+/// An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows. You should cast
+/// `const struct rustls_iovec *` to `const struct iovec *` on Unix, or `const *LPWSABUF`
+/// on Windows. See [`std::io::IoSlice`] for details on interoperability with platform
+/// specific vectored IO.
 pub struct rustls_iovec {
     _private: [u8; 0],
 }
@@ -119,7 +120,6 @@ pub struct rustls_iovec {
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
-#[cfg(unix)]
 pub type rustls_write_vectored_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,
@@ -129,7 +129,6 @@ pub type rustls_write_vectored_callback = Option<
     ) -> rustls_io_result,
 >;
 
-#[cfg(unix)]
 pub(crate) type VectoredWriteCallback = unsafe extern "C" fn(
     userdata: *mut c_void,
     iov: *const rustls_iovec,
@@ -137,13 +136,11 @@ pub(crate) type VectoredWriteCallback = unsafe extern "C" fn(
     out_n: *mut size_t,
 ) -> rustls_io_result;
 
-#[cfg(unix)]
 pub(crate) struct VectoredCallbackWriter {
     pub callback: VectoredWriteCallback,
     pub userdata: *mut c_void,
 }
 
-#[cfg(unix)]
 impl Write for VectoredCallbackWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.write_vectored(&[IoSlice::new(buf)])
@@ -161,7 +158,7 @@ impl Write for VectoredCallbackWriter {
             cb(
                 self.userdata,
                 // This cast is sound because IoSlice is documented to by ABI-compatible with
-                // iovec on Unix.
+                // iovec on Unix, and with WSABUF on Windows.
                 slices.as_ptr() as *const rustls_iovec,
                 slices.len(),
                 &mut out_n,
