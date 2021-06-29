@@ -228,7 +228,7 @@ send_request_and_read_response(struct conndata *conn,
   const char *body;
   const char *content_length_str;
   const char *content_length_end;
-  unsigned long content_length;
+  unsigned long content_length = 0;
   size_t headers_len = 0;
 
   bzero(buf, sizeof(buf));
