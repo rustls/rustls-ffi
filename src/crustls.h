@@ -751,6 +751,24 @@ enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_c
                                                                  size_t len);
 
 /**
+ * Provide the configuration a list of certificates where the session
+ * will select the first one that is compatible with the server's signature
+ * verification capabilities. Clients that want to support both ECDSA and
+ * RSA certificates will want the ECSDA to go first in the list.
+ *
+ * The built configuration will keep a reference to all certified keys
+ * provided. The client may `rustls_certified_key_free()` afterwards
+ * without the configuration losing them. The same certified key may also
+ * be used in multiple configs.
+ *
+ * EXPERIMENTAL: installing a client authentication callback will replace any
+ * configured certified keys and vice versa.
+ */
+enum rustls_result rustls_client_config_builder_set_certified_key(struct rustls_client_config_builder *builder,
+                                                                  const struct rustls_certified_key *const *certified_keys,
+                                                                  size_t certified_keys_len);
+
+/**
  * "Free" a client_config_builder before transmogrifying it into a client_config.
  * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
