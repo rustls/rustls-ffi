@@ -242,6 +242,8 @@ send_request_and_read_response(struct conndata *conn,
            "\r\n",
            path,
            hostname);
+  /* First we write the plaintext - the data that we want rustls to encrypt for
+   * us- to the rustls connection. */
   result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
   if(result != RUSTLS_RESULT_OK) {
     fprintf(stderr, "error writing plaintext bytes to rustls_connection\n");
@@ -255,6 +257,8 @@ send_request_and_read_response(struct conndata *conn,
 
   for(;;) {
     FD_ZERO(&read_fds);
+    /* These two calls just inspect the state of the connection - if it's time
+    for us to write more, or to read more. */
     if(rustls_connection_wants_read(rconn)) {
       FD_SET(sockfd, &read_fds);
     }
@@ -330,6 +334,9 @@ send_request_and_read_response(struct conndata *conn,
     if(FD_ISSET(sockfd, &write_fds)) {
       fprintf(stderr, "rustls_connection wants us to write_tls.\n");
       for(;;) {
+        /* This invokes rustls_connection_write_tls. We pass a callback to
+         * that function. Rustls will pass a buffer to that callback with
+         * encrypted bytes, that we will write to `conn`. */
         err = write_tls(rconn, conn, &n);
         if(err != 0) {
           fprintf(
@@ -469,7 +476,7 @@ main(int argc, const char **argv)
     rustls_client_config_builder_new();
   const struct rustls_client_config *client_config = NULL;
   struct rustls_slice_bytes alpn_http11;
-  
+
   alpn_http11.data = (unsigned char*)"http/1.1";
   alpn_http11.len = 8;
 
