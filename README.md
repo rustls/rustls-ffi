@@ -64,7 +64,7 @@ memory exactly once. Freeing a struct's memory will usually be accomplished
 with a function starting with the struct's name and ending in `_free()`.
 
 You can tell if a method will mutate a struct by looking at the first
-parameter. If it's a `const*`, the method is non-mutating. Otherwise, it's 
+parameter. If it's a `const*`, the method is non-mutating. Otherwise, it's
 mutating.
 
 ## Input and Output Parameters
@@ -143,7 +143,7 @@ need further evaluation and will most likely change significantly in the future.
 ## Server Side Experimentals
 
 The `rustls_server_config_builder_set_hello_callback` and its provided information
-in `rustls_client_hello` will change. The current design is a snapshot of the 
+in `rustls_client_hello` will change. The current design is a snapshot of the
 implementation efforts in [mod_tls](https://github.com/icing/mod_tls) to provide
 `rustls` base TLS as module for the Apache webserver.
 
@@ -176,3 +176,18 @@ For this to work, your connection needs to buffer the initial data from the
 client, so these bytes can be replayed to the second connection you use. Do not
 write any data back to the client while your are in the initial connection. The
 client hellos are usually only a few hundred bytes.
+
+#### Verifying TLS certificates
+
+By default, rustls does not load any TLS certificates, not even the system
+store, which means that TLS certificate verification will fail by default. You
+are responsible for loading certificates using one of the following methods:
+
+- `rustls_root_cert_store_add_pem`, which adds a single certificate to a root
+  store
+
+- `rustls_client_config_builder_load_roots_from_file`, which loads certificates
+  from a file.
+
+- A custom method for finding certificates where they are stored and then added
+  to the rustls root store.
