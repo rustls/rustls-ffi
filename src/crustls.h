@@ -788,12 +788,12 @@ void rustls_client_config_builder_free(struct rustls_client_config_builder *conf
 void rustls_client_config_free(const struct rustls_client_config *config);
 
 /**
- * Create a new rustls_connection containing a client connection and return it
- * in the output parameter `out`. If this returns an error code, the memory
- * pointed to by `session_out` remains unchanged.
- * If this returns a non-error, the memory pointed to by `conn_out` is modified to point
- * at a valid rustls_connection. The caller now owns the rustls_connection and must call
- * `rustls_client_connection_free` when done with it.
+ * Create a new rustls_connection containing a client connection and return
+ * it in the output parameter `out`. If this returns an error code, the
+ * memory pointed to by `session_out` remains unchanged. If this returns a
+ * non-error, the memory pointed to by `conn_out` is modified to point at a
+ * valid rustls_connection. The caller now owns the rustls_connection and must
+ * call `rustls_connection_free` when done with it.
  */
 enum rustls_result rustls_client_connection_new(const struct rustls_client_config *config,
                                                 const char *hostname,
