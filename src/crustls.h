@@ -349,7 +349,9 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
 
 /**
  * A return value for a function that may return either success (0) or a
- * non-zero value representing an error.
+ * non-zero value representing an error. The values should match socket
+ * error numbers for your operating system - for example, the integers for
+ * ETIMEDOUT, EAGAIN, or similar.
  */
 typedef int rustls_io_result;
 
