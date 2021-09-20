@@ -84,7 +84,7 @@
 
 ### Changed
 
- - Reading plaintext can now return RUSTLS_ALERT_CLOSE_NOTIFY. (#67)
+ - Reading plaintext can now return RUSTLS_RESULT_ALERT_CLOSE_NOTIFY. (#67)
 
 ### Removed
 
