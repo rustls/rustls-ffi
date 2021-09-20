@@ -97,7 +97,7 @@ typedef enum rustls_result {
  */
 typedef enum rustls_tls_version {
   RUSTLS_TLS_VERSION_SSLV2 = 512,
-  RUSTLS_TLS_VERSION_SSSLV3 = 768,
+  RUSTLS_TLS_VERSION_SSLV3 = 768,
   RUSTLS_TLS_VERSION_TLSV1_0 = 769,
   RUSTLS_TLS_VERSION_TLSV1_1 = 770,
   RUSTLS_TLS_VERSION_TLSV1_2 = 771,
@@ -121,7 +121,7 @@ typedef struct rustls_certified_key rustls_certified_key;
 
 /**
  * A verifier of client certificates that requires all certificates to be
- * trusted based on a given `rustls_root_cert_store`. Usable in building server
+ * trusted based on a given`rustls_root_cert_store`. Usable in building server
  * configurations. Connections without such a client certificate will not
  * be accepted.
  */
