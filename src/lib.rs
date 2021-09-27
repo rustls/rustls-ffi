@@ -10,7 +10,6 @@ use std::{mem, slice};
 
 mod cipher;
 mod client;
-mod config;
 mod connection;
 mod enums;
 mod error;
