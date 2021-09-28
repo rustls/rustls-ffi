@@ -8,7 +8,7 @@ links = "crustls"
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in lib.rs
-rustls = { git = "https://github.com/ctz/rustls", rev = "c0fab5f74a4ff50e45c70f5712fdd76cc567eb3d", features = [ "dangerous_configuration" ] }
+rustls = { version = "=0.20", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
 rustls-native-certs = "0.5.0"

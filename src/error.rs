@@ -44,8 +44,13 @@ pub extern "C" fn rustls_error(
 #[no_mangle]
 pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
     match result_to_error(&result) {
-        Either::Error(Error::WebPkiError(_, _)) => true,
-        Either::Error(Error::InvalidSct(_)) => true,
+        Either::Error(
+            Error::InvalidCertificateData(_)
+            | Error::InvalidCertificateEncoding
+            | Error::InvalidCertificateSignature
+            | Error::InvalidCertificateSignatureType
+            | Error::InvalidSct(_),
+        ) => true,
         _ => false,
     }
 }
@@ -64,7 +69,7 @@ pub enum rustls_result {
     NotFound = 7008,
     InvalidParameter = 7009,
 
-    // From https://docs.rs/rustls/0.19.0/rustls/enum.TlsError.html
+    // From https://docs.rs/rustls/0.20.0/rustls/enum.Error.html
     CorruptMessage = 7100,
     NoCertificatesPresented = 7101,
     DecryptError = 7102,
@@ -73,7 +78,13 @@ pub enum rustls_result {
     HandshakeNotComplete = 7104,
     PeerSentOversizedRecord = 7105,
     NoApplicationProtocol = 7106,
-    BadMaxFragmentSize = 7114, // Last added
+    BadMaxFragmentSize = 7114,
+    UnsupportedNameType = 7115,
+    EncryptError = 7116,
+    CertInvalidEncoding = 7117,
+    CertInvalidSignatureType = 7118,
+    CertInvalidSignature = 7119,
+    CertInvalidData = 7120, // Last added
 
     // From Error, with fields that get dropped.
     PeerIncompatibleError = 7107,
@@ -84,7 +95,7 @@ pub enum rustls_result {
     General = 7112,
 
     // From Error, with fields that get flattened.
-    // https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.AlertDescription.html
+    // https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.AlertDescription.html
     AlertCloseNotify = 7200,
     AlertUnexpectedMessage = 7201,
     AlertBadRecordMac = 7202,
@@ -121,29 +132,6 @@ pub enum rustls_result {
     AlertNoApplicationProtocol = 7233,
     AlertUnknown = 7234,
 
-    // https://docs.rs/webpki/0.21.4/webpki/enum.Error.html
-    CertBadEncoding = 7300,
-    CertBadTimeEncoding = 7301,
-    CertCAUsedAsEndEntity = 7302,
-    CertExpired = 7303,
-    CertNotValidForName = 7304,
-    CertNotValidYet = 7305,
-    CertEndEntityUsedAsCA = 7306,
-    CertExtensionValueInvalid = 7307,
-    CertInvalidCertValidity = 7308,
-    CertInvalidSignatureForPublicKey = 7309,
-    CertMissingOrMalformedExtensions = 7324,
-    CertNameConstraintViolation = 7310,
-    CertPathLenConstraintViolation = 7311,
-    CertSignatureAlgorithmMismatch = 7312,
-    CertRequiredEKUNotFound = 7313,
-    CertUnknownIssuer = 7314,
-    CertUnsupportedCertVersion = 7315,
-    CertUnsupportedCriticalExtension = 7316,
-    CertUnsupportedSignatureAlgorithmForPublicKey = 7317,
-    CertUnsupportedSignatureAlgorithm = 7318,
-    CertUnknownError = 7325, // Last added
-
     // https://docs.rs/sct/0.5.0/sct/enum.Error.html
     CertSCTMalformed = 7319,
     CertSCTInvalidSignature = 7320,
@@ -154,7 +142,6 @@ pub enum rustls_result {
 
 pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
     use rustls::internal::msgs::enums::AlertDescription as alert;
-    use rustls::WebPkiError as webpki;
     use rustls_result::*;
     use sct::Error as sct;
 
@@ -167,6 +154,8 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
         Error::DecryptError => DecryptError,
         Error::PeerIncompatibleError(_) => PeerIncompatibleError,
         Error::PeerMisbehavedError(_) => PeerMisbehavedError,
+        Error::UnsupportedNameType => UnsupportedNameType,
+        Error::EncryptError => EncryptError,
 
         Error::FailedToGetCurrentTime => FailedToGetCurrentTime,
         Error::FailedToGetRandomBytes => FailedToGetRandomBytes,
@@ -174,6 +163,11 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
         Error::PeerSentOversizedRecord => PeerSentOversizedRecord,
         Error::NoApplicationProtocol => NoApplicationProtocol,
         Error::BadMaxFragmentSize => BadMaxFragmentSize,
+
+        Error::InvalidCertificateEncoding => CertInvalidEncoding,
+        Error::InvalidCertificateSignatureType => CertInvalidSignatureType,
+        Error::InvalidCertificateSignature => CertInvalidSignature,
+        Error::InvalidCertificateData(_) => CertInvalidData,
 
         Error::General(_) => General,
 
@@ -213,30 +207,6 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             alert::CertificateRequired => AlertCertificateRequired,
             alert::NoApplicationProtocol => AlertNoApplicationProtocol,
             alert::Unknown(_) => AlertUnknown,
-        },
-        Error::WebPkiError(e, _) => match e {
-            webpki::BadEncoding => CertBadEncoding,
-            webpki::BadTimeEncoding => CertBadTimeEncoding,
-            webpki::CaUsedAsEndEntity => CertCAUsedAsEndEntity,
-            webpki::CertExpired => CertExpired,
-            webpki::CertNotValidForName => CertNotValidForName,
-            webpki::CertNotValidYet => CertNotValidYet,
-            webpki::EndEntityUsedAsCa => CertEndEntityUsedAsCA,
-            webpki::ExtensionValueInvalid => CertExtensionValueInvalid,
-            webpki::InvalidCertValidity => CertInvalidCertValidity,
-            webpki::InvalidSignatureForPublicKey => CertInvalidSignatureForPublicKey,
-            webpki::NameConstraintViolation => CertNameConstraintViolation,
-            webpki::PathLenConstraintViolation => CertPathLenConstraintViolation,
-            webpki::SignatureAlgorithmMismatch => CertSignatureAlgorithmMismatch,
-            webpki::RequiredEkuNotFound => CertRequiredEKUNotFound,
-            webpki::UnknownIssuer => CertUnknownIssuer,
-            webpki::UnsupportedCertVersion => CertUnsupportedCertVersion,
-            webpki::UnsupportedCriticalExtension => CertUnsupportedCriticalExtension,
-            webpki::UnsupportedSignatureAlgorithmForPublicKey => {
-                CertUnsupportedSignatureAlgorithmForPublicKey
-            }
-            webpki::UnsupportedSignatureAlgorithm => CertUnsupportedSignatureAlgorithm,
-            _ => CertUnknownError,
         },
         Error::InvalidSct(e) => match e {
             sct::MalformedSct => CertSCTMalformed,

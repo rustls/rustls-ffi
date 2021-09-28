@@ -7,9 +7,11 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use libc::{c_char, size_t};
+use rustls::client::ServerCertVerified;
 use rustls::{
-    Certificate, ClientConfig, ClientConnection, RootCertStore, ServerCertVerified,
-    SupportedCipherSuite, ALL_CIPHERSUITES,
+    Certificate, ClientConfig, ClientConnection, ConfigBuilder, RootCertStore,
+    SupportedCipherSuite, WantsCipherSuites, WantsKxGroups, WantsVerifier, WantsVersions,
+    ALL_CIPHER_SUITES,
 };
 
 use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
@@ -31,15 +33,22 @@ use crate::{
 /// for concurrent mutation. Under the hood, it corresponds to a
 /// Box<ClientConfig>.
 /// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
-pub struct rustls_client_config_builder {
+pub struct rustls_client_config_builder_wants_cipher_suites {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_client_config_builder {
-    type RustType = ClientConfig;
+impl CastPtr for rustls_client_config_builder_wants_cipher_suites {
+    type RustType = ConfigBuilder<ClientConfig, WantsCipherSuites>;
+}
+
+pub enum ClientConfigBuilder {
+    WantsCipherSuites(ConfigBuilder<ClientConfig, WantsCipherSuites>),
+    WantsKxGroups(ConfigBuilder<ClientConfig, WantsKxGroups>),
+    WantsVersions(ConfigBuilder<ClientConfig, WantsVersions>),
+    WantsVerifier(ConfigBuilder<ClientConfig, WantsVerifier>),
 }
 
 /// A client config that is done being constructed and is now read-only.
@@ -62,37 +71,12 @@ impl CastPtr for rustls_client_config {
 /// Caller must add roots with rustls_client_config_builder_load_native_roots
 /// or rustls_client_config_builder_load_roots_from_file.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
+pub extern "C" fn rustls_client_config_builder_new(
+) -> *mut rustls_client_config_builder_wants_cipher_suites {
     ffi_panic_boundary! {
-        let config = rustls::ClientConfig::new();
-        let b = Box::new(config);
+        let builder = rustls::ClientConfig::builder();
+        let b = Box::new(builder);
         Box::into_raw(b) as *mut _
-    }
-}
-
-/// Create a rustls_client_config_builder from an existing rustls_client_config. The
-/// builder will be used to create a new, separate config that starts with the settings
-/// from the supplied configuration.
-#[no_mangle]
-pub extern "C" fn rustls_client_config_builder_from_config(
-    config: *const rustls_client_config,
-) -> *mut rustls_client_config_builder {
-    ffi_panic_boundary! {
-        let config: &ClientConfig = try_ref_from_ptr!(config);
-        Box::into_raw(Box::new(config.clone())) as *mut _
-    }
-}
-
-/// Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
-/// (read-only).
-#[no_mangle]
-pub extern "C" fn rustls_client_config_builder_build(
-    builder: *mut rustls_client_config_builder,
-) -> *const rustls_client_config {
-    ffi_panic_boundary! {
-        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
-        let b = unsafe { Box::from_raw(config) };
-        Arc::into_raw(Arc::new(*b)) as *const _
     }
 }
 
@@ -146,7 +130,7 @@ unsafe impl Send for Verifier {}
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
-impl rustls::ServerCertVerifier for Verifier {
+impl rustls::client::ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
         end_entity: &Certificate,
@@ -403,7 +387,7 @@ pub extern "C" fn rustls_client_config_builder_set_ciphersuites(
         let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
         for &cs in ciphersuites.into_iter() {
             let cs = try_ref_from_ptr!(cs);
-            match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
+            match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
                 Some(scs) => cs_vec.push(scs.clone()),
                 None => return InvalidParameter,
             }

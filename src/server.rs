@@ -5,13 +5,13 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
-use rustls::sign::CertifiedKey;
-use rustls::SignatureScheme;
-use rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, ServerConfig,
-    ServerConnection, SupportedCipherSuite,
+use rustls::server::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello,
+    ResolvesServerCert, ServerConfig, ServerConnection,
 };
-use rustls::{ResolvesServerCert, ALL_CIPHERSUITES};
+use rustls::sign::CertifiedKey;
+use rustls::{SignatureScheme, WantsCipherSuites};
+use rustls::{SupportedCipherSuite, ALL_CIPHER_SUITES};
 
 use crate::cipher::{
     rustls_certified_key, rustls_client_cert_verifier, rustls_client_cert_verifier_optional,
@@ -70,10 +70,8 @@ impl CastPtr for rustls_server_config {
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
-            Ok(c) => c.with_no_client_auth().with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
-            Err(_) => return null_mut(),
-        };
+        let builder = rustls::ServerConfig::builder().with_safe_defaults();
+        let config = builder.with_no_client_auth().with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         let b = Box::new(config);
         Box::into_raw(b) as *mut _
     }
@@ -95,10 +93,9 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier(
                 None => return null_mut(),
             }
         };
-        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
-            Ok(c) => c.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
-            Err(_) => return null_mut(),
-        };
+
+        let builder = rustls::ServerConfig::builder().with_safe_defaults();
+        let config = builder.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         let b = Box::new(config);
         Box::into_raw(b) as *mut rustls_server_config_builder
     }
@@ -120,10 +117,9 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
                 None => return null_mut(),
             }
         };
-        let config: ServerConfig = match rustls::ConfigBuilder::with_safe_defaults().for_server() {
-            Ok(c) => c.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::ResolvesServerCertUsingSni::new())),
-            Err(_) => return null_mut(),
-        };
+
+        let builder = rustls::ServerConfig::builder().with_safe_defaults();
+        let config: ServerConfig = builder.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         let b = Box::new(config);
         Box::into_raw(b) as *mut rustls_server_config_builder
     }
@@ -248,7 +244,7 @@ pub extern "C" fn rustls_server_config_builder_set_ciphersuites(
         let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
         for &cs in ciphersuites.into_iter() {
             let cs = try_ref_from_ptr!(cs);
-            match ALL_CIPHERSUITES.iter().find(|&acs| cs.eq(acs)) {
+            match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
                 Some(scs) => cs_vec.push(scs.clone()),
                 None => return InvalidParameter,
             }
