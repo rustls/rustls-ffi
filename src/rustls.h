@@ -230,6 +230,24 @@ typedef struct rustls_slice_str rustls_slice_str;
 typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
 
 /**
+ * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
+ * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_str {
+  const char *data;
+  size_t len;
+} rustls_str;
+
+/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from crustls to callback functions provided
@@ -252,24 +270,6 @@ typedef struct rustls_slice_bytes {
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
 typedef void *rustls_verify_server_cert_user_data;
-
-/**
- * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
- * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
- * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
- * safe to interpolate into a C string or compare using strncmp. Keep in mind
- * that it is not NUL-terminated.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_str {
-  const char *data;
-  size_t len;
-} rustls_str;
 
 /**
  * Input to a custom certificate verifier callback. See
@@ -470,7 +470,7 @@ typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_s
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
  * and NUL terminated. Returns the number of bytes written before the NUL.
  */
-size_t rustls_version(char *buf, size_t len);
+struct rustls_str rustls_version(void);
 
 /**
  * Get the DER data of the certificate itself.

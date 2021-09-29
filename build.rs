@@ -1,4 +1,10 @@
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 use std::{env, fs, path::PathBuf};
+
+// Keep in sync with Cargo.toml.
+const RUSTLS_CRATE_VERSION: &str = "0.19.0";
 
 fn main() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -8,4 +14,17 @@ fn main() {
     fs::copy("src/rustls.h", include_dir.join("rustls.h")).unwrap();
 
     println!("cargo:include={}", include_dir.to_str().unwrap());
+
+    let dest_path = Path::new("src/constants.rs");
+    let mut f = File::create(&dest_path).expect("Could not create file");
+    let pkg_version = env!("CARGO_PKG_VERSION");
+    write!(
+        &mut f,
+        r#"pub const RUSTLS_FFI_VERSION: &'static str = "crustls/{}/rustls/{}";
+"#,
+        pkg_version, RUSTLS_CRATE_VERSION
+    )
+    .expect("Could not write file");
+
+    println!("cargo:rerun-if-env-changed=CARGO_PKG_VERSION");
 }
