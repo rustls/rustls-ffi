@@ -8,7 +8,7 @@ use rustls::{
 };
 
 use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
-use crate::is_close_notify;
+use crate::{BoxCastPtr, is_close_notify};
 use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
@@ -96,6 +96,8 @@ pub struct rustls_connection {
 impl CastPtr for rustls_connection {
     type RustType = Connection;
 }
+
+impl BoxCastPtr for rustls_connection {}
 
 /// Set the userdata pointer associated with this connection. This will be passed
 /// to any callbacks invoked by the connection, if you've set up callbacks in the config.

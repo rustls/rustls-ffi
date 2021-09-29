@@ -296,6 +296,21 @@ pub(crate) trait CastPtr {
     }
 }
 
+pub(crate) trait BoxCastPtr: CastPtr + Sized {
+    fn to_box(ptr: *mut Self) -> Box<Self::RustType> {
+        let rs_typed = Self::cast_mut_ptr(ptr);
+        unsafe { Box::from_raw(rs_typed) }
+    }
+
+    fn to_mut_ptr(src: Self::RustType) -> *mut Self {
+        Box::into_raw(Box::new(src)) as *mut _
+    }
+
+    fn set_mut_ptr(dst: *mut *mut Self, src: Self::RustType) {
+        unsafe { *dst = Self::to_mut_ptr(src); }
+    }
+}
+
 #[macro_export]
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {

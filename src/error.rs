@@ -268,7 +268,6 @@ pub(crate) fn result_to_error(input: &rustls_result) -> Either {
     use rustls::internal::msgs::enums::AlertDescription as alert;
     use rustls_result::*;
     use sct::Error as sct;
-    use webpki::Error as webpki;
 
     match input {
         // These variants are local to this glue layer.
@@ -282,6 +281,7 @@ pub(crate) fn result_to_error(input: &rustls_result) -> Either {
         InsufficientSize => "provided buffer is of insufficient size".into(),
         NotFound => "the item was not found".into(),
         InvalidParameter => "a parameter had an invalid value".into(),
+        CertInvalidData => "invalid certificate data found".into(),
 
         // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error
@@ -300,6 +300,13 @@ pub(crate) fn result_to_error(input: &rustls_result) -> Either {
         NoApplicationProtocol => Error::NoApplicationProtocol.into(),
         PeerIncompatibleError => Error::PeerIncompatibleError("reason omitted".to_string()).into(),
         PeerMisbehavedError => Error::PeerMisbehavedError("reason omitted".to_string()).into(),
+        BadMaxFragmentSize => Error::BadMaxFragmentSize.into(),
+        UnsupportedNameType => Error::UnsupportedNameType.into(),
+        EncryptError => Error::EncryptError.into(),
+        CertInvalidEncoding => Error::InvalidCertificateEncoding.into(),
+        CertInvalidSignatureType => Error::InvalidCertificateSignatureType.into(),
+        CertInvalidSignature => Error::InvalidCertificateSignature.into(),
+
         General => Error::General("omitted".to_string()).into(),
 
         AlertCloseNotify => Error::AlertReceived(alert::CloseNotify).into(),
@@ -339,33 +346,6 @@ pub(crate) fn result_to_error(input: &rustls_result) -> Either {
         AlertCertificateRequired => Error::AlertReceived(alert::CertificateRequired).into(),
         AlertNoApplicationProtocol => Error::AlertReceived(alert::NoApplicationProtocol).into(),
         AlertUnknown => Error::AlertReceived(alert::Unknown(0)).into(),
-
-        CertBadEncoding => webpki::BadDer.into(),
-        CertBadTimeEncoding => webpki::BadDerTime.into(),
-        CertCAUsedAsEndEntity => webpki::CaUsedAsEndEntity.into(),
-        CertExpired => webpki::CertExpired.into(),
-        CertNotValidForName => webpki::CertNotValidForName.into(),
-        CertNotValidYet => webpki::CertNotValidYet.into(),
-        CertEndEntityUsedAsCA => webpki::EndEntityUsedAsCa.into(),
-        CertExtensionValueInvalid => webpki::ExtensionValueInvalid.into(),
-        CertInvalidCertValidity => webpki::InvalidCertValidity.into(),
-        CertInvalidSignatureForPublicKey => webpki::InvalidSignatureForPublicKey.into(),
-        CertMissingOrMalformedExtensions => webpki::MissingOrMalformedExtensions.into(),
-        CertNameConstraintViolation => webpki::NameConstraintViolation.into(),
-        CertPathLenConstraintViolated => webpki::PathLenConstraintViolated.into(),
-        CertSignatureAlgorithmMismatch => webpki::SignatureAlgorithmMismatch.into(),
-        CertRequiredEKUNotFound => webpki::RequiredEkuNotFound.into(),
-        CertUnknownIssuer => webpki::UnknownIssuer.into(),
-        CertUnsupportedCertVersion => webpki::UnsupportedCertVersion.into(),
-        CertUnsupportedCriticalExtension => {
-            webpki::UnsupportedCriticalExtension.into()
-        }
-        CertUnsupportedSignatureAlgorithmForPublicKey => {
-            webpki::UnsupportedSignatureAlgorithmForPublicKey.into()
-        }
-        CertUnsupportedSignatureAlgorithm => {
-            webpki::UnsupportedSignatureAlgorithm.into()
-        }
 
         CertSCTMalformed => Error::InvalidSct(sct::MalformedSct).into(),
         CertSCTInvalidSignature => Error::InvalidSct(sct::InvalidSignature).into(),
