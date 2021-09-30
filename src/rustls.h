@@ -97,7 +97,7 @@ typedef enum rustls_result {
  */
 typedef enum rustls_tls_version {
   RUSTLS_TLS_VERSION_SSLV2 = 512,
-  RUSTLS_TLS_VERSION_SSSLV3 = 768,
+  RUSTLS_TLS_VERSION_SSLV3 = 768,
   RUSTLS_TLS_VERSION_TLSV1_0 = 769,
   RUSTLS_TLS_VERSION_TLSV1_1 = 770,
   RUSTLS_TLS_VERSION_TLSV1_2 = 771,
@@ -349,7 +349,9 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
 
 /**
  * A return value for a function that may return either success (0) or a
- * non-zero value representing an error.
+ * non-zero value representing an error. The values should match socket
+ * error numbers for your operating system - for example, the integers for
+ * ETIMEDOUT, EAGAIN, or similar.
  */
 typedef int rustls_io_result;
 
@@ -751,6 +753,24 @@ enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_c
                                                                  size_t len);
 
 /**
+ * Provide the configuration a list of certificates where the session
+ * will select the first one that is compatible with the server's signature
+ * verification capabilities. Clients that want to support both ECDSA and
+ * RSA certificates will want the ECSDA to go first in the list.
+ *
+ * The built configuration will keep a reference to all certified keys
+ * provided. The client may `rustls_certified_key_free()` afterwards
+ * without the configuration losing them. The same certified key may also
+ * be used in multiple configs.
+ *
+ * EXPERIMENTAL: installing a client authentication callback will replace any
+ * configured certified keys and vice versa.
+ */
+enum rustls_result rustls_client_config_builder_set_certified_key(struct rustls_client_config_builder *builder,
+                                                                  const struct rustls_certified_key *const *certified_keys,
+                                                                  size_t certified_keys_len);
+
+/**
  * "Free" a client_config_builder before transmogrifying it into a client_config.
  * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
@@ -770,12 +790,12 @@ void rustls_client_config_builder_free(struct rustls_client_config_builder *conf
 void rustls_client_config_free(const struct rustls_client_config *config);
 
 /**
- * Create a new rustls_connection containing a client connection and return it
- * in the output parameter `out`. If this returns an error code, the memory
- * pointed to by `session_out` remains unchanged.
- * If this returns a non-error, the memory pointed to by `conn_out` is modified to point
- * at a valid rustls_connection. The caller now owns the rustls_connection and must call
- * `rustls_client_connection_free` when done with it.
+ * Create a new rustls_connection containing a client connection and return
+ * it in the output parameter `out`. If this returns an error code, the
+ * memory pointed to by `session_out` remains unchanged. If this returns a
+ * non-error, the memory pointed to by `conn_out` is modified to point at a
+ * valid rustls_connection. The caller now owns the rustls_connection and must
+ * call `rustls_connection_free` when done with it.
  */
 enum rustls_result rustls_client_connection_new(const struct rustls_client_config *config,
                                                 const char *hostname,

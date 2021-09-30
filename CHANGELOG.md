@@ -2,6 +2,14 @@
 
 ## 0.8.0 (unreleased)
 
+## 0.7.1 - 2021-06-29
+
+### Changed
+
+  - Fix msvc build (#119, #120)
+  - Add licensing information (#117)
+  - Silence compiler warning in test client (#124, 125)
+
 ## 0.7.0 - 2021-06-24
 
 ### Added
@@ -76,7 +84,7 @@
 
 ### Changed
 
- - Reading plaintext can now return RUSTLS_ALERT_CLOSE_NOTIFY. (#67)
+ - Reading plaintext can now return RUSTLS_RESULT_ALERT_CLOSE_NOTIFY. (#67)
 
 ### Removed
 

@@ -1,19 +1,19 @@
-use std::ffi::OsStr;
+use std::convert::TryInto;
+use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::BufReader;
 use std::slice;
 use std::sync::Arc;
-use std::{convert::TryInto, ffi::CStr};
 
 use libc::{c_char, size_t};
 use rustls::{
-    Certificate, ClientConfig, ClientSession, RootCertStore, ServerCertVerified,
-    SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
+    sign::CertifiedKey, Certificate, ClientConfig, ClientSession, ResolvesClientCert,
+    RootCertStore, ServerCertVerified, SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
 };
 
 use webpki::DNSNameRef;
 
-use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
+use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
 use crate::enums::rustls_tls_version_from_u16;
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
@@ -404,6 +404,67 @@ pub extern "C" fn rustls_client_config_builder_set_ciphersuites(
     }
 }
 
+/// Provide the configuration a list of certificates where the session
+/// will select the first one that is compatible with the server's signature
+/// verification capabilities. Clients that want to support both ECDSA and
+/// RSA certificates will want the ECSDA to go first in the list.
+///
+/// The built configuration will keep a reference to all certified keys
+/// provided. The client may `rustls_certified_key_free()` afterwards
+/// without the configuration losing them. The same certified key may also
+/// be used in multiple configs.
+///
+/// EXPERIMENTAL: installing a client authentication callback will replace any
+/// configured certified keys and vice versa.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_certified_key(
+    builder: *mut rustls_client_config_builder,
+    certified_keys: *const *const rustls_certified_key,
+    certified_keys_len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+        for &key_ptr in keys_ptrs {
+            let key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+            let certified_key: Arc<CertifiedKey> = unsafe {
+                match (key_ptr as *const CertifiedKey).as_ref() {
+                    Some(c) => arc_with_incref_from_raw(c),
+                    None => return NullParameter,
+                }
+            };
+            keys.push(certified_key);
+        }
+        config.client_auth_cert_resolver = Arc::new(ResolvesClientCertFromChoices { keys });
+        rustls_result::Ok
+    }
+}
+
+/// Always send the same client certificate.
+struct ResolvesClientCertFromChoices {
+    keys: Vec<Arc<CertifiedKey>>,
+}
+
+impl ResolvesClientCert for ResolvesClientCertFromChoices {
+    fn resolve(
+        &self,
+        _acceptable_issuers: &[&[u8]],
+        sig_schemes: &[rustls::SignatureScheme],
+    ) -> Option<rustls::sign::CertifiedKey> {
+        for key in self.keys.iter() {
+            if key.key.choose_scheme(sig_schemes).is_some() {
+                return Some(key.as_ref().clone());
+            }
+        }
+        None
+    }
+
+    fn has_certs(&self) -> bool {
+        !self.keys.is_empty()
+    }
+}
+
 /// "Free" a client_config_builder before transmogrifying it into a client_config.
 /// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
 /// and may not be free'd or otherwise used afterwards.
@@ -435,12 +496,12 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
     }
 }
 
-/// Create a new rustls_connection containing a client connection and return it
-/// in the output parameter `out`. If this returns an error code, the memory
-/// pointed to by `session_out` remains unchanged.
-/// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
-/// at a valid rustls_connection. The caller now owns the rustls_connection and must call
-/// `rustls_client_connection_free` when done with it.
+/// Create a new rustls_connection containing a client connection and return
+/// it in the output parameter `out`. If this returns an error code, the
+/// memory pointed to by `session_out` remains unchanged. If this returns a
+/// non-error, the memory pointed to by `conn_out` is modified to point at a
+/// valid rustls_connection. The caller now owns the rustls_connection and must
+/// call `rustls_connection_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_connection_new(
     config: *const rustls_client_config,
