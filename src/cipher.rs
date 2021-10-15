@@ -83,7 +83,9 @@ pub extern "C" fn rustls_supported_ciphersuite_get_suite(
     match supported_ciphersuite {
         rustls::SupportedCipherSuite::Tls12(sc) => &sc.common,
         rustls::SupportedCipherSuite::Tls13(sc) => &sc.common,
-    }.suite.get_u16()
+    }
+    .suite
+    .get_u16()
 }
 
 /// Return the length of rustls' list of supported cipher suites.
