@@ -108,7 +108,7 @@ cleanup:
  *
  * Returns CRUSTLS_DEMO_OK for success,
  * CRUSTLS_DEMO_ERROR for error,
- * CRUSTLS_DEMO_WOULD_BLOCK for "received close_notify"
+ * CRUSTLS_DEMO_EOF for "received close_notify"
  */
 int
 copy_plaintext_to_stdout(struct rustls_connection *client_conn)
