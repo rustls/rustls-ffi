@@ -2,8 +2,6 @@
 #![allow(non_camel_case_types)]
 use libc::{c_char, c_void, size_t};
 use std::cell::RefCell;
-use std::io::Error;
-use std::io::ErrorKind::ConnectionAborted;
 use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
 use std::{mem, slice};
@@ -307,7 +305,9 @@ pub(crate) trait BoxCastPtr: CastPtr + Sized {
     }
 
     fn set_mut_ptr(dst: *mut *mut Self, src: Self::RustType) {
-        unsafe { *dst = Self::to_mut_ptr(src); }
+        unsafe {
+            *dst = Self::to_mut_ptr(src);
+        }
     }
 }
 
@@ -438,8 +438,4 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     let val = Arc::clone(&r);
     mem::forget(r);
     val
-}
-
-pub(crate) fn is_close_notify(e: &Error) -> bool {
-    e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify")
 }

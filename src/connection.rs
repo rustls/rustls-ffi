@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
@@ -11,8 +11,8 @@ use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
     VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
 };
-use crate::is_close_notify;
 use crate::log::{ensure_log_registered, rustls_log_callback};
+
 use crate::BoxCastPtr;
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
@@ -438,11 +438,8 @@ pub extern "C" fn rustls_connection_read(
 
         let n_read: usize = match conn.reader().read(read_buf) {
             Ok(n) => n,
-            // Rustls turns close_notify alerts into `io::Error` of kind `ConnectionAborted`.
-            // https://docs.rs/rustls/0.19.0/rustls/struct.ClientConnection.html#impl-Read.
-            Err(e) if is_close_notify(&e) => {
-                return rustls_result::AlertCloseNotify;
-            }
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
+            Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
             Err(_) => return rustls_result::Io,
         };
         *out_n = n_read;

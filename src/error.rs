@@ -70,6 +70,8 @@ pub enum rustls_result {
     InsufficientSize = 7007,
     NotFound = 7008,
     InvalidParameter = 7009,
+    UnexpectedEof = 7010,
+    PlaintextEmpty = 7011,
 
     // From https://docs.rs/rustls/0.20.0/rustls/enum.Error.html
     CorruptMessage = 7100,
@@ -284,6 +286,8 @@ pub(crate) fn result_to_error(input: &rustls_result) -> Either {
         NotFound => "the item was not found".into(),
         InvalidParameter => "a parameter had an invalid value".into(),
         CertInvalidData => "invalid certificate data found".into(),
+        UnexpectedEof =>  "unexpected EOF".into(),
+        PlaintextEmpty =>  "no plaintext available; call rustls_connection_read_tls again".into(),
 
         // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error

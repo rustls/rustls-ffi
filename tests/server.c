@@ -115,13 +115,13 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   }
 
   result = copy_plaintext_to_buffer(conn);
-  if(result != CRUSTLS_DEMO_CLOSE_NOTIFY) {
+  if(result != CRUSTLS_DEMO_EOF) {
     fprintf(stderr, "do_read returning %d\n", result);
     return result;
   }
 
-  /* If we got a close_notify, verify that the sender then
-   * closed the TCP connection. */
+  /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
+   * verify that the sender then closed the TCP connection. */
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
@@ -135,7 +135,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
-  return CRUSTLS_DEMO_CLOSE_NOTIFY;
+  return CRUSTLS_DEMO_EOF;
 }
 
 enum crustls_demo_result
@@ -202,7 +202,7 @@ handle_conn(struct conndata *conn)
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
-        else if(result == CRUSTLS_DEMO_CLOSE_NOTIFY) {
+        else if(result == CRUSTLS_DEMO_EOF) {
           goto cleanup;
         }
         else if(result != CRUSTLS_DEMO_OK) {
