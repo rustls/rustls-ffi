@@ -967,7 +967,7 @@ struct rustls_server_config_builder_wants_verifier *rustls_server_config_builder
  * `versions` will only be used during the call and the application retains
  * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
  */
-enum rustls_result rustls_client_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
+enum rustls_result rustls_server_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
                                                     size_t cipher_suites_len,
                                                     const uint16_t *tls_versions,
                                                     size_t tls_versions_len,

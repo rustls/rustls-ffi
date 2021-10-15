@@ -117,7 +117,7 @@ pub extern "C" fn rustls_server_config_builder_new_with_safe_defaults(
 /// `versions` will only be used during the call and the application retains
 /// ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
 #[no_mangle]
-pub extern "C" fn rustls_client_config_builder_new(
+pub extern "C" fn rustls_server_config_builder_new(
     cipher_suites: *const *const rustls_supported_ciphersuite,
     cipher_suites_len: size_t,
     tls_versions: *const u16,
