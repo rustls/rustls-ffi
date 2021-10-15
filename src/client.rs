@@ -478,6 +478,18 @@ impl ResolvesClientCert for ResolvesClientCertFromChoices {
     }
 }
 
+/// Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
+/// (read-only).
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_build(
+    builder: *mut rustls_client_config_builder,
+) -> *const rustls_client_config {
+    ffi_panic_boundary! {
+        let b = BoxCastPtr::to_box(builder);
+        Arc::into_raw(Arc::new(*b)) as *const _
+    }
+}
+
 /// "Free" a client_config_builder before transmogrifying it into a client_config.
 /// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
 /// and may not be free'd or otherwise used afterwards.

@@ -472,8 +472,9 @@ main(int argc, const char **argv)
   const char *port = argv[2];
   const char *path = argv[3];
 
-  struct rustls_client_config_builder *config_builder =
-    rustls_client_config_builder_new();
+  struct rustls_client_config_builder_wants_verifier *config_builder =
+    rustls_client_config_builder_new_with_safe_defaults();
+  struct rustls_client_config_builder *config_builder2 = NULL;
   const struct rustls_client_config *client_config = NULL;
   struct rustls_slice_bytes alpn_http11;
 
@@ -488,21 +489,21 @@ main(int argc, const char **argv)
 
   if(getenv("CA_FILE")) {
     result = rustls_client_config_builder_load_roots_from_file(
-      config_builder, getenv("CA_FILE"));
+      config_builder, getenv("CA_FILE"), &config_builder2);
     if(result != RUSTLS_RESULT_OK) {
-      print_error("loading trusted certificate", result);
+      print_error("loading trusted certificates", result);
       goto cleanup;
     }
   }
 
   if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(
-      config_builder, verify);
+      config_builder, verify, &config_builder2);
   }
 
-  rustls_client_config_builder_set_protocols(config_builder, &alpn_http11, 1);
+  rustls_client_config_builder_set_protocols(config_builder2, &alpn_http11, 1);
 
-  client_config = rustls_client_config_builder_build(config_builder);
+  client_config = rustls_client_config_builder_build(config_builder2);
 
   int i;
   for(i = 0; i < 3; i++) {

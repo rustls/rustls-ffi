@@ -764,6 +764,12 @@ enum rustls_result rustls_client_config_builder_set_certified_key(struct rustls_
                                                                   size_t certified_keys_len);
 
 /**
+ * Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
+ * (read-only).
+ */
+const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
+
+/**
  * "Free" a client_config_builder before transmogrifying it into a client_config.
  * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
@@ -1031,6 +1037,11 @@ enum rustls_result rustls_server_config_builder_new(const struct rustls_supporte
                                                     struct rustls_server_config_builder_wants_verifier **builder);
 
 /**
+ * For memory lifetime, see rustls_server_config_builder_new.
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_with_no_client_auth(struct rustls_server_config_builder_wants_verifier *wants_verifier);
+
+/**
  * Create a rustls_server_config_builder for TLS sessions that require
  * valid client certificates. The passed rustls_client_cert_verifier may
  * be used in several builders.
@@ -1110,7 +1121,7 @@ enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls
                                                                    size_t certified_keys_len);
 
 /**
- * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
+ * Turn a *rustls_server_config_builder (mutable) into a const *rustls_server_config
  * (read-only).
  */
 const struct rustls_server_config *rustls_server_config_builder_build(struct rustls_server_config_builder *builder);

@@ -5,7 +5,10 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
-use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, ResolvesServerCert, ServerConfig, ServerConnection, WantsServerCert};
+use rustls::server::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello,
+    ResolvesServerCert, ServerConfig, ServerConnection, WantsServerCert,
+};
 use rustls::sign::CertifiedKey;
 use rustls::{
     ConfigBuilder, ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier,
@@ -154,6 +157,18 @@ pub extern "C" fn rustls_server_config_builder_new(
 
         BoxCastPtr::set_mut_ptr(builder, new);
         rustls_result::Ok
+    }
+}
+
+/// For memory lifetime, see rustls_server_config_builder_new.
+#[no_mangle]
+pub extern "C" fn rustls_server_config_builder_with_no_client_auth(
+    wants_verifier: *mut rustls_server_config_builder_wants_verifier,
+) -> *mut rustls_server_config_builder {
+    ffi_panic_boundary! {
+        let prev = *BoxCastPtr::to_box(wants_verifier);
+        let config: ServerConfig = prev.with_no_client_auth().with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
+        BoxCastPtr::to_mut_ptr(config)
     }
 }
 
@@ -314,7 +329,7 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
     }
 }
 
-/// Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
+/// Turn a *rustls_server_config_builder (mutable) into a const *rustls_server_config
 /// (read-only).
 #[no_mangle]
 pub extern "C" fn rustls_server_config_builder_build(
