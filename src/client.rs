@@ -30,7 +30,7 @@ use crate::{
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
 /// Box<ClientConfig>.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
+/// https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
 pub struct rustls_client_config_builder_wants_verifier {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -56,7 +56,7 @@ impl BoxCastPtr for rustls_client_config_builder {}
 
 /// A client config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an Arc<ClientConfig>.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
+/// https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
 pub struct rustls_client_config {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -257,7 +257,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
 ///
 /// If you intend to write a verifier that accepts all certificates, be aware
 /// that special measures are required for IP addresses. Rustls currently
-/// (0.19.0) doesn't support building a ClientSession with an IP address
+/// (0.20.0) doesn't support building a ClientSession with an IP address
 /// (because it's not a valid DnsNameRef). One workaround is to detect IP
 /// addresses and rewrite them to `example.invalid`, and _also_ to disable
 /// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
@@ -268,7 +268,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
 /// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
 /// section.
 ///
-/// https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
+/// https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
     wants_verifier: *mut rustls_client_config_builder_wants_verifier,
@@ -369,7 +369,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 /// This function makes a copy of the data in `protocols` and does not retain
 /// any pointers, so the caller can free the pointed-to memory after calling.
 ///
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#method.set_protocols
+/// https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_protocols(
     builder: *mut rustls_client_config_builder,
@@ -391,7 +391,7 @@ pub extern "C" fn rustls_client_config_builder_set_protocols(
 }
 
 /// Enable or disable SNI.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+/// https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_set_enable_sni(
     config: *mut rustls_client_config_builder,
