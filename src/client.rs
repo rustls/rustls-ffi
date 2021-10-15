@@ -371,7 +371,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
 ///
 /// https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
 #[no_mangle]
-pub extern "C" fn rustls_client_config_builder_set_protocols(
+pub extern "C" fn rustls_client_config_builder_set_alpn_protocols(
     builder: *mut rustls_client_config_builder,
     protocols: *const rustls_slice_bytes,
     len: size_t,

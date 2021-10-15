@@ -501,7 +501,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  rustls_client_config_builder_set_protocols(config_builder2, &alpn_http11, 1);
+  rustls_client_config_builder_set_alpn_protocols(config_builder2, &alpn_http11, 1);
 
   client_config = rustls_client_config_builder_build(config_builder2);
 

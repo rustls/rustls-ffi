@@ -727,9 +727,9 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
  *
  * https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
  */
-enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_client_config_builder *builder,
-                                                              const struct rustls_slice_bytes *protocols,
-                                                              size_t len);
+enum rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_client_config_builder *builder,
+                                                                   const struct rustls_slice_bytes *protocols,
+                                                                   size_t len);
 
 /**
  * Enable or disable SNI.
@@ -1100,9 +1100,9 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
  *
  * https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols
  */
-enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_server_config_builder *builder,
-                                                              const struct rustls_slice_bytes *protocols,
-                                                              size_t len);
+enum rustls_result rustls_server_config_builder_set_alpn_protocols(struct rustls_server_config_builder *builder,
+                                                                   const struct rustls_slice_bytes *protocols,
+                                                                   size_t len);
 
 /**
  * Provide the configuration a list of certificates where the session
