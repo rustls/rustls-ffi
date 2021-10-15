@@ -7,9 +7,13 @@ use rustls::{
     Certificate, ClientConnection, ServerConnection, SupportedCipherSuite, ALL_CIPHER_SUITES,
 };
 
-use crate::io::{CallbackReader, CallbackWriter, ReadCallback, WriteCallback};
-use crate::{BoxCastPtr, is_close_notify};
+use crate::io::{
+    rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
+    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
+};
+use crate::is_close_notify;
 use crate::log::{ensure_log_registered, rustls_log_callback};
+use crate::BoxCastPtr;
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
@@ -180,6 +184,39 @@ pub extern "C" fn rustls_connection_write_tls(
         let callback: WriteCallback = try_callback!(callback);
 
         let mut writer = CallbackWriter { callback, userdata };
+        let n_written: usize = match conn.write_tls(&mut writer) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_written;
+
+        rustls_io_result(0)
+    }
+}
+
+/// Write all available TLS bytes to the network. The actual network I/O is performed by
+/// `callback`, which you provide. Rustls will invoke your callback with an array
+/// of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+/// You don't have to write them all, just as many as you are willing.
+/// The `userdata` parameter is passed through directly to `callback`. Note that
+/// this is distinct from the `userdata` parameter set with
+/// `rustls_connection_set_userdata`.
+/// Returns 0 for success, or an errno value on error. Passes through return values
+/// from callback. See rustls_write_callback for more details.
+/// https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+#[no_mangle]
+pub extern "C" fn rustls_connection_write_tls_vectored(
+    conn: *mut rustls_connection,
+    callback: rustls_write_vectored_callback,
+    userdata: *mut c_void,
+    out_n: *mut size_t,
+) -> rustls_io_result {
+    ffi_panic_boundary! {
+        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        let callback: VectoredWriteCallback = try_callback!(callback);
+
+        let mut writer = VectoredCallbackWriter { callback, userdata };
         let n_written: usize = match conn.write_tls(&mut writer) {
             Ok(n) => n,
             Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),

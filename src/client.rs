@@ -7,14 +7,13 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use libc::{c_char, size_t};
-use rustls::client::ServerCertVerified;
+use rustls::client::{ResolvesClientCert, ServerCertVerified};
 use rustls::{
-    Certificate, ClientConfig, ClientConnection, ConfigBuilder, OwnedTrustAnchor, ProtocolVersion,
-    RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
+    sign::CertifiedKey, Certificate, ClientConfig, ClientConnection, ConfigBuilder,
+    ProtocolVersion, RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
 };
-use webpki::TrustAnchor;
 
-use crate::cipher::{rustls_root_cert_store, rustls_supported_ciphersuite};
+use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, result_to_error, rustls_result};
@@ -26,7 +25,7 @@ use crate::{
 };
 
 /// A client config being constructed. A builder can be modified by,
-/// e.g. rustls_client_config_builder_load_native_roots. Once you're
+/// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
 /// done configuring settings, call rustls_client_config_builder_build
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
@@ -71,8 +70,12 @@ impl CastPtr for rustls_client_config {
 
 /// Create a rustls_client_config_builder. Caller owns the memory and must
 /// eventually call rustls_client_config_builder_build, then free the
-/// resulting rustls_client_config. This uses rustls safe default values
+/// resulting rustls_client_config.
+/// This uses rustls safe default values
 /// for the cipher suites, key exchange groups and protocol versions.
+/// This starts out with no trusted roots.
+/// Caller must add roots with rustls_client_config_builder_load_roots_from_file
+/// or provide a custom verifier.
 #[no_mangle]
 pub extern "C" fn rustls_client_config_builder_new_with_safe_defaults(
 ) -> *mut rustls_client_config_builder_wants_verifier {
@@ -287,40 +290,6 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
     }
 }
 
-/// Add certificates from platform's native root store, using
-/// https://github.com/ctz/rustls-native-certs#readme.
-#[no_mangle]
-pub extern "C" fn rustls_client_config_builder_load_native_roots(
-    wants_verifier: *mut rustls_client_config_builder_wants_verifier,
-    builder: *mut *mut rustls_client_config_builder,
-) -> rustls_result {
-    ffi_panic_boundary! {
-        let certs = match rustls_native_certs::load_native_certs() {
-            Ok(certs) => certs,
-            Err(_) => return rustls_result::Io,
-        };
-
-        let mut anchors = vec![];
-        for cert in certs.into_iter() {
-            match TrustAnchor::try_from_cert_der(&cert.0) {
-                Ok(ta) => {
-                    anchors.push(OwnedTrustAnchor::from_subject_spki_name_constraints(ta.subject, ta.spki, ta.name_constraints));
-                }
-                Err(_) => return rustls_result::CertificateParseError,
-            }
-        }
-
-        let mut roots = RootCertStore::empty();
-        roots.add_server_trust_anchors(anchors.into_iter());
-        let prev = *BoxCastPtr::to_box(wants_verifier);
-        // TODO: no client authentication support for now
-        let config = prev.with_root_certificates(roots).with_no_client_auth();
-        BoxCastPtr::set_mut_ptr(builder, config);
-
-        rustls_result::Ok
-    }
-}
-
 /// Use the trusted root certificates from the provided store.
 ///
 /// This replaces any trusted roots already configured with copies
@@ -448,6 +417,67 @@ pub extern "C" fn rustls_client_config_builder_wants_verifier_free(
     }
 }
 
+/// Provide the configuration a list of certificates where the session
+/// will select the first one that is compatible with the server's signature
+/// verification capabilities. Clients that want to support both ECDSA and
+/// RSA certificates will want the ECSDA to go first in the list.
+///
+/// The built configuration will keep a reference to all certified keys
+/// provided. The client may `rustls_certified_key_free()` afterwards
+/// without the configuration losing them. The same certified key may also
+/// be used in multiple configs.
+///
+/// EXPERIMENTAL: installing a client authentication callback will replace any
+/// configured certified keys and vice versa.
+#[no_mangle]
+pub extern "C" fn rustls_client_config_builder_set_certified_key(
+    builder: *mut rustls_client_config_builder,
+    certified_keys: *const *const rustls_certified_key,
+    certified_keys_len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+        for &key_ptr in keys_ptrs {
+            let key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr);
+            let certified_key: Arc<CertifiedKey> = unsafe {
+                match (key_ptr as *const CertifiedKey).as_ref() {
+                    Some(c) => arc_with_incref_from_raw(c),
+                    None => return NullParameter,
+                }
+            };
+            keys.push(certified_key);
+        }
+        config.client_auth_cert_resolver = Arc::new(ResolvesClientCertFromChoices { keys });
+        rustls_result::Ok
+    }
+}
+
+/// Always send the same client certificate.
+struct ResolvesClientCertFromChoices {
+    keys: Vec<Arc<CertifiedKey>>,
+}
+
+impl ResolvesClientCert for ResolvesClientCertFromChoices {
+    fn resolve(
+        &self,
+        _acceptable_issuers: &[&[u8]],
+        sig_schemes: &[rustls::SignatureScheme],
+    ) -> Option<Arc<rustls::sign::CertifiedKey>> {
+        for key in self.keys.iter() {
+            if key.key.choose_scheme(sig_schemes).is_some() {
+                return Some(key.clone());
+            }
+        }
+        None
+    }
+
+    fn has_certs(&self) -> bool {
+        !self.keys.is_empty()
+    }
+}
+
 /// "Free" a client_config_builder before transmogrifying it into a client_config.
 /// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
 /// and may not be free'd or otherwise used afterwards.
@@ -477,12 +507,12 @@ pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config)
     }
 }
 
-/// Create a new rustls_connection containing a client connection and return it
-/// in the output parameter `out`. If this returns an error code, the memory
-/// pointed to by `session_out` remains unchanged.
-/// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
-/// at a valid rustls_connection. The caller now owns the rustls_connection and must call
-/// `rustls_client_connection_free` when done with it.
+/// Create a new rustls_connection containing a client connection and return
+/// it in the output parameter `out`. If this returns an error code, the
+/// memory pointed to by `session_out` remains unchanged. If this returns a
+/// non-error, the memory pointed to by `conn_out` is modified to point at a
+/// valid rustls_connection. The caller now owns the rustls_connection and must
+/// call `rustls_connection_free` when done with it.
 #[no_mangle]
 pub extern "C" fn rustls_client_connection_new(
     config: *const rustls_client_config,

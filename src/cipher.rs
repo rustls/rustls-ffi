@@ -344,7 +344,7 @@ pub extern "C" fn rustls_root_cert_store_free(store: *mut rustls_root_cert_store
 }
 
 /// A verifier of client certificates that requires all certificates to be
-/// trusted based on a given`rustls_root_cert_store`. Usable in building server
+/// trusted based on a given `rustls_root_cert_store`. Usable in building server
 /// configurations. Connections without such a client certificate will not
 /// be accepted.
 pub struct rustls_client_cert_verifier {

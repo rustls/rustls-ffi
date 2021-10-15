@@ -5,7 +5,9 @@ use libc::{c_char, size_t};
 use rustls::Error;
 
 /// A return value for a function that may return either success (0) or a
-/// non-zero value representing an error.
+/// non-zero value representing an error. The values should match socket
+/// error numbers for your operating system - for example, the integers for
+/// ETIMEDOUT, EAGAIN, or similar.
 #[repr(transparent)]
 pub struct rustls_io_result(pub libc::c_int);
 

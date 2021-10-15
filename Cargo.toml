@@ -1,6 +1,6 @@
 [package]
 name = "crustls"
-version = "0.6.1"
+version = "0.7.1"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 description = "C-to-rustls bindings"
 edition = "2018"
@@ -11,7 +11,6 @@ links = "crustls"
 rustls = { version = "=0.20", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
-rustls-native-certs = { git = "https://github.com/djc/rustls-native-certs", rev = "6bd0a9892bc23eb42aa2b9bb832daa10b0d70740" }
 sct = "0.7"
 rustls-pemfile = "0.2.1"
 log = "0.4.14"
