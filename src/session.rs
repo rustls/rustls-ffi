@@ -131,7 +131,7 @@ impl SessionStoreBroker {
     }
 }
 
-impl rustls::StoresServerSessions for SessionStoreBroker {
+impl rustls::server::StoresServerSessions for SessionStoreBroker {
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
         self.store(key, value)
     }
@@ -143,9 +143,13 @@ impl rustls::StoresServerSessions for SessionStoreBroker {
     fn take(&self, key: &[u8]) -> Option<Vec<u8>> {
         return self.retrieve(key, true);
     }
+
+    fn can_cache(&self) -> bool {
+        true
+    }
 }
 
-impl rustls::StoresClientSessions for SessionStoreBroker {
+impl rustls::client::StoresClientSessions for SessionStoreBroker {
     fn put(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
         self.store(key, value)
     }

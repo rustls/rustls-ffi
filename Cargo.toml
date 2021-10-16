@@ -8,11 +8,11 @@ links = "crustls"
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in lib.rs
-rustls = { version = "^0.19.0", features = [ "dangerous_configuration" ] }
-webpki = "0.21"
+rustls = { version = "=0.20", features = [ "dangerous_configuration" ] }
+webpki = "0.22"
 libc = "0.2"
-sct = "0.6.0"
-rustls-pemfile = "0.2.0"
+sct = "0.7"
+rustls-pemfile = "0.2.1"
 log = "0.4.14"
 
 [dev_dependencies]

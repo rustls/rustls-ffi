@@ -7,7 +7,6 @@ enum crustls_demo_result
   CRUSTLS_DEMO_ERROR,
   CRUSTLS_DEMO_AGAIN,
   CRUSTLS_DEMO_EOF,
-  CRUSTLS_DEMO_CLOSE_NOTIFY,
 };
 
 /* A growable vector of bytes. */
@@ -76,7 +75,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n);
  *
  * Returns CRUSTLS_DEMO_OK for success,
  * CRUSTLS_DEMO_ERROR for error,
- * CRUSTLS_DEMO_CLOSE_NOTIFY for "received close_notify"
+ * CRUSTLS_DEMO_EOF for "connection cleanly terminated by peer"
  */
 int
 copy_plaintext_to_buffer(struct conndata *conn);
