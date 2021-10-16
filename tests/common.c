@@ -206,6 +206,10 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
   return CRUSTLS_DEMO_OK;
 }
 
+/**
+ * Copy all available plaintext from rustls into our own buffer, growing
+ * our buffer as much as needed.
+ */
 int
 copy_plaintext_to_buffer(struct conndata *conn)
 {
@@ -234,6 +238,9 @@ copy_plaintext_to_buffer(struct conndata *conn)
       return CRUSTLS_DEMO_EOF;
     }
     bytevec_consume(&conn->data, n);
+    if(bytevec_ensure_available(&conn->data, 1024) != CRUSTLS_DEMO_OK) {
+      return CRUSTLS_DEMO_ERROR;
+    }
   }
 
   return CRUSTLS_DEMO_ERROR;

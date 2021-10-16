@@ -102,47 +102,6 @@ cleanup:
   return -1;
 }
 
-/* Read all available bytes from the rustls_connection until EOF.
- * Note that EOF here indicates "no more bytes until
- * process_new_packets", not "stream is closed".
- *
- * Returns CRUSTLS_DEMO_OK for success,
- * CRUSTLS_DEMO_ERROR for error,
- * CRUSTLS_DEMO_EOF for "received close_notify"
- */
-int
-copy_plaintext_to_stdout(struct rustls_connection *client_conn)
-{
-  int result;
-  char buf[2048];
-  size_t n;
-
-  for(;;) {
-    bzero(buf, sizeof(buf));
-    result =
-      rustls_connection_read(client_conn, (uint8_t *)buf, sizeof(buf), &n);
-    if(result == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
-      /* This is expected. It just means "no more bytes for now." */
-      return CRUSTLS_DEMO_OK;
-    } else if(result != RUSTLS_RESULT_OK) {
-      print_error("Error in rustls_connection_read", result);
-      return CRUSTLS_DEMO_ERROR;
-    }
-    if(n == 0) {
-      fprintf(stderr, "Received clean EOF, cleanly ending connection\n");
-      return CRUSTLS_DEMO_EOF;
-    }
-
-    result = write_all(STDOUT_FILENO, buf, n);
-    if(result != 0) {
-      return CRUSTLS_DEMO_ERROR;
-    }
-  }
-
-  fprintf(stderr, "copy_plaintext_to_stdout: fell through loop\n");
-  return CRUSTLS_DEMO_ERROR;
-}
-
 /*
  * Do one read from the socket, and process all resulting bytes into the
  * rustls_connection, then copy all plaintext bytes from the session to stdout.
@@ -266,6 +225,11 @@ send_request_and_read_response(struct conndata *conn,
       FD_SET(sockfd, &write_fds);
     }
 
+    if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
+      fprintf(stderr, "rustls wants neither read nor write. draining plaintext and exiting.\n");
+      goto drain_plaintext;
+    }
+
     result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
     if(result == -1) {
       perror("select");
@@ -286,8 +250,7 @@ send_request_and_read_response(struct conndata *conn,
           break;
         }
         else if(result == CRUSTLS_DEMO_EOF) {
-          ret = 0;
-          goto cleanup;
+          goto drain_plaintext;
         }
         else if(result != CRUSTLS_DEMO_OK) {
           goto cleanup;
@@ -320,13 +283,7 @@ send_request_and_read_response(struct conndata *conn,
         }
         if(headers_len != 0 &&
            conn->data.len >= headers_len + content_length) {
-          /* body is done. */
-          if(write(STDERR_FILENO, conn->data.data, conn->data.len) < 0) {
-            fprintf(stderr, "error writing to stderr\n");
-            goto cleanup;
-          }
-          ret = 0;
-          goto cleanup;
+          goto drain_plaintext;
         }
       }
     }
@@ -354,6 +311,18 @@ send_request_and_read_response(struct conndata *conn,
   }
 
   fprintf(stderr, "send_request_and_read_response: loop fell through");
+
+drain_plaintext:
+  result = copy_plaintext_to_buffer(conn);
+  if(result != CRUSTLS_DEMO_OK && result != CRUSTLS_DEMO_EOF) {
+    goto cleanup;
+  }
+  fprintf(stderr, "writing %ld bytes to stdout\n", conn->data.len);
+  if(write(STDERR_FILENO, conn->data.data, conn->data.len) < 0) {
+    fprintf(stderr, "error writing to stderr\n");
+    goto cleanup;
+  }
+  ret = 0;
 
 cleanup:
   if(sockfd > 0) {
