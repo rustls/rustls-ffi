@@ -285,15 +285,30 @@ const RUSTLS_CRATE_VERSION: &str = "0.20.0";
 pub(crate) trait CastPtr {
     type RustType;
 
-    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
-        ptr as *const _
-    }
-
     fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
         ptr as *mut _
     }
 }
 
+/// CastConstPtr represents a subset of CastPtr, for when we can only treat
+/// something as a const (for instance when dealing with Arc).
+pub(crate) trait CastConstPtr {
+    type RustType;
+
+    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
+        ptr as *const _
+    }
+}
+
+impl<T, R> CastConstPtr for T
+where
+    T: CastPtr<RustType = R>,
+{
+    type RustType = R;
+}
+
+// An implementation of BoxCastPtr means that when we give C code a pointer to the relevant type,
+// it is actually a Box.
 pub(crate) trait BoxCastPtr: CastPtr + Sized {
     fn to_box(ptr: *mut Self) -> Box<Self::RustType> {
         let rs_typed = Self::cast_mut_ptr(ptr);
@@ -308,6 +323,35 @@ pub(crate) trait BoxCastPtr: CastPtr + Sized {
         unsafe {
             *dst = Self::to_mut_ptr(src);
         }
+    }
+}
+
+// An implementation of ArcCastPtr means that when we give C code a pointer to the relevant type,
+// it is actually a Arc.
+pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
+    /// Sometimes we create an Arc, then call `into_raw` and return the resulting raw pointer
+    /// to C. C can then call rustls_server_session_new multiple times using that
+    /// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
+    /// its reference count will be decremented on drop. We need to reference count to stay at 1,
+    /// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
+    /// clones it to increment the reference count (which will make it 2 in this particular case), and
+    /// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
+    /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
+    /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
+    ///
+    /// Unsafety:
+    ///
+    /// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+    fn to_arc(ptr: *const Self) -> Arc<Self::RustType> {
+        let rs_typed = Self::cast_const_ptr(ptr);
+        let r = unsafe { Arc::from_raw(rs_typed) };
+        let val = Arc::clone(&r);
+        mem::forget(r);
+        val
+    }
+
+    fn to_const_ptr(src: Self::RustType) -> *const Self {
+        Arc::into_raw(Arc::new(src)) as *const _
     }
 }
 
@@ -339,7 +383,7 @@ macro_rules! try_mut_slice {
 /// against T (the cast-to type) rather than across F (the from type).
 pub(crate) fn try_from<'a, F, T>(from: *const F) -> Option<&'a T>
 where
-    F: CastPtr<RustType = T>,
+    F: CastConstPtr<RustType = T>,
 {
     unsafe { F::cast_const_ptr(from).as_ref() }
 }
@@ -417,25 +461,4 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
         write_buf[len] = 0;
         len
     }
-}
-
-/// In rustls_server_config_builder_build, and rustls_client_config_builder_build,
-/// we create an Arc, then call `into_raw` and return the resulting raw pointer
-/// to C. C can then call rustls_server_session_new multiple times using that
-/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
-/// its reference count will be decremented on drop. We need to reference count to stay at 1,
-/// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
-/// clones it to increment the reference count (which will make it 2 in this particular case), and
-/// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
-/// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
-/// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
-///
-/// Unsafety:
-///
-/// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
-unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
-    let r = Arc::from_raw(v);
-    let val = Arc::clone(&r);
-    mem::forget(r);
-    val
 }
