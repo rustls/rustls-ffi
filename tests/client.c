@@ -108,7 +108,7 @@ cleanup:
  *
  * Returns CRUSTLS_DEMO_OK for success,
  * CRUSTLS_DEMO_ERROR for error,
- * CRUSTLS_DEMO_CLOSE_NOTIFY for "received close_notify"
+ * CRUSTLS_DEMO_EOF for "received close_notify"
  */
 int
 copy_plaintext_to_stdout(struct rustls_connection *client_conn)
@@ -121,17 +121,16 @@ copy_plaintext_to_stdout(struct rustls_connection *client_conn)
     bzero(buf, sizeof(buf));
     result =
       rustls_connection_read(client_conn, (uint8_t *)buf, sizeof(buf), &n);
-    if(result == RUSTLS_RESULT_ALERT_CLOSE_NOTIFY) {
-      fprintf(stderr, "Received close_notify, cleanly ending connection\n");
-      return CRUSTLS_DEMO_CLOSE_NOTIFY;
-    }
-    if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "Error in rustls_connection_read: %d\n", result);
+    if(result == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
+      /* This is expected. It just means "no more bytes for now." */
+      return CRUSTLS_DEMO_OK;
+    } else if(result != RUSTLS_RESULT_OK) {
+      print_error("Error in rustls_connection_read", result);
       return CRUSTLS_DEMO_ERROR;
     }
     if(n == 0) {
-      /* This is expected. It just means "no more bytes for now." */
-      return CRUSTLS_DEMO_OK;
+      fprintf(stderr, "Received clean EOF, cleanly ending connection\n");
+      return CRUSTLS_DEMO_EOF;
     }
 
     result = write_all(STDOUT_FILENO, buf, n);
@@ -183,12 +182,12 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   }
 
   result = copy_plaintext_to_buffer(conn);
-  if(result != CRUSTLS_DEMO_CLOSE_NOTIFY) {
+  if(result != CRUSTLS_DEMO_EOF) {
     return result;
   }
 
-  /* If we got a close_notify, verify that the sender then
-   * closed the TCP connection. */
+  /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
+   * verify that the sender then closed the TCP connection. */
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
@@ -202,7 +201,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
-  return CRUSTLS_DEMO_CLOSE_NOTIFY;
+  return CRUSTLS_DEMO_EOF;
 }
 
 static const char *CONTENT_LENGTH = "Content-Length";
@@ -286,7 +285,7 @@ send_request_and_read_response(struct conndata *conn,
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
-        else if(result == CRUSTLS_DEMO_CLOSE_NOTIFY) {
+        else if(result == CRUSTLS_DEMO_EOF) {
           ret = 0;
           goto cleanup;
         }
@@ -472,8 +471,9 @@ main(int argc, const char **argv)
   const char *port = argv[2];
   const char *path = argv[3];
 
-  struct rustls_client_config_builder *config_builder =
-    rustls_client_config_builder_new();
+  struct rustls_client_config_builder_wants_verifier *config_builder =
+    rustls_client_config_builder_new_with_safe_defaults();
+  struct rustls_client_config_builder *config_builder2 = NULL;
   const struct rustls_client_config *client_config = NULL;
   struct rustls_slice_bytes alpn_http11;
 
@@ -488,21 +488,22 @@ main(int argc, const char **argv)
 
   if(getenv("CA_FILE")) {
     result = rustls_client_config_builder_load_roots_from_file(
-      config_builder, getenv("CA_FILE"));
+      config_builder, getenv("CA_FILE"), &config_builder2);
     if(result != RUSTLS_RESULT_OK) {
-      print_error("loading trusted certificate", result);
+      print_error("loading trusted certificates", result);
       goto cleanup;
     }
-  }
-
-  if(getenv("NO_CHECK_CERTIFICATE")) {
+  } else if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(
-      config_builder, verify);
+      config_builder, verify, &config_builder2);
+  } else {
+    fprintf(stderr, "must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
+    goto cleanup;
   }
 
-  rustls_client_config_builder_set_protocols(config_builder, &alpn_http11, 1);
+  rustls_client_config_builder_set_alpn_protocols(config_builder2, &alpn_http11, 1);
 
-  client_config = rustls_client_config_builder_build(config_builder);
+  client_config = rustls_client_config_builder_build(config_builder2);
 
   int i;
   for(i = 0; i < 3; i++) {

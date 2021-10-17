@@ -18,13 +18,23 @@ typedef enum rustls_result {
   RUSTLS_RESULT_INSUFFICIENT_SIZE = 7007,
   RUSTLS_RESULT_NOT_FOUND = 7008,
   RUSTLS_RESULT_INVALID_PARAMETER = 7009,
+  RUSTLS_RESULT_UNEXPECTED_EOF = 7010,
+  RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
   RUSTLS_RESULT_FAILED_TO_GET_CURRENT_TIME = 7103,
+  RUSTLS_RESULT_FAILED_TO_GET_RANDOM_BYTES = 7113,
   RUSTLS_RESULT_HANDSHAKE_NOT_COMPLETE = 7104,
   RUSTLS_RESULT_PEER_SENT_OVERSIZED_RECORD = 7105,
   RUSTLS_RESULT_NO_APPLICATION_PROTOCOL = 7106,
+  RUSTLS_RESULT_BAD_MAX_FRAGMENT_SIZE = 7114,
+  RUSTLS_RESULT_UNSUPPORTED_NAME_TYPE = 7115,
+  RUSTLS_RESULT_ENCRYPT_ERROR = 7116,
+  RUSTLS_RESULT_CERT_INVALID_ENCODING = 7117,
+  RUSTLS_RESULT_CERT_INVALID_SIGNATURE_TYPE = 7118,
+  RUSTLS_RESULT_CERT_INVALID_SIGNATURE = 7119,
+  RUSTLS_RESULT_CERT_INVALID_DATA = 7120,
   RUSTLS_RESULT_PEER_INCOMPATIBLE_ERROR = 7107,
   RUSTLS_RESULT_PEER_MISBEHAVED_ERROR = 7108,
   RUSTLS_RESULT_INAPPROPRIATE_MESSAGE = 7109,
@@ -66,25 +76,6 @@ typedef enum rustls_result {
   RUSTLS_RESULT_ALERT_CERTIFICATE_REQUIRED = 7232,
   RUSTLS_RESULT_ALERT_NO_APPLICATION_PROTOCOL = 7233,
   RUSTLS_RESULT_ALERT_UNKNOWN = 7234,
-  RUSTLS_RESULT_CERT_BAD_DER = 7300,
-  RUSTLS_RESULT_CERT_BAD_DER_TIME = 7301,
-  RUSTLS_RESULT_CERT_CA_USED_AS_END_ENTITY = 7302,
-  RUSTLS_RESULT_CERT_EXPIRED = 7303,
-  RUSTLS_RESULT_CERT_NOT_VALID_FOR_NAME = 7304,
-  RUSTLS_RESULT_CERT_NOT_VALID_YET = 7305,
-  RUSTLS_RESULT_CERT_END_ENTITY_USED_AS_CA = 7306,
-  RUSTLS_RESULT_CERT_EXTENSION_VALUE_INVALID = 7307,
-  RUSTLS_RESULT_CERT_INVALID_CERT_VALIDITY = 7308,
-  RUSTLS_RESULT_CERT_INVALID_SIGNATURE_FOR_PUBLIC_KEY = 7309,
-  RUSTLS_RESULT_CERT_NAME_CONSTRAINT_VIOLATION = 7310,
-  RUSTLS_RESULT_CERT_PATH_LEN_CONSTRAINT_VIOLATED = 7311,
-  RUSTLS_RESULT_CERT_SIGNATURE_ALGORITHM_MISMATCH = 7312,
-  RUSTLS_RESULT_CERT_REQUIRED_EKU_NOT_FOUND = 7313,
-  RUSTLS_RESULT_CERT_UNKNOWN_ISSUER = 7314,
-  RUSTLS_RESULT_CERT_UNSUPPORTED_CERT_VERSION = 7315,
-  RUSTLS_RESULT_CERT_UNSUPPORTED_CRITICAL_EXTENSION = 7316,
-  RUSTLS_RESULT_CERT_UNSUPPORTED_SIGNATURE_ALGORITHM_FOR_PUBLIC_KEY = 7317,
-  RUSTLS_RESULT_CERT_UNSUPPORTED_SIGNATURE_ALGORITHM = 7318,
   RUSTLS_RESULT_CERT_SCT_MALFORMED = 7319,
   RUSTLS_RESULT_CERT_SCT_INVALID_SIGNATURE = 7320,
   RUSTLS_RESULT_CERT_SCT_TIMESTAMP_IN_FUTURE = 7321,
@@ -107,7 +98,7 @@ typedef enum rustls_tls_version {
 /**
  * An X.509 certificate, as used in rustls.
  * Corresponds to `Certificate` in the Rust API.
- * https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
+ * https://docs.rs/rustls/0.20.0/rustls/struct.Certificate.html
  */
 typedef struct rustls_certificate rustls_certificate;
 
@@ -115,13 +106,13 @@ typedef struct rustls_certificate rustls_certificate;
  * The complete chain of certificates to send during a TLS handshake,
  * plus a private key that matches the end-entity (leaf) certificate.
  * Corresponds to `CertifiedKey` in the Rust API.
- * https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+ * https://docs.rs/rustls/0.20.0/rustls/sign/struct.CertifiedKey.html
  */
 typedef struct rustls_certified_key rustls_certified_key;
 
 /**
  * A verifier of client certificates that requires all certificates to be
- * trusted based on a given`rustls_root_cert_store`. Usable in building server
+ * trusted based on a given `rustls_root_cert_store`. Usable in building server
  * configurations. Connections without such a client certificate will not
  * be accepted.
  */
@@ -141,9 +132,11 @@ typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_
 /**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
  */
 typedef struct rustls_client_config rustls_client_config;
+
+typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 /**
  * A client config being constructed. A builder can be modified by,
@@ -152,9 +145,9 @@ typedef struct rustls_client_config rustls_client_config;
  * to turn it into a *rustls_client_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
  * Box<ClientConfig>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
  */
-typedef struct rustls_client_config_builder rustls_client_config_builder;
+typedef struct rustls_client_config_builder_wants_verifier rustls_client_config_builder_wants_verifier;
 
 typedef struct rustls_connection rustls_connection;
 
@@ -169,14 +162,14 @@ typedef struct rustls_iovec rustls_iovec;
 /**
  * A root cert store that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<RootCertStore>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
+ * https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html
  */
 typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
  * A server config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ServerConfig>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html
  */
 typedef struct rustls_server_config rustls_server_config;
 
@@ -186,10 +179,14 @@ typedef struct rustls_server_config rustls_server_config;
  * done configuring settings, call rustls_server_config_builder_build
  * to turn it into a *rustls_server_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
- * Box<ServerConfig>.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html
+ * Box<ServerConfigBuilder>.
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html
  */
 typedef struct rustls_server_config_builder rustls_server_config_builder;
+
+typedef struct rustls_server_config_builder_wants_server_cert rustls_server_config_builder_wants_server_cert;
+
+typedef struct rustls_server_config_builder_wants_verifier rustls_server_config_builder_wants_verifier;
 
 /**
  * A read-only view of a slice of Rust byte slices.
@@ -281,62 +278,11 @@ typedef struct rustls_str {
 typedef struct rustls_verify_server_cert_params {
   struct rustls_slice_bytes end_entity_cert_der;
   const struct rustls_slice_slice_bytes *intermediate_certs_der;
-  const struct rustls_root_cert_store *roots;
   struct rustls_str dns_name;
   struct rustls_slice_bytes ocsp_response;
 } rustls_verify_server_cert_params;
 
 typedef enum rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
-
-/**
- * Any context information the callback will receive when invoked.
- */
-typedef void *rustls_session_store_userdata;
-
-/**
- * Prototype of a callback that can be installed by the application at the
- * `rustls_server_config` or `rustls_client_config`. This callback will be
- * invoked by a TLS session when looking up the data for a TLS session id.
- * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
- *
- * The `buf` points to `count` consecutive bytes where the
- * callback is expected to copy the result to. The number of copied bytes
- * needs to be written to `out_n`. The callback should not read any
- * data from `buf`.
- *
- * If the value to copy is larger than `count`, the callback should never
- * do a partial copy but instead remove the value from its store and
- * act as if it was never found.
- *
- * The callback should return != 0 to indicate that a value was retrieved
- * and written in its entirety into `buf`.
- *
- * When `remove_after` is != 0, the returned data needs to be removed
- * from the store.
- *
- * NOTE: the passed in `key` and `buf` are only available during the
- * callback invocation.
- * NOTE: callbacks used in several sessions via a common config
- * must be implemented thread-safe.
- */
-typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, int remove_after, uint8_t *buf, size_t count, size_t *out_n);
-
-/**
- * Prototype of a callback that can be installed by the application at the
- * `rustls_server_config` or `rustls_client_config`. This callback will be
- * invoked by a TLS session when a TLS session has been created and an id
- * for later use is handed to the client/has been received from the server.
- * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
- *
- * The callback should return != 0 to indicate that the value has been
- * successfully persisted in its store.
- *
- * NOTE: the passed in `key` and `val` are only available during the
- * callback invocation.
- * NOTE: callbacks used in several sessions via a common config
- * must be implemented thread-safe.
- */
-typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 typedef size_t rustls_log_level;
 
@@ -433,7 +379,7 @@ typedef struct rustls_slice_u16 {
  * The signature_schemes carries the values supplied by the client or, should
  * the client not use this TLS extension, the default schemes in the rustls
  * library. See:
- * https://docs.rs/rustls/0.19.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+ * https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
  * `alpn` carries the list of ALPN protocol names that the client proposed to
  * the server. Again, the length of this list will be 0 if none were supplied.
  *
@@ -468,6 +414,56 @@ typedef struct rustls_client_hello {
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
+
+/**
+ * Any context information the callback will receive when invoked.
+ */
+typedef void *rustls_session_store_userdata;
+
+/**
+ * Prototype of a callback that can be installed by the application at the
+ * `rustls_server_config` or `rustls_client_config`. This callback will be
+ * invoked by a TLS session when looking up the data for a TLS session id.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+ *
+ * The `buf` points to `count` consecutive bytes where the
+ * callback is expected to copy the result to. The number of copied bytes
+ * needs to be written to `out_n`. The callback should not read any
+ * data from `buf`.
+ *
+ * If the value to copy is larger than `count`, the callback should never
+ * do a partial copy but instead remove the value from its store and
+ * act as if it was never found.
+ *
+ * The callback should return != 0 to indicate that a value was retrieved
+ * and written in its entirety into `buf`.
+ *
+ * When `remove_after` is != 0, the returned data needs to be removed
+ * from the store.
+ *
+ * NOTE: the passed in `key` and `buf` are only available during the
+ * callback invocation.
+ * NOTE: callbacks used in several sessions via a common config
+ * must be implemented thread-safe.
+ */
+typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, int remove_after, uint8_t *buf, size_t count, size_t *out_n);
+
+/**
+ * Prototype of a callback that can be installed by the application at the
+ * `rustls_server_config` or `rustls_client_config`. This callback will be
+ * invoked by a TLS session when a TLS session has been created and an id
+ * for later use is handed to the client/has been received from the server.
+ * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+ *
+ * The callback should return != 0 to indicate that the value has been
+ * successfully persisted in its store.
+ *
+ * NOTE: the passed in `key` and `val` are only available during the
+ * callback invocation.
+ * NOTE: callbacks used in several sessions via a common config
+ * must be implemented thread-safe.
+ */
+typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
  * Write the version of the crustls C bindings and rustls itself into the
@@ -562,7 +558,7 @@ void rustls_certified_key_free(const struct rustls_certified_key *key);
  * Create a rustls_root_cert_store. Caller owns the memory and must
  * eventually call rustls_root_cert_store_free. The store starts out empty.
  * Caller must add root certificates with rustls_root_cert_store_add_pem.
- * https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html#method.empty
+ * https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html#method.empty
  */
 struct rustls_root_cert_store *rustls_root_cert_store_new(void);
 
@@ -629,24 +625,36 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
- * resulting rustls_client_config. This starts out with no trusted roots.
+ * resulting rustls_client_config.
+ * This uses rustls safe default values
+ * for the cipher suites, key exchange groups and protocol versions.
+ * This starts out with no trusted roots.
  * Caller must add roots with rustls_client_config_builder_load_roots_from_file
  * or provide a custom verifier.
  */
-struct rustls_client_config_builder *rustls_client_config_builder_new(void);
+struct rustls_client_config_builder_wants_verifier *rustls_client_config_builder_new_with_safe_defaults(void);
 
 /**
- * Create a rustls_client_config_builder from an existing rustls_client_config. The
- * builder will be used to create a new, separate config that starts with the settings
- * from the supplied configuration.
+ * Create a rustls_client_config_builder. Caller owns the memory and must
+ * eventually call rustls_client_config_builder_build, then free the
+ * resulting rustls_client_config. Specify cipher suites in preference order;
+ * the `cipher_suites` parameter must point to an array containing `len`
+ * pointers to `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
+ * when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
  */
-struct rustls_client_config_builder *rustls_client_config_builder_from_config(const struct rustls_client_config *config);
-
-/**
- * Turn a *rustls_client_config_builder (mutable) into a *rustls_client_config
- * (read-only).
- */
-const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
+enum rustls_result rustls_client_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
+                                                    size_t cipher_suites_len,
+                                                    const uint16_t *tls_versions,
+                                                    size_t tls_versions_len,
+                                                    struct rustls_client_config_builder_wants_verifier **builder);
 
 /**
  * Set a custom server certificate verifier.
@@ -669,8 +677,8 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  *
  * If you intend to write a verifier that accepts all certificates, be aware
  * that special measures are required for IP addresses. Rustls currently
- * (0.19.0) doesn't support building a ClientSession with an IP address
- * (because it's not a valid DNSNameRef). One workaround is to detect IP
+ * (0.20.0) doesn't support building a ClientSession with an IP address
+ * (because it's not a valid DnsNameRef). One workaround is to detect IP
  * addresses and rewrite them to `example.invalid`, and _also_ to disable
  * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
  * need SNI).
@@ -680,10 +688,11 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
  * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
  * section.
  *
- * https://docs.rs/rustls/0.19.0/rustls/struct.DangerousClientConfig.html#method.set_certificate_verifier
+ * https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
-void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config,
-                                                                     rustls_verify_server_cert_callback callback);
+enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder_wants_verifier *wants_verifier,
+                                                                                   rustls_verify_server_cert_callback callback,
+                                                                                   struct rustls_client_config_builder **builder);
 
 /**
  * Use the trusted root certificates from the provided store.
@@ -693,29 +702,17 @@ void rustls_client_config_builder_dangerous_set_certificate_verifier(struct rust
  * call rustls_client_config_free or rustls_client_config_builder_free,
  * those will subtract 1 from the refcount for `roots`.
  */
-void rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config,
-                                            const struct rustls_root_cert_store *roots);
+enum rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder_wants_verifier *wants_verifier,
+                                                          const struct rustls_root_cert_store *roots,
+                                                          struct rustls_client_config_builder **builder);
 
 /**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
-enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config,
-                                                                     const char *filename);
-
-/**
- * Set the TLS protocol versions to use when negotiating a TLS session.
- *
- * `tls_version` is the version of the protocol, as defined in rfc8446,
- * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
- * `rustls_tls_version` for convenience.
- *
- * `versions` will only be used during the call and the application retains
- * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
- */
-enum rustls_result rustls_client_config_builder_set_versions(struct rustls_client_config_builder *builder,
-                                                             const uint16_t *tls_versions,
-                                                             size_t len);
+enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder_wants_verifier *wants_verifier,
+                                                                     const char *filename,
+                                                                     struct rustls_client_config_builder **builder);
 
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
@@ -728,29 +725,27 @@ enum rustls_result rustls_client_config_builder_set_versions(struct rustls_clien
  * This function makes a copy of the data in `protocols` and does not retain
  * any pointers, so the caller can free the pointed-to memory after calling.
  *
- * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#method.set_protocols
+ * https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
  */
-enum rustls_result rustls_client_config_builder_set_protocols(struct rustls_client_config_builder *builder,
-                                                              const struct rustls_slice_bytes *protocols,
-                                                              size_t len);
+enum rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_client_config_builder *builder,
+                                                                   const struct rustls_slice_bytes *protocols,
+                                                                   size_t len);
 
 /**
  * Enable or disable SNI.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
 
 /**
- * Set the cipher suite list, in preference order. The `ciphersuites`
- * parameter must point to an array containing `len` pointers to
- * `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get()`.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
+ * "Free" a client_config_builder_wants_verifier before transmogrifying it into a client_config.
+ * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+ * and may not be free'd or otherwise used afterwards.
+ * Use free only when the building of a config has to be aborted before a config
+ * was created.
  */
-enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_client_config_builder *builder,
-                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
-                                                                 size_t len);
+void rustls_client_config_builder_wants_verifier_free(struct rustls_client_config_builder_wants_verifier *builder);
 
 /**
  * Provide the configuration a list of certificates where the session
@@ -769,6 +764,12 @@ enum rustls_result rustls_client_config_builder_set_ciphersuites(struct rustls_c
 enum rustls_result rustls_client_config_builder_set_certified_key(struct rustls_client_config_builder *builder,
                                                                   const struct rustls_certified_key *const *certified_keys,
                                                                   size_t certified_keys_len);
+
+/**
+ * Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
+ * (read-only).
+ */
+const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
 
 /**
  * "Free" a client_config_builder before transmogrifying it into a client_config.
@@ -802,20 +803,6 @@ enum rustls_result rustls_client_connection_new(const struct rustls_client_confi
                                                 struct rustls_connection **conn_out);
 
 /**
- * Register callbacks for persistence of TLS session data. This means either
- * session IDs (TLSv1.2) or . Both
- * keys and values are highly sensitive data, containing enough information
- * to break the security of the sessions involved.
- *
- * If `userdata` has been set with rustls_connection_set_userdata, it
- * will be passed to the callbacks. Otherwise the userdata param passed to
- * the callbacks will be NULL.
- */
-enum rustls_result rustls_client_config_builder_set_persistence(struct rustls_client_config_builder *builder,
-                                                                rustls_session_store_get_callback get_cb,
-                                                                rustls_session_store_put_callback put_cb);
-
-/**
  * Set the userdata pointer associated with this connection. This will be passed
  * to any callbacks invoked by the connection, if you've set up callbacks in the config.
  * The pointed-to data must outlive the connection.
@@ -839,7 +826,7 @@ void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_l
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.read_tls
+ * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls
  */
 rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
                                             rustls_read_callback callback,
@@ -856,7 +843,7 @@ rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+ * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.write_tls
  */
 rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
                                              rustls_write_callback callback,
@@ -873,7 +860,7 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.write_tls
+ * https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls
  */
 rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
                                                       rustls_write_vectored_callback callback,
@@ -893,13 +880,13 @@ bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
  * to completing the TLS handshake) and unsent TLS records. By default, there
  * is no limit. The limit can be set at any time, even if the current buffer
  * use is higher.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.set_buffer_limit
+ * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.set_buffer_limit
  */
 void rustls_connection_set_buffer_limit(struct rustls_connection *conn, size_t n);
 
 /**
  * Queues a close_notify fatal alert to be sent in the next write_tls call.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.send_close_notify
+ * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.send_close_notify
  */
 void rustls_connection_send_close_notify(struct rustls_connection *conn);
 
@@ -908,9 +895,10 @@ void rustls_connection_send_close_notify(struct rustls_connection *conn);
  * Index 0 is the end entity certificate. Higher indexes are certificates
  * in the chain. Requesting an index higher than what is available returns
  * NULL.
+ * The returned pointer lives as long as the rustls_connection does.
  */
-const struct rustls_certificate *rustls_connection_get_peer_certificate(struct rustls_connection *conn,
-                                                                        size_t i);
+const struct rustls_certificate *rustls_connection_peer_certificate(struct rustls_connection *conn,
+                                                                    size_t i);
 
 /**
  * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
@@ -919,27 +907,28 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(struct r
  * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
  * https://www.iana.org/assignments/tls-parameters/
- * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_alpn_protocol
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_alpn_protocol
  */
-void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
-                                         const uint8_t **protocol_out,
-                                         size_t *protocol_out_len);
+void rustls_connection_alpn_protocol(const struct rustls_connection *conn,
+                                     const uint8_t **protocol_out,
+                                     size_t *protocol_out_len);
 
 /**
  * Return the TLS protocol version that has been negotiated. Before this
  * has been decided during the handshake, this will return 0. Otherwise,
  * the u16 version number as defined in the relevant RFC is returned.
- * https://docs.rs/rustls/0.19.1/rustls/trait.Session.html#tymethod.get_protocol_version
+ * https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_protocol_version
  * https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
  */
-uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *conn);
+uint16_t rustls_connection_protocol_version(const struct rustls_connection *conn);
 
 /**
  * Retrieves the cipher suite agreed with the peer.
  * This returns NULL until the ciphersuite is agreed.
- * https://docs.rs/rustls/0.19.0/rustls/trait.Session.html#tymethod.get_negotiated_ciphersuite
+ * The returned pointer lives as long as the program.
+ * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite
  */
-const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
+const struct rustls_supported_ciphersuite *rustls_connection_negotiated_ciphersuite(const struct rustls_connection *conn);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
@@ -1022,10 +1011,37 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
  * eventually call rustls_server_config_builder_build, then free the
- * resulting rustls_server_config.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.new
+ * resulting rustls_server_config. This uses rustls safe default values
+ * for the cipher suites, key exchange groups and protocol versions.
  */
-struct rustls_server_config_builder *rustls_server_config_builder_new(void);
+struct rustls_server_config_builder_wants_verifier *rustls_server_config_builder_new_with_safe_defaults(void);
+
+/**
+ * Create a rustls_server_config_builder. Caller owns the memory and must
+ * eventually call rustls_server_config_builder_build, then free the
+ * resulting rustls_server_config. Specify cipher suites in preference order;
+ * the `cipher_suites` parameter must point to an array containing `len`
+ * pointers to `rustls_supported_ciphersuite` previously obtained from
+ * `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
+ * when negotiating a TLS session.
+ *
+ * `tls_version` is the version of the protocol, as defined in rfc8446,
+ * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+ * `rustls_tls_version` for convenience.
+ *
+ * `versions` will only be used during the call and the application retains
+ * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ */
+enum rustls_result rustls_server_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
+                                                    size_t cipher_suites_len,
+                                                    const uint16_t *tls_versions,
+                                                    size_t tls_versions_len,
+                                                    struct rustls_server_config_builder_wants_verifier **builder);
+
+/**
+ * For memory lifetime, see rustls_server_config_builder_new.
+ */
+struct rustls_server_config_builder *rustls_server_config_builder_with_no_client_auth(struct rustls_server_config_builder_wants_verifier *wants_verifier);
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that require
@@ -1034,7 +1050,9 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier(const struct rustls_client_cert_verifier *verifier);
+enum rustls_result rustls_server_config_builder_with_client_verifier(struct rustls_server_config_builder_wants_verifier *wants_verifier,
+                                                                     const struct rustls_client_cert_verifier *verifier,
+                                                                     struct rustls_server_config_builder_wants_server_cert **builder);
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that accept
@@ -1062,24 +1080,10 @@ void rustls_server_config_builder_free(struct rustls_server_config_builder *conf
 struct rustls_server_config_builder *rustls_server_config_builder_from_config(const struct rustls_server_config *config);
 
 /**
- * Set the TLS protocol versions to use when negotiating a TLS session.
- *
- * `tls_version` is the version of the protocol, as defined in rfc8446,
- * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
- * `rustls_tls_version` for convenience.
- *
- * `versions` will only be used during the call and the application retains
- * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
- */
-enum rustls_result rustls_server_config_builder_set_versions(struct rustls_server_config_builder *builder,
-                                                             const uint16_t *tls_versions,
-                                                             size_t len);
-
-/**
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#fields
+ * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#fields
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
@@ -1094,22 +1098,11 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
  * This function makes a copy of the data in `protocols` and does not retain
  * any pointers, so the caller can free the pointed-to memory after calling.
  *
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#method.set_protocols
+ * https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols
  */
-enum rustls_result rustls_server_config_builder_set_protocols(struct rustls_server_config_builder *builder,
-                                                              const struct rustls_slice_bytes *protocols,
-                                                              size_t len);
-
-/**
- * Set the cipher suite list, in preference order. The `ciphersuites`
- * parameter must point to an array containing `len` pointers to
- * `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get()`.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerConfig.html#structfield.ciphersuites
- */
-enum rustls_result rustls_server_config_builder_set_ciphersuites(struct rustls_server_config_builder *builder,
-                                                                 const struct rustls_supported_ciphersuite *const *ciphersuites,
-                                                                 size_t len);
+enum rustls_result rustls_server_config_builder_set_alpn_protocols(struct rustls_server_config_builder *builder,
+                                                                   const struct rustls_slice_bytes *protocols,
+                                                                   size_t len);
 
 /**
  * Provide the configuration a list of certificates where the session
@@ -1130,7 +1123,7 @@ enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls
                                                                    size_t certified_keys_len);
 
 /**
- * Turn a *rustls_server_config_builder (mutable) into a *rustls_server_config
+ * Turn a *rustls_server_config_builder (mutable) into a const *rustls_server_config
  * (read-only).
  */
 const struct rustls_server_config *rustls_server_config_builder_build(struct rustls_server_config_builder *builder);
@@ -1163,7 +1156,7 @@ enum rustls_result rustls_server_connection_new(const struct rustls_server_confi
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
  * Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
  * because it hasn't been processed yet, or because the client did not send SNI.
- * https://docs.rs/rustls/0.19.0/rustls/struct.ServerSession.html#method.get_sni_hostname
+ * https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname
  */
 enum rustls_result rustls_server_connection_get_sni_hostname(const struct rustls_connection *conn,
                                                              uint8_t *buf,

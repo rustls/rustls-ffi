@@ -2,8 +2,6 @@
 #![allow(non_camel_case_types)]
 use libc::{c_char, c_void, size_t};
 use std::cell::RefCell;
-use std::io::Error;
-use std::io::ErrorKind::ConnectionAborted;
 use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
 use std::{mem, slice};
@@ -274,7 +272,7 @@ mod tests {
 }
 
 // Keep in sync with Cargo.toml.
-const RUSTLS_CRATE_VERSION: &str = "0.19.0";
+const RUSTLS_CRATE_VERSION: &str = "0.20.0";
 
 /// CastPtr represents the relationship between a snake case type (like rustls_client_session)
 /// and the corresponding Rust type (like ClientSession). For each matched pair of types, there
@@ -293,6 +291,23 @@ pub(crate) trait CastPtr {
 
     fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
         ptr as *mut _
+    }
+}
+
+pub(crate) trait BoxCastPtr: CastPtr + Sized {
+    fn to_box(ptr: *mut Self) -> Box<Self::RustType> {
+        let rs_typed = Self::cast_mut_ptr(ptr);
+        unsafe { Box::from_raw(rs_typed) }
+    }
+
+    fn to_mut_ptr(src: Self::RustType) -> *mut Self {
+        Box::into_raw(Box::new(src)) as *mut _
+    }
+
+    fn set_mut_ptr(dst: *mut *mut Self, src: Self::RustType) {
+        unsafe {
+            *dst = Self::to_mut_ptr(src);
+        }
     }
 }
 
@@ -423,8 +438,4 @@ unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
     let val = Arc::clone(&r);
     mem::forget(r);
     val
-}
-
-pub(crate) fn is_close_notify(e: &Error) -> bool {
-    e.kind() == ConnectionAborted && e.to_string().contains("CloseNotify")
 }

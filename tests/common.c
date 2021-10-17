@@ -221,17 +221,17 @@ copy_plaintext_to_buffer(struct conndata *conn)
     char *buf = bytevec_writeable(&conn->data);
     size_t avail = bytevec_available(&conn->data);
     result = rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
-    if(result == RUSTLS_RESULT_ALERT_CLOSE_NOTIFY) {
-      fprintf(stderr, "Received close_notify, cleanly ending connection\n");
-      return CRUSTLS_DEMO_CLOSE_NOTIFY;
+    if(result == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
+      /* This is expected. It just means "no more bytes for now." */
+      return CRUSTLS_DEMO_OK;
     }
     if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "Error in rustls_connection_read: %d\n", result);
+      print_error("Error in rustls_connection_read", result);
       return CRUSTLS_DEMO_ERROR;
     }
     if(n == 0) {
-      /* This is expected. It just means "no more bytes for now." */
-      return CRUSTLS_DEMO_OK;
+      fprintf(stderr, "got 0-byte read, cleanly ending connection\n");
+      return CRUSTLS_DEMO_EOF;
     }
     bytevec_consume(&conn->data, n);
   }

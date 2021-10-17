@@ -4,12 +4,9 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
+use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient};
 use rustls::sign::CertifiedKey;
-use rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, RootCertStore,
-    SupportedCipherSuite, ALL_CIPHERSUITES,
-};
-use rustls::{Certificate, PrivateKey};
+use rustls::{Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
@@ -20,7 +17,7 @@ use std::ops::Deref;
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.CertifiedKey.html
+/// https://docs.rs/rustls/0.20.0/rustls/struct.Certificate.html
 pub struct rustls_certificate {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -54,7 +51,7 @@ pub extern "C" fn rustls_certificate_get_der(
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
-/// https://docs.rs/rustls/0.19.0/rustls/sign/struct.CertifiedKey.html
+/// https://docs.rs/rustls/0.20.0/rustls/sign/struct.CertifiedKey.html
 pub struct rustls_certified_key {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -83,13 +80,18 @@ pub extern "C" fn rustls_supported_ciphersuite_get_suite(
     supported_ciphersuite: *const rustls_supported_ciphersuite,
 ) -> u16 {
     let supported_ciphersuite = try_ref_from_ptr!(supported_ciphersuite);
-    supported_ciphersuite.suite.get_u16()
+    match supported_ciphersuite {
+        rustls::SupportedCipherSuite::Tls12(sc) => &sc.common,
+        rustls::SupportedCipherSuite::Tls13(sc) => &sc.common,
+    }
+    .suite
+    .get_u16()
 }
 
 /// Return the length of rustls' list of supported cipher suites.
 #[no_mangle]
 pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
-    ALL_CIPHERSUITES.len()
+    ALL_CIPHER_SUITES.len()
 }
 
 /// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
@@ -100,8 +102,8 @@ pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
 pub extern "C" fn rustls_all_ciphersuites_get_entry(
     i: size_t,
 ) -> *const rustls_supported_ciphersuite {
-    match ALL_CIPHERSUITES.get(i) {
-        Some(&cs) => cs as *const SupportedCipherSuite as *const _,
+    match ALL_CIPHER_SUITES.get(i) {
+        Some(cs) => cs as *const SupportedCipherSuite as *const _,
         None => null(),
     }
 }
@@ -261,15 +263,12 @@ fn certified_key_build(
         Err(_) => return Err(rustls_result::CertificateParseError),
     };
 
-    Ok(rustls::sign::CertifiedKey::new(
-        parsed_chain,
-        Arc::new(signing_key),
-    ))
+    Ok(rustls::sign::CertifiedKey::new(parsed_chain, signing_key))
 }
 
 /// A root cert store that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an Arc<RootCertStore>.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html
+/// https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html
 pub struct rustls_root_cert_store {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -284,7 +283,7 @@ impl CastPtr for rustls_root_cert_store {
 /// Create a rustls_root_cert_store. Caller owns the memory and must
 /// eventually call rustls_root_cert_store_free. The store starts out empty.
 /// Caller must add root certificates with rustls_root_cert_store_add_pem.
-/// https://docs.rs/rustls/0.19.0/rustls/struct.RootCertStore.html#method.empty
+/// https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html#method.empty
 #[no_mangle]
 pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
     ffi_panic_boundary! {
@@ -313,17 +312,17 @@ pub extern "C" fn rustls_root_cert_store_add_pem(
         let certs_pem: &[u8] = try_slice!(pem, pem_len);
         let store: &mut RootCertStore = try_mut_from_ptr!(store);
 
+        let certs_der = match rustls_pemfile::certs(&mut Cursor::new(certs_pem)) {
+            Ok(vv) => vv,
+            Err(_) => return rustls_result::CertificateParseError,
+        };
         // We first copy into a temporary root store so we can uphold our
         // API guideline that there are no partial failures or partial
         // successes.
         let mut new_store = RootCertStore::empty();
-        match new_store.add_pem_file(&mut Cursor::new(certs_pem)) {
-            Ok((parsed, rejected)) => {
-                if strict && (rejected > 0 || parsed == 0) {
-                    return rustls_result::CertificateParseError;
-                }
-            },
-            Err(_) => return rustls_result::CertificateParseError,
+        let (parsed, rejected) = new_store.add_parsable_certificates(&certs_der);
+        if strict && (rejected > 0 || parsed == 0) {
+            return rustls_result::CertificateParseError;
         }
 
         store.roots.append(&mut new_store.roots);

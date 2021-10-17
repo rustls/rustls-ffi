@@ -115,13 +115,13 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   }
 
   result = copy_plaintext_to_buffer(conn);
-  if(result != CRUSTLS_DEMO_CLOSE_NOTIFY) {
+  if(result != CRUSTLS_DEMO_EOF) {
     fprintf(stderr, "do_read returning %d\n", result);
     return result;
   }
 
-  /* If we got a close_notify, verify that the sender then
-   * closed the TCP connection. */
+  /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
+   * verify that the sender then closed the TCP connection. */
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
@@ -135,7 +135,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
-  return CRUSTLS_DEMO_CLOSE_NOTIFY;
+  return CRUSTLS_DEMO_EOF;
 }
 
 enum crustls_demo_result
@@ -202,7 +202,7 @@ handle_conn(struct conndata *conn)
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
-        else if(result == CRUSTLS_DEMO_CLOSE_NOTIFY) {
+        else if(result == CRUSTLS_DEMO_EOF) {
           goto cleanup;
         }
         else if(result != CRUSTLS_DEMO_OK) {
@@ -278,10 +278,16 @@ main(int argc, const char **argv)
   int ret = 1;
   int result = 1;
   int sockfd = 0;
-  struct rustls_server_config_builder *config_builder =
-    rustls_server_config_builder_new();
+  struct rustls_server_config_builder_wants_verifier *config_builder =
+    rustls_server_config_builder_new_with_safe_defaults();
+  struct rustls_server_config_builder *config_builder2 = NULL;
   const struct rustls_server_config *server_config = NULL;
   struct rustls_connection *rconn = NULL;
+
+  config_builder2 = rustls_server_config_builder_with_no_client_auth(config_builder);
+  if(config_builder2 == NULL) {
+    goto cleanup;
+  }
 
   if(argc <= 2) {
     fprintf(stderr,
@@ -298,8 +304,8 @@ main(int argc, const char **argv)
   }
 
   rustls_server_config_builder_set_certified_keys(
-    config_builder, &certified_key, 1);
-  server_config = rustls_server_config_builder_build(config_builder);
+    config_builder2, &certified_key, 1);
+  server_config = rustls_server_config_builder_build(config_builder2);
 
 #ifdef _WIN32
   WSADATA wsa;
