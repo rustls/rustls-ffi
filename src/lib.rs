@@ -310,9 +310,12 @@ where
 // An implementation of BoxCastPtr means that when we give C code a pointer to the relevant type,
 // it is actually a Box.
 pub(crate) trait BoxCastPtr: CastPtr + Sized {
-    fn to_box(ptr: *mut Self) -> Box<Self::RustType> {
+    fn to_box(ptr: *mut Self) -> Option<Box<Self::RustType>> {
+        if ptr.is_null() {
+            return None;
+        }
         let rs_typed = Self::cast_mut_ptr(ptr);
-        unsafe { Box::from_raw(rs_typed) }
+        unsafe { Some(Box::from_raw(rs_typed)) }
     }
 
     fn to_mut_ptr(src: Self::RustType) -> *mut Self {
@@ -342,12 +345,15 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
     /// Unsafety:
     ///
     /// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
-    fn to_arc(ptr: *const Self) -> Arc<Self::RustType> {
+    fn to_arc(ptr: *const Self) -> Option<Arc<Self::RustType>> {
+        if ptr.is_null() {
+            return None;
+        }
         let rs_typed = Self::cast_const_ptr(ptr);
         let r = unsafe { Arc::from_raw(rs_typed) };
         let val = Arc::clone(&r);
         mem::forget(r);
-        val
+        Some(val)
     }
 
     fn to_const_ptr(src: Self::RustType) -> *const Self {
@@ -396,6 +402,24 @@ where
     unsafe { F::cast_mut_ptr(from).as_mut() }
 }
 
+pub(crate) fn try_box_from<'a, F, T>(from: *mut F) -> Option<Box<T>>
+where
+    F: BoxCastPtr<RustType = T>,
+{
+    {
+        F::to_box(from)
+    }
+}
+
+pub(crate) fn try_arc_from<'a, F, T>(from: *const F) -> Option<Arc<T>>
+where
+    F: ArcCastPtr<RustType = T>,
+{
+    {
+        F::to_arc(from)
+    }
+}
+
 impl CastPtr for size_t {
     type RustType = size_t;
 }
@@ -423,6 +447,26 @@ macro_rules! try_ref_from_ptr {
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
         match crate::try_from_mut($var) {
+            Some(c) => c,
+            None => return crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_box_from_ptr {
+    ( $var:ident ) => {
+        match crate::try_box_from($var) {
+            Some(c) => c,
+            None => return crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_arc_from_ptr {
+    ( $var:ident ) => {
+        match crate::try_arc_from($var) {
             Some(c) => c,
             None => return crate::panic::NullParameterOrDefault::value(),
         }

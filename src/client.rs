@@ -20,8 +20,8 @@ use crate::error::{self, result_to_error, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_get, ArcCastPtr,
-    BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 
 /// A client config being constructed. A builder can be modified by,
@@ -283,7 +283,7 @@ pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifie
             None => return rustls_result::InvalidParameter,
         };
 
-        let new = *BoxCastPtr::to_box(wants_verifier);
+        let new = *try_box_from_ptr!(wants_verifier);
         let verifier: Verifier = Verifier{callback: callback};
         // TODO: no client authentication support for now
         let config = new.with_custom_certificate_verifier(Arc::new(verifier)).with_no_client_auth();
@@ -306,7 +306,7 @@ pub extern "C" fn rustls_client_config_builder_use_roots(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let root_store: &RootCertStore = try_ref_from_ptr!(roots);
-        let prev = *BoxCastPtr::to_box(wants_verifier);
+        let prev = *try_box_from_ptr!(wants_verifier);
         let config = prev.with_root_certificates(root_store.clone()).with_no_client_auth();
         BoxCastPtr::set_mut_ptr(builder, config);
         rustls_result::Ok
@@ -322,6 +322,7 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
     builder: *mut *mut rustls_client_config_builder,
 ) -> rustls_result {
     ffi_panic_boundary! {
+        let prev = *try_box_from_ptr!(wants_verifier);
         let filename: &CStr = unsafe {
             if filename.is_null() {
                 return rustls_result::NullParameter;
@@ -352,7 +353,6 @@ pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
             return rustls_result::CertificateParseError;
         }
 
-        let prev = *BoxCastPtr::to_box(wants_verifier);
         // TODO: no client authentication support for now
         let config = prev.with_root_certificates(roots).with_no_client_auth();
         BoxCastPtr::set_mut_ptr(builder, config);
@@ -442,7 +442,7 @@ pub extern "C" fn rustls_client_config_builder_set_certified_key(
         let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
         let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
         for &key_ptr in keys_ptrs {
-            let certified_key: Arc<CertifiedKey> = ArcCastPtr::to_arc(key_ptr);
+            let certified_key: Arc<CertifiedKey> = try_arc_from_ptr!(key_ptr);
             keys.push(certified_key);
         }
         config.client_auth_cert_resolver = Arc::new(ResolvesClientCertFromChoices { keys });
@@ -481,7 +481,7 @@ pub extern "C" fn rustls_client_config_builder_build(
     builder: *mut rustls_client_config_builder,
 ) -> *const rustls_client_config {
     ffi_panic_boundary! {
-        let b = BoxCastPtr::to_box(builder);
+        let b = try_box_from_ptr!(builder);
         ArcCastPtr::to_const_ptr(*b)
     }
 }
@@ -534,7 +534,7 @@ pub extern "C" fn rustls_client_connection_new(
             }
             CStr::from_ptr(hostname)
         };
-        let config: Arc<ClientConfig> = ArcCastPtr::to_arc(config);
+        let config: Arc<ClientConfig> = try_arc_from_ptr!(config);
         let hostname: &str = match hostname.to_str() {
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,

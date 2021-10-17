@@ -27,8 +27,8 @@ use crate::session::{
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    ffi_panic_boundary, try_mut_from_ptr, try_mut_slice, try_ref_from_ptr, try_slice, userdata_get,
-    ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_mut_slice,
+    try_ref_from_ptr, try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -167,7 +167,7 @@ pub extern "C" fn rustls_server_config_builder_with_no_client_auth(
     wants_verifier: *mut rustls_server_config_builder_wants_verifier,
 ) -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let prev = *BoxCastPtr::to_box(wants_verifier);
+        let prev = *try_box_from_ptr!(wants_verifier);
         let config: ServerConfig = prev.with_no_client_auth().with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
         BoxCastPtr::to_mut_ptr(config)
     }
@@ -185,9 +185,9 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier(
     builder: *mut *mut rustls_server_config_builder_wants_server_cert,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let verifier: Arc<AllowAnyAuthenticatedClient> = ArcCastPtr::to_arc(verifier);
+        let verifier: Arc<AllowAnyAuthenticatedClient> = try_arc_from_ptr!(verifier);
 
-        let prev = *BoxCastPtr::to_box(wants_verifier);
+        let prev = *try_box_from_ptr!(wants_verifier);
         let new = prev.with_client_cert_verifier(verifier);
         BoxCastPtr::set_mut_ptr(builder, new);
         rustls_result::Ok
@@ -204,7 +204,7 @@ pub extern "C" fn rustls_server_config_builder_with_client_verifier_optional(
     verifier: *const rustls_client_cert_verifier_optional,
 ) -> *mut rustls_server_config_builder {
     ffi_panic_boundary! {
-        let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = ArcCastPtr::to_arc(verifier);
+        let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = try_arc_from_ptr!(verifier);
 
         let builder = rustls::ServerConfig::builder().with_safe_defaults();
         let config: ServerConfig = builder.with_client_cert_verifier(verifier).with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
@@ -306,7 +306,7 @@ pub extern "C" fn rustls_server_config_builder_set_certified_keys(
         let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
         let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
         for &key_ptr in keys_ptrs {
-            let certified_key: Arc<CertifiedKey> = ArcCastPtr::to_arc(key_ptr);
+            let certified_key: Arc<CertifiedKey> = try_arc_from_ptr!(key_ptr);
             keys.push(certified_key);
         }
         config.cert_resolver = Arc::new(ResolvesServerCertFromChoices::new(&keys));
@@ -321,7 +321,7 @@ pub extern "C" fn rustls_server_config_builder_build(
     builder: *mut rustls_server_config_builder,
 ) -> *const rustls_server_config {
     ffi_panic_boundary! {
-        let b = BoxCastPtr::to_box(builder);
+        let b = try_box_from_ptr!(builder);
         ArcCastPtr::to_const_ptr(*b)
     }
 }
@@ -355,7 +355,7 @@ pub extern "C" fn rustls_server_connection_new(
     conn_out: *mut *mut rustls_connection,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let config: Arc<ServerConfig> = ArcCastPtr::to_arc(config);
+        let config: Arc<ServerConfig> = try_arc_from_ptr!(config);
 
         let server_connection = match ServerConnection::new(config) {
             Ok(sc) => sc,
