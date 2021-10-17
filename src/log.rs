@@ -35,7 +35,7 @@ pub(crate) fn ensure_log_registered() {
     log::set_max_level(log::LevelFilter::Debug)
 }
 
-type rustls_log_level = usize;
+pub type rustls_log_level = usize;
 
 /// Return a rustls_str containing the stringified version of a log level.
 #[no_mangle]
@@ -53,8 +53,8 @@ pub extern "C" fn rustls_log_level_str(level: rustls_log_level) -> rustls_str<'s
 
 #[repr(C)]
 pub struct rustls_log_params<'a> {
-    level: rustls_log_level,
-    message: rustls_str<'a>,
+    pub level: rustls_log_level,
+    pub message: rustls_str<'a>,
 }
 
 #[allow(non_camel_case_types)]

@@ -6,17 +6,19 @@ use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
 use std::{mem, slice};
 
-mod cipher;
-mod client;
-mod connection;
-mod enums;
+pub mod cipher;
+pub mod client;
+pub mod connection;
+pub mod enums;
 mod error;
-mod io;
-mod log;
+pub mod io;
+pub mod log;
 mod panic;
-mod rslice;
-mod server;
-mod session;
+pub mod rslice;
+pub mod server;
+pub mod session;
+
+pub use error::rustls_result;
 
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
@@ -32,10 +34,10 @@ use crate::panic::PanicOrDefault;
 // Rust code, we model these thread locals as a stack, so we can always
 // restore the previous version.
 thread_local! {
-    pub static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
+    pub(crate) static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
 }
 
-pub struct Userdata {
+pub(crate) struct Userdata {
     userdata: *mut c_void,
     log_callback: rustls_log_callback,
 }
@@ -47,7 +49,7 @@ pub struct Userdata {
 ///  - The top item on that stack must be the one this guard was built with.
 ///  - The `data` field must not be None.
 /// If any of these invariants fails, try_drop will return an error.
-pub struct UserdataGuard {
+pub(crate) struct UserdataGuard {
     // Keep a copy of the data we expect to be popping off the stack. This allows
     // us to check for consistency, and also serves to make this type !Send:
     // https://doc.rust-lang.org/nightly/std/primitive.pointer.html#impl-Send-1
@@ -104,7 +106,7 @@ impl Drop for UserdataGuard {
 }
 
 #[derive(Clone, Debug)]
-pub enum UserdataError {
+pub(crate) enum UserdataError {
     /// try_pop was called twice.
     AlreadyPopped,
     /// The RefCell is borrowed somewhere else.
@@ -119,7 +121,7 @@ pub enum UserdataError {
 }
 
 #[must_use = "If you drop the guard, userdata will be immediately cleared"]
-pub fn userdata_push(
+pub(crate) fn userdata_push(
     u: *mut c_void,
     cb: rustls_log_callback,
 ) -> Result<UserdataGuard, UserdataError> {
@@ -140,7 +142,7 @@ pub fn userdata_push(
     Ok(UserdataGuard::new(u))
 }
 
-pub fn userdata_get() -> Result<*mut c_void, UserdataError> {
+pub(crate) fn userdata_get() -> Result<*mut c_void, UserdataError> {
     USERDATA
         .try_with(|userdata| {
             userdata.try_borrow_mut().map_or_else(
@@ -154,7 +156,7 @@ pub fn userdata_get() -> Result<*mut c_void, UserdataError> {
         .unwrap_or(Err(UserdataError::AccessError))
 }
 
-pub fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
+pub(crate) fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
     USERDATA
         .try_with(|userdata| {
             userdata.try_borrow_mut().map_or_else(
@@ -274,8 +276,8 @@ mod tests {
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.20.0";
 
-/// CastPtr represents the relationship between a snake case type (like rustls_client_session)
-/// and the corresponding Rust type (like ClientSession). For each matched pair of types, there
+/// CastPtr represents the relationship between a snake case type (like rustls_client_config)
+/// and the corresponding Rust type (like ClientConfig). For each matched pair of types, there
 /// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
 ///
 /// This allows us to avoid using `as` in most places, and ensure that when we cast, we're
@@ -311,6 +313,7 @@ pub(crate) trait BoxCastPtr: CastPtr + Sized {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
@@ -322,6 +325,7 @@ macro_rules! try_slice {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_mut_slice {
     ( $ptr:expr, $count:expr ) => {
@@ -365,6 +369,7 @@ impl CastPtr for *const u8 {
 /// based on the context;
 /// Example:
 ///   let config: &mut ClientConfig = try_ref_from_ptr!(builder);
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
@@ -375,6 +380,7 @@ macro_rules! try_ref_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
@@ -385,6 +391,7 @@ macro_rules! try_mut_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_callback {
     ( $var:ident ) => {
@@ -419,10 +426,9 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
     }
 }
 
-/// In rustls_server_config_builder_build, and rustls_client_config_builder_build,
-/// we create an Arc, then call `into_raw` and return the resulting raw pointer
-/// to C. C can then call rustls_server_session_new multiple times using that
-/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
+/// Sometimes we create an Arc, then call `into_raw` and return the resulting raw pointer
+/// to C. C can then call back into rustls multiple times using that same raw pointer.
+/// On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
 /// its reference count will be decremented on drop. We need to reference count to stay at 1,
 /// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
 /// clones it to increment the reference count (which will make it 2 in this particular case), and

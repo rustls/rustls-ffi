@@ -11,49 +11,51 @@ use rustls::Error;
 #[repr(transparent)]
 pub struct rustls_io_result(pub libc::c_int);
 
-/// After a rustls_client_session method returns an error, you may call
-/// this method to get a pointer to a buffer containing a detailed error
-/// message. The contents of the error buffer will be out_n bytes long,
-/// UTF-8 encoded, and not NUL-terminated.
-#[no_mangle]
-pub extern "C" fn rustls_error(
-    result: rustls_result,
-    buf: *mut c_char,
-    len: size_t,
-    out_n: *mut size_t,
-) {
-    ffi_panic_boundary! {
-        let write_buf: &mut [u8] = unsafe {
-            let out_n: &mut size_t = match out_n.as_mut() {
-                Some(out_n) => out_n,
-                None => return,
+impl rustls_result {
+    /// After a rustls function returns an error, you may call
+    /// this to get a pointer to a buffer containing a detailed error
+    /// message. The contents of the error buffer will be out_n bytes long,
+    /// UTF-8 encoded, and not NUL-terminated.
+    #[no_mangle]
+    pub extern "C" fn rustls_error(
+        result: rustls_result,
+        buf: *mut c_char,
+        len: size_t,
+        out_n: *mut size_t,
+    ) {
+        ffi_panic_boundary! {
+            let write_buf: &mut [u8] = unsafe {
+                let out_n: &mut size_t = match out_n.as_mut() {
+                    Some(out_n) => out_n,
+                    None => return,
+                };
+                *out_n = 0;
+                if buf.is_null() {
+                    return;
+                }
+                slice::from_raw_parts_mut(buf as *mut u8, len as usize)
             };
-            *out_n = 0;
-            if buf.is_null() {
-                return;
+            let error_str = result.to_string();
+            let len: usize = min(write_buf.len() - 1, error_str.len());
+            write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
+            unsafe {
+                *out_n = len;
             }
-            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-        };
-        let error_str = result.to_string();
-        let len: usize = min(write_buf.len() - 1, error_str.len());
-        write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
-        unsafe {
-            *out_n = len;
         }
     }
-}
 
-#[no_mangle]
-pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
-    match result_to_error(&result) {
-        Either::Error(
-            Error::InvalidCertificateData(_)
-            | Error::InvalidCertificateEncoding
-            | Error::InvalidCertificateSignature
-            | Error::InvalidCertificateSignatureType
-            | Error::InvalidSct(_),
-        ) => true,
-        _ => false,
+    #[no_mangle]
+    pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
+        match result_to_error(&result) {
+            Either::Error(
+                Error::InvalidCertificateData(_)
+                | Error::InvalidCertificateEncoding
+                | Error::InvalidCertificateSignature
+                | Error::InvalidCertificateSignatureType
+                | Error::InvalidSct(_),
+            ) => true,
+            _ => false,
+        }
     }
 }
 
