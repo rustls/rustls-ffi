@@ -302,6 +302,9 @@ pub(crate) trait CastConstPtr {
     }
 }
 
+/// Anything that qualifies for CastPtr also automatically qualifies for
+/// CastConstPtr. Splitting out CastPtr vs CastConstPtr allows us to ensure
+/// that Arcs are never cast to a mutable pointer.
 impl<T, R> CastConstPtr for T
 where
     T: CastPtr<RustType = R>,
@@ -410,18 +413,14 @@ pub(crate) fn try_box_from<'a, F, T>(from: *mut F) -> Option<Box<T>>
 where
     F: BoxCastPtr<RustType = T>,
 {
-    {
-        F::to_box(from)
-    }
+    F::to_box(from)
 }
 
 pub(crate) fn try_arc_from<'a, F, T>(from: *const F) -> Option<Arc<T>>
 where
     F: ArcCastPtr<RustType = T>,
 {
-    {
-        F::to_arc(from)
-    }
+    F::to_arc(from)
 }
 
 impl CastPtr for size_t {
