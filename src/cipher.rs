@@ -11,7 +11,10 @@ use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
-use crate::{ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, CastPtr};
+use crate::{
+    ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, ArcCastPtr, BoxCastPtr,
+    CastConstPtr, CastPtr,
+};
 use rustls_result::NullParameter;
 use std::ops::Deref;
 
@@ -112,6 +115,8 @@ impl CastPtr for rustls_certified_key {
     type RustType = CertifiedKey;
 }
 
+impl ArcCastPtr for rustls_certified_key {}
+
 impl rustls_certified_key {
     /// Build a `rustls_certified_key` from a certificate chain and a private key.
     /// `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
@@ -199,7 +204,7 @@ impl rustls_certified_key {
             } else {
                 new_key.ocsp = None;
             }
-            *cloned_key_out = Arc::into_raw(Arc::new(new_key)) as *const _;
+            *cloned_key_out = ArcCastPtr::to_const_ptr(new_key);
             return rustls_result::Ok
         }
     }
@@ -287,6 +292,8 @@ impl CastPtr for rustls_root_cert_store {
     type RustType = RootCertStore;
 }
 
+impl BoxCastPtr for rustls_root_cert_store {}
+
 impl rustls_root_cert_store {
     /// Create a rustls_root_cert_store. Caller owns the memory and must
     /// eventually call rustls_root_cert_store_free. The store starts out empty.
@@ -296,8 +303,7 @@ impl rustls_root_cert_store {
     pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
         ffi_panic_boundary! {
             let store = rustls::RootCertStore::empty();
-            let s = Box::new(store);
-            Box::into_raw(s) as *mut _
+            BoxCastPtr::to_mut_ptr(store)
         }
     }
 
@@ -362,9 +368,11 @@ pub struct rustls_client_cert_verifier {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_client_cert_verifier {
+impl CastConstPtr for rustls_client_cert_verifier {
     type RustType = AllowAnyAuthenticatedClient;
 }
+
+impl ArcCastPtr for rustls_client_cert_verifier {}
 
 impl rustls_client_cert_verifier {
     /// Create a new client certificate verifier for the root store. The verifier
@@ -412,9 +420,11 @@ pub struct rustls_client_cert_verifier_optional {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_client_cert_verifier_optional {
+impl CastConstPtr for rustls_client_cert_verifier_optional {
     type RustType = AllowAnyAnonymousOrAuthenticatedClient;
 }
+
+impl ArcCastPtr for rustls_client_cert_verifier_optional {}
 
 impl rustls_client_cert_verifier_optional {
     /// Create a new rustls_client_cert_verifier_optional for the root store. The

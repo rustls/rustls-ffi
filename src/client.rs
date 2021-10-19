@@ -20,8 +20,8 @@ use crate::error::{self, result_to_error, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    arc_with_incref_from_raw, ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice,
-    userdata_get, BoxCastPtr, CastPtr,
+    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 
 /// A client config being constructed. A builder can be modified by,
@@ -64,9 +64,11 @@ pub struct rustls_client_config {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_client_config {
+impl CastConstPtr for rustls_client_config {
     type RustType = ClientConfig;
 }
+
+impl ArcCastPtr for rustls_client_config {}
 
 impl rustls_client_config_builder {
     /// Create a rustls_client_config_builder. Caller owns the memory and must
@@ -284,7 +286,7 @@ impl rustls_client_config_builder {
                 None => return rustls_result::InvalidParameter,
             };
 
-            let new = *BoxCastPtr::to_box(wants_verifier);
+            let new = *try_box_from_ptr!(wants_verifier);
             let verifier: Verifier = Verifier{callback: callback};
             // TODO: no client authentication support for now
             let config = new.with_custom_certificate_verifier(Arc::new(verifier)).with_no_client_auth();
@@ -307,7 +309,7 @@ impl rustls_client_config_builder {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let root_store: &RootCertStore = try_ref_from_ptr!(roots);
-            let prev = *BoxCastPtr::to_box(wants_verifier);
+            let prev = *try_box_from_ptr!(wants_verifier);
             let config = prev.with_root_certificates(root_store.clone()).with_no_client_auth();
             BoxCastPtr::set_mut_ptr(builder, config);
             rustls_result::Ok
@@ -323,12 +325,13 @@ impl rustls_client_config_builder {
         builder: *mut *mut rustls_client_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let filename: &CStr = unsafe {
-                if filename.is_null() {
-                    return rustls_result::NullParameter;
-                }
-                CStr::from_ptr(filename)
-            };
+        let prev = *try_box_from_ptr!(wants_verifier);
+        let filename: &CStr = unsafe {
+            if filename.is_null() {
+                return rustls_result::NullParameter;
+            }
+            CStr::from_ptr(filename)
+        };
 
             let filename: &[u8] = filename.to_bytes();
             let filename: &str = match std::str::from_utf8(filename) {
@@ -353,7 +356,6 @@ impl rustls_client_config_builder {
                 return rustls_result::CertificateParseError;
             }
 
-            let prev = *BoxCastPtr::to_box(wants_verifier);
             // TODO: no client authentication support for now
             let config = prev.with_root_certificates(roots).with_no_client_auth();
             BoxCastPtr::set_mut_ptr(builder, config);
@@ -443,13 +445,7 @@ impl rustls_client_config_builder {
             let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
             let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
             for &key_ptr in keys_ptrs {
-                let key_ptr: &CertifiedKey = try_ref_from_ptr!(key_ptr);
-                let certified_key: Arc<CertifiedKey> = unsafe {
-                    match (key_ptr as *const CertifiedKey).as_ref() {
-                        Some(c) => arc_with_incref_from_raw(c),
-                        None => return NullParameter,
-                    }
-                };
+                let certified_key: Arc<CertifiedKey> = try_arc_from_ptr!(key_ptr);
                 keys.push(certified_key);
             }
             config.client_auth_cert_resolver = Arc::new(ResolvesClientCertFromChoices { keys });
@@ -490,8 +486,8 @@ impl rustls_client_config_builder {
         builder: *mut rustls_client_config_builder,
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
-            let b = BoxCastPtr::to_box(builder);
-            Arc::into_raw(Arc::new(*b)) as *const _
+            let b = try_box_from_ptr!(builder);
+            ArcCastPtr::to_const_ptr(*b)
         }
     }
 
@@ -539,34 +535,29 @@ impl rustls_client_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let hostname: &CStr = unsafe {
-                if hostname.is_null() {
-                    return NullParameter;
-                }
-                CStr::from_ptr(hostname)
-            };
-            let config: Arc<ClientConfig> = unsafe {
-                match (config as *const ClientConfig).as_ref() {
-                    Some(c) => arc_with_incref_from_raw(c),
-                    None => return NullParameter,
-                }
-            };
-            let hostname: &str = match hostname.to_str() {
-                Ok(s) => s,
-                Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
-            };
-            let server_name: rustls::ServerName = match hostname.try_into() {
-                Ok(sn) => sn,
-                Err(_) => return rustls_result::InvalidDnsNameError,
-            };
-            let client = ClientConnection::new(config, server_name).unwrap();
+        let hostname: &CStr = unsafe {
+            if hostname.is_null() {
+                return NullParameter;
+            }
+            CStr::from_ptr(hostname)
+        };
+        let config: Arc<ClientConfig> = try_arc_from_ptr!(config);
+        let hostname: &str = match hostname.to_str() {
+            Ok(s) => s,
+            Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
+        };
+        let server_name: rustls::ServerName = match hostname.try_into() {
+            Ok(sn) => sn,
+            Err(_) => return rustls_result::InvalidDnsNameError,
+        };
+        let client = ClientConnection::new(config, server_name).unwrap();
 
-            // We've succeeded. Put the client on the heap, and transfer ownership
-            // to the caller. After this point, we must return CRUSTLS_OK so the
-            // caller knows it is responsible for this memory.
-            let c = Connection::from_client(client);
-            BoxCastPtr::set_mut_ptr(conn_out, c);
-            rustls_result::Ok
+        // We've succeeded. Put the client on the heap, and transfer ownership
+        // to the caller. After this point, we must return CRUSTLS_OK so the
+        // caller knows it is responsible for this memory.
+        let c = Connection::from_client(client);
+        BoxCastPtr::set_mut_ptr(conn_out, c);
+        rustls_result::Ok
         }
     }
 }
