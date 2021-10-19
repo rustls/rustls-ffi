@@ -6,7 +6,7 @@ use crate::error::rustls_io_result;
 use crate::rslice::rustls_slice_bytes;
 use std::ops::Deref;
 
-/// A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
+/// A callback for rustls_connection_read_tls.
 /// An implementation of this callback should attempt to read up to n bytes from the
 /// network, storing them in `buf`. If any bytes were stored, the implementation should
 /// set out_n to the number of bytes stored and return 0. If there was an error,
@@ -15,7 +15,7 @@ use std::ops::Deref;
 /// On other systems, any appropriate error code works.
 /// It's best to make one read attempt to the network per call. Additional reads will
 /// be triggered by subsequent calls to one of the `_read_tls` methods.
-/// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_read_callback = Option<
@@ -51,7 +51,7 @@ impl Read for CallbackReader {
     }
 }
 
-/// A callback for rustls_server_session_write_tls or rustls_client_session_write_tls.
+/// A callback for rustls_connection_write_tls.
 /// An implementation of this callback should attempt to write the `n` bytes in buf
 /// to the network. If any bytes were written, the implementation should
 /// set out_n to the number of bytes stored and return 0. If there was an error,
@@ -59,8 +59,8 @@ impl Read for CallbackReader {
 /// passed through to the caller. On POSIX systems, returning `errno` is convenient.
 /// On other systems, any appropriate error code works.
 /// It's best to make one write attempt to the network per call. Additional writes will
-/// be triggered by subsequent calls to one of the `_write_tls` methods.
-/// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+/// be triggered by subsequent calls to rustls_connection_write_tls.
+/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_write_callback = Option<

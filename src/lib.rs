@@ -6,17 +6,19 @@ use std::sync::Arc;
 use std::{cmp::min, thread::AccessError};
 use std::{mem, slice};
 
-mod cipher;
-mod client;
-mod connection;
-mod enums;
+pub mod cipher;
+pub mod client;
+pub mod connection;
+pub mod enums;
 mod error;
-mod io;
-mod log;
+pub mod io;
+pub mod log;
 mod panic;
-mod rslice;
-mod server;
-mod session;
+pub mod rslice;
+pub mod server;
+pub mod session;
+
+pub use error::rustls_result;
 
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
@@ -32,10 +34,10 @@ use crate::panic::PanicOrDefault;
 // Rust code, we model these thread locals as a stack, so we can always
 // restore the previous version.
 thread_local! {
-    pub static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
+    pub(crate) static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
 }
 
-pub struct Userdata {
+pub(crate) struct Userdata {
     userdata: *mut c_void,
     log_callback: rustls_log_callback,
 }
@@ -47,7 +49,7 @@ pub struct Userdata {
 ///  - The top item on that stack must be the one this guard was built with.
 ///  - The `data` field must not be None.
 /// If any of these invariants fails, try_drop will return an error.
-pub struct UserdataGuard {
+pub(crate) struct UserdataGuard {
     // Keep a copy of the data we expect to be popping off the stack. This allows
     // us to check for consistency, and also serves to make this type !Send:
     // https://doc.rust-lang.org/nightly/std/primitive.pointer.html#impl-Send-1
@@ -104,7 +106,7 @@ impl Drop for UserdataGuard {
 }
 
 #[derive(Clone, Debug)]
-pub enum UserdataError {
+pub(crate) enum UserdataError {
     /// try_pop was called twice.
     AlreadyPopped,
     /// The RefCell is borrowed somewhere else.
@@ -119,7 +121,7 @@ pub enum UserdataError {
 }
 
 #[must_use = "If you drop the guard, userdata will be immediately cleared"]
-pub fn userdata_push(
+pub(crate) fn userdata_push(
     u: *mut c_void,
     cb: rustls_log_callback,
 ) -> Result<UserdataGuard, UserdataError> {
@@ -140,7 +142,7 @@ pub fn userdata_push(
     Ok(UserdataGuard::new(u))
 }
 
-pub fn userdata_get() -> Result<*mut c_void, UserdataError> {
+pub(crate) fn userdata_get() -> Result<*mut c_void, UserdataError> {
     USERDATA
         .try_with(|userdata| {
             userdata.try_borrow_mut().map_or_else(
@@ -154,7 +156,7 @@ pub fn userdata_get() -> Result<*mut c_void, UserdataError> {
         .unwrap_or(Err(UserdataError::AccessError))
 }
 
-pub fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
+pub(crate) fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
     USERDATA
         .try_with(|userdata| {
             userdata.try_borrow_mut().map_or_else(
@@ -274,8 +276,8 @@ mod tests {
 // Keep in sync with Cargo.toml.
 const RUSTLS_CRATE_VERSION: &str = "0.20.0";
 
-/// CastPtr represents the relationship between a snake case type (like rustls_client_session)
-/// and the corresponding Rust type (like ClientSession). For each matched pair of types, there
+/// CastPtr represents the relationship between a snake case type (like rustls_client_config)
+/// and the corresponding Rust type (like ClientConfig). For each matched pair of types, there
 /// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
 ///
 /// This allows us to avoid using `as` in most places, and ensure that when we cast, we're
@@ -285,19 +287,40 @@ const RUSTLS_CRATE_VERSION: &str = "0.20.0";
 pub(crate) trait CastPtr {
     type RustType;
 
-    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
-        ptr as *const _
-    }
-
     fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
         ptr as *mut _
     }
 }
 
+/// CastConstPtr represents a subset of CastPtr, for when we can only treat
+/// something as a const (for instance when dealing with Arc).
+pub(crate) trait CastConstPtr {
+    type RustType;
+
+    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
+        ptr as *const _
+    }
+}
+
+/// Anything that qualifies for CastPtr also automatically qualifies for
+/// CastConstPtr. Splitting out CastPtr vs CastConstPtr allows us to ensure
+/// that Arcs are never cast to a mutable pointer.
+impl<T, R> CastConstPtr for T
+where
+    T: CastPtr<RustType = R>,
+{
+    type RustType = R;
+}
+
+// An implementation of BoxCastPtr means that when we give C code a pointer to the relevant type,
+// it is actually a Box.
 pub(crate) trait BoxCastPtr: CastPtr + Sized {
-    fn to_box(ptr: *mut Self) -> Box<Self::RustType> {
+    fn to_box(ptr: *mut Self) -> Option<Box<Self::RustType>> {
+        if ptr.is_null() {
+            return None;
+        }
         let rs_typed = Self::cast_mut_ptr(ptr);
-        unsafe { Box::from_raw(rs_typed) }
+        unsafe { Some(Box::from_raw(rs_typed)) }
     }
 
     fn to_mut_ptr(src: Self::RustType) -> *mut Self {
@@ -311,6 +334,39 @@ pub(crate) trait BoxCastPtr: CastPtr + Sized {
     }
 }
 
+// An implementation of ArcCastPtr means that when we give C code a pointer to the relevant type,
+// it is actually a Arc.
+pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
+    /// Sometimes we create an Arc, then call `into_raw` and return the resulting raw pointer
+    /// to C. C can then call rustls_server_session_new multiple times using that
+    /// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
+    /// its reference count will be decremented on drop. We need to reference count to stay at 1,
+    /// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
+    /// clones it to increment the reference count (which will make it 2 in this particular case), and
+    /// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
+    /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
+    /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
+    ///
+    /// Unsafety:
+    ///
+    /// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+    fn to_arc(ptr: *const Self) -> Option<Arc<Self::RustType>> {
+        if ptr.is_null() {
+            return None;
+        }
+        let rs_typed = Self::cast_const_ptr(ptr);
+        let r = unsafe { Arc::from_raw(rs_typed) };
+        let val = Arc::clone(&r);
+        mem::forget(r);
+        Some(val)
+    }
+
+    fn to_const_ptr(src: Self::RustType) -> *const Self {
+        Arc::into_raw(Arc::new(src)) as *const _
+    }
+}
+
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
@@ -322,6 +378,7 @@ macro_rules! try_slice {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_mut_slice {
     ( $ptr:expr, $count:expr ) => {
@@ -339,7 +396,7 @@ macro_rules! try_mut_slice {
 /// against T (the cast-to type) rather than across F (the from type).
 pub(crate) fn try_from<'a, F, T>(from: *const F) -> Option<&'a T>
 where
-    F: CastPtr<RustType = T>,
+    F: CastConstPtr<RustType = T>,
 {
     unsafe { F::cast_const_ptr(from).as_ref() }
 }
@@ -350,6 +407,20 @@ where
     F: CastPtr<RustType = T>,
 {
     unsafe { F::cast_mut_ptr(from).as_mut() }
+}
+
+pub(crate) fn try_box_from<'a, F, T>(from: *mut F) -> Option<Box<T>>
+where
+    F: BoxCastPtr<RustType = T>,
+{
+    F::to_box(from)
+}
+
+pub(crate) fn try_arc_from<'a, F, T>(from: *const F) -> Option<Arc<T>>
+where
+    F: ArcCastPtr<RustType = T>,
+{
+    F::to_arc(from)
 }
 
 impl CastPtr for size_t {
@@ -365,6 +436,7 @@ impl CastPtr for *const u8 {
 /// based on the context;
 /// Example:
 ///   let config: &mut ClientConfig = try_ref_from_ptr!(builder);
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
@@ -375,10 +447,32 @@ macro_rules! try_ref_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
         match crate::try_from_mut($var) {
+            Some(c) => c,
+            None => return crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! try_box_from_ptr {
+    ( $var:ident ) => {
+        match crate::try_box_from($var) {
+            Some(c) => c,
+            None => return crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! try_arc_from_ptr {
+    ( $var:ident ) => {
+        match crate::try_arc_from($var) {
             Some(c) => c,
             None => return crate::panic::NullParameterOrDefault::value(),
         }
@@ -417,25 +511,4 @@ pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
         write_buf[len] = 0;
         len
     }
-}
-
-/// In rustls_server_config_builder_build, and rustls_client_config_builder_build,
-/// we create an Arc, then call `into_raw` and return the resulting raw pointer
-/// to C. C can then call rustls_server_session_new multiple times using that
-/// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
-/// its reference count will be decremented on drop. We need to reference count to stay at 1,
-/// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
-/// clones it to increment the reference count (which will make it 2 in this particular case), and
-/// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
-/// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
-/// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
-///
-/// Unsafety:
-///
-/// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
-unsafe fn arc_with_incref_from_raw<T>(v: *const T) -> Arc<T> {
-    let r = Arc::from_raw(v);
-    let val = Arc::clone(&r);
-    mem::forget(r);
-    val
 }

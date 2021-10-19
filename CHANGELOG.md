@@ -38,7 +38,7 @@
 
 ### Fixed
 
- - rustls_connect_get_peer_certificate was returning a dangling pointer.
+ - rustls_connection_get_peer_certificate was returning a dangling pointer.
    This is now fixed by having it return a reference that lives as long
    as the connection does. (#103)
 
