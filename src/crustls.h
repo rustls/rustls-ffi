@@ -125,7 +125,7 @@ typedef struct rustls_client_cert_verifier rustls_client_cert_verifier;
  * does not offer a certificate, the connection will succeed.
  *
  * The application can retrieve the certificate, if any, with
- * rustls_server_session_get_peer_certificate.
+ * rustls_connection_peer_certificate.
  */
 typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_optional;
 
@@ -302,7 +302,7 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
 typedef int rustls_io_result;
 
 /**
- * A callback for rustls_server_session_read_tls or rustls_client_session_read_tls.
+ * A callback for rustls_connection_read_tls.
  * An implementation of this callback should attempt to read up to n bytes from the
  * network, storing them in `buf`. If any bytes were stored, the implementation should
  * set out_n to the number of bytes stored and return 0. If there was an error,
@@ -311,14 +311,14 @@ typedef int rustls_io_result;
  * On other systems, any appropriate error code works.
  * It's best to make one read attempt to the network per call. Additional reads will
  * be triggered by subsequent calls to one of the `_read_tls` methods.
- * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
 typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
 
 /**
- * A callback for rustls_server_session_write_tls or rustls_client_session_write_tls.
+ * A callback for rustls_connection_write_tls.
  * An implementation of this callback should attempt to write the `n` bytes in buf
  * to the network. If any bytes were written, the implementation should
  * set out_n to the number of bytes stored and return 0. If there was an error,
@@ -326,8 +326,8 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, s
  * passed through to the caller. On POSIX systems, returning `errno` is convenient.
  * On other systems, any appropriate error code works.
  * It's best to make one write attempt to the network per call. Additional writes will
- * be triggered by subsequent calls to one of the `_write_tls` methods.
- * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * be triggered by subsequent calls to rustls_connection_write_tls.
+ * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
@@ -967,8 +967,8 @@ enum rustls_result rustls_connection_read(struct rustls_connection *conn,
 void rustls_connection_free(struct rustls_connection *conn);
 
 /**
- * After a rustls_client_session method returns an error, you may call
- * this method to get a pointer to a buffer containing a detailed error
+ * After a rustls function returns an error, you may call
+ * this to get a pointer to a buffer containing a detailed error
  * message. The contents of the error buffer will be out_n bytes long,
  * UTF-8 encoded, and not NUL-terminated.
  */

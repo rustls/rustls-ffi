@@ -92,6 +92,7 @@ impl NullParameterOrDefault for rustls_io_result {
     }
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! ffi_panic_boundary {
     ( $($tt:tt)* ) => {
