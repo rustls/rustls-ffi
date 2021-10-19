@@ -1,10 +1,10 @@
 [package]
-name = "crustls"
+name = "rustls-ffi"
 version = "0.7.1"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 description = "C-to-rustls bindings"
 edition = "2018"
-links = "crustls"
+links = "rustls_ffi"
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in lib.rs
@@ -19,5 +19,5 @@ log = "0.4.14"
 cbindgen = "*"
 
 [lib]
-name = "crustls"
+name = "rustls_ffi"
 crate-type = ["lib", "staticlib"]

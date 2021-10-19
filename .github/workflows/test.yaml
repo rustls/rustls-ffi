@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           persist-credentials: false
-      - run: make src/crustls.h
+      - run: make src/rustls.h
       - run: git diff --exit-code
 
   cargo-fmt:

@@ -5,7 +5,7 @@ fn main() {
     let include_dir = out_dir.join("include");
 
     fs::create_dir_all(&include_dir).unwrap();
-    fs::copy("src/crustls.h", include_dir.join("crustls.h")).unwrap();
+    fs::copy("src/rustls.h", include_dir.join("rustls.h")).unwrap();
 
     println!("cargo:include={}", include_dir.to_str().unwrap());
 }

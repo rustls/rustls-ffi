@@ -29,27 +29,29 @@ test: all
 target:
 	mkdir -p $@
 
-src/crustls.h: src/*.rs cbindgen.toml
+src/rustls.h: src/*.rs cbindgen.toml
 	cargo check
 	cbindgen --lang C > $@
 
-target/$(PROFILE)/libcrustls.a: src/*.rs Cargo.toml
+target/$(PROFILE)/librustls_ffi.a: src/*.rs Cargo.toml
 	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
 
-target/%.o: tests/%.c src/crustls.h tests/common.h | target
+target/%.o: tests/%.c src/rustls.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
-target/client: target/client.o target/common.o target/$(PROFILE)/libcrustls.a
+target/client: target/client.o target/common.o target/$(PROFILE)/librustls_ffi.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-target/server: target/server.o target/common.o target/$(PROFILE)/libcrustls.a
+target/server: target/server.o target/common.o target/$(PROFILE)/librustls_ffi.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-install: target/$(PROFILE)/libcrustls.a src/crustls.h
+install: target/$(PROFILE)/librustls_ffi.a src/rustls.h
 	mkdir -p $(DESTDIR)/lib
-	install target/$(PROFILE)/libcrustls.a $(DESTDIR)/lib/
+	install target/$(PROFILE)/librustls_ffi.a $(DESTDIR)/lib/librustls.a
 	mkdir -p $(DESTDIR)/include
-	install src/crustls.h $(DESTDIR)/include/crustls.h
+	install src/rustls.h $(DESTDIR)/include/
+	ln -s librustls.a $(DESTDIR)/lib/libcrustls.a
+	ln -s rustls.h $(DESTDIR)/include/crustls.h
 
 clean:
 	rm -rf target
