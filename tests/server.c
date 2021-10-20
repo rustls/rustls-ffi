@@ -144,7 +144,7 @@ send_response(struct conndata *conn)
   struct rustls_connection *rconn = conn->rconn;
   const char *prefix = "HTTP/1.1 200 OK\r\nContent-Length:";
   const int body_size = 10000;
-  const int response_size = strlen(prefix) + 10 + body_size;
+  const int response_size = strlen(prefix) + 15 + body_size;
   char *response = malloc(response_size);
   size_t n;
 
