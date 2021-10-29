@@ -631,11 +631,12 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
- * resulting rustls_client_config. Specify cipher suites in preference order;
- * the `cipher_suites` parameter must point to an array containing `len`
- * pointers to `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
- * when negotiating a TLS session.
+ * resulting rustls_client_config. Specify cipher suites in preference
+ * order; the `cipher_suites` parameter must either be null (default
+ * suites will be used) or point to an array containing `len` pointers
+ * to `rustls_supported_ciphersuite` objects previously obtained from
+ * `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol versions to
+ * use when negotiating a TLS session.
  *
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in

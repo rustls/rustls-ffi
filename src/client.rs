@@ -10,7 +10,7 @@ use libc::{c_char, size_t};
 use rustls::client::{ResolvesClientCert, ServerCertVerified, ServerCertVerifier};
 use rustls::{
     sign::CertifiedKey, Certificate, ClientConfig, ClientConnection, ProtocolVersion,
-    RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
+    RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES,
 };
 
 use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
@@ -109,11 +109,12 @@ impl rustls_client_config_builder {
 
     /// Create a rustls_client_config_builder. Caller owns the memory and must
     /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config. Specify cipher suites in preference order;
-    /// the `cipher_suites` parameter must point to an array containing `len`
-    /// pointers to `rustls_supported_ciphersuite` previously obtained from
-    /// `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
-    /// when negotiating a TLS session.
+    /// resulting rustls_client_config. Specify cipher suites in preference
+    /// order; the `cipher_suites` parameter must either be null (default
+    /// suites will be used) or point to an array containing `len` pointers
+    /// to `rustls_supported_ciphersuite` objects previously obtained from
+    /// `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol versions to
+    /// use when negotiating a TLS session.
     ///
     /// `tls_version` is the version of the protocol, as defined in rfc8446,
     /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
@@ -130,15 +131,21 @@ impl rustls_client_config_builder {
         builder_out: *mut *mut rustls_client_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
-            let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
-            for &cs in cipher_suites.into_iter() {
-                let cs = try_ref_from_ptr!(cs);
-                match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
-                    Some(scs) => cs_vec.push(scs.clone()),
-                    None => return InvalidParameter,
+            let cs_vec: Vec<SupportedCipherSuite> = match cipher_suites.is_null() {
+                true => DEFAULT_CIPHER_SUITES.to_vec(),
+                false => {
+                    let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
+                    let mut cs_vec = Vec::new();
+                    for &cs in cipher_suites.into_iter() {
+                        let cs = try_ref_from_ptr!(cs);
+                        match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
+                            Some(scs) => cs_vec.push(scs.clone()),
+                            None => return InvalidParameter,
+                        }
+                    }
+                    cs_vec
                 }
-            }
+            };
 
             let tls_versions: &[u16] = try_slice!(tls_versions, tls_versions_len);
             let mut versions = vec![];
