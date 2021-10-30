@@ -142,8 +142,22 @@ enum crustls_demo_result
 send_response(struct conndata *conn)
 {
   struct rustls_connection *rconn = conn->rconn;
-  const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\n\r\nhello\n";
+  const char *prefix = "HTTP/1.1 200 OK\r\nContent-Length:";
+  const int body_size = 10000;
+  const int response_size = strlen(prefix) + 15 + body_size;
+  char *response = malloc(response_size);
   size_t n;
+
+  if(response == NULL) {
+    fprintf(stderr, "failed malloc\n");
+    return CRUSTLS_DEMO_ERROR;
+  }
+
+  n = sprintf(response, "%s %d\r\n\r\n", prefix, body_size);
+  memset(response + n, 'a', body_size);
+  *(response + n + body_size + 1) = '\0';
+  fprintf(stderr, "strlen response %ld\n", strlen(response));
+
   rustls_connection_write(
     rconn, (const uint8_t *)response, strlen(response), &n);
   if(n != strlen(response)) {
@@ -177,6 +191,12 @@ handle_conn(struct conndata *conn)
     if(rustls_connection_wants_write(rconn)) {
       FD_SET(sockfd, &write_fds);
     }
+
+    if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
+      fprintf(stderr, "rustls wants neither read nor write. closing connection\n");
+      goto cleanup;
+    }
+
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
@@ -235,6 +255,7 @@ handle_conn(struct conndata *conn)
   fprintf(stderr, "handle_conn: loop fell through");
 
 cleanup:
+  fprintf(stderr, "closing socket %d\n", sockfd);
   if(sockfd > 0) {
     close(sockfd);
   }
