@@ -5,7 +5,7 @@
 ### Changed
 
   - `rustls_version` returns a `rustls_str` that points to a static string in
-    memroy, and the function no longer accepts a character buffer or length.
+    memory, and the function no longer accepts a character buffer or length.
 
 ## 0.7.1 - 2021-06-29
 
