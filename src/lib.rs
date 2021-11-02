@@ -1,10 +1,11 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
-use libc::{c_char, c_void, size_t};
+use crate::rslice::rustls_str;
+use libc::{c_void, size_t};
 use std::cell::RefCell;
+use std::mem;
 use std::sync::Arc;
-use std::{cmp::min, thread::AccessError};
-use std::{mem, slice};
+use std::thread::AccessError;
 
 pub mod cipher;
 pub mod client;
@@ -22,6 +23,8 @@ pub use error::rustls_result;
 
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
+
+include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
 // For C callbacks, we need to offer a `void *userdata` parameter, so the
 // application can associate callbacks with particular pieces of state. We
@@ -273,9 +276,6 @@ mod tests {
     }
 }
 
-// Keep in sync with Cargo.toml.
-const RUSTLS_CRATE_VERSION: &str = "0.20.0";
-
 /// CastPtr represents the relationship between a snake case type (like rustls_client_config)
 /// and the corresponding Rust type (like ClientConfig). For each matched pair of types, there
 /// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
@@ -492,23 +492,15 @@ macro_rules! try_callback {
 /// provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
 /// and NUL terminated. Returns the number of bytes written before the NUL.
 #[no_mangle]
-pub extern "C" fn rustls_version(buf: *mut c_char, len: size_t) -> size_t {
-    ffi_panic_boundary! {
-        let write_buf: &mut [u8] = unsafe {
-            if buf.is_null() {
-                return 0;
-            }
-            slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-        };
-        let version: String = format!(
-            "crustls/{}/rustls/{}",
-            env!("CARGO_PKG_VERSION"),
-            RUSTLS_CRATE_VERSION,
-        );
-        let version: &[u8] = version.as_bytes();
-        let len: usize = min(write_buf.len() - 1, version.len());
-        write_buf[..len].copy_from_slice(&version[..len]);
-        write_buf[len] = 0;
-        len
-    }
+pub extern "C" fn rustls_version() -> rustls_str<'static> {
+    return rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION);
+}
+
+#[test]
+fn test_rustls_version() {
+    // very rough check that the version number is being interpolated into the
+    // variable
+    assert!(RUSTLS_FFI_VERSION.contains("/0."));
+    let vsn = rustls_version();
+    assert!(vsn.len > 4)
 }

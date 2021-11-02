@@ -7,7 +7,7 @@ edition = "2018"
 links = "rustls_ffi"
 
 [dependencies]
-# Keep in sync with RUSTLS_CRATE_VERSION in lib.rs
+# Keep in sync with RUSTLS_CRATE_VERSION in build.rs
 rustls = { version = "=0.20", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
