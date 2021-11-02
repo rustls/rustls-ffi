@@ -10,7 +10,6 @@ use std::thread::AccessError;
 pub mod cipher;
 pub mod client;
 pub mod connection;
-mod constants;
 pub mod enums;
 mod error;
 pub mod io;
@@ -24,6 +23,8 @@ pub use error::rustls_result;
 
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
+
+include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
 // For C callbacks, we need to offer a `void *userdata` parameter, so the
 // application can associate callbacks with particular pieces of state. We
@@ -275,9 +276,6 @@ mod tests {
     }
 }
 
-// Keep in sync with Cargo.toml.
-const RUSTLS_CRATE_VERSION: &str = "0.20.0";
-
 /// CastPtr represents the relationship between a snake case type (like rustls_client_config)
 /// and the corresponding Rust type (like ClientConfig). For each matched pair of types, there
 /// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
@@ -495,14 +493,14 @@ macro_rules! try_callback {
 /// and NUL terminated. Returns the number of bytes written before the NUL.
 #[no_mangle]
 pub extern "C" fn rustls_version() -> rustls_str<'static> {
-    return rustls_str::from_str_unchecked(crate::constants::RUSTLS_FFI_VERSION);
+    return rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION);
 }
 
 #[test]
 fn test_rustls_version() {
     // very rough check that the version number is being interpolated into the
     // variable
-    assert!(crate::constants::RUSTLS_FFI_VERSION.contains("/0."));
+    assert!(RUSTLS_FFI_VERSION.contains("/0."));
     let vsn = rustls_version();
     assert!(vsn.len > 4)
 }
