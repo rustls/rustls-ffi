@@ -6,7 +6,10 @@ use std::sync::Arc;
 
 use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient};
 use rustls::sign::CertifiedKey;
-use rustls::{Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES};
+use rustls::{
+    Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES,
+    DEFAULT_CIPHER_SUITES,
+};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
@@ -95,6 +98,26 @@ pub extern "C" fn rustls_all_ciphersuites_get_entry(
     i: size_t,
 ) -> *const rustls_supported_ciphersuite {
     match ALL_CIPHER_SUITES.get(i) {
+        Some(cs) => cs as *const SupportedCipherSuite as *const _,
+        None => null(),
+    }
+}
+
+/// Return the length of rustls' list of default cipher suites.
+#[no_mangle]
+pub extern "C" fn rustls_default_ciphersuites_len() -> usize {
+    DEFAULT_CIPHER_SUITES.len()
+}
+
+/// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
+/// for i < rustls_all_ciphersuites_len().
+/// The returned pointer is valid for the lifetime of the program and may be used directly when
+/// building a ClientConfig or ServerConfig.
+#[no_mangle]
+pub extern "C" fn rustls_default_ciphersuites_get_entry(
+    i: size_t,
+) -> *const rustls_supported_ciphersuite {
+    match DEFAULT_CIPHER_SUITES.get(i) {
         Some(cs) => cs as *const SupportedCipherSuite as *const _,
         None => null(),
     }

@@ -501,6 +501,19 @@ size_t rustls_all_ciphersuites_len(void);
 const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get_entry(size_t i);
 
 /**
+ * Return the length of rustls' list of default cipher suites.
+ */
+size_t rustls_default_ciphersuites_len(void);
+
+/**
+ * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
+ * for i < rustls_all_ciphersuites_len().
+ * The returned pointer is valid for the lifetime of the program and may be used directly when
+ * building a ClientConfig or ServerConfig.
+ */
+const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry(size_t i);
+
+/**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
  * `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
  * a series of PEM-encoded certificates, with the end-entity (leaf)
