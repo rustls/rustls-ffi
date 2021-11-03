@@ -224,6 +224,24 @@ typedef struct rustls_slice_str rustls_slice_str;
 typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
 
 /**
+ * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
+ * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_str {
+  const char *data;
+  size_t len;
+} rustls_str;
+
+/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from crustls to callback functions provided
@@ -246,24 +264,6 @@ typedef struct rustls_slice_bytes {
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
 typedef void *rustls_verify_server_cert_user_data;
-
-/**
- * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
- * UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
- * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
- * safe to interpolate into a C string or compare using strncmp. Keep in mind
- * that it is not NUL-terminated.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_str {
-  const char *data;
-  size_t len;
-} rustls_str;
 
 /**
  * Input to a custom certificate verifier callback. See
@@ -464,7 +464,7 @@ typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_s
  * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
  * and NUL terminated. Returns the number of bytes written before the NUL.
  */
-size_t rustls_version(char *buf, size_t len);
+struct rustls_str rustls_version(void);
 
 /**
  * Get the DER data of the certificate itself.
@@ -493,6 +493,19 @@ size_t rustls_all_ciphersuites_len(void);
  * building a ClientConfig or ServerConfig.
  */
 const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get_entry(size_t i);
+
+/**
+ * Return the length of rustls' list of default cipher suites.
+ */
+size_t rustls_default_ciphersuites_len(void);
+
+/**
+ * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
+ * for i < rustls_all_ciphersuites_len().
+ * The returned pointer is valid for the lifetime of the program and may be used directly when
+ * building a ClientConfig or ServerConfig.
+ */
+const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry(size_t i);
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
@@ -631,11 +644,11 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
  * eventually call rustls_client_config_builder_build, then free the
- * resulting rustls_client_config. Specify cipher suites in preference order;
- * the `cipher_suites` parameter must point to an array containing `len`
- * pointers to `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
- * when negotiating a TLS session.
+ * resulting rustls_client_config. Specify cipher suites in preference
+ * order; the `cipher_suites` parameter must point to an array containing
+ * `len` pointers to `rustls_supported_ciphersuite` previously obtained
+ * from `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol
+ * versions to use when negotiating a TLS session.
  *
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
@@ -1001,11 +1014,11 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
  * eventually call rustls_server_config_builder_build, then free the
- * resulting rustls_server_config. Specify cipher suites in preference order;
- * the `cipher_suites` parameter must point to an array containing `len`
- * pointers to `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get()`. Set the TLS protocol versions to use
- * when negotiating a TLS session.
+ * resulting rustls_server_config. Specify cipher suites in preference
+ * order; the `cipher_suites` parameter must point to an array containing
+ * `len` pointers to `rustls_supported_ciphersuite` previously obtained
+ * from `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol
+ * versions to use when negotiating a TLS session.
  *
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
