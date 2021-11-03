@@ -136,8 +136,6 @@ typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_
  */
 typedef struct rustls_client_config rustls_client_config;
 
-typedef struct rustls_client_config_builder rustls_client_config_builder;
-
 /**
  * A client config being constructed. A builder can be modified by,
  * e.g. rustls_client_config_builder_load_roots_from_file. Once you're
@@ -147,7 +145,7 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
  * Box<ClientConfig>.
  * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
  */
-typedef struct rustls_client_config_builder_wants_verifier rustls_client_config_builder_wants_verifier;
+typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 typedef struct rustls_connection rustls_connection;
 
@@ -183,10 +181,6 @@ typedef struct rustls_server_config rustls_server_config;
  * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html
  */
 typedef struct rustls_server_config_builder rustls_server_config_builder;
-
-typedef struct rustls_server_config_builder_wants_server_cert rustls_server_config_builder_wants_server_cert;
-
-typedef struct rustls_server_config_builder_wants_verifier rustls_server_config_builder_wants_verifier;
 
 /**
  * A read-only view of a slice of Rust byte slices.
@@ -645,7 +639,7 @@ void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_v
  * Caller must add roots with rustls_client_config_builder_load_roots_from_file
  * or provide a custom verifier.
  */
-struct rustls_client_config_builder_wants_verifier *rustls_client_config_builder_new_with_safe_defaults(void);
+struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -663,11 +657,11 @@ struct rustls_client_config_builder_wants_verifier *rustls_client_config_builder
  * `versions` will only be used during the call and the application retains
  * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
  */
-enum rustls_result rustls_client_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
-                                                    size_t cipher_suites_len,
-                                                    const uint16_t *tls_versions,
-                                                    size_t tls_versions_len,
-                                                    struct rustls_client_config_builder_wants_verifier **builder);
+enum rustls_result rustls_client_config_builder_new_custom(const struct rustls_supported_ciphersuite *const *cipher_suites,
+                                                           size_t cipher_suites_len,
+                                                           const uint16_t *tls_versions,
+                                                           size_t tls_versions_len,
+                                                           struct rustls_client_config_builder **builder_out);
 
 /**
  * Set a custom server certificate verifier.
@@ -703,9 +697,8 @@ enum rustls_result rustls_client_config_builder_new(const struct rustls_supporte
  *
  * https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier
  */
-enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder_wants_verifier *wants_verifier,
-                                                                                   rustls_verify_server_cert_callback callback,
-                                                                                   struct rustls_client_config_builder **builder);
+enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config_builder,
+                                                                                   rustls_verify_server_cert_callback callback);
 
 /**
  * Use the trusted root certificates from the provided store.
@@ -715,17 +708,15 @@ enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifi
  * call rustls_client_config_free or rustls_client_config_builder_free,
  * those will subtract 1 from the refcount for `roots`.
  */
-enum rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder_wants_verifier *wants_verifier,
-                                                          const struct rustls_root_cert_store *roots,
-                                                          struct rustls_client_config_builder **builder);
+enum rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config_builder,
+                                                          const struct rustls_root_cert_store *roots);
 
 /**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
-enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder_wants_verifier *wants_verifier,
-                                                                     const char *filename,
-                                                                     struct rustls_client_config_builder **builder);
+enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config_builder,
+                                                                     const char *filename);
 
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
@@ -750,15 +741,6 @@ enum rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
-
-/**
- * "Free" a client_config_builder_wants_verifier before transmogrifying it into a client_config.
- * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
- * and may not be free'd or otherwise used afterwards.
- * Use free only when the building of a config has to be aborted before a config
- * was created.
- */
-void rustls_client_config_builder_wants_verifier_free(struct rustls_client_config_builder_wants_verifier *builder);
 
 /**
  * Provide the configuration a list of certificates where the session
@@ -1027,7 +1009,7 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
  * resulting rustls_server_config. This uses rustls safe default values
  * for the cipher suites, key exchange groups and protocol versions.
  */
-struct rustls_server_config_builder_wants_verifier *rustls_server_config_builder_new_with_safe_defaults(void);
+struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
  * Create a rustls_server_config_builder. Caller owns the memory and must
@@ -1045,16 +1027,11 @@ struct rustls_server_config_builder_wants_verifier *rustls_server_config_builder
  * `versions` will only be used during the call and the application retains
  * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
  */
-enum rustls_result rustls_server_config_builder_new(const struct rustls_supported_ciphersuite *const *cipher_suites,
-                                                    size_t cipher_suites_len,
-                                                    const uint16_t *tls_versions,
-                                                    size_t tls_versions_len,
-                                                    struct rustls_server_config_builder_wants_verifier **builder);
-
-/**
- * For memory lifetime, see rustls_server_config_builder_new.
- */
-struct rustls_server_config_builder *rustls_server_config_builder_with_no_client_auth(struct rustls_server_config_builder_wants_verifier *wants_verifier);
+enum rustls_result rustls_server_config_builder_new_custom(const struct rustls_supported_ciphersuite *const *cipher_suites,
+                                                           size_t cipher_suites_len,
+                                                           const uint16_t *tls_versions,
+                                                           size_t tls_versions_len,
+                                                           struct rustls_server_config_builder **builder_out);
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that require
@@ -1063,9 +1040,8 @@ struct rustls_server_config_builder *rustls_server_config_builder_with_no_client
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-enum rustls_result rustls_server_config_builder_with_client_verifier(struct rustls_server_config_builder_wants_verifier *wants_verifier,
-                                                                     const struct rustls_client_cert_verifier *verifier,
-                                                                     struct rustls_server_config_builder_wants_server_cert **builder);
+void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *config_builder,
+                                                      const struct rustls_client_cert_verifier *verifier);
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that accept
@@ -1074,7 +1050,8 @@ enum rustls_result rustls_server_config_builder_with_client_verifier(struct rust
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-struct rustls_server_config_builder *rustls_server_config_builder_with_client_verifier_optional(const struct rustls_client_cert_verifier_optional *verifier);
+void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *config_builder,
+                                                               const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
  * "Free" a server_config_builder before transmogrifying it into a server_config.
@@ -1084,13 +1061,6 @@ struct rustls_server_config_builder *rustls_server_config_builder_with_client_ve
  * was created.
  */
 void rustls_server_config_builder_free(struct rustls_server_config_builder *config);
-
-/**
- * Create a rustls_server_config_builder from an existing rustls_server_config. The
- * builder will be used to create a new, separate config that starts with the settings
- * from the supplied configuration.
- */
-struct rustls_server_config_builder *rustls_server_config_builder_from_config(const struct rustls_server_config *config);
 
 /**
  * With `ignore` != 0, the server will ignore the client ordering of cipher

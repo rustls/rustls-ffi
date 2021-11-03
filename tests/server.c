@@ -299,16 +299,10 @@ main(int argc, const char **argv)
   int ret = 1;
   int result = 1;
   int sockfd = 0;
-  struct rustls_server_config_builder_wants_verifier *config_builder =
-    rustls_server_config_builder_new_with_safe_defaults();
-  struct rustls_server_config_builder *config_builder2 = NULL;
+  struct rustls_server_config_builder *config_builder =
+    rustls_server_config_builder_new();
   const struct rustls_server_config *server_config = NULL;
   struct rustls_connection *rconn = NULL;
-
-  config_builder2 = rustls_server_config_builder_with_no_client_auth(config_builder);
-  if(config_builder2 == NULL) {
-    goto cleanup;
-  }
 
   if(argc <= 2) {
     fprintf(stderr,
@@ -325,8 +319,8 @@ main(int argc, const char **argv)
   }
 
   rustls_server_config_builder_set_certified_keys(
-    config_builder2, &certified_key, 1);
-  server_config = rustls_server_config_builder_build(config_builder2);
+    config_builder, &certified_key, 1);
+  server_config = rustls_server_config_builder_build(config_builder);
 
 #ifdef _WIN32
   WSADATA wsa;
