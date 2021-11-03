@@ -2,10 +2,30 @@
 
 ## 0.8.0 (unreleased)
 
+The package name has changed from "crustls" to "rustls-ffi". If you are
+importing it as a library from other Rust code, you should import `rustls_ffi`.
+
+The header file is now named `rustls.h` instead of `crustls.h`, and the
+generated `.a` file is named `librustls_ffi.a` instead of `libcrustls.a`.
+
+### Added
+
+  - Adds support for TLS client certificates (servers authenticating clients),
+    using the new `rustls_client_config_builder_set_certified_key` API.
+    (https://github.com/rustls/rustls-ffi/pull/128)
+
 ### Changed
 
+Software changes:
+
+  - `rustls-ffi` now imports `rustls` version 0.20, up from rustls 0.19. [View
+  the diff](https://github.com/rustls/rustls/compare/v/0.19.1...v/0.20.0)
+  - Client configurations can be initialized with safe defaults using the new
+    `rustls_client_config_builder_new` method, and then modified from there to
+    add defaults.
   - `rustls_version` returns a `rustls_str` that points to a static string in
     memory, and the function no longer accepts a character buffer or length.
+  - Rearrange exports so rustdoc should render documentation better.
 
 ## 0.7.1 - 2021-06-29
 

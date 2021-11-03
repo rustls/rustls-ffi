@@ -110,7 +110,7 @@ pub extern "C" fn rustls_default_ciphersuites_len() -> usize {
 }
 
 /// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
-/// for i < rustls_all_ciphersuites_len().
+/// for i < rustls_default_ciphersuites_len().
 /// The returned pointer is valid for the lifetime of the program and may be used directly when
 /// building a ClientConfig or ServerConfig.
 #[no_mangle]
@@ -184,7 +184,7 @@ impl rustls_certified_key {
 
     /// Return the i-th rustls_certificate in the rustls_certified_key. 0 gives the
     /// end-entity certificate. 1 and higher give certificates from the chain.
-    /// Indexes higher the the last available certificate return NULL.
+    /// Indexes higher than the last available certificate return NULL.
     ///
     /// The returned certificate is valid until the rustls_certified_key is freed.
     #[no_mangle]
