@@ -138,7 +138,7 @@ impl rustls_connection {
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
     /// from callback. See rustls_read_callback for more details.
-    /// https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls
+    /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
     #[no_mangle]
     pub extern "C" fn rustls_connection_read_tls(
         conn: *mut rustls_connection,
@@ -171,7 +171,7 @@ impl rustls_connection {
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
     /// from callback. See rustls_write_callback for more details.
-    /// https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.write_tls
+    /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.write_tls>
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls(
         conn: *mut rustls_connection,
@@ -204,7 +204,7 @@ impl rustls_connection {
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
     /// from callback. See rustls_write_callback for more details.
-    /// https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls
+    /// <https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls>
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls_vectored(
         conn: *mut rustls_connection,
@@ -277,7 +277,7 @@ impl rustls_connection {
     /// to completing the TLS handshake) and unsent TLS records. By default, there
     /// is no limit. The limit can be set at any time, even if the current buffer
     /// use is higher.
-    /// https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.set_buffer_limit
+    /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.set_buffer_limit>
     #[no_mangle]
     pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
         ffi_panic_boundary! {
@@ -287,7 +287,7 @@ impl rustls_connection {
     }
 
     /// Queues a close_notify fatal alert to be sent in the next write_tls call.
-    /// https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.send_close_notify
+    /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.send_close_notify>
     #[no_mangle]
     pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
         ffi_panic_boundary! {
@@ -320,8 +320,8 @@ impl rustls_connection {
     /// The borrow lives as long as the connection.
     /// If the connection is still handshaking, or no ALPN protocol was negotiated,
     /// stores NULL and 0 in the output parameters.
-    /// https://www.iana.org/assignments/tls-parameters/
-    /// https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_alpn_protocol
+    /// <https://www.iana.org/assignments/tls-parameters/>
+    /// <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_alpn_protocol>
     #[no_mangle]
     pub extern "C" fn rustls_connection_alpn_protocol(
         conn: *const rustls_connection,
@@ -348,8 +348,8 @@ impl rustls_connection {
     /// Return the TLS protocol version that has been negotiated. Before this
     /// has been decided during the handshake, this will return 0. Otherwise,
     /// the u16 version number as defined in the relevant RFC is returned.
-    /// https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_protocol_version
-    /// https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
+    /// <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_protocol_version>
+    /// <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
     #[no_mangle]
     pub extern "C" fn rustls_connection_protocol_version(conn: *const rustls_connection) -> u16 {
         ffi_panic_boundary! {
@@ -364,7 +364,7 @@ impl rustls_connection {
     /// Retrieves the cipher suite agreed with the peer.
     /// This returns NULL until the ciphersuite is agreed.
     /// The returned pointer lives as long as the program.
-    /// https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite
+    /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite>
     #[no_mangle]
     pub extern "C" fn rustls_connection_negotiated_ciphersuite(
         conn: *const rustls_connection,

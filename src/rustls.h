@@ -98,7 +98,7 @@ typedef enum rustls_tls_version {
 /**
  * An X.509 certificate, as used in rustls.
  * Corresponds to `Certificate` in the Rust API.
- * https://docs.rs/rustls/0.20.0/rustls/struct.Certificate.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.Certificate.html>
  */
 typedef struct rustls_certificate rustls_certificate;
 
@@ -106,7 +106,7 @@ typedef struct rustls_certificate rustls_certificate;
  * The complete chain of certificates to send during a TLS handshake,
  * plus a private key that matches the end-entity (leaf) certificate.
  * Corresponds to `CertifiedKey` in the Rust API.
- * https://docs.rs/rustls/0.20.0/rustls/sign/struct.CertifiedKey.html
+ * <https://docs.rs/rustls/0.20.0/rustls/sign/struct.CertifiedKey.html>
  */
 typedef struct rustls_certified_key rustls_certified_key;
 
@@ -132,7 +132,7 @@ typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_
 /**
  * A client config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ClientConfig>.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
  */
 typedef struct rustls_client_config rustls_client_config;
 
@@ -143,7 +143,7 @@ typedef struct rustls_client_config rustls_client_config;
  * to turn it into a *rustls_client_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
  * Box<ClientConfig>.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
  */
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
@@ -160,14 +160,14 @@ typedef struct rustls_iovec rustls_iovec;
 /**
  * A root cert store that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<RootCertStore>.
- * https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html>
  */
 typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
  * A server config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an Arc<ServerConfig>.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
  */
 typedef struct rustls_server_config rustls_server_config;
 
@@ -178,7 +178,7 @@ typedef struct rustls_server_config rustls_server_config;
  * to turn it into a *rustls_server_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
  * Box<ServerConfigBuilder>.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
  */
 typedef struct rustls_server_config_builder rustls_server_config_builder;
 
@@ -369,11 +369,10 @@ typedef struct rustls_slice_u16 {
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
  * `sni_name` is the SNI servername provided by the client. If the client
- * did not provide an SNI, the length of this `rustls_string` will be 0.
- * The signature_schemes carries the values supplied by the client or, should
+ * did not provide an SNI, the length of this `rustls_string` will be 0. The
+ * signature_schemes carries the values supplied by the client or, should
  * the client not use this TLS extension, the default schemes in the rustls
- * library. See:
- * https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html
+ * library. See: <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
  * `alpn` carries the list of ALPN protocol names that the client proposed to
  * the server. Again, the length of this list will be 0 if none were supplied.
  *
@@ -565,7 +564,7 @@ void rustls_certified_key_free(const struct rustls_certified_key *key);
  * Create a rustls_root_cert_store. Caller owns the memory and must
  * eventually call rustls_root_cert_store_free. The store starts out empty.
  * Caller must add root certificates with rustls_root_cert_store_add_pem.
- * https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html#method.empty
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html#method.empty>
  */
 struct rustls_root_cert_store *rustls_root_cert_store_new(void);
 
@@ -695,7 +694,7 @@ enum rustls_result rustls_client_config_builder_new_custom(const struct rustls_s
  * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
  * section.
  *
- * https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier
+ * <https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
  */
 enum rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config_builder,
                                                                                    rustls_verify_server_cert_callback callback);
@@ -724,12 +723,12 @@ enum rustls_result rustls_client_config_builder_load_roots_from_file(struct rust
  * elements. Each element of the buffer must be a rustls_slice_bytes whose
  * data field points to a single ALPN protocol ID. Standard ALPN protocol
  * IDs are defined at
- * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+ * <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
  *
  * This function makes a copy of the data in `protocols` and does not retain
  * any pointers, so the caller can free the pointed-to memory after calling.
  *
- * https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
+ * <https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols>
  */
 enum rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_client_config_builder *builder,
                                                                    const struct rustls_slice_bytes *protocols,
@@ -737,7 +736,7 @@ enum rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls
 
 /**
  * Enable or disable SNI.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni>
  */
 void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
                                                  bool enable);
@@ -821,7 +820,7 @@ void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_l
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
- * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
  */
 rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
                                             rustls_read_callback callback,
@@ -838,7 +837,7 @@ rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
- * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.write_tls
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.write_tls>
  */
 rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
                                              rustls_write_callback callback,
@@ -855,7 +854,7 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
- * https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls
+ * <https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls>
  */
 rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
                                                       rustls_write_vectored_callback callback,
@@ -875,13 +874,13 @@ bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
  * to completing the TLS handshake) and unsent TLS records. By default, there
  * is no limit. The limit can be set at any time, even if the current buffer
  * use is higher.
- * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.set_buffer_limit
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.set_buffer_limit>
  */
 void rustls_connection_set_buffer_limit(struct rustls_connection *conn, size_t n);
 
 /**
  * Queues a close_notify fatal alert to be sent in the next write_tls call.
- * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.send_close_notify
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.send_close_notify>
  */
 void rustls_connection_send_close_notify(struct rustls_connection *conn);
 
@@ -901,8 +900,8 @@ const struct rustls_certificate *rustls_connection_peer_certificate(struct rustl
  * The borrow lives as long as the connection.
  * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
- * https://www.iana.org/assignments/tls-parameters/
- * https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_alpn_protocol
+ * <https://www.iana.org/assignments/tls-parameters/>
+ * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_alpn_protocol>
  */
 void rustls_connection_alpn_protocol(const struct rustls_connection *conn,
                                      const uint8_t **protocol_out,
@@ -912,8 +911,8 @@ void rustls_connection_alpn_protocol(const struct rustls_connection *conn,
  * Return the TLS protocol version that has been negotiated. Before this
  * has been decided during the handshake, this will return 0. Otherwise,
  * the u16 version number as defined in the relevant RFC is returned.
- * https://docs.rs/rustls/0.19.1/rustls/trait.Connection.html#tymethod.get_protocol_version
- * https://docs.rs/rustls/0.19.1/rustls/internal/msgs/enums/enum.ProtocolVersion.html
+ * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_protocol_version>
+ * <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
  */
 uint16_t rustls_connection_protocol_version(const struct rustls_connection *conn);
 
@@ -921,7 +920,7 @@ uint16_t rustls_connection_protocol_version(const struct rustls_connection *conn
  * Retrieves the cipher suite agreed with the peer.
  * This returns NULL until the ciphersuite is agreed.
  * The returned pointer lives as long as the program.
- * https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite>
  */
 const struct rustls_supported_ciphersuite *rustls_connection_negotiated_ciphersuite(const struct rustls_connection *conn);
 
@@ -1066,7 +1065,7 @@ void rustls_server_config_builder_free(struct rustls_server_config_builder *conf
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
- * https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#fields
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#fields>
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
@@ -1076,12 +1075,12 @@ enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct r
  * to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
  * elements. Each element of the buffer must point to a slice of bytes that
  * contains a single ALPN protocol from
- * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids.
+ * <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
  *
  * This function makes a copy of the data in `protocols` and does not retain
  * any pointers, so the caller can free the pointed-to memory after calling.
  *
- * https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols
+ * <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols>
  */
 enum rustls_result rustls_server_config_builder_set_alpn_protocols(struct rustls_server_config_builder *builder,
                                                                    const struct rustls_slice_bytes *protocols,
@@ -1139,7 +1138,7 @@ enum rustls_result rustls_server_connection_new(const struct rustls_server_confi
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
  * Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
  * because it hasn't been processed yet, or because the client did not send SNI.
- * https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname
+ * <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname>
  */
 enum rustls_result rustls_server_connection_get_sni_hostname(const struct rustls_connection *conn,
                                                              uint8_t *buf,
