@@ -188,18 +188,21 @@ send_request_and_read_response(struct conndata *conn,
   const char *content_length_end;
   unsigned long content_length = 0;
   size_t headers_len = 0;
+  struct rustls_str version;
 
+  version = rustls_version();
   bzero(buf, sizeof(buf));
   snprintf(buf,
            sizeof(buf),
            "GET %s HTTP/1.1\r\n"
            "Host: %s\r\n"
-           "User-Agent: crustls-demo\r\n"
+           "User-Agent: %s\r\n"
            "Accept: carcinization/inevitable, text/html\r\n"
            "Connection: close\r\n"
            "\r\n",
            path,
-           hostname);
+           hostname,
+           version.data);
   /* First we write the plaintext - the data that we want rustls to encrypt for
    * us- to the rustls connection. */
   result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);

@@ -24,6 +24,7 @@ pub use error::rustls_result;
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;
 
+// version.rs gets written at compile time by build.rs
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
 // For C callbacks, we need to offer a `void *userdata` parameter, so the
@@ -488,9 +489,9 @@ macro_rules! try_callback {
         }
     };
 }
-/// Write the version of the crustls C bindings and rustls itself into the
-/// provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
-/// and NUL terminated. Returns the number of bytes written before the NUL.
+/// Returns a static string containing the rustls-ffi version as well as the
+/// rustls version. The string is alive for the lifetime of the program and does
+/// not need to be freed.
 #[no_mangle]
 pub extern "C" fn rustls_version() -> rustls_str<'static> {
     return rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION);
