@@ -1,19 +1,40 @@
-name: test
+name: rustls-ffi
+
 permissions:
   contents: read
+
 on: [push, pull_request]
+
 jobs:
-  test:
+  build:
+    name: Build+test
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        # test a bunch of toolchains on ubuntu
         cc: [clang, gcc]
+        rust:
+          - stable
+          - beta
+          - nightly
+          - 1.52.1 # MSRV - keep in sync with what rustls considers MSRV
+        os: [ubuntu-18.04]
+        # but only stable on macos/windows (slower platforms)
+        include:
+          - os: macos-latest
+            cc: clang
+            rust: stable
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout sources
+        uses: actions/checkout@v2
         with:
           persist-credentials: false
+
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
       - run: make CC=${{ matrix.cc }} PROFILE=release test
 
   test-windows:
@@ -33,10 +54,63 @@ jobs:
       - run: make src/rustls.h
       - run: git diff --exit-code
 
-  cargo-fmt:
-    runs-on: ubuntu-latest
+  docs:
+    name: Check for documentation errors
+    runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout sources
+        uses: actions/checkout@v2
         with:
           persist-credentials: false
-      - run: cargo fmt -- --check
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          default: true
+
+      - name: cargo doc (all features)
+        run: cargo doc --all-features --no-deps --workspace
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+
+  minver:
+    name: Check minimum versions
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          default: true
+
+      - name: cargo test (debug; all features; -Z minimal-versions)
+        run: cargo -Z minimal-versions test --all-features
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          default: true
+          components: rustfmt
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
