@@ -460,9 +460,9 @@ typedef enum rustls_result (*rustls_session_store_get_callback)(rustls_session_s
 typedef enum rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
- * Write the version of the crustls C bindings and rustls itself into the
- * provided buffer, up to a max of `len` bytes. Output is UTF-8 encoded
- * and NUL terminated. Returns the number of bytes written before the NUL.
+ * Returns a static string containing the rustls-ffi version as well as the
+ * rustls version. The string is alive for the lifetime of the program and does
+ * not need to be freed.
  */
 struct rustls_str rustls_version(void);
 

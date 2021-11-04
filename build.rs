@@ -19,7 +19,7 @@ fn main() {
     let pkg_version = env!("CARGO_PKG_VERSION");
     write!(
         &mut f,
-        r#"const RUSTLS_FFI_VERSION: &'static str = "crustls/{}/rustls/{}";
+        r#"const RUSTLS_FFI_VERSION: &'static str = "rustls-ffi/{}/rustls/{}";
 "#,
         pkg_version, RUSTLS_CRATE_VERSION
     )
