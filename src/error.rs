@@ -47,13 +47,14 @@ impl rustls_result {
     #[no_mangle]
     pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
         match result_to_error(&result) {
-            Either::Error(
-                Error::InvalidCertificateData(_)
-                | Error::InvalidCertificateEncoding
-                | Error::InvalidCertificateSignature
-                | Error::InvalidCertificateSignatureType
-                | Error::InvalidSct(_),
-            ) => true,
+            Either::Error(e) => match e {
+                Error::InvalidCertificateData(_) => true,
+                Error::InvalidCertificateEncoding => true,
+                Error::InvalidCertificateSignature => true,
+                Error::InvalidCertificateSignatureType => true,
+                Error::InvalidSct(_) => true,
+                _ => false,
+            },
             _ => false,
         }
     }
