@@ -1,9 +1,9 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 port_is_open() {
   local host="$1" port="$2"
-  if exec 6<>/dev/tcp/$host/$port; then
+  if { exec 6<>/dev/tcp/"${host}"/"${port}" ; } 2>/dev/null ; then
     exec 6>&-
     return 0
   fi
@@ -14,13 +14,13 @@ wait_tcp_port() {
     local host="$1" port="$2"
 
     # see https://tldp.org/LDP/abs/html/devref1.html for description of this syntax.
-    local max_tries="120"
+    local max_tries="24"
     for n in `seq 1 $max_tries` ; do
       if port_is_open "${host}" "${port}"; then
         break
       else
         echo "$(date) - still trying to connect to $host:$port"
-        sleep .1
+        sleep .5
       fi
       if [ "$n" -eq "$max_tries" ]; then
         echo "unable to connect"
