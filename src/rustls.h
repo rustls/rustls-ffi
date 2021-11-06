@@ -125,7 +125,7 @@ typedef struct rustls_client_cert_verifier rustls_client_cert_verifier;
  * does not offer a certificate, the connection will succeed.
  *
  * The application can retrieve the certificate, if any, with
- * rustls_connection_peer_certificate.
+ * rustls_connection_get_peer_certificate.
  */
 typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_optional;
 
@@ -891,8 +891,8 @@ void rustls_connection_send_close_notify(struct rustls_connection *conn);
  * NULL.
  * The returned pointer lives as long as the rustls_connection does.
  */
-const struct rustls_certificate *rustls_connection_peer_certificate(struct rustls_connection *conn,
-                                                                    size_t i);
+const struct rustls_certificate *rustls_connection_get_peer_certificate(struct rustls_connection *conn,
+                                                                        size_t i);
 
 /**
  * Get the ALPN protocol that was negotiated, if any. Stores a pointer to a
@@ -903,9 +903,9 @@ const struct rustls_certificate *rustls_connection_peer_certificate(struct rustl
  * <https://www.iana.org/assignments/tls-parameters/>
  * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_alpn_protocol>
  */
-void rustls_connection_alpn_protocol(const struct rustls_connection *conn,
-                                     const uint8_t **protocol_out,
-                                     size_t *protocol_out_len);
+void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
+                                         const uint8_t **protocol_out,
+                                         size_t *protocol_out_len);
 
 /**
  * Return the TLS protocol version that has been negotiated. Before this
@@ -914,7 +914,7 @@ void rustls_connection_alpn_protocol(const struct rustls_connection *conn,
  * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_protocol_version>
  * <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
  */
-uint16_t rustls_connection_protocol_version(const struct rustls_connection *conn);
+uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *conn);
 
 /**
  * Retrieves the cipher suite agreed with the peer.
@@ -922,7 +922,7 @@ uint16_t rustls_connection_protocol_version(const struct rustls_connection *conn
  * The returned pointer lives as long as the program.
  * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite>
  */
-const struct rustls_supported_ciphersuite *rustls_connection_negotiated_ciphersuite(const struct rustls_connection *conn);
+const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
