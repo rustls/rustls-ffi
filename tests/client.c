@@ -196,12 +196,13 @@ send_request_and_read_response(struct conndata *conn,
            sizeof(buf),
            "GET %s HTTP/1.1\r\n"
            "Host: %s\r\n"
-           "User-Agent: %s\r\n"
+           "User-Agent: %.*s\r\n"
            "Accept: carcinization/inevitable, text/html\r\n"
            "Connection: close\r\n"
            "\r\n",
            path,
            hostname,
+           (int)version.len,
            version.data);
   /* First we write the plaintext - the data that we want rustls to encrypt for
    * us- to the rustls connection. */
