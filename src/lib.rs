@@ -118,7 +118,7 @@ pub(crate) enum UserdataError {
     /// The stack of userdata items was already empty.
     EmptyStack,
     /// The LocalKey was destroyed before this call.
-    /// See https://doc.rust-lang.org/std/thread/struct.LocalKey.html#method.try_with
+    /// See <https://doc.rust-lang.org/std/thread/struct.LocalKey.html#method.try_with>
     AccessError,
     /// Unexpected pointer when popping.
     WrongData,

@@ -143,7 +143,7 @@ typedef struct rustls_client_config rustls_client_config;
  * to turn it into a *rustls_client_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
  * Box<ClientConfig>.
- * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
  */
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
@@ -175,10 +175,9 @@ typedef struct rustls_server_config rustls_server_config;
  * A server config being constructed. A builder can be modified by,
  * e.g. rustls_server_config_builder_load_native_roots. Once you're
  * done configuring settings, call rustls_server_config_builder_build
- * to turn it into a *rustls_server_config. This object is not safe
- * for concurrent mutation. Under the hood, it corresponds to a
- * Box<ServerConfigBuilder>.
- * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
+ * to turn it into a *const rustls_server_config. This object is not safe
+ * for concurrent mutation.
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
  */
 typedef struct rustls_server_config_builder rustls_server_config_builder;
 
@@ -766,8 +765,8 @@ enum rustls_result rustls_client_config_builder_set_certified_key(struct rustls_
 const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
 
 /**
- * "Free" a client_config_builder before transmogrifying it into a client_config.
- * Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+ * "Free" a client_config_builder without building it into a rustls_client_config.
+ * Normally builders are built into rustls_client_config via `rustls_client_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
  * Use free only when the building of a config has to be aborted before a config
  * was created.
@@ -775,8 +774,8 @@ const struct rustls_client_config *rustls_client_config_builder_build(struct rus
 void rustls_client_config_builder_free(struct rustls_client_config_builder *config);
 
 /**
- * "Free" a client_config previously returned from
- * rustls_client_config_builder_build. Since client_config is actually an
+ * "Free" a rustls_client_config previously returned from
+ * rustls_client_config_builder_build. Since rustls_client_config is actually an
  * atomically reference-counted pointer, extant client connections may still
  * hold an internal reference to the Rust object. However, C code must
  * consider this pointer unusable after "free"ing it.
@@ -854,19 +853,34 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_write_callback for more details.
- * <https://docs.rs/rustls/0.20.0/rustls/trait.Session.html#tymethod.write_tls>
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.Writer.html#method.write_vectored>
  */
 rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
                                                       rustls_write_vectored_callback callback,
                                                       void *userdata,
                                                       size_t *out_n);
 
+/**
+ * Decrypt any available ciphertext from the internal buffer and put it
+ * into the internal plaintext buffer, potentially making bytes available
+ * for rustls_connection_read().
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.process_new_packets>
+ */
 enum rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
 
+/**
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.CommonState.html#method.wants_read>
+ */
 bool rustls_connection_wants_read(const struct rustls_connection *conn);
 
+/**
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.CommonState.html#method.wants_write>
+ */
 bool rustls_connection_wants_write(const struct rustls_connection *conn);
 
+/**
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.CommonState.html#method.is_handshaking>
+ */
 bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
 
 /**
@@ -890,6 +904,7 @@ void rustls_connection_send_close_notify(struct rustls_connection *conn);
  * in the chain. Requesting an index higher than what is available returns
  * NULL.
  * The returned pointer lives as long as the rustls_connection does.
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.peer_certificates>
  */
 const struct rustls_certificate *rustls_connection_get_peer_certificate(struct rustls_connection *conn,
                                                                         size_t i);
@@ -901,7 +916,7 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(struct r
  * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
  * <https://www.iana.org/assignments/tls-parameters/>
- * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_alpn_protocol>
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.alpn_protocol>
  */
 void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
                                          const uint8_t **protocol_out,
@@ -911,7 +926,7 @@ void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
  * Return the TLS protocol version that has been negotiated. Before this
  * has been decided during the handshake, this will return 0. Otherwise,
  * the u16 version number as defined in the relevant RFC is returned.
- * <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_protocol_version>
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.protocol_version>
  * <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
  */
 uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *conn);
@@ -920,7 +935,7 @@ uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *
  * Retrieves the cipher suite agreed with the peer.
  * This returns NULL until the ciphersuite is agreed.
  * The returned pointer lives as long as the program.
- * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite>
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.negotiated_cipher_suite>
  */
 const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
 
@@ -930,6 +945,7 @@ const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciph
  * `rustls_connection_write_tls`.
  * On success, store the number of bytes actually written in *out_n
  * (this may be less than `count`).
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.Writer.html#method.write>
  */
 enum rustls_result rustls_connection_write(struct rustls_connection *conn,
                                            const uint8_t *buf,
@@ -948,6 +964,7 @@ enum rustls_result rustls_connection_write(struct rustls_connection *conn,
  * read from it, the memory in `buf` must be initialized before the call (for
  * Rust-internal reasons). Initializing a buffer once and then using it
  * multiple times without zeroizing before each call is fine.
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
  */
 enum rustls_result rustls_connection_read(struct rustls_connection *conn,
                                           uint8_t *buf,
@@ -1053,8 +1070,8 @@ void rustls_server_config_builder_set_client_verifier_optional(struct rustls_ser
                                                                const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
- * "Free" a server_config_builder before transmogrifying it into a server_config.
- * Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+ * "Free" a server_config_builder without building it into a rustls_server_config.
+ * Normally builders are built into rustls_server_configs via `rustls_server_config_builder_build`
  * and may not be free'd or otherwise used afterwards.
  * Use free only when the building of a config has to be aborted before a config
  * was created.
@@ -1065,7 +1082,7 @@ void rustls_server_config_builder_free(struct rustls_server_config_builder *conf
  * With `ignore` != 0, the server will ignore the client ordering of cipher
  * suites, aka preference, during handshake and respect its own ordering
  * as configured.
- * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#fields>
+ * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#structfield.ignore_client_order>
  */
 enum rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls_server_config_builder *builder,
                                                                         bool ignore);
@@ -1111,8 +1128,8 @@ enum rustls_result rustls_server_config_builder_set_certified_keys(struct rustls
 const struct rustls_server_config *rustls_server_config_builder_build(struct rustls_server_config_builder *builder);
 
 /**
- * "Free" a server_config previously returned from
- * rustls_server_config_builder_build. Since server_config is actually an
+ * "Free" a rustls_server_config previously returned from
+ * rustls_server_config_builder_build. Since rustls_server_config is actually an
  * atomically reference-counted pointer, extant server connections may still
  * hold an internal reference to the Rust object. However, C code must
  * consider this pointer unusable after "free"ing it.
