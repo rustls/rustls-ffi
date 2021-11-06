@@ -470,6 +470,7 @@ macro_rules! try_box_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_arc_from_ptr {
     ( $var:ident ) => {
@@ -480,6 +481,7 @@ macro_rules! try_arc_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_callback {
     ( $var:ident ) => {
