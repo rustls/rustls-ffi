@@ -438,7 +438,7 @@ impl rustls_client_cert_verifier {
 /// does not offer a certificate, the connection will succeed.
 ///
 /// The application can retrieve the certificate, if any, with
-/// rustls_connection_peer_certificate.
+/// rustls_connection_get_peer_certificate.
 pub struct rustls_client_cert_verifier_optional {
     _private: [u8; 0],
 }

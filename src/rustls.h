@@ -125,7 +125,7 @@ typedef struct rustls_client_cert_verifier rustls_client_cert_verifier;
  * does not offer a certificate, the connection will succeed.
  *
  * The application can retrieve the certificate, if any, with
- * rustls_connection_peer_certificate.
+ * rustls_connection_get_peer_certificate.
  */
 typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_optional;
 
