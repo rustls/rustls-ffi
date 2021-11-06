@@ -35,10 +35,9 @@ use crate::{
 /// A server config being constructed. A builder can be modified by,
 /// e.g. rustls_server_config_builder_load_native_roots. Once you're
 /// done configuring settings, call rustls_server_config_builder_build
-/// to turn it into a *rustls_server_config. This object is not safe
-/// for concurrent mutation. Under the hood, it corresponds to a
-/// Box<ServerConfigBuilder>.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
+/// to turn it into a *const rustls_server_config. This object is not safe
+/// for concurrent mutation.
+/// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
 pub struct rustls_server_config_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -195,8 +194,8 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// "Free" a server_config_builder before transmogrifying it into a server_config.
-    /// Normally builders are consumed to server_configs via `rustls_server_config_builder_build`
+    /// "Free" a server_config_builder without building it into a rustls_server_config.
+    /// Normally builders are built into rustls_server_configs via `rustls_server_config_builder_build`
     /// and may not be free'd or otherwise used afterwards.
     /// Use free only when the building of a config has to be aborted before a config
     /// was created.
@@ -210,7 +209,7 @@ impl rustls_server_config_builder {
     /// With `ignore` != 0, the server will ignore the client ordering of cipher
     /// suites, aka preference, during handshake and respect its own ordering
     /// as configured.
-    /// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#fields>
+    /// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#structfield.ignore_client_order>
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
         builder: *mut rustls_server_config_builder,
@@ -311,8 +310,8 @@ impl rustls_server_config_builder {
 }
 
 impl rustls_server_config {
-    /// "Free" a server_config previously returned from
-    /// rustls_server_config_builder_build. Since server_config is actually an
+    /// "Free" a rustls_server_config previously returned from
+    /// rustls_server_config_builder_build. Since rustls_server_config is actually an
     /// atomically reference-counted pointer, extant server connections may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
@@ -321,7 +320,7 @@ impl rustls_server_config {
     pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
         ffi_panic_boundary! {
             let config: &ServerConfig = try_ref_from_ptr!(config);
-            // To free the server_config, we reconstruct the Arc. It should have a refcount of 1,
+            // To free the rustls_server_config, we reconstruct the Arc. It should have a refcount of 1,
             // representing the C code's copy. When it drops, that refcount will go down to 0
             // and the inner ServerConfig will be dropped.
             unsafe { drop(Arc::from_raw(config)) };
