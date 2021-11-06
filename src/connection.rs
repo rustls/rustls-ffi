@@ -302,7 +302,7 @@ impl rustls_connection {
     /// NULL.
     /// The returned pointer lives as long as the rustls_connection does.
     #[no_mangle]
-    pub extern "C" fn rustls_connection_peer_certificate(
+    pub extern "C" fn rustls_connection_get_peer_certificate(
         conn: *mut rustls_connection,
         i: size_t,
     ) -> *const rustls_certificate {
@@ -323,7 +323,7 @@ impl rustls_connection {
     /// <https://www.iana.org/assignments/tls-parameters/>
     /// <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_alpn_protocol>
     #[no_mangle]
-    pub extern "C" fn rustls_connection_alpn_protocol(
+    pub extern "C" fn rustls_connection_get_alpn_protocol(
         conn: *const rustls_connection,
         protocol_out: *mut *const u8,
         protocol_out_len: *mut usize,
@@ -351,7 +351,9 @@ impl rustls_connection {
     /// <https://docs.rs/rustls/0.20.0/rustls/trait.Connection.html#tymethod.get_protocol_version>
     /// <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
     #[no_mangle]
-    pub extern "C" fn rustls_connection_protocol_version(conn: *const rustls_connection) -> u16 {
+    pub extern "C" fn rustls_connection_get_protocol_version(
+        conn: *const rustls_connection,
+    ) -> u16 {
         ffi_panic_boundary! {
             let conn: &Connection = try_ref_from_ptr!(conn);
             match conn.protocol_version() {
@@ -366,7 +368,7 @@ impl rustls_connection {
     /// The returned pointer lives as long as the program.
     /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.get_negotiated_ciphersuite>
     #[no_mangle]
-    pub extern "C" fn rustls_connection_negotiated_ciphersuite(
+    pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
         conn: *const rustls_connection,
     ) -> *const rustls_supported_ciphersuite {
         ffi_panic_boundary! {
