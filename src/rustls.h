@@ -654,7 +654,7 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * `rustls_tls_version` for convenience.
  *
  * `versions` will only be used during the call and the application retains
- * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ * ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
  */
 enum rustls_result rustls_client_config_builder_new_custom(const struct rustls_supported_ciphersuite *const *cipher_suites,
                                                            size_t cipher_suites_len,
@@ -1024,7 +1024,7 @@ struct rustls_server_config_builder *rustls_server_config_builder_new(void);
  * `rustls_tls_version` for convenience.
  *
  * `versions` will only be used during the call and the application retains
- * ownership. `len` is the number of consecutive `ui16` pointed to by `versions`.
+ * ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
  */
 enum rustls_result rustls_server_config_builder_new_custom(const struct rustls_supported_ciphersuite *const *cipher_suites,
                                                            size_t cipher_suites_len,
