@@ -2,30 +2,79 @@
 
 ## 0.8.0 (unreleased)
 
-The package name has changed from "crustls" to "rustls-ffi". If you are
-importing it as a library from other Rust code, you should import `rustls_ffi`.
+The package name has changed to "rustls-ffi" (from "crustls").
+The header file (as installed by `make DESTDIR=/path/ install`)
+is now `rustls.h` and the library is `librustls.a`. The old library and header
+names are symlinked as part of the install process, to simplify upgrading to the
+new version.
 
-The header file is now named `rustls.h` instead of `crustls.h`, and the
-generated `.a` file is named `librustls_ffi.a` instead of `libcrustls.a`.
+If you are importing this as a library from other Rust code, you should import `rustls_ffi`.
+
+## New
+ - rustls_{client,server}_config_builder_new_custom: start building a config,
+   with ciphersuites and TLS versions set at initial construction.
+ - rustls_default_ciphersuites_get_entry() and
+   rustls_default_ciphersuites_len(): get default ciphersuites as opposed to
+   all ciphersuites (these happen to be the same today but might not always be).
+
+## Changed
+
+- `rustls-ffi` now imports `rustls` version 0.20, up from rustls 0.19. [View
+  the changelog](https://github.com/rustls/rustls#release-history).
+- Configuring ciphersuites and TLS versions. Previously these
+  could be set using setter methods on the builder object. Now they have
+  to be set at the beginning of the config builder process, by calling
+  rustls_client_config_builder_new_custom().
+- Reading of plaintext from a rustls_connection. When the
+  internal plaintext buffer is empty, rustls_connection_read will return
+  RUSTLS_RESULT_PLAINTEXT_EMPTY. That means no more plaintext can be read until
+  additional TLS bytes are ingested via rustls_connection_read_tls, and
+  rustls_connection_process_new_packets is called. Previously this condition was
+  indicated by returning RUSTLS_RESULT_OK with out_n set to 0.
+- Handling of unclean close and the close_notify TLS alert. Mirroring upstream changes,
+  a rustls_connection now tracks TCP closed state like so: rustls_connection_read_tls
+  considers a 0-length read from its callback to mean "TCP stream was closed by peer."
+  If that happens before the peer sent close_notify, rustls_connection_read will return
+  RUSTLS_RESULT_UNEXPECTED_EOF once the available plaintext bytes are exhausted. This is
+  useful to protect against truncation attacks. Note:
+  some TLS implementations don't send close_notify. If you are already getting length
+  information from your protocol (e.g. Content-Length in HTTP) you may choose to
+  ignore UNEXPECTED_EOF so long as the number of plaintext bytes was as
+  expected.
+- `rustls_version` returns a `rustls_str` that points to a static string in
+  memory, and the function no longer accepts a character buffer or length.
+- Some errors starting with RESULTS_RESULT_CERT_ have been removed, and
+  some renamed.
+- rustls_client_config_builder_set_protocols and
+  rustls_server_config_builder_set_protocols are now
+  rustls_{client,server}_config_builder_set_alpn_protocols.
+- rustls_server_config_builder_with_client_verifier and
+  rustls_server_config_builder_with_client_verifier_optional are replaced by
+  rustls_server_config_builder_set_client_verifier and
+  rustls_server_config_builder_set_client_verifier_optional, which are setters
+  rather than constructors.
+
+## Removed
+
+ - rustls_client_config_builder_from_config and
+   rustls_server_config_builder_from_config. These was incompatible with the
+  changes to config builders. Previously the notion of "config builder" in this
+  library simply meant "A ClientConfig that hasn't yet been wrapped in an Arc,"
+  so we could use `Clone` to get a copy of one. Now "config builder" corresponds
+  to the underlying `ConfigBuilder` in rustls, so we can't use `Clone` on a
+  `ClientConfig` to get one. And we can't manually copy fields from a ClientConfig,
+  since some of the necessary fields are private.
+ - rustls_client_config_builder_set_versions
+ - rustls_client_config_builder_set_ciphersuites
+
+
+## 0.7.2 - 2021-07-06
 
 ### Added
 
   - Adds support for TLS client certificates (servers authenticating clients),
     using the new `rustls_client_config_builder_set_certified_key` API.
     (https://github.com/rustls/rustls-ffi/pull/128)
-
-### Changed
-
-Software changes:
-
-  - `rustls-ffi` now imports `rustls` version 0.20, up from rustls 0.19. [View
-  the diff](https://github.com/rustls/rustls/compare/v/0.19.1...v/0.20.0)
-  - Client configurations can be initialized with safe defaults using the new
-    `rustls_client_config_builder_new` method, and then modified from there to
-    add defaults.
-  - `rustls_version` returns a `rustls_str` that points to a static string in
-    memory, and the function no longer accepts a character buffer or length.
-  - Rearrange exports so rustdoc should render documentation better.
 
 ## 0.7.1 - 2021-06-29
 
