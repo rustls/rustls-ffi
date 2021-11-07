@@ -5,7 +5,6 @@ use libc::{c_void, size_t};
 use std::cell::RefCell;
 use std::mem;
 use std::sync::Arc;
-use std::thread::AccessError;
 
 pub mod cipher;
 pub mod client;
@@ -99,7 +98,9 @@ impl UserdataGuard {
                     },
                 )
             })
-            .unwrap_or_else(|_: AccessError| Err(UserdataError::AccessError))
+            // TODO(jsha): can you verify that this does the same thing as the
+            // original code?
+            .unwrap_or(Err(UserdataError::AccessError))
     }
 }
 
@@ -410,14 +411,14 @@ where
     unsafe { F::cast_mut_ptr(from).as_mut() }
 }
 
-pub(crate) fn try_box_from<'a, F, T>(from: *mut F) -> Option<Box<T>>
+pub(crate) fn try_box_from<F, T>(from: *mut F) -> Option<Box<T>>
 where
     F: BoxCastPtr<RustType = T>,
 {
     F::to_box(from)
 }
 
-pub(crate) fn try_arc_from<'a, F, T>(from: *const F) -> Option<Arc<T>>
+pub(crate) fn try_arc_from<F, T>(from: *const F) -> Option<Arc<T>>
 where
     F: ArcCastPtr<RustType = T>,
 {
@@ -496,7 +497,7 @@ macro_rules! try_callback {
 /// not need to be freed.
 #[no_mangle]
 pub extern "C" fn rustls_version() -> rustls_str<'static> {
-    return rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION);
+    rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION)
 }
 
 #[test]

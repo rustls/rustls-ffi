@@ -178,7 +178,7 @@ impl rustls_certified_key {
             };
             let certified_key = Arc::into_raw(Arc::new(*certified_key)) as *const _;
             *certified_key_out = certified_key;
-            return rustls_result::Ok
+            rustls_result::Ok
         }
     }
 
@@ -228,7 +228,7 @@ impl rustls_certified_key {
                 new_key.ocsp = None;
             }
             *cloned_key_out = ArcCastPtr::to_const_ptr(new_key);
-            return rustls_result::Ok
+            rustls_result::Ok
         }
     }
 

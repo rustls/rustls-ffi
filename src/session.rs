@@ -107,7 +107,7 @@ impl SessionStoreBroker {
             ) {
                 rustls_result::Ok => {
                     data.set_len(out_n);
-                    return Some(data);
+                    Some(data)
                 }
                 _ => None,
             }
@@ -122,12 +122,7 @@ impl SessionStoreBroker {
             Ok(u) => u,
             Err(_) => return false,
         };
-        unsafe {
-            match cb(userdata, &key, &value) {
-                rustls_result::Ok => true,
-                _ => false,
-            }
-        }
+        unsafe { matches!(cb(userdata, &key, &value), rustls_result::Ok) }
     }
 }
 
@@ -137,11 +132,11 @@ impl rustls::server::StoresServerSessions for SessionStoreBroker {
     }
 
     fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        return self.retrieve(key, false);
+        self.retrieve(key, false)
     }
 
     fn take(&self, key: &[u8]) -> Option<Vec<u8>> {
-        return self.retrieve(key, true);
+        self.retrieve(key, true)
     }
 
     fn can_cache(&self) -> bool {
@@ -155,7 +150,7 @@ impl rustls::client::StoresClientSessions for SessionStoreBroker {
     }
 
     fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        return self.retrieve(key, false);
+        self.retrieve(key, false)
     }
 }
 

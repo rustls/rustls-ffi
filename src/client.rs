@@ -132,10 +132,10 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
-            for &cs in cipher_suites.into_iter() {
+            for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
                 match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
-                    Some(scs) => cs_vec.push(scs.clone()),
+                    Some(scs) => cs_vec.push(*scs),
                     None => return InvalidParameter,
                 }
             }
@@ -157,7 +157,7 @@ impl rustls_client_config_builder {
                 Err(_) => return rustls_result::InvalidParameter,
             };
             let config_builder = ClientConfigBuilder {
-                base: base,
+                base,
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],
@@ -230,7 +230,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let dns_name: &str = match server_name {
-            rustls::ServerName::DnsName(n) => n.as_ref().into(),
+            rustls::ServerName::DnsName(n) => n.as_ref(),
             _ => return Err(rustls::Error::General("unknown name type".to_string())),
         };
         let dns_name: rustls_str = match dns_name.try_into() {
@@ -238,10 +238,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
         };
 
-        let intermediates: Vec<_> = intermediates
-            .into_iter()
-            .map(|cert| cert.as_ref())
-            .collect();
+        let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
 
         let intermediates = rustls_slice_slice_bytes {
             inner: &*intermediates,
@@ -250,7 +247,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
         let params = rustls_verify_server_cert_params {
             end_entity_cert_der: end_entity.as_ref().into(),
             intermediate_certs_der: &intermediates,
-            dns_name: dns_name.into(),
+            dns_name,
             ocsp_response: ocsp_response.into(),
         };
         let userdata = userdata_get().map_err(|_| {
@@ -312,7 +309,7 @@ impl rustls_client_config_builder {
                 None => return rustls_result::InvalidParameter,
             };
 
-            let verifier: Verifier = Verifier{callback: callback};
+            let verifier: Verifier = Verifier{callback};
             config_builder.verifier = Arc::new(verifier);
             rustls_result::Ok
         }
