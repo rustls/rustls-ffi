@@ -15,7 +15,7 @@ wait_tcp_port() {
 
     # see https://tldp.org/LDP/abs/html/devref1.html for description of this syntax.
     local max_tries="24"
-    for n in `seq 1 $max_tries` ; do
+    for n in $(seq 1 $max_tries) ; do
       if port_is_open "${host}" "${port}"; then
         break
       else
@@ -31,13 +31,13 @@ wait_tcp_port() {
 }
 
 kill_server() {
-  kill $SERVER_PID
+  kill "${SERVER_PID}"
 }
 
 run_client_tests() {
   CA_FILE=minica.pem ./target/client localhost 8443 /
-  NO_CHECK_CERTIFICATE= ./target/client localhost 8443 /
-  CA_FILE=minica.pem VECTORED_IO= ./target/client localhost 8443 /
+  NO_CHECK_CERTIFICATE='' ./target/client localhost 8443 /
+  CA_FILE=minica.pem VECTORED_IO='' ./target/client localhost 8443 /
 }
 
 if port_is_open localhost 8443 ; then
@@ -57,7 +57,7 @@ kill_server
 sleep 1
 
 # Start server with vectored I/O
-VECTORED_IO= ./target/server localhost/cert.pem localhost/key.pem &
+VECTORED_IO='' ./target/server localhost/cert.pem localhost/key.pem &
 SERVER_PID=$!
 wait_tcp_port localhost 8443
 
