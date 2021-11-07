@@ -3,8 +3,6 @@ use std::io::{Error, IoSlice, Read, Result, Write};
 use libc::{c_void, size_t};
 
 use crate::error::rustls_io_result;
-use crate::rslice::rustls_slice_bytes;
-use std::ops::Deref;
 
 /// A callback for rustls_connection_read_tls.
 /// An implementation of this callback should attempt to read up to n bytes from the
@@ -153,14 +151,13 @@ impl Write for VectoredCallbackWriter {
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
         let mut out_n: usize = 0;
         let cb = self.callback;
-        let slices: Vec<rustls_slice_bytes> = bufs.iter().map(|b| b.deref().into()).collect();
         let result = unsafe {
             cb(
                 self.userdata,
                 // This cast is sound because IoSlice is documented to by ABI-compatible with
                 // iovec on Unix, and with WSABUF on Windows.
-                slices.as_ptr() as *const rustls_iovec,
-                slices.len(),
+                bufs.as_ptr() as *const rustls_iovec,
+                bufs.len(),
                 &mut out_n,
             )
         };
