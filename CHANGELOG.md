@@ -43,6 +43,9 @@ If you are importing this as a library from other Rust code, you should import `
   expected.
 - `rustls_version` returns a `rustls_str` that points to a static string in
   memory, and the function no longer accepts a character buffer or length.
+- `rustls_error` now takes a `unsigned int` instead of rustls_result directly.
+  This is necessary to avoid undefined behavior if an invalid enum value is
+  passed.
 - Some errors starting with RUSTLS_RESULT_CERT_ have been removed, and
   some renamed.
 - rustls_client_config_builder_set_protocols is now rustls_client_config_builder_set_alpn_protocols.

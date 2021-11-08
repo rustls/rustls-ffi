@@ -1,7 +1,8 @@
-use std::{cmp::min, fmt::Display, slice};
+use std::{cmp::min, convert::TryFrom, fmt::Display, slice};
 
 use crate::ffi_panic_boundary;
-use libc::{c_char, size_t};
+use libc::{c_char, c_uint, size_t};
+use num_enum::TryFromPrimitive;
 use rustls::Error;
 
 /// A return value for a function that may return either success (0) or a
@@ -18,7 +19,7 @@ impl rustls_result {
     /// UTF-8 encoded, and not NUL-terminated.
     #[no_mangle]
     pub extern "C" fn rustls_error(
-        result: rustls_result,
+        result: c_uint,
         buf: *mut c_char,
         len: size_t,
         out_n: *mut size_t,
@@ -35,6 +36,7 @@ impl rustls_result {
                 }
                 slice::from_raw_parts_mut(buf as *mut u8, len as usize)
             };
+            let result: rustls_result = rustls_result::try_from(result).unwrap_or(rustls_result::InvalidParameter);
             let error_str = result.to_string();
             let len: usize = min(write_buf.len() - 1, error_str.len());
             write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
@@ -60,8 +62,26 @@ impl rustls_result {
     }
 }
 
+#[test]
+fn test_rustls_error() {
+    let mut buf = [0 as c_char; 512];
+    let mut n = 0;
+    rustls_result::rustls_error(0, &mut buf as *mut _, buf.len(), &mut n);
+    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    assert_eq!(&output, "a parameter had an invalid value");
+
+    rustls_result::rustls_error(7000, &mut buf as *mut _, buf.len(), &mut n);
+    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    assert_eq!(&output, "OK");
+
+    rustls_result::rustls_error(7101, &mut buf as *mut _, buf.len(), &mut n);
+    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    assert_eq!(&output, "peer sent no certificates");
+}
+
 #[allow(dead_code)]
-#[repr(C)]
+#[repr(u32)]
+#[derive(TryFromPrimitive)]
 pub enum rustls_result {
     Ok = 7000,
     Io = 7001,
