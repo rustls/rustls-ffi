@@ -499,7 +499,7 @@ size_t rustls_default_ciphersuites_len(void);
 
 /**
  * Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
- * for i < rustls_all_ciphersuites_len().
+ * for i < rustls_default_ciphersuites_len().
  * The returned pointer is valid for the lifetime of the program and may be used directly when
  * building a ClientConfig or ServerConfig.
  */
@@ -531,7 +531,7 @@ enum rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
 /**
  * Return the i-th rustls_certificate in the rustls_certified_key. 0 gives the
  * end-entity certificate. 1 and higher give certificates from the chain.
- * Indexes higher the the last available certificate return NULL.
+ * Indexes higher than the last available certificate return NULL.
  *
  * The returned certificate is valid until the rustls_certified_key is freed.
  */
@@ -903,10 +903,13 @@ void rustls_connection_send_close_notify(struct rustls_connection *conn);
  * Index 0 is the end entity certificate. Higher indexes are certificates
  * in the chain. Requesting an index higher than what is available returns
  * NULL.
- * The returned pointer lives as long as the rustls_connection does.
+ * The returned pointer is valid until the next mutating function call
+ * affecting the connection. A mutating function call is one where the
+ * first argument has type `struct rustls_connection *` (as opposed to
+ *  `const struct rustls_connection *`).
  * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.peer_certificates>
  */
-const struct rustls_certificate *rustls_connection_get_peer_certificate(struct rustls_connection *conn,
+const struct rustls_certificate *rustls_connection_get_peer_certificate(const struct rustls_connection *conn,
                                                                         size_t i);
 
 /**
@@ -915,6 +918,10 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(struct r
  * The borrow lives as long as the connection.
  * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
+ * The provided pointer is valid until the next mutating function call
+ * affecting the connection. A mutating function call is one where the
+ * first argument has type `struct rustls_connection *` (as opposed to
+ *  `const struct rustls_connection *`).
  * <https://www.iana.org/assignments/tls-parameters/>
  * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.alpn_protocol>
  */
