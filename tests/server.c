@@ -144,7 +144,7 @@ send_response(struct conndata *conn)
   struct rustls_connection *rconn = conn->rconn;
   const char *prefix = "HTTP/1.1 200 OK\r\nContent-Length:";
   const int body_size = 10000;
-  const int response_size = strlen(prefix) + 15 + body_size;
+  int response_size = strlen(prefix) + 15 + body_size;
   char *response = malloc(response_size);
   size_t n;
 
@@ -160,7 +160,11 @@ send_response(struct conndata *conn)
 
   rustls_connection_write(
     rconn, (const uint8_t *)response, strlen(response), &n);
-  if(n != strlen(response)) {
+  
+  response_size = strlen(response);
+  free(response);
+  
+  if(n != response_size) {
     fprintf(stderr, "failed to write all response bytes. wrote %ld\n", n);
     return CRUSTLS_DEMO_ERROR;
   }
@@ -259,6 +263,8 @@ cleanup:
   if(sockfd > 0) {
     close(sockfd);
   }
+  if(conn->data.data)
+    free(conn->data.data);
   free(conn);
 }
 
