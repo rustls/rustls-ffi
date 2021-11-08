@@ -993,40 +993,28 @@ bool rustls_result_is_cert_error(enum rustls_result result);
 struct rustls_str rustls_log_level_str(rustls_log_level level);
 
 /**
- * Return the length of the outer slice.
- *
- * # Safety
- *
- * If the input pointer is NULL, returns 0.
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
  */
 size_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input);
 
 /**
- * Retrieve the nth element from the input slice of slices.
- *
- * # Safety
- *
- * If the input pointer is NULL, or n is greater than the length of the
+ * Retrieve the nth element from the input slice of slices. If the input
+ * pointer is NULL, or n is greater than the length of the
  * rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
  */
 struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
                                                        size_t n);
 
 /**
- * Return the length of the outer slice.
- *
- * # Safety
- *
- * If the input pointer is NULL, returns 0.
+ * Return the length of the outer slice. If the input pointer is NULL,
+ * returns 0.
  */
 size_t rustls_slice_str_len(const struct rustls_slice_str *input);
 
 /**
- * Retrieve the nth element from the input slice of `&str`s.
- *
- * # Safety
- *
- * If the input pointer is NULL, or n is greater than the length of the
+ * Retrieve the nth element from the input slice of `&str`s. If the input
+ * pointer is NULL, or n is greater than the length of the
  * rustls_slice_str, returns rustls_str{NULL, 0}.
  */
 struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, size_t n);

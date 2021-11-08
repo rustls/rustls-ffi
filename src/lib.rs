@@ -1,5 +1,6 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 use crate::rslice::rustls_str;
 use libc::{c_void, size_t};
 use std::cell::RefCell;
@@ -98,8 +99,6 @@ impl UserdataGuard {
                     },
                 )
             })
-            // TODO(jsha): can you verify that this does the same thing as the
-            // original code?
             .unwrap_or(Err(UserdataError::AccessError))
     }
 }
