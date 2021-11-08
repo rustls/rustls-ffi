@@ -11,8 +11,8 @@ new version.
 If you are importing this as a library from other Rust code, you should import `rustls_ffi`.
 
 ## New
- - rustls_{client,server}_config_builder_new_custom: start building a config,
-   with ciphersuites and TLS versions set at initial construction.
+ - rustls_client_config_builder_new_custom and rustls_server_config_builder_new_custom:
+   start building a config, with ciphersuites and TLS versions set at initial construction.
  - rustls_default_ciphersuites_get_entry() and
    rustls_default_ciphersuites_len(): get default ciphersuites as opposed to
    all ciphersuites (these happen to be the same today but might not always be).
@@ -43,11 +43,10 @@ If you are importing this as a library from other Rust code, you should import `
   expected.
 - `rustls_version` returns a `rustls_str` that points to a static string in
   memory, and the function no longer accepts a character buffer or length.
-- Some errors starting with RESULTS_RESULT_CERT_ have been removed, and
+- Some errors starting with RUSTLS_RESULT_CERT_ have been removed, and
   some renamed.
-- rustls_client_config_builder_set_protocols and
-  rustls_server_config_builder_set_protocols are now
-  rustls_{client,server}_config_builder_set_alpn_protocols.
+- rustls_client_config_builder_set_protocols is now rustls_client_config_builder_set_alpn_protocols.
+- rustls_server_config_builder_set_protocols is now rustls_server_config_builder_set_alpn_protocols.
 - rustls_server_config_builder_with_client_verifier and
   rustls_server_config_builder_with_client_verifier_optional are replaced by
   rustls_server_config_builder_set_client_verifier and
@@ -57,15 +56,18 @@ If you are importing this as a library from other Rust code, you should import `
 ## Removed
 
  - rustls_client_config_builder_from_config and
-   rustls_server_config_builder_from_config. These was incompatible with the
-  changes to config builders. Previously the notion of "config builder" in this
-  library simply meant "A ClientConfig that hasn't yet been wrapped in an Arc,"
-  so we could use `Clone` to get a copy of one. Now "config builder" corresponds
-  to the underlying `ConfigBuilder` in rustls, so we can't use `Clone` on a
+   rustls_server_config_builder_from_config have been removed. These were
+   incompatible with the changes to config builders. Previously the notion of
+   "config builder" in this library simply meant "A ClientConfig that hasn't yet
+   been wrapped in an Arc," so we could use `Clone` to get a copy of one. Now
+   "config builder" corresponds to the underlying `ConfigBuilder` in rustls
+   (plus some rustls-ffi internal state), so we can't use `Clone` on a
   `ClientConfig` to get one. And we can't manually copy fields from a ClientConfig,
-  since some of the necessary fields are private.
- - rustls_client_config_builder_set_versions
- - rustls_client_config_builder_set_ciphersuites
+   since some of the necessary fields are private.
+ - rustls_client_config_builder_set_versions and
+   rustls_client_config_builder_set_ciphersuites are gone - for equivalent
+   functionality, use rustls_client_config_builder_new_custom and
+   rustls_server_config_builder_new_custom.
 
 
 ## 0.7.2 - 2021-07-06
