@@ -156,14 +156,13 @@ send_response(struct conndata *conn)
   n = sprintf(response, "%s %d\r\n\r\n", prefix, body_size);
   memset(response + n, 'a', body_size);
   *(response + n + body_size + 1) = '\0';
-  fprintf(stderr, "strlen response %ld\n", strlen(response));
+  response_size = strlen(response);
+  fprintf(stderr, "strlen response %ld\n", response_size);
 
   rustls_connection_write(
-    rconn, (const uint8_t *)response, strlen(response), &n);
+    rconn, (const uint8_t *)response, response_size, &n);
   
-  response_size = strlen(response);
-  free(response);
-  
+  free(response);  
   if(n != response_size) {
     fprintf(stderr, "failed to write all response bytes. wrote %ld\n", n);
     return CRUSTLS_DEMO_ERROR;
