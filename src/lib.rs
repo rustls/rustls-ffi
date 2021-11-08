@@ -118,7 +118,7 @@ pub(crate) enum UserdataError {
     /// The stack of userdata items was already empty.
     EmptyStack,
     /// The LocalKey was destroyed before this call.
-    /// See https://doc.rust-lang.org/std/thread/struct.LocalKey.html#method.try_with
+    /// See <https://doc.rust-lang.org/std/thread/struct.LocalKey.html#method.try_with>
     AccessError,
     /// Unexpected pointer when popping.
     WrongData,
@@ -470,6 +470,7 @@ macro_rules! try_box_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_arc_from_ptr {
     ( $var:ident ) => {
@@ -480,6 +481,7 @@ macro_rules! try_arc_from_ptr {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! try_callback {
     ( $var:ident ) => {

@@ -30,7 +30,7 @@ use crate::{
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
 /// Box<ClientConfig>.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
+/// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
 pub struct rustls_client_config_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -499,8 +499,8 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// "Free" a client_config_builder before transmogrifying it into a client_config.
-    /// Normally builders are consumed to client_configs via `rustls_client_config_builder_build`
+    /// "Free" a client_config_builder without building it into a rustls_client_config.
+    /// Normally builders are built into rustls_client_config via `rustls_client_config_builder_build`
     /// and may not be free'd or otherwise used afterwards.
     /// Use free only when the building of a config has to be aborted before a config
     /// was created.
@@ -513,8 +513,8 @@ impl rustls_client_config_builder {
 }
 
 impl rustls_client_config {
-    /// "Free" a client_config previously returned from
-    /// rustls_client_config_builder_build. Since client_config is actually an
+    /// "Free" a rustls_client_config previously returned from
+    /// rustls_client_config_builder_build. Since rustls_client_config is actually an
     /// atomically reference-counted pointer, extant client connections may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
@@ -523,7 +523,7 @@ impl rustls_client_config {
     pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
         ffi_panic_boundary! {
             let config: &ClientConfig = try_ref_from_ptr!(config);
-            // To free the client_config, we reconstruct the Arc and then drop it. It should
+            // To free the rustls_client_config, we reconstruct the Arc and then drop it. It should
             // have a refcount of 1, representing the C code's copy. When it drops, that
             // refcount will go down to 0 and the inner ClientConfig will be dropped.
             unsafe { drop(Arc::from_raw(config)) };
