@@ -322,7 +322,7 @@ drain_plaintext:
     goto cleanup;
   }
   fprintf(stderr, "writing %ld bytes to stdout\n", conn->data.len);
-  if(write(STDERR_FILENO, conn->data.data, conn->data.len) < 0) {
+  if(write(STDOUT_FILENO, conn->data.data, conn->data.len) < 0) {
     fprintf(stderr, "error writing to stderr\n");
     goto cleanup;
   }
