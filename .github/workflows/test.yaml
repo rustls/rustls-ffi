@@ -51,6 +51,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           persist-credentials: false
+      - run: touch src/lib.rs
       - run: make src/rustls.h
       - run: git diff --exit-code
 
