@@ -1,50 +1,66 @@
 #
-# Create 'crustls.lib' and 'src/crustls.h' for Windows using
-# 'cl' or 'clang-cl'.
+# A GNU makeile that creates:
+#   target/release/rustls_ffi.lib  -- using 'cargo build'
+#   target/client.exe
+#   target/server.exe
+#
+# for Windows using 'cl' or 'clang-cl'.
 #
 export CL=
 
-CRUSTLS_LIB = target/release/crustls.lib
+VPATH = tests
 
-USE_CLANG_CL ?= 1
+RUSTLS_LIB = target/release/rustls_ffi.lib
 
-CFLAGS     = -nologo -MD -Zi -W3 -O2 -I. -Dssize_t=int -D_CRT_SECURE_NO_WARNINGS
-LDFLAGS    = -nologo -incremental:no
-CARGOFLAGS = --color never --release
+USE_CLANG_CL ?= 0
+
+green_msg = @echo -e "\e[1;32m$(strip $(1))\e[0m"
+
+CFLAGS = -nologo -MD -Zi -W3 -O2   \
+         -I./src                   \
+         -D_WIN32_WINNT=0x601      \
+         -Dssize_t=int             \
+         -D_CRT_SECURE_NO_WARNINGS \
+         -D_CRT_NONSTDC_NO_WARNINGS
+
+LDFLAGS = -nologo -incremental:no -debug -map -verbose
 
 ifeq ($(USE_CLANG_CL),1)
   CC = clang-cl
-  CFLAGS += -ferror-limit=5
+  CFLAGS += -ferror-limit=5 -Wno-pointer-sign
 else
   CC = cl
 endif
 
-all: crustls.h $(CRUSTLS_LIB) # crustls-demo.exe
+all: $(RUSTLS_LIB) target/client.exe target/server.exe
 
 test: all
-	crustls-demo.exe httpbin.org /headers
+	$(call green_msg, getting 'https://httpbin.org/headers' ...)
+	target/client.exe httpbin.org 443 /headers
+	$(call green_msg, Running 'cargo test')
+	cargo test
 
-crustls.h: src/lib.rs
-	cbindgen --lang C --output $@
+$(RUSTLS_LIB): src/lib.rs Cargo.toml
+	$(call green_msg, Building '$@')
+	cargo build --release
 	@echo
 
-#
-# Currently impossible on Windows since it used epoll API.
-#
-crustls-demo.exe: main.obj $(CRUSTLS_LIB)
-	link $(LDFLAGS) -out:$@ $^
-	@echo
-
-$(CRUSTLS_LIB): src/lib.rs Cargo.toml
-	cargo build $(CARGOFLAGS)
-	@echo
-
-main.obj: src/main.c crustls.h
+%.obj: tests/%.c
 	$(CC) -Fo$@ -c $< $(CFLAGS)
 	@echo
 
+target/%.exe: common.obj %.obj $(RUSTLS_LIB)
+	$(call link_EXE, $@, $^ advapi32.lib userenv.lib ws2_32.lib)
+
 clean:
-	rm -f *.obj target/.rustc_info.json $(CRUSTLS_LIB) crustls.h vc1*.pdb
+	rm -f *.obj target/.rustc_info.json $(RUSTLS_LIB) vc1*.pdb
 	rm -fR target/*
 	rmdir target
+
+define link_EXE
+  $(call green_msg, Linking $(1))
+  link $(LDFLAGS) -out:$(strip $(1)) $(2) > link.tmp
+  @cat link.tmp >> $(1:.exe=.map)
+  @echo
+endef
 
