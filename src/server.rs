@@ -673,3 +673,25 @@ impl rustls_server_config_builder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_builder() {
+        let builder: *mut rustls_server_config_builder =
+            rustls_server_config_builder::rustls_server_config_builder_new();
+        let h1 = "http/1.1".as_bytes();
+        let h2 = "h2".as_bytes();
+        let alpn: Vec<rustls_slice_bytes> = vec![h1.into(), h2.into()];
+        rustls_server_config_builder::rustls_server_config_builder_set_alpn_protocols(
+            builder,
+            alpn.as_ptr(),
+            alpn.len(),
+        );
+        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
+        let config = try_ref_from_ptr!(config);
+        assert_eq!(config.alpn_protocols, vec![h1, h2]);
+    }
+}
