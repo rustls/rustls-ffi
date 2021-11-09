@@ -344,3 +344,12 @@ get_first_header_value(const char *headers, size_t headers_len,
   }
   return NULL;
 }
+
+void
+log_cb(void *userdata, const struct rustls_log_params *params)
+{
+  struct conndata *conn = (struct conndata*)userdata;
+  struct rustls_str level_str = rustls_log_level_str(params->level);
+  fprintf(stderr, "%s[fd %d][%.*s]: %.*s\n", conn->program_name, conn->fd,
+    (int)level_str.len, level_str.data, (int)params->message.len, params->message.data);
+}

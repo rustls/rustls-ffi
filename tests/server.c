@@ -396,6 +396,9 @@ main(int argc, const char **argv)
     conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
+    conndata->program_name = "server";
+    rustls_connection_set_userdata(rconn, conndata);
+    rustls_connection_set_log_callback(rconn, log_cb);
     handle_conn(conndata);
   }
 
