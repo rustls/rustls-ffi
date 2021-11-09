@@ -307,15 +307,18 @@ impl rustls_connection {
     /// Index 0 is the end entity certificate. Higher indexes are certificates
     /// in the chain. Requesting an index higher than what is available returns
     /// NULL.
-    /// The returned pointer lives as long as the rustls_connection does.
+    /// The returned pointer is valid until the next mutating function call
+    /// affecting the connection. A mutating function call is one where the
+    /// first argument has type `struct rustls_connection *` (as opposed to
+    ///  `const struct rustls_connection *`).
     /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.peer_certificates>
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_peer_certificate(
-        conn: *mut rustls_connection,
+        conn: *const rustls_connection,
         i: size_t,
     ) -> *const rustls_certificate {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn: &Connection = try_ref_from_ptr!(conn);
             match conn.peer_certificates().and_then(|c| c.get(i)) {
                 Some(cert) => cert as *const Certificate as *const _,
                 None => null()
@@ -328,6 +331,10 @@ impl rustls_connection {
     /// The borrow lives as long as the connection.
     /// If the connection is still handshaking, or no ALPN protocol was negotiated,
     /// stores NULL and 0 in the output parameters.
+    /// The provided pointer is valid until the next mutating function call
+    /// affecting the connection. A mutating function call is one where the
+    /// first argument has type `struct rustls_connection *` (as opposed to
+    ///  `const struct rustls_connection *`).
     /// <https://www.iana.org/assignments/tls-parameters/>
     /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.alpn_protocol>
     #[no_mangle]
@@ -385,9 +392,13 @@ impl rustls_connection {
                 Some(cs) => cs,
                 None => return null(),
             };
-            for &cs in ALL_CIPHER_SUITES {
-                if negotiated == cs {
-                    return &cs as *const SupportedCipherSuite as *const _;
+            for cs in ALL_CIPHER_SUITES {
+                // This type annotation is here to enforce the lifetime stated
+                // in the doccomment - that the returned pointer lives as long
+                // as the program.
+                let cs: &'static SupportedCipherSuite = cs;
+                if negotiated == *cs {
+                    return cs as *const SupportedCipherSuite as *const _;
                 }
             }
             null()

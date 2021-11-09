@@ -55,6 +55,10 @@ If you are importing this as a library from other Rust code, you should import `
   rustls_server_config_builder_set_client_verifier and
   rustls_server_config_builder_set_client_verifier_optional, which are setters
   rather than constructors.
+- The documented lifetime for pointers returned by rustls_connection_get_peer_certificate
+  and rustls_connection_get_alpn_protocol has been fixed - the pointers those
+  functions provide are valid until the next mutating function call on that
+  connection.
 
 ## Removed
 
