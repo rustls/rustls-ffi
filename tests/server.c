@@ -243,9 +243,19 @@ handle_conn(struct conndata *conn)
       }
     }
 
+    const uint8_t *negotiated_alpn;
+    size_t negotiated_alpn_len;
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       fprintf(stderr, "writing response\n");
+      rustls_connection_get_alpn_protocol(rconn, &negotiated_alpn, &negotiated_alpn_len);
+      if(negotiated_alpn != NULL) {
+        fprintf(stderr, "negotiated ALPN protocol: '%.*s'\n",
+          (int)negotiated_alpn_len, negotiated_alpn);
+      } else {
+        fprintf(stderr, "no ALPN protocol was negotiated\n");
+      }
+
       if(send_response(conn) != CRUSTLS_DEMO_OK) {
         goto cleanup;
       };
@@ -303,6 +313,11 @@ main(int argc, const char **argv)
     rustls_server_config_builder_new();
   const struct rustls_server_config *server_config = NULL;
   struct rustls_connection *rconn = NULL;
+  struct rustls_slice_bytes alpn_http11;
+
+  alpn_http11.data = (unsigned char*)"http/1.1";
+  alpn_http11.len = 8;
+
 
   if(argc <= 2) {
     fprintf(stderr,
@@ -320,6 +335,8 @@ main(int argc, const char **argv)
 
   rustls_server_config_builder_set_certified_keys(
     config_builder, &certified_key, 1);
+  rustls_server_config_builder_set_alpn_protocols(config_builder, &alpn_http11, 1);
+
   server_config = rustls_server_config_builder_build(config_builder);
 
 #ifdef _WIN32
@@ -379,6 +396,9 @@ main(int argc, const char **argv)
     conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
+    conndata->program_name = "server";
+    rustls_connection_set_userdata(rconn, conndata);
+    rustls_connection_set_log_callback(rconn, log_cb);
     handle_conn(conndata);
   }
 

@@ -19,6 +19,7 @@ struct bytevec {
 struct conndata {
   int fd;
   const char *verify_arg;
+  const char *program_name;
   struct bytevec data;
   struct rustls_connection *rconn;
 };
@@ -98,5 +99,8 @@ body_beginning(struct bytevec *vec);
 const char *
 get_first_header_value(const char *headers, size_t headers_len,
   const char *name, size_t name_len, size_t *n);
+
+void
+log_cb(void *userdata, const struct rustls_log_params *params);
 
 #endif /* COMMON_H */
