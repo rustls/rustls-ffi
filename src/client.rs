@@ -488,10 +488,12 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
             let config = builder.base.with_custom_certificate_verifier(builder.verifier);
-            let config = match builder.cert_resolver {
+            let mut config = match builder.cert_resolver {
                 Some(r) => config.with_client_cert_resolver(r),
                 None => config.with_no_client_auth(),
             };
+            config.alpn_protocols = builder.alpn_protocols;
+            config.enable_sni = builder.enable_sni;
             ArcCastPtr::to_const_ptr(config)
         }
     }
@@ -564,5 +566,29 @@ impl rustls_client_config {
         BoxCastPtr::set_mut_ptr(conn_out, c);
         rustls_result::Ok
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_builder() {
+        let builder: *mut rustls_client_config_builder =
+            rustls_client_config_builder::rustls_client_config_builder_new();
+        let h1 = "http/1.1".as_bytes();
+        let h2 = "h2".as_bytes();
+        let alpn: Vec<rustls_slice_bytes> = vec![h1.into(), h2.into()];
+        rustls_client_config_builder::rustls_client_config_builder_set_alpn_protocols(
+            builder,
+            alpn.as_ptr(),
+            alpn.len(),
+        );
+        rustls_client_config_builder::rustls_client_config_builder_set_enable_sni(builder, false);
+        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let config = try_ref_from_ptr!(config);
+        assert_eq!(config.enable_sni, false);
+        assert_eq!(config.alpn_protocols, vec![h1, h2]);
     }
 }

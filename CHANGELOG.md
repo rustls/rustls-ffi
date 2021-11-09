@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.8.0 (unreleased)
+## 0.8.1 (unreleased)
+
+## Changed
+ - Setting of ALPN protocols for client configs was broken in the 0.8.0 release.
+   This release fixes it.
+
+## 0.8.0 (2021-11-08)
 
 The package name has changed to "rustls-ffi" (from "crustls").
 The header file (as installed by `make DESTDIR=/path/ install`)
