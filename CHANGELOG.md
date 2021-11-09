@@ -54,7 +54,7 @@ If you are importing this as a library from other Rust code, you should import `
   rather than constructors.
 - The documented lifetime for pointers returned by rustls_connection_get_peer_certificate
   and rustls_connection_get_alpn_protocol has been fixed - the pointers those
-  function provide are valid until the next mutating function call on that
+  functions provide are valid until the next mutating function call on that
   connection.
 
 ## Removed
