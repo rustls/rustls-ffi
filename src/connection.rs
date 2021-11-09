@@ -248,7 +248,7 @@ impl rustls_connection {
             };
             match guard.try_drop() {
                 Ok(()) => result,
-                Err(_) => return rustls_result::Panic,
+                Err(_) => rustls_result::Panic,
             }
         }
     }

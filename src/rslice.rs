@@ -77,10 +77,10 @@ pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_
 /// pointer is NULL, or n is greater than the length of the
 /// rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
 #[no_mangle]
-pub extern "C" fn rustls_slice_slice_bytes_get<'a>(
-    input: *const rustls_slice_slice_bytes<'a>,
+pub extern "C" fn rustls_slice_slice_bytes_get(
+    input: *const rustls_slice_slice_bytes,
     n: size_t,
-) -> rustls_slice_bytes<'a> {
+) -> rustls_slice_bytes {
     let input: &rustls_slice_slice_bytes = unsafe {
         match input.as_ref() {
             Some(c) => c,

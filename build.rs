@@ -17,10 +17,9 @@ fn main() {
     let dest_path = out_dir.join("version.rs");
     let mut f = File::create(&dest_path).expect("Could not create file");
     let pkg_version = env!("CARGO_PKG_VERSION");
-    write!(
+    writeln!(
         &mut f,
-        r#"const RUSTLS_FFI_VERSION: &'static str = "rustls-ffi/{}/rustls/{}";
-"#,
+        r#"const RUSTLS_FFI_VERSION: &str = "rustls-ffi/{}/rustls/{}";"#,
         pkg_version, RUSTLS_CRATE_VERSION
     )
     .expect("Could not write file");

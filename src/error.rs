@@ -47,14 +47,14 @@ impl rustls_result {
     #[no_mangle]
     pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
         match result_to_error(&result) {
-            Either::Error(e) => match e {
-                Error::InvalidCertificateData(_) => true,
-                Error::InvalidCertificateEncoding => true,
-                Error::InvalidCertificateSignature => true,
-                Error::InvalidCertificateSignatureType => true,
-                Error::InvalidSct(_) => true,
-                _ => false,
-            },
+            Either::Error(e) => matches!(
+                e,
+                Error::InvalidCertificateData(_)
+                    | Error::InvalidCertificateEncoding
+                    | Error::InvalidCertificateSignature
+                    | Error::InvalidCertificateSignatureType
+                    | Error::InvalidSct(_)
+            ),
             _ => false,
         }
     }
@@ -241,27 +241,27 @@ pub(crate) enum Either {
     Error(rustls::Error),
 }
 
-impl Into<Either> for String {
-    fn into(self) -> Either {
-        Either::String(self)
+impl From<String> for Either {
+    fn from(s: String) -> Either {
+        Either::String(s)
     }
 }
 
-impl Into<Either> for &str {
-    fn into(self) -> Either {
-        Either::String(self.to_string())
+impl From<&str> for Either {
+    fn from(s: &str) -> Either {
+        Either::String(s.to_string())
     }
 }
 
-impl Into<Either> for webpki::Error {
-    fn into(self) -> Either {
-        Either::String(self.to_string())
+impl From<webpki::Error> for Either {
+    fn from(e: webpki::Error) -> Either {
+        Either::String(e.to_string())
     }
 }
 
-impl Into<Either> for rustls::Error {
-    fn into(self) -> Either {
-        Either::Error(self)
+impl From<rustls::Error> for Either {
+    fn from(e: rustls::Error) -> Either {
+        Either::Error(e)
     }
 }
 

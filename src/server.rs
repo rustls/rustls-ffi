@@ -121,10 +121,10 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
-            for &cs in cipher_suites.into_iter() {
+            for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
                 match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
-                    Some(scs) => cs_vec.push(scs.clone()),
+                    Some(scs) => cs_vec.push(*scs),
                     None => return InvalidParameter,
                 }
             }
@@ -387,7 +387,7 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
         if len > write_buf.len() {
             return rustls_result::InsufficientSize;
         }
-        write_buf[..len].copy_from_slice(&sni_hostname.as_bytes());
+        write_buf[..len].copy_from_slice(sni_hostname.as_bytes());
         *out_n = len;
         rustls_result::Ok
     }
@@ -497,7 +497,7 @@ impl ResolvesServerCert for ClientHelloResolver {
     fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
         let sni_name: &str = {
             match client_hello.server_name() {
-                Some(c) => c.into(),
+                Some(c) => c,
                 None => "",
             }
         };
