@@ -676,6 +676,8 @@ impl rustls_server_config_builder {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr::null_mut;
+
     use super::*;
 
     #[test]
@@ -693,5 +695,88 @@ mod tests {
         let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
         let config = try_ref_from_ptr!(config);
         assert_eq!(config.alpn_protocols, vec![h1, h2]);
+    }
+
+    // Build a server connection and test the getters and initial values.
+    #[test]
+    fn test_server_config_builder_new_empty() {
+        let builder: *mut rustls_server_config_builder =
+            rustls_server_config_builder::rustls_server_config_builder_new();
+        // Building a config with no certificate and key configured results in null.
+        assert_eq!(
+            rustls_server_config_builder::rustls_server_config_builder_build(builder),
+            null()
+        );
+    }
+
+    #[test]
+    fn test_server_connection_new() {
+        let builder: *mut rustls_server_config_builder =
+            rustls_server_config_builder::rustls_server_config_builder_new();
+        let cert_pem = include_str!("../localhost/cert.pem").as_bytes();
+        let key_pem = include_str!("../localhost/key.pem").as_bytes();
+        let mut certified_key: *const rustls_certified_key = null();
+        let result = rustls_certified_key::rustls_certified_key_build(
+            cert_pem.as_ptr(),
+            cert_pem.len(),
+            key_pem.as_ptr(),
+            key_pem.len(),
+            &mut certified_key,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!(
+                "expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {:?}",
+                result
+            );
+        }
+        rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+            builder,
+            &certified_key,
+            1,
+        );
+
+        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
+        assert_ne!(config, null());
+
+        let mut conn: *mut rustls_connection = null_mut();
+        let result = rustls_server_config::rustls_server_connection_new(config, &mut conn);
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+        }
+        assert_eq!(rustls_connection::rustls_connection_wants_read(conn), true);
+        assert_eq!(
+            rustls_connection::rustls_connection_wants_write(conn),
+            false
+        );
+        assert_eq!(
+            rustls_connection::rustls_connection_is_handshaking(conn),
+            true
+        );
+
+        let some_byte = 42u8;
+        let mut alpn_protocol: *const u8 = &some_byte;
+        let mut alpn_protocol_len: usize = 1;
+        rustls_connection::rustls_connection_get_alpn_protocol(
+            conn,
+            &mut alpn_protocol,
+            &mut alpn_protocol_len,
+        );
+        assert_eq!(alpn_protocol, null());
+        assert_eq!(alpn_protocol_len, 0);
+
+        assert_eq!(
+            rustls_connection::rustls_connection_get_negotiated_ciphersuite(conn),
+            null()
+        );
+        assert_eq!(
+            rustls_connection::rustls_connection_get_peer_certificate(conn, 0),
+            null()
+        );
+
+        assert_eq!(
+            rustls_connection::rustls_connection_get_protocol_version(conn),
+            0
+        );
+        rustls_connection::rustls_connection_free(conn);
     }
 }
