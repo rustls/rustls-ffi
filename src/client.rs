@@ -587,8 +587,11 @@ mod tests {
         );
         rustls_client_config_builder::rustls_client_config_builder_set_enable_sni(builder, false);
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
-        let config = try_ref_from_ptr!(config);
-        assert_eq!(config.enable_sni, false);
-        assert_eq!(config.alpn_protocols, vec![h1, h2]);
+        {
+            let config2 = try_ref_from_ptr!(config);
+            assert_eq!(config2.enable_sni, false);
+            assert_eq!(config2.alpn_protocols, vec![h1, h2]);
+        }
+        rustls_client_config::rustls_client_config_free(config)
     }
 }
