@@ -44,7 +44,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup PATH for CL.EXE
-        uses: ilammy/msvc-dev-cmd@v1      
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Locate Cygwin's link.exe that shadows for MSVC's link.exe (so we can delete it first).
+      - run: where link.exe
       - run: make -f Makefile.Windows
 
   ensure-header-updated:
