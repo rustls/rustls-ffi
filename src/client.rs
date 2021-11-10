@@ -596,6 +596,7 @@ mod tests {
 
     // Build a client connection and test the getters and initial values.
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_client_connection_new() {
         let builder: *mut rustls_client_config_builder =
             rustls_client_config_builder::rustls_client_config_builder_new();

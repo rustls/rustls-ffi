@@ -710,6 +710,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_server_connection_new() {
         let builder: *mut rustls_server_config_builder =
             rustls_server_config_builder::rustls_server_config_builder_new();
