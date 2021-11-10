@@ -1,5 +1,5 @@
 #
-# A GNU makeile that creates:
+# A GNU makefile that creates:
 #   target/release/rustls_ffi.lib  -- using 'cargo build'
 #   target/client.exe
 #   target/server.exe
