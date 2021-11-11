@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
 #endif /* _WIN32 */
 
 #include <sys/types.h>
@@ -20,7 +21,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <errno.h>
-#include <pthread.h>
 #include <time.h>
 
 #ifdef _WIN32
