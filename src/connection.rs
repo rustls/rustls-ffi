@@ -485,7 +485,7 @@ impl rustls_connection {
 
 #[cfg(test)]
 mod tests {
-    use std::{cmp::min, collections::VecDeque};
+    use std::{cmp::min, collections::VecDeque, convert::TryInto};
 
     use libc::{c_char, c_int};
 
@@ -551,7 +551,7 @@ mod tests {
 
         const IO_SUCCESS: c_int = 0;
 
-        fn read_cb(
+        unsafe extern "C" fn read_cb(
             userdata: *mut c_void,
             buf: *mut u8,
             n: usize,
@@ -563,28 +563,34 @@ mod tests {
             let n = min(n, first.len());
             std::ptr::copy(first.as_ptr(), buf, n);
             (*vecdeq).drain(0..n).count();
+            *out_n = n;
             rustls_io_result(IO_SUCCESS)
         }
 
-        fn write_cb(
+        unsafe extern "C" fn write_cb(
             userdata: *mut c_void,
             buf: *const u8,
             n: size_t,
             out_n: *mut size_t,
         ) -> rustls_io_result {
+            let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
+            for i in 0..n {
+                (*vecdeq).push_back(*(buf.offset(i.try_into().unwrap())));
+            }
+            *out_n = n;
             rustls_io_result(IO_SUCCESS)
         }
 
         fn process_io(
             conn: *mut rustls_connection,
-            input: &mut VecDeque<u8>,
-            output: &mut VecDeque<u8>,
+            mut input: &mut VecDeque<u8>,
+            mut output: &mut VecDeque<u8>,
         ) -> rustls_io_result {
             if rustls_connection::rustls_connection_wants_read(conn) && input.len() > 0 {
                 let mut n: usize = 0;
                 let result = rustls_connection::rustls_connection_read_tls(
                     conn,
-                    read_cb,
+                    Some(read_cb),
                     &mut input as *mut _ as *mut _,
                     &mut n,
                 );
@@ -597,7 +603,7 @@ mod tests {
                 let mut n: usize = 0;
                 let result = rustls_connection::rustls_connection_write_tls(
                     conn,
-                    write_cb,
+                    Some(write_cb),
                     &mut output as *mut _ as *mut _,
                     &mut n,
                 );
