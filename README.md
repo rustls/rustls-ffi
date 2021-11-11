@@ -23,6 +23,19 @@ To build in debug mode:
 
     make PROFILE=debug
 
+To link against the resulting library, on **Linux**:
+
+    -lrustls -lgcc_s -lutil -lrt -lpthread -lm -ldl -lc
+
+To link against the resulting library, on **macOS**:
+
+    -lrustls -framework Security -liconv -lSystem -lresolv -lc -lm -liconv
+
+If the linking instructions above go out of date, [you can get an up-to-date list
+via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
+
+    RUSTFLAGS="--print native-static-libs" cargo build
+
 # Overview
 
 Rustls doesn't do any I/O on its own. It provides the protocol handling, and
