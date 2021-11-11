@@ -482,3 +482,141 @@ impl rustls_connection {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{cmp::min, collections::VecDeque};
+
+    use libc::{c_char, c_int};
+
+    use crate::{
+        cipher::rustls_certified_key,
+        client::{rustls_client_config, rustls_client_config_builder},
+        server::{rustls_server_config, rustls_server_config_builder},
+    };
+
+    use super::*;
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_communicate() {
+        let builder: *mut rustls_client_config_builder =
+            rustls_client_config_builder::rustls_client_config_builder_new();
+        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut client_conn: *mut rustls_connection = null_mut();
+        let result = rustls_client_config::rustls_client_connection_new(
+            config,
+            "localhost\0".as_ptr() as *const c_char,
+            &mut client_conn,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+        }
+
+        let builder: *mut rustls_server_config_builder =
+            rustls_server_config_builder::rustls_server_config_builder_new();
+        let cert_pem = include_str!("../localhost/cert.pem").as_bytes();
+        let key_pem = include_str!("../localhost/key.pem").as_bytes();
+        let mut certified_key: *const rustls_certified_key = null();
+        let result = rustls_certified_key::rustls_certified_key_build(
+            cert_pem.as_ptr(),
+            cert_pem.len(),
+            key_pem.as_ptr(),
+            key_pem.len(),
+            &mut certified_key,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!(
+                "expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {:?}",
+                result
+            );
+        }
+        rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+            builder,
+            &certified_key,
+            1,
+        );
+
+        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
+        assert_ne!(config, null());
+
+        let mut server_conn: *mut rustls_connection = null_mut();
+        let result = rustls_server_config::rustls_server_connection_new(config, &mut server_conn);
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+        }
+
+        let mut client_out = VecDeque::<u8>::new();
+        let mut server_out = VecDeque::<u8>::new();
+
+        const IO_SUCCESS: c_int = 0;
+
+        fn read_cb(
+            userdata: *mut c_void,
+            buf: *mut u8,
+            n: usize,
+            out_n: *mut usize,
+        ) -> rustls_io_result {
+            let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
+            (*vecdeq).make_contiguous();
+            let first: &[u8] = (*vecdeq).as_slices().0;
+            let n = min(n, first.len());
+            std::ptr::copy(first.as_ptr(), buf, n);
+            (*vecdeq).drain(0..n).count();
+            rustls_io_result(IO_SUCCESS)
+        }
+
+        fn write_cb(
+            userdata: *mut c_void,
+            buf: *const u8,
+            n: size_t,
+            out_n: *mut size_t,
+        ) -> rustls_io_result {
+            rustls_io_result(IO_SUCCESS)
+        }
+
+        fn process_io(
+            conn: *mut rustls_connection,
+            input: &mut VecDeque<u8>,
+            output: &mut VecDeque<u8>,
+        ) -> rustls_io_result {
+            if rustls_connection::rustls_connection_wants_read(conn) && input.len() > 0 {
+                let mut n: usize = 0;
+                let result = rustls_connection::rustls_connection_read_tls(
+                    conn,
+                    read_cb,
+                    &mut input as *mut _ as *mut _,
+                    &mut n,
+                );
+                // TODO: EOF
+                if result.0 != IO_SUCCESS {
+                    return result;
+                }
+            }
+            if rustls_connection::rustls_connection_wants_write(conn) {
+                let mut n: usize = 0;
+                let result = rustls_connection::rustls_connection_write_tls(
+                    conn,
+                    write_cb,
+                    &mut output as *mut _ as *mut _,
+                    &mut n,
+                );
+                if result.0 != IO_SUCCESS {
+                    return result;
+                }
+            }
+            rustls_io_result(IO_SUCCESS)
+        }
+
+        loop {
+            let result = process_io(client_conn, &mut server_out, &mut client_out);
+            if result.0 != IO_SUCCESS {
+                panic!("got IO error {} process client's I/O", result.0);
+            }
+            let result = process_io(server_conn, &mut server_out, &mut client_out);
+            if result.0 != IO_SUCCESS {
+                panic!("got IO error {} process server's I/O", result.0);
+            }
+        }
+    }
+}
