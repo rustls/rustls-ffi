@@ -571,6 +571,8 @@ impl rustls_client_config {
 
 #[cfg(test)]
 mod tests {
+    use std::ptr::{null, null_mut};
+
     use super::*;
 
     #[test]
@@ -593,5 +595,55 @@ mod tests {
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
         }
         rustls_client_config::rustls_client_config_free(config)
+    }
+
+    // Build a client connection and test the getters and initial values.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_client_connection_new() {
+        let builder: *mut rustls_client_config_builder =
+            rustls_client_config_builder::rustls_client_config_builder_new();
+        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut conn: *mut rustls_connection = null_mut();
+        let result = rustls_client_config::rustls_client_connection_new(
+            config,
+            "example.com\0".as_ptr() as *const c_char,
+            &mut conn,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+        }
+        assert_eq!(rustls_connection::rustls_connection_wants_read(conn), false);
+        assert_eq!(rustls_connection::rustls_connection_wants_write(conn), true);
+        assert_eq!(
+            rustls_connection::rustls_connection_is_handshaking(conn),
+            true
+        );
+
+        let some_byte = 42u8;
+        let mut alpn_protocol: *const u8 = &some_byte;
+        let mut alpn_protocol_len: usize = 1;
+        rustls_connection::rustls_connection_get_alpn_protocol(
+            conn,
+            &mut alpn_protocol,
+            &mut alpn_protocol_len,
+        );
+        assert_eq!(alpn_protocol, null());
+        assert_eq!(alpn_protocol_len, 0);
+
+        assert_eq!(
+            rustls_connection::rustls_connection_get_negotiated_ciphersuite(conn),
+            null()
+        );
+        assert_eq!(
+            rustls_connection::rustls_connection_get_peer_certificate(conn, 0),
+            null()
+        );
+
+        assert_eq!(
+            rustls_connection::rustls_connection_get_protocol_version(conn),
+            0
+        );
+        rustls_connection::rustls_connection_free(conn);
     }
 }

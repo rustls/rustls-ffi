@@ -81,7 +81,7 @@ fn test_rustls_error() {
 
 #[allow(dead_code)]
 #[repr(u32)]
-#[derive(TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive)]
 pub enum rustls_result {
     Ok = 7000,
     Io = 7001,
