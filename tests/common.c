@@ -5,6 +5,7 @@
 #include <ws2tcpip.h> /* gai_strerror() */
 #include <io.h> /* write() */
 #include <fcntl.h> /* O_BINARY */
+#define strncasecmp _strnicmp
 #else
 #include <sys/socket.h>
 #include <sys/uio.h>

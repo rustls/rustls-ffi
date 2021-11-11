@@ -45,6 +45,9 @@ jobs:
           persist-credentials: false
       - name: Setup PATH for CL.EXE
         uses: ilammy/msvc-dev-cmd@v1
+      # Remove link.exe from non-MSVC packages that interferes with MSVC link
+      - run: rm "C:\Program Files\Git\usr\bin\link.exe"
+      - run: rm "C:\msys64\usr\bin\link.exe"
       - run: make -f Makefile.Windows
 
   ensure-header-updated:
