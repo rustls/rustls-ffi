@@ -23,7 +23,7 @@ CFLAGS = -nologo -MD -Zi -W3 -O2   \
          -D_CRT_SECURE_NO_WARNINGS \
          -D_CRT_NONSTDC_NO_WARNINGS
 
-LDFLAGS = -nologo -incremental:no -debug -map -verbose
+LDFLAGS = -nologo -incremental:no -debug
 
 ifeq ($(USE_CLANG_CL),1)
   CC = clang-cl
