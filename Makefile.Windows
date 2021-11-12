@@ -59,8 +59,7 @@ clean:
 
 define link_EXE
   $(call green_msg, Linking $(1))
-  link $(LDFLAGS) -out:$(strip $(1)) $(2) > link.tmp
-  @cat link.tmp >> $(1:.exe=.map)
+  link $(LDFLAGS) -out:$(strip $(1)) $(2)
   @echo
 endef
 
