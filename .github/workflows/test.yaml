@@ -30,6 +30,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install valgrind
+        run: apt install valgrind
+
       - name: Install ${{ matrix.rust }} toolchain
         uses: actions-rs/toolchain@v1
         with:
