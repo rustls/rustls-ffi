@@ -545,11 +545,13 @@ mod tests {
         if !matches!(result, rustls_result::Ok) {
             panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
         }
+        assert_ne!(server_conn, null_mut());
 
         let mut client_out = VecDeque::<u8>::new();
         let mut server_out = VecDeque::<u8>::new();
 
         const IO_SUCCESS: c_int = 0;
+        println!("boop");
 
         unsafe extern "C" fn read_cb(
             userdata: *mut c_void,
@@ -583,45 +585,67 @@ mod tests {
 
         fn process_io(
             conn: *mut rustls_connection,
-            mut input: &mut VecDeque<u8>,
-            mut output: &mut VecDeque<u8>,
-        ) -> rustls_io_result {
-            if rustls_connection::rustls_connection_wants_read(conn) && input.len() > 0 {
-                let mut n: usize = 0;
-                let result = rustls_connection::rustls_connection_read_tls(
-                    conn,
-                    Some(read_cb),
-                    &mut input as *mut _ as *mut _,
-                    &mut n,
-                );
-                // TODO: EOF
-                if result.0 != IO_SUCCESS {
-                    return result;
-                }
-            }
+            input: &mut VecDeque<u8>,
+            output: &mut VecDeque<u8>,
+        ) -> Option<rustls_io_result> {
+            let mut wanted_something = false;
             if rustls_connection::rustls_connection_wants_write(conn) {
                 let mut n: usize = 0;
+                let userdata: *mut c_void = output as *mut VecDeque<u8> as *mut _;
                 let result = rustls_connection::rustls_connection_write_tls(
                     conn,
                     Some(write_cb),
-                    &mut output as *mut _ as *mut _,
+                    userdata,
                     &mut n,
                 );
+                wanted_something = true;
                 if result.0 != IO_SUCCESS {
-                    return result;
+                    return Some(result);
                 }
             }
-            rustls_io_result(IO_SUCCESS)
+            if rustls_connection::rustls_connection_wants_read(conn) && input.len() > 0 {
+                let mut n: usize = 0;
+                let userdata: *mut c_void = input as *mut VecDeque<u8> as *mut _;
+                let result = rustls_connection::rustls_connection_read_tls(
+                    conn,
+                    Some(read_cb),
+                    userdata,
+                    &mut n,
+                );
+                wanted_something = true;
+                // TODO: EOF
+                if result.0 != IO_SUCCESS {
+                    return Some(result);
+                }
+            }
+            if wanted_something {
+                Some(rustls_io_result(IO_SUCCESS))
+            } else {
+                None
+            }
         }
 
         loop {
+            println!("tick");
             let result = process_io(client_conn, &mut server_out, &mut client_out);
-            if result.0 != IO_SUCCESS {
-                panic!("got IO error {} process client's I/O", result.0);
+            match result.map(|r| r.0) {
+                Some(r) if r != IO_SUCCESS => {
+                    panic!("got IO error {} process client's I/O", r);
+                }
+                Some(IO_SUCCESS) => {}
+                None => {
+                    println!("no work done on client side")
+                }
             }
-            let result = process_io(server_conn, &mut server_out, &mut client_out);
-            if result.0 != IO_SUCCESS {
-                panic!("got IO error {} process server's I/O", result.0);
+            let result = process_io(server_conn, &mut client_out, &mut server_out);
+            match result.map(|r| r.0) {
+                Some(r) if r != IO_SUCCESS => {
+                    panic!("got IO error {} process client's I/O", r);
+                }
+                Some(IO_SUCCESS) => {}
+                None => {
+                    println!("no work done on server side")
+                }
             }
         }
     }
