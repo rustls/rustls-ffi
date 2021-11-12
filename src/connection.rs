@@ -624,6 +624,11 @@ mod tests {
                     return result;
                 }
                 println!("{} read {} TLS bytes", name, n);
+                let result: rustls_result =
+                    rustls_connection::rustls_connection_process_new_packets(conn);
+                if !matches!(result, rustls_result::Ok) {
+                    panic!("{}: process_new_packets: got {:?}", name, result);
+                }
                 let mut buf = [0u8; 1000];
                 let result: rustls_result = rustls_connection::rustls_connection_read(
                     conn,
@@ -631,14 +636,35 @@ mod tests {
                     buf.len(),
                     &mut n,
                 );
-                if !matches!(result, rustls_result::Ok | rustls_result::PlaintextEmpty) {
-                    println!("{} read {} plaintext bytes", name, n);
-                    return rustls_io_result(999); //TODO: what type to return? maybe move this plaintext read elsewhere?
+                match result {
+                    rustls_result::PlaintextEmpty => {
+                        println!("{} says plaintext empty", name);
+                        return rustls_io_result(IO_SUCCESS);
+                    }
+                    rustls_result::Ok => {
+                        println!("{} read {} plaintext bytes", name, n);
+                    }
+                    r => {
+                        println!("{}: error reading plaintext: {}", name, r);
+                        return rustls_io_result(999); //TODO: what type to return? maybe move this plaintext read elsewhere?
+                    }
                 }
-                println!("{} read {} plaintext bytes", name, n);
             }
             rustls_io_result(IO_SUCCESS)
         }
+
+        let buf = [0u8; 1000];
+        let mut n: usize = 0;
+        let r = rustls_connection::rustls_connection_write(
+            client_conn,
+            buf.as_ptr(),
+            buf.len(),
+            &mut n,
+        );
+        if !matches!(r, rustls_result::Ok) {
+            panic!("client: error writing plaintext");
+        }
+        println!("client wrote {} bytes plaintext", n);
 
         while rustls_connection::rustls_connection_is_handshaking(client_conn)
             || rustls_connection::rustls_connection_is_handshaking(server_conn)

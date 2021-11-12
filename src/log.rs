@@ -36,7 +36,7 @@ pub(crate) fn ensure_log_registered() {}
 #[cfg(not(feature = "no_log_capture"))]
 pub(crate) fn ensure_log_registered() {
     log::set_logger(&Logger {}).ok();
-    log::set_max_level(log::LevelFilter::Debug)
+    log::set_max_level(log::LevelFilter::Trace)
 }
 
 pub type rustls_log_level = usize;
