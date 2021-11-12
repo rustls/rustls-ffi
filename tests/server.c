@@ -16,6 +16,7 @@
 #endif /* _WIN32 */
 
 #include <sys/types.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -53,12 +54,12 @@ read_file(const char *filename, char *buf, size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
-    fprintf(stderr, "%s\n", strerror(errno));
+    fprintf(stderr, "server: opening %s: %s\n", filename, strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
   *n = fread(buf, 1, buflen, f);
   if(!feof(f)) {
-    fprintf(stderr, "%s\n", strerror(errno));
+    fprintf(stderr, "server: reading %s: %s\n", filename, strerror(errno));
     fclose(f);
     return CRUSTLS_DEMO_ERROR;
   }
@@ -94,29 +95,29 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EAGAIN || err == EWOULDBLOCK) {
     fprintf(stderr,
-            "reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
+            "server: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
             strerror(errno));
     return CRUSTLS_DEMO_AGAIN;
   }
   else if(err != 0) {
-    fprintf(stderr, "reading from socket: errno %d\n", err);
+    fprintf(stderr, "server: reading from socket: errno %d\n", err);
     return CRUSTLS_DEMO_ERROR;
   }
 
   if(n == 0) {
     return CRUSTLS_DEMO_EOF;
   }
-  fprintf(stderr, "read %ld bytes from socket\n", n);
+  fprintf(stderr, "server: read %ld bytes from socket\n", n);
 
   result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("in process_new_packets", result);
+    print_error("server", "in process_new_packets", result);
     return CRUSTLS_DEMO_ERROR;
   }
 
   result = copy_plaintext_to_buffer(conn);
   if(result != CRUSTLS_DEMO_EOF) {
-    fprintf(stderr, "do_read returning %d\n", result);
+    fprintf(stderr, "server: do_read returning %d\n", result);
     return result;
   }
 
@@ -125,13 +126,13 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
-            "read returned %ld bytes after receiving close_notify\n",
+            "server: error: read returned %ld bytes after receiving close_notify\n",
             n);
     return CRUSTLS_DEMO_ERROR;
   }
   else if (signed_n < 0 && errno != EWOULDBLOCK) {
     fprintf(stderr,
-            "read returned incorrect error after receiving close_notify: %s\n",
+            "server: error: read returned incorrect error after receiving close_notify: %s\n",
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
@@ -149,22 +150,22 @@ send_response(struct conndata *conn)
   size_t n;
 
   if(response == NULL) {
-    fprintf(stderr, "failed malloc\n");
+    fprintf(stderr, "server: failed malloc\n");
     return CRUSTLS_DEMO_ERROR;
   }
 
   n = sprintf(response, "%s %d\r\n\r\n", prefix, body_size);
   memset(response + n, 'a', body_size);
+  *(response + n + body_size) = '\n';
   *(response + n + body_size + 1) = '\0';
   response_size = strlen(response);
-  fprintf(stderr, "strlen response %ld\n", response_size);
 
   rustls_connection_write(
     rconn, (const uint8_t *)response, response_size, &n);
   
   free(response);  
   if(n != response_size) {
-    fprintf(stderr, "failed to write all response bytes. wrote %ld\n", n);
+    fprintf(stderr, "server: failed to write all response bytes. wrote %ld\n", n);
     return CRUSTLS_DEMO_ERROR;
   }
   return CRUSTLS_DEMO_OK;
@@ -183,7 +184,7 @@ handle_conn(struct conndata *conn)
   struct timeval tv;
   enum exchange_state state = READING_REQUEST;
 
-  fprintf(stderr, "accepted conn on fd %d\n", conn->fd);
+  fprintf(stderr, "server: accepted conn on fd %d\n", conn->fd);
 
   for(;;) {
     FD_ZERO(&read_fds);
@@ -196,7 +197,7 @@ handle_conn(struct conndata *conn)
     }
 
     if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
-      fprintf(stderr, "rustls wants neither read nor write. closing connection\n");
+      fprintf(stderr, "server: rustls wants neither read nor write. closing connection\n");
       goto cleanup;
     }
 
@@ -209,15 +210,11 @@ handle_conn(struct conndata *conn)
       goto cleanup;
     }
     if(result == 0) {
-      fprintf(stderr, "no fds from select, looping\n");
+      fprintf(stderr, "server: no fds from select, looping\n");
       continue;
     }
 
     if(FD_ISSET(sockfd, &read_fds)) {
-      fprintf(stderr,
-              "rustls wants us to read_tls. First we need to pull some "
-              "bytes from the socket\n");
-
       /* Read all bytes until we get EAGAIN. Then loop again to wind up in
          select awaiting the next bit of data. */
       for(;;) {
@@ -234,14 +231,13 @@ handle_conn(struct conndata *conn)
       }
     }
     if(FD_ISSET(sockfd, &write_fds)) {
-      fprintf(stderr, "rustls wants us to write_tls.\n");
       err = write_tls(rconn, conn, &n);
       if(err != 0) {
-        fprintf(stderr, "Error in write_tls: errno %d\n", err);
+        fprintf(stderr, "server: error in write_tls: errno %d\n", err);
         goto cleanup;
       }
       else if(n == 0) {
-        fprintf(stderr, "EOF from write_tls\n");
+        fprintf(stderr, "server: write returned 0 from write_tls\n");
         goto cleanup;
       }
     }
@@ -250,13 +246,13 @@ handle_conn(struct conndata *conn)
     size_t negotiated_alpn_len;
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
-      fprintf(stderr, "writing response\n");
+      fprintf(stderr, "server: writing response\n");
       rustls_connection_get_alpn_protocol(rconn, &negotiated_alpn, &negotiated_alpn_len);
       if(negotiated_alpn != NULL) {
-        fprintf(stderr, "negotiated ALPN protocol: '%.*s'\n",
+        fprintf(stderr, "server: negotiated ALPN protocol: '%.*s'\n",
           (int)negotiated_alpn_len, negotiated_alpn);
       } else {
-        fprintf(stderr, "no ALPN protocol was negotiated\n");
+        fprintf(stderr, "server: no ALPN protocol was negotiated\n");
       }
 
       if(send_response(conn) != CRUSTLS_DEMO_OK) {
@@ -265,10 +261,10 @@ handle_conn(struct conndata *conn)
     }
   }
 
-  fprintf(stderr, "handle_conn: loop fell through");
+  fprintf(stderr, "server: handle_conn: loop fell through");
 
 cleanup:
-  fprintf(stderr, "closing socket %d\n", sockfd);
+  fprintf(stderr, "server: closing socket %d\n", sockfd);
   if(sockfd > 0) {
     close(sockfd);
   }
@@ -302,10 +298,19 @@ load_cert_and_key(const char *certfile, const char *keyfile)
                                       keybuf_len,
                                       &certified_key);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("parsing certificate and key", result);
+    print_error("server", "parsing certificate and key", result);
     return NULL;
   }
   return certified_key;
+}
+
+bool shutting_down = false;
+
+void handle_signal(int signo) {
+  if(signo == SIGTERM) {
+    fprintf(stderr, "server: received SIGTERM, shutting down\n");
+    shutting_down = true;
+  }
 }
 
 int
@@ -323,6 +328,12 @@ main(int argc, const char **argv)
   alpn_http11.data = (unsigned char*)"http/1.1";
   alpn_http11.len = 8;
 
+  struct sigaction siga = { 0 };
+  siga.sa_handler = handle_signal;
+  if (sigaction(SIGTERM, &siga, NULL) == -1) {
+    perror("setting a signal handler");
+    return 1;
+  }
 
   if(argc <= 2) {
     fprintf(stderr,
@@ -351,12 +362,12 @@ main(int argc, const char **argv)
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0) {
-    fprintf(stderr, "making socket: %s", strerror(errno));
+    fprintf(stderr, "server: making socket: %s", strerror(errno));
   }
 
   int enable = 1;
   if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
-    print_error("setsockopt(SO_REUSEADDR) failed", 7001);
+    print_error("server", "setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
   struct sockaddr_in my_addr, peer_addr;
@@ -377,13 +388,16 @@ main(int argc, const char **argv)
     perror("listen");
     goto cleanup;
   }
-  fprintf(stderr, "listening on localhost:8443\n");
+  fprintf(stderr, "server: listening on localhost:8443\n");
 
-  while(true) {
+  while(!shutting_down) {
     socklen_t peer_addr_size;
     peer_addr_size = sizeof(struct sockaddr_in);
     int clientfd =
       accept(sockfd, (struct sockaddr *)&peer_addr, &peer_addr_size);
+    if(shutting_down) {
+      break;
+    }
     if(clientfd < 0) {
       perror("accept");
       goto cleanup;
@@ -393,7 +407,7 @@ main(int argc, const char **argv)
 
     result = rustls_server_connection_new(server_config, &rconn);
     if(result != RUSTLS_RESULT_OK) {
-      print_error("making session", result);
+      print_error("server", "making session", result);
       goto cleanup;
     }
 
@@ -405,12 +419,15 @@ main(int argc, const char **argv)
     rustls_connection_set_userdata(rconn, conndata);
     rustls_connection_set_log_callback(rconn, log_cb);
     handle_conn(conndata);
+    rustls_connection_free(rconn);
+    rconn = NULL;
   }
 
   // Success!
   ret = 0;
 
 cleanup:
+  rustls_certified_key_free(certified_key);
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
   if(sockfd>0) {
