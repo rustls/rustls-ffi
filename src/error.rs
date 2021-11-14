@@ -66,7 +66,7 @@ impl rustls_result {
     }
 }
 
-/// For cert-related resutl_results, turn them into a rustls::Error. For other
+/// For cert-related rustls_results, turn them into a rustls::Error. For other
 /// inputs, including Ok, return rustls::Error::General.
 pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
     use rustls::Error::*;
