@@ -47,9 +47,9 @@ jobs:
       - uses: actions/checkout@v2
         with:
           persist-credentials: false
-    - run: apt install valgrind
-    - run: export VALGRIND="valgrind -q"
-    - run: make test
+      - run: apt install valgrind
+      - run: export VALGRIND="valgrind -q"
+      - run: make test
 
   test-windows:
     name: Windows
