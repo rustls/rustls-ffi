@@ -2,7 +2,12 @@
 name = "rustls-ffi"
 version = "0.8.2"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
+license = "Apache-2.0/ISC/MIT"
+readme = "../README.md"
 description = "C-to-rustls bindings"
+homepage = "https://github.com/rustls/rustls-ffi"
+repository = "https://github.com/rustls/rustls-ffi"
+categories = ["network-programming", "cryptography"]
 edition = "2018"
 links = "rustls_ffi"
 
