@@ -30,6 +30,10 @@ impl log::Log for Logger {
     fn flush(&self) {}
 }
 
+#[cfg(feature = "no_log_capture")]
+pub(crate) fn ensure_log_registered() {}
+
+#[cfg(not(feature = "no_log_capture"))]
 pub(crate) fn ensure_log_registered() {
     log::set_logger(&Logger {}).ok();
     log::set_max_level(log::LevelFilter::Debug)

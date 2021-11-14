@@ -6,6 +6,14 @@ description = "C-to-rustls bindings"
 edition = "2018"
 links = "rustls_ffi"
 
+[features]
+# Enable this feature when building as Rust dependency. It inhibits the
+# default behavior of capturing the global logger, which only works when
+# built using the Makefile, which passes -C metadata=rustls-ffi to avoid
+# interfering with copies of the global logger brought in by other Rust
+# libraries.
+no_log_capture = []
+
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
 rustls = { version = "=0.20", features = [ "dangerous_configuration" ] }
