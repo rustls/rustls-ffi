@@ -400,8 +400,9 @@ typedef struct rustls_client_hello {
  * NOTE:
  * - the passed in `hello` and all its values are only available during the
  *   callback invocations.
- * - the passed callback function must be implemented thread-safe, unless
- *   there is only a single config and session where it is installed.
+ * - the passed callback function must be safe to call multiple times concurrently
+ *   with the same userdata, unless there is only a single config and connection
+ *   where it is installed.
  *
  * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
@@ -683,7 +684,7 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_suppor
  *
  * If you intend to write a verifier that accepts all certificates, be aware
  * that special measures are required for IP addresses. Rustls currently
- * (0.20.0) doesn't support building a ClientSession with an IP address
+ * (0.20.0) doesn't support building a ClientConnection with an IP address
  * (because it's not a valid DnsNameRef). One workaround is to detect IP
  * addresses and rewrite them to `example.invalid`, and _also_ to disable
  * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
@@ -742,7 +743,7 @@ void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_bui
                                                  bool enable);
 
 /**
- * Provide the configuration a list of certificates where the session
+ * Provide the configuration a list of certificates where the connection
  * will select the first one that is compatible with the server's signature
  * verification capabilities. Clients that want to support both ECDSA and
  * RSA certificates will want the ECSDA to go first in the list.
@@ -787,7 +788,7 @@ void rustls_client_config_free(const struct rustls_client_config *config);
 /**
  * Create a new rustls_connection containing a client connection and return
  * it in the output parameter `out`. If this returns an error code, the
- * memory pointed to by `session_out` remains unchanged. If this returns a
+ * memory pointed to by `conn_out` remains unchanged. If this returns a
  * non-error, the memory pointed to by `conn_out` is modified to point at a
  * valid rustls_connection. The caller now owns the rustls_connection and must
  * call `rustls_connection_free` when done with it.
@@ -1112,7 +1113,7 @@ rustls_result rustls_server_config_builder_set_alpn_protocols(struct rustls_serv
                                                               size_t len);
 
 /**
- * Provide the configuration a list of certificates where the session
+ * Provide the configuration a list of certificates where the connection
  * will select the first one that is compatible with the client's signature
  * verification capabilities. Servers that want to support both ECDSA and
  * RSA certificates will want the ECSDA to go first in the list.
@@ -1148,8 +1149,8 @@ void rustls_server_config_free(const struct rustls_server_config *config);
 /**
  * Create a new rustls_connection containing a server connection, and return it
  * in the output parameter `out`. If this returns an error code, the memory
- * pointed to by `session_out` remains unchanged. If this returns a non-error,
- * the memory pointed to by `session_out` is modified to point
+ * pointed to by `conn_out` remains unchanged. If this returns a non-error,
+ * the memory pointed to by `conn_out` is modified to point
  * at a valid rustls_connection. The caller now owns the rustls_connection
  * and must call `rustls_connection_free` when done with it.
  */
@@ -1161,7 +1162,7 @@ rustls_result rustls_server_connection_new(const struct rustls_server_config *co
  * and the length of that hostname in `out_n`. The string is stored in UTF-8
  * with no terminating NUL byte.
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
- * Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+ * Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
  * because it hasn't been processed yet, or because the client did not send SNI.
  * <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname>
  */
@@ -1171,8 +1172,8 @@ rustls_result rustls_server_connection_get_sni_hostname(const struct rustls_conn
                                                         size_t *out_n);
 
 /**
- * Register a callback to be invoked when a session created from this config
- * is seeing a TLS ClientHello message. If `userdata` has been set with
+ * Register a callback to be invoked when a connection created from this config
+ * sees a TLS ClientHello message. If `userdata` has been set with
  * rustls_connection_set_userdata, it will be passed to the callback.
  * Otherwise the userdata param passed to the callback will be NULL.
  *
@@ -1213,7 +1214,7 @@ rustls_result rustls_client_hello_select_certified_key(const struct rustls_clien
 /**
  * Register callbacks for persistence of TLS session IDs and secrets. Both
  * keys and values are highly sensitive data, containing enough information
- * to break the security of the sessions involved.
+ * to break the security of the connections involved.
  *
  * If `userdata` has been set with rustls_connection_set_userdata, it
  * will be passed to the callbacks. Otherwise the userdata param passed to
