@@ -1,12 +1,14 @@
 # Changelog
 
 ## 0.8.2 (2021-11-13)
+
+### Changed
  - Add a feature, no_log_capture, which inhibits rustls from taking the global
    logger. Useful when built as a Rust dependency.
 
 ## 0.8.1 (2021-11-12)
 
-## Changed
+### Changed
  - Setting of ALPN protocols for client configs was broken in the 0.8.0 release.
    This release fixes it.
 
@@ -20,14 +22,14 @@ new version.
 
 If you are importing this as a library from other Rust code, you should import `rustls_ffi`.
 
-## New
+### Added
  - rustls_client_config_builder_new_custom and rustls_server_config_builder_new_custom:
    start building a config, with ciphersuites and TLS versions set at initial construction.
  - rustls_default_ciphersuites_get_entry() and
    rustls_default_ciphersuites_len(): get default ciphersuites as opposed to
    all ciphersuites (these happen to be the same today but might not always be).
 
-## Changed
+### Changed
 
 - `rustls-ffi` now imports `rustls` version 0.20, up from rustls 0.19. [View
   the changelog](https://github.com/rustls/rustls#release-history).
@@ -70,7 +72,7 @@ If you are importing this as a library from other Rust code, you should import `
   functions provide are valid until the next mutating function call on that
   connection.
 
-## Removed
+### Removed
 
  - rustls_client_config_builder_from_config and
    rustls_server_config_builder_from_config have been removed. These were
