@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.8.1 (unreleased)
+## 0.8.2 (2021-11-13)
+ - Add a feature, no_log_capture, which inhibits rustls from taking the global
+   logger. Useful when built as a Rust dependency.
+
+## 0.8.1 (2021-11-12)
 
 ## Changed
  - Setting of ALPN protocols for client configs was broken in the 0.8.0 release.
