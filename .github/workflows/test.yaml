@@ -40,7 +40,19 @@ jobs:
           override: true
       - run: make CC=${{ matrix.cc }} PROFILE=release test
 
+  valgrind:
+    name: Valgrind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+    - run: apt install valgrind
+    - run: export VALGRIND="valgrind -q"
+    - run: make test
+
   test-windows:
+    name: Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2

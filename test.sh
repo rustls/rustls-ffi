@@ -34,7 +34,7 @@ kill_server() {
   kill "${SERVER_PID}"
 }
 
-VALGRIND="valgrind -q"
+VALGRIND=""
 
 run_client_tests() {
   CA_FILE=minica.pem $VALGRIND ./target/client localhost 8443 /
