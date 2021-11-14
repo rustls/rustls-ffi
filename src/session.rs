@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
 use crate::userdata_get;
@@ -20,8 +22,9 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// do a partial copy but instead remove the value from its store and
 /// act as if it was never found.
 ///
-/// The callback should return != 0 to indicate that a value was retrieved
-/// and written in its entirety into `buf`.
+/// The callback should return RUSTLS_RESULT_OK to indicate that a value was
+/// retrieved and written in its entirety into `buf`, or RUSTLS_RESULT_NOT_FOUND
+/// if no session was retrieved.
 ///
 /// When `remove_after` is != 0, the returned data needs to be removed
 /// from the store.
@@ -38,7 +41,7 @@ pub type rustls_session_store_get_callback = Option<
         buf: *mut u8,
         count: size_t,
         out_n: *mut size_t,
-    ) -> rustls_result,
+    ) -> u32,
 >;
 
 pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
@@ -48,7 +51,7 @@ pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
     buf: *mut u8,
     count: size_t,
     out_n: *mut size_t,
-) -> rustls_result;
+) -> u32;
 
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config` or `rustls_client_config`. This callback will be
@@ -56,8 +59,8 @@ pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
 /// for later use is handed to the client/has been received from the server.
 /// `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
 ///
-/// The callback should return != 0 to indicate that the value has been
-/// successfully persisted in its store.
+/// The callback should return RUSTLS_RESULT_OK to indicate that a value was
+/// successfully stored, or RUSTLS_RESULT_IO on failure.
 ///
 /// NOTE: the passed in `key` and `val` are only available during the
 /// callback invocation.
@@ -97,14 +100,17 @@ impl SessionStoreBroker {
         let mut out_n: size_t = 0;
         unsafe {
             let cb = self.get_cb;
-            match cb(
+            let result = cb(
                 userdata,
                 &key,
                 remove as c_int,
                 data.as_mut_ptr(),
                 data.len(),
                 &mut out_n,
-            ) {
+            );
+            let result: rustls_result =
+                rustls_result::try_from(result).unwrap_or(rustls_result::General);
+            match result {
                 rustls_result::Ok => {
                     data.set_len(out_n);
                     Some(data)

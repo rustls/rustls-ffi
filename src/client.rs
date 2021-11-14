@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::BufReader;
@@ -16,7 +16,7 @@ use rustls::{
 use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
 use crate::connection::{rustls_connection, Connection};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
-use crate::error::{self, result_to_error, rustls_result};
+use crate::error::{self, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
@@ -195,7 +195,7 @@ pub type rustls_verify_server_cert_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_verify_server_cert_user_data,
         params: *const rustls_verify_server_cert_params,
-    ) -> rustls_result,
+    ) -> u32,
 >;
 
 // This is the same as a rustls_verify_server_cert_callback after unwrapping
@@ -203,7 +203,7 @@ pub type rustls_verify_server_cert_callback = Option<
 type VerifyCallback = unsafe extern "C" fn(
     userdata: rustls_verify_server_cert_user_data,
     params: *const rustls_verify_server_cert_params,
-) -> rustls_result;
+) -> u32;
 
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
@@ -253,13 +253,12 @@ impl rustls::client::ServerCertVerifier for Verifier {
         let userdata = userdata_get().map_err(|_| {
             rustls::Error::General("internal error with thread-local storage".to_string())
         })?;
-        let result: rustls_result = unsafe { cb(userdata, &params) };
+        let result: u32 = unsafe { cb(userdata, &params) };
+        let result: rustls_result =
+            rustls_result::try_from(result).unwrap_or(rustls_result::General);
         match result {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
-            r => match result_to_error(&r) {
-                error::Either::Error(te) => Err(te),
-                error::Either::String(se) => Err(rustls::Error::General(se)),
-            },
+            r => Err(error::cert_result_to_error(r)),
         }
     }
 }

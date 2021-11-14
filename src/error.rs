@@ -47,18 +47,41 @@ impl rustls_result {
     }
 
     #[no_mangle]
-    pub extern "C" fn rustls_result_is_cert_error(result: rustls_result) -> bool {
-        match result_to_error(&result) {
-            Either::Error(e) => matches!(
-                e,
-                Error::InvalidCertificateData(_)
-                    | Error::InvalidCertificateEncoding
-                    | Error::InvalidCertificateSignature
-                    | Error::InvalidCertificateSignatureType
-                    | Error::InvalidSct(_)
-            ),
-            _ => false,
-        }
+    pub extern "C" fn rustls_result_is_cert_error(result: c_uint) -> bool {
+        let result: rustls_result =
+            rustls_result::try_from(result).unwrap_or(rustls_result::InvalidParameter);
+        use rustls_result::*;
+        matches!(
+            result,
+            CertInvalidEncoding
+                | CertInvalidSignatureType
+                | CertInvalidSignature
+                | CertInvalidData
+                | CertSCTMalformed
+                | CertSCTInvalidSignature
+                | CertSCTTimestampInFuture
+                | CertSCTUnsupportedVersion
+                | CertSCTUnknownLog
+        )
+    }
+}
+
+/// For cert-related resutl_results, turn them into a rustls::Error. For other
+/// inputs, including Ok, return rustls::Error::General.
+pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
+    use rustls::Error::*;
+    use rustls_result::*;
+    match result {
+        CertInvalidEncoding => InvalidCertificateEncoding,
+        CertInvalidSignatureType => InvalidCertificateSignatureType,
+        CertInvalidSignature => InvalidCertificateSignature,
+        CertInvalidData => InvalidCertificateData("".into()),
+        CertSCTMalformed => InvalidSct(sct::Error::MalformedSct),
+        CertSCTInvalidSignature => InvalidSct(sct::Error::InvalidSignature),
+        CertSCTTimestampInFuture => InvalidSct(sct::Error::TimestampInFuture),
+        CertSCTUnsupportedVersion => InvalidSct(sct::Error::UnsupportedSctVersion),
+        CertSCTUnknownLog => InvalidSct(sct::Error::UnknownLog),
+        _ => rustls::Error::General("".into()),
     }
 }
 
@@ -77,6 +100,21 @@ fn test_rustls_error() {
     rustls_result::rustls_error(7101, &mut buf as *mut _, buf.len(), &mut n);
     let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
     assert_eq!(&output, "peer sent no certificates");
+}
+
+#[test]
+fn test_rustls_result_is_cert_error() {
+    assert!(!rustls_result::rustls_result_is_cert_error(0));
+    assert!(!rustls_result::rustls_result_is_cert_error(7000));
+    assert!(rustls_result::rustls_result_is_cert_error(7117));
+    assert!(rustls_result::rustls_result_is_cert_error(7118));
+    assert!(rustls_result::rustls_result_is_cert_error(7119));
+    assert!(rustls_result::rustls_result_is_cert_error(7120));
+    assert!(rustls_result::rustls_result_is_cert_error(7319));
+    assert!(rustls_result::rustls_result_is_cert_error(7320));
+    assert!(rustls_result::rustls_result_is_cert_error(7321));
+    assert!(rustls_result::rustls_result_is_cert_error(7322));
+    assert!(rustls_result::rustls_result_is_cert_error(7323));
 }
 
 #[allow(dead_code)]
@@ -247,139 +285,96 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
 
 impl Display for rustls_result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg: String = match result_to_error(self) {
-            Either::String(s) => s,
-            Either::Error(e) => e.to_string(),
-        };
-        write!(f, "{}", msg)
-    }
-}
+        use rustls::internal::msgs::enums::AlertDescription as alert;
+        use rustls_result::*;
+        use sct::Error as sct;
 
-// Either a String or a rustls::Error
-pub(crate) enum Either {
-    String(String),
-    Error(rustls::Error),
-}
-
-impl From<String> for Either {
-    fn from(s: String) -> Either {
-        Either::String(s)
-    }
-}
-
-impl From<&str> for Either {
-    fn from(s: &str) -> Either {
-        Either::String(s.to_string())
-    }
-}
-
-impl From<webpki::Error> for Either {
-    fn from(e: webpki::Error) -> Either {
-        Either::String(e.to_string())
-    }
-}
-
-impl From<rustls::Error> for Either {
-    fn from(e: rustls::Error) -> Either {
-        Either::Error(e)
-    }
-}
-
-// Turn a rustls_result into a rustls::Error on a best-effort basis. For
-// variants that don't have a corresponding rustls::Error, or where we want to
-// override rustls::Error's Display implementation, this returns a String.
-// Otherwise, it returns a rustls::Error. This is used internally for determining
-// whether a rustls_result is part of some top-level variant that maps to
-// several rustls_results.
-pub(crate) fn result_to_error(input: &rustls_result) -> Either {
-    use rustls::internal::msgs::enums::AlertDescription as alert;
-    use rustls_result::*;
-    use sct::Error as sct;
-
-    match input {
+        match self {
         // These variants are local to this glue layer.
-        rustls_result::Ok =>  "OK".into(),
-        Io =>  "I/O error".into(),
-        NullParameter => "a parameter was NULL".into(),
-        InvalidDnsNameError => "hostname was either malformed or an IP address (rustls does not support certificates for IP addresses)".into(),
-        Panic => "a Rust component panicked".into(),
-        CertificateParseError => "error parsing certificate".into(),
-        PrivateKeyParseError => "error parsing private key".into(),
-        InsufficientSize => "provided buffer is of insufficient size".into(),
-        NotFound => "the item was not found".into(),
-        InvalidParameter => "a parameter had an invalid value".into(),
-        CertInvalidData => "invalid certificate data found".into(),
-        UnexpectedEof =>  "unexpected EOF".into(),
-        PlaintextEmpty =>  "no plaintext available; call rustls_connection_read_tls again".into(),
+        rustls_result::Ok =>  write!(f, "OK"),
+        Io =>  write!(f, "I/O error"),
+        NullParameter => write!(f, "a parameter was NULL"),
+        InvalidDnsNameError => write!(f, "hostname was either malformed or an IP address (rustls does not support certificates for IP addresses)"),
+        Panic => write!(f, "a Rust component panicked"),
+        CertificateParseError => write!(f, "error parsing certificate"),
+        PrivateKeyParseError => write!(f, "error parsing private key"),
+        InsufficientSize => write!(f, "provided buffer is of insufficient size"),
+        NotFound => write!(f, "the item was not found"),
+        InvalidParameter => write!(f, "a parameter had an invalid value"),
+        CertInvalidData => write!(f, "invalid certificate data found"),
+        UnexpectedEof => write!(f,  "unexpected EOF"),
+        PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
 
         // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error
         // message. So we reproduce a simplified error string.
-        InappropriateMessage => "received unexpected message".into(),
-        InappropriateHandshakeMessage => "received unexpected handshake message".into(),
-        CorruptMessagePayload => "received corrupt message".into(),
+        InappropriateMessage => write!(f, "received unexpected message"),
+        InappropriateHandshakeMessage => write!(f, "received unexpected handshake message"),
+        CorruptMessagePayload => write!(f, "received corrupt message"),
 
-        CorruptMessage => Error::CorruptMessage.into(),
-        NoCertificatesPresented => Error::NoCertificatesPresented.into(),
-        DecryptError => Error::DecryptError.into(),
-        FailedToGetCurrentTime => Error::FailedToGetCurrentTime.into(),
-        FailedToGetRandomBytes => Error::FailedToGetRandomBytes.into(),
-        HandshakeNotComplete => Error::HandshakeNotComplete.into(),
-        PeerSentOversizedRecord => Error::PeerSentOversizedRecord.into(),
-        NoApplicationProtocol => Error::NoApplicationProtocol.into(),
-        PeerIncompatibleError => Error::PeerIncompatibleError("reason omitted".to_string()).into(),
-        PeerMisbehavedError => Error::PeerMisbehavedError("reason omitted".to_string()).into(),
-        BadMaxFragmentSize => Error::BadMaxFragmentSize.into(),
-        UnsupportedNameType => Error::UnsupportedNameType.into(),
-        EncryptError => Error::EncryptError.into(),
-        CertInvalidEncoding => Error::InvalidCertificateEncoding.into(),
-        CertInvalidSignatureType => Error::InvalidCertificateSignatureType.into(),
-        CertInvalidSignature => Error::InvalidCertificateSignature.into(),
+        PeerIncompatibleError => write!(f, "peer is incompatible"),
+        PeerMisbehavedError => write!(f, "peer is incompatible"),
 
-        General => Error::General("omitted".to_string()).into(),
+        General => write!(f, "general error"),
 
-        AlertCloseNotify => Error::AlertReceived(alert::CloseNotify).into(),
-        AlertUnexpectedMessage => Error::AlertReceived(alert::UnexpectedMessage).into(),
-        AlertBadRecordMac => Error::AlertReceived(alert::BadRecordMac).into(),
-        AlertDecryptionFailed => Error::AlertReceived(alert::DecryptionFailed).into(),
-        AlertRecordOverflow => Error::AlertReceived(alert::RecordOverflow).into(),
-        AlertDecompressionFailure => Error::AlertReceived(alert::DecompressionFailure).into(),
-        AlertHandshakeFailure => Error::AlertReceived(alert::HandshakeFailure).into(),
-        AlertNoCertificate => Error::AlertReceived(alert::NoCertificate).into(),
-        AlertBadCertificate => Error::AlertReceived(alert::BadCertificate).into(),
-        AlertUnsupportedCertificate => Error::AlertReceived(alert::UnsupportedCertificate).into(),
-        AlertCertificateRevoked => Error::AlertReceived(alert::CertificateRevoked).into(),
-        AlertCertificateExpired => Error::AlertReceived(alert::CertificateExpired).into(),
-        AlertCertificateUnknown => Error::AlertReceived(alert::CertificateUnknown).into(),
-        AlertIllegalParameter => Error::AlertReceived(alert::IllegalParameter).into(),
-        AlertUnknownCA => Error::AlertReceived(alert::UnknownCA).into(),
-        AlertAccessDenied => Error::AlertReceived(alert::AccessDenied).into(),
-        AlertDecodeError => Error::AlertReceived(alert::DecodeError).into(),
-        AlertDecryptError => Error::AlertReceived(alert::DecryptError).into(),
-        AlertExportRestriction => Error::AlertReceived(alert::ExportRestriction).into(),
-        AlertProtocolVersion => Error::AlertReceived(alert::ProtocolVersion).into(),
-        AlertInsufficientSecurity => Error::AlertReceived(alert::InsufficientSecurity).into(),
-        AlertInternalError => Error::AlertReceived(alert::InternalError).into(),
-        AlertInappropriateFallback => Error::AlertReceived(alert::InappropriateFallback).into(),
-        AlertUserCanceled => Error::AlertReceived(alert::UserCanceled).into(),
-        AlertNoRenegotiation => Error::AlertReceived(alert::NoRenegotiation).into(),
-        AlertMissingExtension => Error::AlertReceived(alert::MissingExtension).into(),
-        AlertUnsupportedExtension => Error::AlertReceived(alert::UnsupportedExtension).into(),
-        AlertCertificateUnobtainable => Error::AlertReceived(alert::CertificateUnobtainable).into(),
-        AlertUnrecognisedName => Error::AlertReceived(alert::UnrecognisedName).into(),
+        CorruptMessage => Error::CorruptMessage.fmt(f),
+        NoCertificatesPresented => Error::NoCertificatesPresented.fmt(f),
+        DecryptError => Error::DecryptError.fmt(f),
+        FailedToGetCurrentTime => Error::FailedToGetCurrentTime.fmt(f),
+        FailedToGetRandomBytes => Error::FailedToGetRandomBytes.fmt(f),
+        HandshakeNotComplete => Error::HandshakeNotComplete.fmt(f),
+        PeerSentOversizedRecord => Error::PeerSentOversizedRecord.fmt(f),
+        NoApplicationProtocol => Error::NoApplicationProtocol.fmt(f),
+        BadMaxFragmentSize => Error::BadMaxFragmentSize.fmt(f),
+        UnsupportedNameType => Error::UnsupportedNameType.fmt(f),
+        EncryptError => Error::EncryptError.fmt(f),
+        CertInvalidEncoding => Error::InvalidCertificateEncoding.fmt(f),
+        CertInvalidSignatureType => Error::InvalidCertificateSignatureType.fmt(f),
+        CertInvalidSignature => Error::InvalidCertificateSignature.fmt(f),
+
+        AlertCloseNotify => Error::AlertReceived(alert::CloseNotify).fmt(f),
+        AlertUnexpectedMessage => Error::AlertReceived(alert::UnexpectedMessage).fmt(f),
+        AlertBadRecordMac => Error::AlertReceived(alert::BadRecordMac).fmt(f),
+        AlertDecryptionFailed => Error::AlertReceived(alert::DecryptionFailed).fmt(f),
+        AlertRecordOverflow => Error::AlertReceived(alert::RecordOverflow).fmt(f),
+        AlertDecompressionFailure => Error::AlertReceived(alert::DecompressionFailure).fmt(f),
+        AlertHandshakeFailure => Error::AlertReceived(alert::HandshakeFailure).fmt(f),
+        AlertNoCertificate => Error::AlertReceived(alert::NoCertificate).fmt(f),
+        AlertBadCertificate => Error::AlertReceived(alert::BadCertificate).fmt(f),
+        AlertUnsupportedCertificate => Error::AlertReceived(alert::UnsupportedCertificate).fmt(f),
+        AlertCertificateRevoked => Error::AlertReceived(alert::CertificateRevoked).fmt(f),
+        AlertCertificateExpired => Error::AlertReceived(alert::CertificateExpired).fmt(f),
+        AlertCertificateUnknown => Error::AlertReceived(alert::CertificateUnknown).fmt(f),
+        AlertIllegalParameter => Error::AlertReceived(alert::IllegalParameter).fmt(f),
+        AlertUnknownCA => Error::AlertReceived(alert::UnknownCA).fmt(f),
+        AlertAccessDenied => Error::AlertReceived(alert::AccessDenied).fmt(f),
+        AlertDecodeError => Error::AlertReceived(alert::DecodeError).fmt(f),
+        AlertDecryptError => Error::AlertReceived(alert::DecryptError).fmt(f),
+        AlertExportRestriction => Error::AlertReceived(alert::ExportRestriction).fmt(f),
+        AlertProtocolVersion => Error::AlertReceived(alert::ProtocolVersion).fmt(f),
+        AlertInsufficientSecurity => Error::AlertReceived(alert::InsufficientSecurity).fmt(f),
+        AlertInternalError => Error::AlertReceived(alert::InternalError).fmt(f),
+        AlertInappropriateFallback => Error::AlertReceived(alert::InappropriateFallback).fmt(f),
+        AlertUserCanceled => Error::AlertReceived(alert::UserCanceled).fmt(f),
+        AlertNoRenegotiation => Error::AlertReceived(alert::NoRenegotiation).fmt(f),
+        AlertMissingExtension => Error::AlertReceived(alert::MissingExtension).fmt(f),
+        AlertUnsupportedExtension => Error::AlertReceived(alert::UnsupportedExtension).fmt(f),
+        AlertCertificateUnobtainable => Error::AlertReceived(alert::CertificateUnobtainable).fmt(f),
+        AlertUnrecognisedName => Error::AlertReceived(alert::UnrecognisedName).fmt(f),
         AlertBadCertificateStatusResponse => {
-            Error::AlertReceived(alert::BadCertificateStatusResponse).into()
+            Error::AlertReceived(alert::BadCertificateStatusResponse).fmt(f)
         }
-        AlertBadCertificateHashValue => Error::AlertReceived(alert::BadCertificateHashValue).into(),
-        AlertUnknownPSKIdentity => Error::AlertReceived(alert::UnknownPSKIdentity).into(),
-        AlertCertificateRequired => Error::AlertReceived(alert::CertificateRequired).into(),
-        AlertNoApplicationProtocol => Error::AlertReceived(alert::NoApplicationProtocol).into(),
-        AlertUnknown => Error::AlertReceived(alert::Unknown(0)).into(),
+        AlertBadCertificateHashValue => Error::AlertReceived(alert::BadCertificateHashValue).fmt(f),
+        AlertUnknownPSKIdentity => Error::AlertReceived(alert::UnknownPSKIdentity).fmt(f),
+        AlertCertificateRequired => Error::AlertReceived(alert::CertificateRequired).fmt(f),
+        AlertNoApplicationProtocol => Error::AlertReceived(alert::NoApplicationProtocol).fmt(f),
+        AlertUnknown => Error::AlertReceived(alert::Unknown(0)).fmt(f),
 
-        CertSCTMalformed => Error::InvalidSct(sct::MalformedSct).into(),
-        CertSCTInvalidSignature => Error::InvalidSct(sct::InvalidSignature).into(),
-        CertSCTTimestampInFuture => Error::InvalidSct(sct::TimestampInFuture).into(),
-        CertSCTUnsupportedVersion => Error::InvalidSct(sct::UnsupportedSctVersion).into(),
-        CertSCTUnknownLog => Error::InvalidSct(sct::UnknownLog).into(),
+        CertSCTMalformed => Error::InvalidSct(sct::MalformedSct).fmt(f),
+        CertSCTInvalidSignature => Error::InvalidSct(sct::InvalidSignature).fmt(f),
+        CertSCTTimestampInFuture => Error::InvalidSct(sct::TimestampInFuture).fmt(f),
+        CertSCTUnsupportedVersion => Error::InvalidSct(sct::UnsupportedSctVersion).fmt(f),
+        CertSCTUnknownLog => Error::InvalidSct(sct::UnknownLog).fmt(f),
+        }
     }
 }
