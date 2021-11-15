@@ -1,5 +1,8 @@
 use libc::{c_char, size_t};
+use std::fmt;
 use std::marker::PhantomData;
+use std::slice;
+use std::str;
 use std::{
     convert::{TryFrom, TryInto},
     ptr::null,
@@ -173,6 +176,20 @@ impl<'a> rustls_str<'a> {
     }
 }
 
+impl<'a> fmt::Debug for rustls_str<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe {
+            let ptr = self.data as *const u8;
+            let raw = slice::from_raw_parts(ptr, self.len as usize);
+            let s = str::from_utf8(raw).unwrap_or("%!(ERROR)");
+            f.debug_struct("rustls_str")
+                .field("data", &s)
+                .field("len", &self.len)
+                .finish()
+        }
+    }
+}
+
 #[test]
 fn test_rustls_str() {
     let s = "abcd";
@@ -181,6 +198,23 @@ fn test_rustls_str() {
     unsafe {
         assert_eq!(*rs.data, 'a' as c_char);
         assert_eq!(*rs.data.offset(3), 'd' as c_char);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::rslice::*;
+    use core::fmt::Write;
+    use std::convert::TryInto;
+
+    #[test]
+    fn test_rustls_str_debug() {
+        let s = "abcd";
+        let rs: rustls_str = s.try_into().unwrap();
+        let mut buf = String::new();
+        write!(buf, "{:?}", rs).unwrap();
+        let want = r#"rustls_str { data: "abcd", len: 4 }"#;
+        assert_eq!(buf, want)
     }
 }
 
