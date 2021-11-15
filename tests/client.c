@@ -66,7 +66,7 @@ make_conn(const char *hostname, const char *port)
   int getaddrinfo_result =
     getaddrinfo(hostname, port, &hints, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
+    fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
     goto cleanup;
   }
 
@@ -125,18 +125,18 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   if(err == EAGAIN || err == EWOULDBLOCK) {
     fprintf(stderr,
-            "reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
+            "client: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
             strerror(errno));
     return CRUSTLS_DEMO_AGAIN;
   }
   else if(err != 0) {
-    fprintf(stderr, "reading from socket: errno %d\n", err);
+    fprintf(stderr, "client: reading from socket: errno %d\n", err);
     return CRUSTLS_DEMO_ERROR;
   }
 
   result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("in process_new_packets", result);
+    print_error("server", "in process_new_packets", result);
     return CRUSTLS_DEMO_ERROR;
   }
 
@@ -150,13 +150,13 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
-            "read returned %ld bytes after receiving close_notify\n",
+            "client: error: read returned %ld bytes after receiving close_notify\n",
             n);
     return CRUSTLS_DEMO_ERROR;
   }
   else if (signed_n < 0 && errno != EWOULDBLOCK) {
     fprintf(stderr,
-            "read returned incorrect error after receiving close_notify: %s\n",
+            "client: error: read returned incorrect error after receiving close_notify: %s\n",
             strerror(errno));
     return CRUSTLS_DEMO_ERROR;
   }
@@ -208,12 +208,12 @@ send_request_and_read_response(struct conndata *conn,
    * us- to the rustls connection. */
   result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
   if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "error writing plaintext bytes to rustls_connection\n");
+    fprintf(stderr, "client: error writing plaintext bytes to rustls_connection\n");
     goto cleanup;
   }
   if(n != strlen(buf)) {
     fprintf(stderr,
-            "short write writing plaintext bytes to rustls_connection\n");
+            "client: short write writing plaintext bytes to rustls_connection\n");
     goto cleanup;
   }
 
@@ -230,7 +230,7 @@ send_request_and_read_response(struct conndata *conn,
     }
 
     if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
-      fprintf(stderr, "rustls wants neither read nor write. draining plaintext and exiting.\n");
+      fprintf(stderr, "client: rustls wants neither read nor write. draining plaintext and exiting.\n");
       goto drain_plaintext;
     }
 
@@ -241,11 +241,6 @@ send_request_and_read_response(struct conndata *conn,
     }
 
     if(FD_ISSET(sockfd, &read_fds)) {
-      fprintf(
-        stderr,
-        "rustls_connection wants us to read_tls. First we need to pull some "
-        "bytes from the socket\n");
-
       /* Read all bytes until we get EAGAIN. Then loop again to wind up in
          select awaiting the next bit of data. */
       for(;;) {
@@ -263,26 +258,26 @@ send_request_and_read_response(struct conndata *conn,
           body = body_beginning(&conn->data);
           if(body != NULL) {
             headers_len = body - conn->data.data;
-            fprintf(stderr, "body began at %ld\n", headers_len);
+            fprintf(stderr, "client: body began at %ld\n", headers_len);
             content_length_str = get_first_header_value(conn->data.data,
                                                         headers_len,
                                                         CONTENT_LENGTH,
                                                         strlen(CONTENT_LENGTH),
                                                         &n);
             if(content_length_str == NULL) {
-              fprintf(stderr, "content length header not found\n");
+              fprintf(stderr, "client: content length header not found\n");
               goto cleanup;
             }
             content_length =
               strtoul(content_length_str, (char **)&content_length_end, 10);
             if(content_length_end == content_length_str) {
               fprintf(stderr,
-                      "invalid Content-Length '%.*s'\n",
+                      "client: invalid Content-Length '%.*s'\n",
                       (int)n,
                       content_length_str);
               goto cleanup;
             }
-            fprintf(stderr, "content length %ld\n", content_length);
+            fprintf(stderr, "client: content length %ld\n", content_length);
           }
         }
         if(headers_len != 0 &&
@@ -292,7 +287,6 @@ send_request_and_read_response(struct conndata *conn,
       }
     }
     if(FD_ISSET(sockfd, &write_fds)) {
-      fprintf(stderr, "rustls_connection wants us to write_tls.\n");
       for(;;) {
         /* This invokes rustls_connection_write_tls. We pass a callback to
          * that function. Rustls will pass a buffer to that callback with
@@ -300,28 +294,28 @@ send_request_and_read_response(struct conndata *conn,
         err = write_tls(rconn, conn, &n);
         if(err != 0) {
           fprintf(
-            stderr, "Error in rustls_connection_write_tls: errno %d\n", err);
+            stderr, "client: error in rustls_connection_write_tls: errno %d\n", err);
           goto cleanup;
         }
         if(result == CRUSTLS_DEMO_AGAIN) {
           break;
         }
         else if(n == 0) {
-          fprintf(stderr, "write 0 from rustls_connection_write_tls\n");
+          fprintf(stderr, "client: write returned 0 from rustls_connection_write_tls\n");
           break;
         }
       }
     }
   }
 
-  fprintf(stderr, "send_request_and_read_response: loop fell through");
+  fprintf(stderr, "client: send_request_and_read_response: loop fell through");
 
 drain_plaintext:
   result = copy_plaintext_to_buffer(conn);
   if(result != CRUSTLS_DEMO_OK && result != CRUSTLS_DEMO_EOF) {
     goto cleanup;
   }
-  fprintf(stderr, "writing %ld bytes to stdout\n", conn->data.len);
+  fprintf(stderr, "client: writing %ld bytes to stdout\n", conn->data.len);
   if(write(STDOUT_FILENO, conn->data.data, conn->data.len) < 0) {
     fprintf(stderr, "error writing to stderr\n");
     goto cleanup;
@@ -351,7 +345,7 @@ do_request(const struct rustls_client_config *client_config,
   rustls_result result =
     rustls_client_connection_new(client_config, hostname, &rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("client_connection_new", result);
+    print_error("server", "client_connection_new", result);
     goto cleanup;
   }
 
@@ -399,20 +393,20 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
   struct conndata *conn = (struct conndata *)userdata;
 
   fprintf(stderr,
-          "custom certificate verifier called for %.*s\n",
+          "client: custom certificate verifier called for %.*s\n",
           (int)params->dns_name.len,
           params->dns_name.data);
-  fprintf(stderr, "end entity len: %ld\n", params->end_entity_cert_der.len);
-  fprintf(stderr, "intermediates:\n");
+  fprintf(stderr, "client: end entity len: %ld\n", params->end_entity_cert_der.len);
+  fprintf(stderr, "client: intermediates:\n");
   for(i = 0; i < intermediates_len; i++) {
     bytes = rustls_slice_slice_bytes_get(intermediates, i);
     if(bytes.data != NULL) {
-      fprintf(stderr, "  intermediate, len = %ld\n", bytes.len);
+      fprintf(stderr, "client:   intermediate, len = %ld\n", bytes.len);
     }
   }
-  fprintf(stderr, "ocsp response len: %ld\n", params->ocsp_response.len);
+  fprintf(stderr, "client: ocsp response len: %ld\n", params->ocsp_response.len);
   if(0 != strcmp(conn->verify_arg, "verify_arg")) {
-    fprintf(stderr, "invalid argument to verify: %p\n", userdata);
+    fprintf(stderr, "client: invalid argument to verify: %p\n", userdata);
     return RUSTLS_RESULT_GENERAL;
   }
   return RUSTLS_RESULT_OK;
@@ -454,14 +448,14 @@ main(int argc, const char **argv)
     result = rustls_client_config_builder_load_roots_from_file(
       config_builder, getenv("CA_FILE"));
     if(result != RUSTLS_RESULT_OK) {
-      print_error("loading trusted certificates", result);
+      print_error("server", "loading trusted certificates", result);
       goto cleanup;
     }
   } else if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(
       config_builder, verify);
   } else {
-    fprintf(stderr, "must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
+    fprintf(stderr, "client: must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
     goto cleanup;
   }
 

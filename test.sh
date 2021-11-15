@@ -34,10 +34,12 @@ kill_server() {
   kill "${SERVER_PID}"
 }
 
+VALGRIND="${VALGRIND:-}"
+
 run_client_tests() {
-  CA_FILE=minica.pem ./target/client localhost 8443 /
-  NO_CHECK_CERTIFICATE='' ./target/client localhost 8443 /
-  CA_FILE=minica.pem VECTORED_IO='' ./target/client localhost 8443 /
+  CA_FILE=minica.pem $VALGRIND ./target/client localhost 8443 /
+  NO_CHECK_CERTIFICATE='' $VALGRIND ./target/client localhost 8443 /
+  CA_FILE=minica.pem VECTORED_IO='' $VALGRIND ./target/client localhost 8443 /
 }
 
 if port_is_open localhost 8443 ; then
@@ -46,19 +48,19 @@ if port_is_open localhost 8443 ; then
 fi
 
 # Start server in default config.
-./target/server localhost/cert.pem localhost/key.pem &
+$VALGRIND ./target/server localhost/cert.pem localhost/key.pem &
 SERVER_PID=$!
 trap kill_server EXIT
 
 wait_tcp_port localhost 8443
-run_client_tests
+run_client_tests > /dev/null
 
 kill_server
 sleep 1
 
 # Start server with vectored I/O
-VECTORED_IO='' ./target/server localhost/cert.pem localhost/key.pem &
+VECTORED_IO='' $VALGRIND ./target/server localhost/cert.pem localhost/key.pem &
 SERVER_PID=$!
 wait_tcp_port localhost 8443
 
-run_client_tests
+run_client_tests > /dev/null
