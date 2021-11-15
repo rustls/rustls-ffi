@@ -22,9 +22,12 @@ endif
 
 all: target/client target/server
 
-test: all
+test: all test-rust
+	./tests/verify-static-libraries.sh
+	./tests/client-server.sh
+
+test-rust:
 	cargo test
-	./test.sh
 
 target:
 	mkdir -p $@
