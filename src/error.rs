@@ -313,7 +313,7 @@ impl Display for rustls_result {
         CorruptMessagePayload => write!(f, "received corrupt message"),
 
         PeerIncompatibleError => write!(f, "peer is incompatible"),
-        PeerMisbehavedError => write!(f, "peer is incompatible"),
+        PeerMisbehavedError => write!(f, "peer misbehaved"),
 
         General => write!(f, "general error"),
 
