@@ -19,7 +19,7 @@ pub(crate) trait NullParameterOrDefault {
     fn value() -> Self;
 }
 
-// Defaultable is a subset of Default that can be returned by crustls.
+// Defaultable is a subset of Default that can be returned by rustls-ffi.
 // We use this rather than Default directly so that we can do a blanket
 // impl for `T: Defaultable`. The compiler disallows a blanket impl for
 // `T: Default` because `std::default` could later implement `Default`

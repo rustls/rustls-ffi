@@ -185,7 +185,7 @@ typedef struct rustls_server_config_builder rustls_server_config_builder;
 /**
  * A read-only view of a slice of Rust byte slices.
  *
- * This is used to pass data from crustls to callback functions provided
+ * This is used to pass data from rustls-ffi to callback functions provided
  * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
  * provide access via a pointer to an opaque struct and an accessor method
  * that acts on that struct to get entries of type `rustls_slice_bytes`.
@@ -204,7 +204,7 @@ typedef struct rustls_slice_slice_bytes rustls_slice_slice_bytes;
  * strings). Like `rustls_str`, this guarantees that each string contains
  * UTF-8 and no NUL bytes. Strings are not NUL-terminated.
  *
- * This is used to pass data from crustls to callback functions provided
+ * This is used to pass data from rustls-ffi to callback functions provided
  * by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
  * can't provide a straightforward `data` and `len` structure. Instead, we
  * provide access via a pointer to an opaque struct and accessor methods.
@@ -244,7 +244,7 @@ typedef struct rustls_str {
 /**
  * A read-only view on a Rust byte slice.
  *
- * This is used to pass data from crustls to callback functions provided
+ * This is used to pass data from rustls-ffi to callback functions provided
  * by the user of the API.
  * `len` indicates the number of bytes than can be safely read.
  *
@@ -351,7 +351,7 @@ typedef void *rustls_client_hello_userdata;
 /**
  * A read-only view on a Rust slice of 16-bit integers in platform endianness.
  *
- * This is used to pass data from crustls to callback functions provided
+ * This is used to pass data from rustls-ffi to callback functions provided
  * by the user of the API.
  * `len` indicates the number of bytes than can be safely read.
  *
@@ -380,7 +380,7 @@ typedef struct rustls_slice_u16 {
  * the call and may not be modified. Users of this API must copy any values that
  * they want to access when the callback returned.
  *
- * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef struct rustls_client_hello {
@@ -404,7 +404,7 @@ typedef struct rustls_client_hello {
  *   with the same userdata, unless there is only a single config and connection
  *   where it is installed.
  *
- * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
@@ -1183,7 +1183,7 @@ rustls_result rustls_server_connection_get_sni_hostname(const struct rustls_conn
  * will overwrite the first registration. It is not permitted to pass a NULL
  * value for `callback`.
  *
- * EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+ * EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  * Installing a client_hello callback will replace any configured certified keys
  * and vice versa. Same holds true for the set_certified_keys variant.

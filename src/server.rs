@@ -436,7 +436,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 /// the call and may not be modified. Users of this API must copy any values that
 /// they want to access when the callback returned.
 ///
-/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
@@ -466,7 +466,7 @@ pub type rustls_client_hello_userdata = *mut c_void;
 ///   with the same userdata, unless there is only a single config and connection
 ///   where it is installed.
 ///
-/// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+/// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
 pub type rustls_client_hello_callback = Option<
     unsafe extern "C" fn(
@@ -553,7 +553,7 @@ impl rustls_server_config_builder {
     /// will overwrite the first registration. It is not permitted to pass a NULL
     /// value for `callback`.
     ///
-    /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
+    /// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
     /// the rustls library is re-evaluating their current approach to client hello handling.
     /// Installing a client_hello callback will replace any configured certified keys
     /// and vice versa. Same holds true for the set_certified_keys variant.

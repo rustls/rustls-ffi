@@ -7,7 +7,7 @@ use std::{
 
 /// A read-only view on a Rust byte slice.
 ///
-/// This is used to pass data from crustls to callback functions provided
+/// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API.
 /// `len` indicates the number of bytes than can be safely read.
 ///
@@ -46,7 +46,7 @@ fn test_rustls_slice_bytes() {
 
 /// A read-only view of a slice of Rust byte slices.
 ///
-/// This is used to pass data from crustls to callback functions provided
+/// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
 /// provide access via a pointer to an opaque struct and an accessor method
 /// that acts on that struct to get entries of type `rustls_slice_bytes`.
@@ -195,7 +195,7 @@ fn test_rustls_str_rejects_nul() {
 /// strings). Like `rustls_str`, this guarantees that each string contains
 /// UTF-8 and no NUL bytes. Strings are not NUL-terminated.
 ///
-/// This is used to pass data from crustls to callback functions provided
+/// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API. Because Vec and slice are not `#[repr(C)]`, we
 /// can't provide a straightforward `data` and `len` structure. Instead, we
 /// provide access via a pointer to an opaque struct and accessor methods.
@@ -276,7 +276,7 @@ fn test_rustls_slice_str() {
 
 /// A read-only view on a Rust slice of 16-bit integers in platform endianness.
 ///
-/// This is used to pass data from crustls to callback functions provided
+/// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API.
 /// `len` indicates the number of bytes than can be safely read.
 ///
