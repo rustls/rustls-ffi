@@ -30,7 +30,7 @@ log = "0.4.14"
 num_enum = "0.5.4"
 
 [dev_dependencies]
-cbindgen = "*"
+cbindgen = "0.19.0"
 
 [lib]
 name = "rustls_ffi"
