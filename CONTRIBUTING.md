@@ -1,6 +1,6 @@
 # Contributing
 
-Welcome to crustls! We're excited to work with you. If you've got a big chunk of
+Welcome to rustls-ffi! We're excited to work with you. If you've got a big chunk of
 work that you'd like to do, please file an issue before starting on the code, so
 we can get on the same page. If you've just got a small tweak, it's fine to send
 a PR without filing an issue first.

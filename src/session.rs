@@ -95,7 +95,7 @@ impl SessionStoreBroker {
         let userdata = userdata_get().ok()?;
         // This is excessive in size, but the returned data in rustls is
         // only read once and then dropped.
-        // See <https://github.com/abetterinternet/crustls/pull/64#issuecomment-800766940>
+        // See <https://github.com/rustls/rustls-ffi/pull/64#issuecomment-800766940>
         let mut data: Vec<u8> = vec![0; 65 * 1024];
         let mut out_n: size_t = 0;
         unsafe {
