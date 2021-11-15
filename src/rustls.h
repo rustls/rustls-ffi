@@ -276,7 +276,7 @@ typedef struct rustls_verify_server_cert_params {
   struct rustls_slice_bytes ocsp_response;
 } rustls_verify_server_cert_params;
 
-typedef rustls_result (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
+typedef uint32_t (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
 
 typedef size_t rustls_log_level;
 
@@ -429,8 +429,9 @@ typedef void *rustls_session_store_userdata;
  * do a partial copy but instead remove the value from its store and
  * act as if it was never found.
  *
- * The callback should return != 0 to indicate that a value was retrieved
- * and written in its entirety into `buf`.
+ * The callback should return RUSTLS_RESULT_OK to indicate that a value was
+ * retrieved and written in its entirety into `buf`, or RUSTLS_RESULT_NOT_FOUND
+ * if no session was retrieved.
  *
  * When `remove_after` is != 0, the returned data needs to be removed
  * from the store.
@@ -440,7 +441,7 @@ typedef void *rustls_session_store_userdata;
  * NOTE: callbacks used in several sessions via a common config
  * must be implemented thread-safe.
  */
-typedef rustls_result (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, int remove_after, uint8_t *buf, size_t count, size_t *out_n);
+typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, int remove_after, uint8_t *buf, size_t count, size_t *out_n);
 
 /**
  * Prototype of a callback that can be installed by the application at the
@@ -449,15 +450,15 @@ typedef rustls_result (*rustls_session_store_get_callback)(rustls_session_store_
  * for later use is handed to the client/has been received from the server.
  * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
  *
- * The callback should return != 0 to indicate that the value has been
- * successfully persisted in its store.
+ * The callback should return RUSTLS_RESULT_OK to indicate that a value was
+ * successfully stored, or RUSTLS_RESULT_IO on failure.
  *
  * NOTE: the passed in `key` and `val` are only available during the
  * callback invocation.
  * NOTE: callbacks used in several sessions via a common config
  * must be implemented thread-safe.
  */
-typedef rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
+typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
  * Returns a static string containing the rustls-ffi version as well as the
@@ -994,7 +995,7 @@ void rustls_connection_free(struct rustls_connection *conn);
  */
 void rustls_error(unsigned int result, char *buf, size_t len, size_t *out_n);
 
-bool rustls_result_is_cert_error(rustls_result result);
+bool rustls_result_is_cert_error(unsigned int result);
 
 /**
  * Return a rustls_str containing the stringified version of a log level.

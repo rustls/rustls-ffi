@@ -30,6 +30,7 @@ pub mod server;
 pub mod session;
 
 pub use error::rustls_result;
+pub use error::*;
 
 use crate::log::rustls_log_callback;
 use crate::panic::PanicOrDefault;

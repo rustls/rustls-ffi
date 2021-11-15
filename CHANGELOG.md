@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 (unreleased)
+
+### Changed
+
+ - rustls_is_cert_error now returns true for invalid certificate data
+   (this was broken by v0.8.0). It also takes unsigned int as its input
+   parameter instead of rustls_result (#227).
+ - rustls_verify_server_cert_callback now returns uint32_t instead of
+   rustls_result (#227).
+ - rustls_session_store_get_callback and rustls_session_store_put_callback now
+   return uint32_t (#227).
+
 ## 0.8.2 (2021-11-13)
 
 ### Changed
