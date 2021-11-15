@@ -458,7 +458,7 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  * NOTE: callbacks used in several sessions via a common config
  * must be implemented thread-safe.
  */
-typedef rustls_result (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
+typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
 /**
  * Returns a static string containing the rustls-ffi version as well as the

@@ -71,14 +71,14 @@ pub type rustls_session_store_put_callback = Option<
         userdata: rustls_session_store_userdata,
         key: *const rustls_slice_bytes,
         val: *const rustls_slice_bytes,
-    ) -> rustls_result,
+    ) -> u32,
 >;
 
 pub(crate) type SessionStorePutCallback = unsafe extern "C" fn(
     userdata: rustls_session_store_userdata,
     key: *const rustls_slice_bytes,
     val: *const rustls_slice_bytes,
-) -> rustls_result;
+) -> u32;
 
 pub(crate) struct SessionStoreBroker {
     pub get_cb: SessionStoreGetCallback,
@@ -128,7 +128,8 @@ impl SessionStoreBroker {
             Ok(u) => u,
             Err(_) => return false,
         };
-        unsafe { matches!(cb(userdata, &key, &value), rustls_result::Ok) }
+        let result = unsafe { cb(userdata, &key, &value) };
+        result == rustls_result::Ok as u32
     }
 }
 
