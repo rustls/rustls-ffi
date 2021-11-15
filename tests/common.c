@@ -26,12 +26,12 @@
 #include "common.h"
 
 void
-print_error(char *prefix, rustls_result result)
+print_error(const char *program_name, const char *prefix, rustls_result result)
 {
   char buf[256];
   size_t n;
   rustls_error(result, buf, sizeof(buf), &n);
-  fprintf(stderr, "%s: %.*s\n", prefix, (int)n, buf);
+  fprintf(stderr, "%s: %s: %.*s\n", program_name, prefix, (int)n, buf);
 }
 
 #ifdef _WIN32
@@ -140,7 +140,6 @@ write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
   return rustls_connection_write_tls(rconn, write_cb, conn, n);
 #else
   if(getenv("VECTORED_IO")) {
-    fprintf(stderr, "(vectored)\n");
     return rustls_connection_write_tls_vectored(rconn, write_vectored_cb, conn, n);
   } else {
     return rustls_connection_write_tls(rconn, write_cb, conn, n);
@@ -231,7 +230,7 @@ copy_plaintext_to_buffer(struct conndata *conn)
       return CRUSTLS_DEMO_OK;
     }
     if(result != RUSTLS_RESULT_OK) {
-      print_error("Error in rustls_connection_read", result);
+      print_error(conn->program_name, "Error in rustls_connection_read", result);
       return CRUSTLS_DEMO_ERROR;
     }
     if(n == 0) {

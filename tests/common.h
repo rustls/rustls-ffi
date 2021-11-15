@@ -25,7 +25,7 @@ struct conndata {
 };
 
 void
-print_error(char *prefix, rustls_result result);
+print_error(const char *program_name, const char *prefix, rustls_result result);
 
 int
 write_all(int fd, const char *buf, int n);

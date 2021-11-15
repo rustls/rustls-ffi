@@ -1,11 +1,11 @@
-# Rustls FFI bindings (formerly "crustls")
+# Rustls FFI bindings
 
 [![Build Status](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml/badge.svg)](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml)
 
 This crate contains FFI bindings for the [rustls](https://docs.rs/rustls) TLS
 library, so you can use the library in C programs or any other language that
 supports FFI. It also contains a small demo C program that uses those bindings
-to make an HTTPS request.
+to make an HTTPS request. Note: this crate was recently renamed from "crustls."
 
 # Build
 

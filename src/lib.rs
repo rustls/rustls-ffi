@@ -1,6 +1,16 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+
+//! This package contains bindings for using rustls via a C API. If
+//! you're looking at this on docs.rs, [you may want the rustls docs
+//! instead](https://docs.rs/rustls/latest/rustls/).
+//!
+//! Even though this is a C API, it is published on crates.io so other crates that
+//! wrap a different C API (like curl) can depend on it.
+//!
+//! [You may also want to read the rustls-ffi README](https://github.com/rustls/rustls-ffi#rustls-ffi-bindings).
+
 use crate::rslice::rustls_str;
 use libc::{c_void, size_t};
 use std::cell::RefCell;

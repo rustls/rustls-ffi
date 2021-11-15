@@ -284,7 +284,7 @@ impl rustls_client_config_builder {
     ///
     /// If you intend to write a verifier that accepts all certificates, be aware
     /// that special measures are required for IP addresses. Rustls currently
-    /// (0.20.0) doesn't support building a ClientSession with an IP address
+    /// (0.20.0) doesn't support building a ClientConnection with an IP address
     /// (because it's not a valid DnsNameRef). One workaround is to detect IP
     /// addresses and rewrite them to `example.invalid`, and _also_ to disable
     /// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
@@ -421,7 +421,7 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Provide the configuration a list of certificates where the session
+    /// Provide the configuration a list of certificates where the connection
     /// will select the first one that is compatible with the server's signature
     /// verification capabilities. Clients that want to support both ECDSA and
     /// RSA certificates will want the ECSDA to go first in the list.
@@ -530,7 +530,7 @@ impl rustls_client_config {
 
     /// Create a new rustls_connection containing a client connection and return
     /// it in the output parameter `out`. If this returns an error code, the
-    /// memory pointed to by `session_out` remains unchanged. If this returns a
+    /// memory pointed to by `conn_out` remains unchanged. If this returns a
     /// non-error, the memory pointed to by `conn_out` is modified to point at a
     /// valid rustls_connection. The caller now owns the rustls_connection and must
     /// call `rustls_connection_free` when done with it.

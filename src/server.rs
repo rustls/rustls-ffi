@@ -252,7 +252,7 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Provide the configuration a list of certificates where the session
+    /// Provide the configuration a list of certificates where the connection
     /// will select the first one that is compatible with the client's signature
     /// verification capabilities. Servers that want to support both ECDSA and
     /// RSA certificates will want the ECSDA to go first in the list.
@@ -329,8 +329,8 @@ impl rustls_server_config {
 
     /// Create a new rustls_connection containing a server connection, and return it
     /// in the output parameter `out`. If this returns an error code, the memory
-    /// pointed to by `session_out` remains unchanged. If this returns a non-error,
-    /// the memory pointed to by `session_out` is modified to point
+    /// pointed to by `conn_out` remains unchanged. If this returns a non-error,
+    /// the memory pointed to by `conn_out` is modified to point
     /// at a valid rustls_connection. The caller now owns the rustls_connection
     /// and must call `rustls_connection_free` when done with it.
     #[no_mangle]
@@ -359,7 +359,7 @@ impl rustls_server_config {
 /// and the length of that hostname in `out_n`. The string is stored in UTF-8
 /// with no terminating NUL byte.
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
-/// Returns Ok with *out_n == 0 if there is no SNI hostname available on this session
+/// Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
 /// because it hasn't been processed yet, or because the client did not send SNI.
 /// <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname>
 #[no_mangle]
@@ -393,7 +393,7 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
     }
 }
 
-/// Choose the server certificate to be used for a session based on certificate
+/// Choose the server certificate to be used for a connection based on certificate
 /// type. Will pick the first CertfiedKey available that is suitable for
 /// the SignatureSchemes supported by the client.
 struct ResolvesServerCertFromChoices {
@@ -462,8 +462,9 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// NOTE:
 /// - the passed in `hello` and all its values are only available during the
 ///   callback invocations.
-/// - the passed callback function must be implemented thread-safe, unless
-///   there is only a single config and session where it is installed.
+/// - the passed callback function must be safe to call multiple times concurrently
+///   with the same userdata, unless there is only a single config and connection
+///   where it is installed.
 ///
 /// EXPERIMENTAL: this feature of crustls is likely to change in the future, as
 /// the rustls library is re-evaluating their current approach to client hello handling.
@@ -542,8 +543,8 @@ unsafe impl Sync for ClientHelloResolver {}
 unsafe impl Send for ClientHelloResolver {}
 
 impl rustls_server_config_builder {
-    /// Register a callback to be invoked when a session created from this config
-    /// is seeing a TLS ClientHello message. If `userdata` has been set with
+    /// Register a callback to be invoked when a connection created from this config
+    /// sees a TLS ClientHello message. If `userdata` has been set with
     /// rustls_connection_set_userdata, it will be passed to the callback.
     /// Otherwise the userdata param passed to the callback will be NULL.
     ///
@@ -645,7 +646,7 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
 impl rustls_server_config_builder {
     /// Register callbacks for persistence of TLS session IDs and secrets. Both
     /// keys and values are highly sensitive data, containing enough information
-    /// to break the security of the sessions involved.
+    /// to break the security of the connections involved.
     ///
     /// If `userdata` has been set with rustls_connection_set_userdata, it
     /// will be passed to the callbacks. Otherwise the userdata param passed to
