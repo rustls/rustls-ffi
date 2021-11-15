@@ -328,12 +328,14 @@ main(int argc, const char **argv)
   alpn_http11.data = (unsigned char*)"http/1.1";
   alpn_http11.len = 8;
 
+#ifndef _WIN32
   struct sigaction siga = { 0 };
   siga.sa_handler = handle_signal;
   if (sigaction(SIGTERM, &siga, NULL) == -1) {
     perror("setting a signal handler");
     return 1;
   }
+#endif /* _WIN32 */
 
   if(argc <= 2) {
     fprintf(stderr,
