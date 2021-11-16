@@ -166,6 +166,10 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     }
 }
 
+/// rustls_str represents a string that can be passed to C code. The string
+/// should not have any internal null bytes and is not null terminated. C code
+/// should not create rustls_str objects, they should only be created in Rust
+/// code.
 impl<'a> rustls_str<'a> {
     pub fn from_str_unchecked(s: &'static str) -> rustls_str<'static> {
         rustls_str {
@@ -176,17 +180,27 @@ impl<'a> rustls_str<'a> {
     }
 }
 
+// If the assertion about Rust code being the only creator of rustls_str objects
+// changes, you must change this Debug impl, since the assertion in it no longer
+// holds.
 impl<'a> fmt::Debug for rustls_str<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe {
-            let ptr = self.data as *const u8;
-            let raw = slice::from_raw_parts(ptr, self.len as usize);
-            let s = str::from_utf8(raw).unwrap_or("%!(ERROR)");
-            f.debug_struct("rustls_str")
-                .field("data", &s)
-                .field("len", &self.len)
-                .finish()
-        }
+        let raw = unsafe {
+            // Despite the use of "unsafe", we know that this is safe because:
+            // - self.data is a u8, and single bytes are aligned
+            // - the entire memory range is a single allocated object, because
+            // we always build rustls_str objects from a slice (though this may
+            // change if we accept rustls_str objects from C code)
+            // - all values are properly initialized because we only init
+            // rustls_str objects inside of Rust code
+            // - not larger than isize::MAX because, again, it's coming from Rust
+            slice::from_raw_parts(self.data as *const u8, self.len as usize)
+        };
+        let s = str::from_utf8(raw).unwrap_or("%!(ERROR)");
+        f.debug_struct("rustls_str")
+            .field("data", &s)
+            .field("len", &self.len)
+            .finish()
     }
 }
 
@@ -204,17 +218,16 @@ fn test_rustls_str() {
 #[cfg(test)]
 mod tests {
     use crate::rslice::*;
-    use core::fmt::Write;
     use std::convert::TryInto;
 
     #[test]
     fn test_rustls_str_debug() {
         let s = "abcd";
         let rs: rustls_str = s.try_into().unwrap();
-        let mut buf = String::new();
-        write!(buf, "{:?}", rs).unwrap();
-        let want = r#"rustls_str { data: "abcd", len: 4 }"#;
-        assert_eq!(buf, want)
+        assert_eq!(
+            format!("{:?}", rs),
+            r#"rustls_str { data: "abcd", len: 4 }"#
+        );
     }
 }
 
