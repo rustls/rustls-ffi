@@ -17,6 +17,7 @@ use std::cell::RefCell;
 use std::mem;
 use std::sync::Arc;
 
+pub mod acceptor;
 pub mod cipher;
 pub mod client;
 pub mod connection;

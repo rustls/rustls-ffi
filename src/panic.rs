@@ -1,8 +1,14 @@
 use libc::EINVAL;
 
-use crate::error::{rustls_io_result, rustls_result};
+use crate::{
+    error::{rustls_io_result, rustls_result},
+    rslice::rustls_str,
+};
 
-use std::ptr::{null, null_mut};
+use std::{
+    marker::PhantomData,
+    ptr::{null, null_mut},
+};
 
 // We wrap all function calls in an ffi_panic_boundary! macro, which catches
 // panics and early-returns from the function. For functions that return
@@ -77,6 +83,16 @@ impl<T> NullParameterOrDefault for *mut T {
 impl<T> NullParameterOrDefault for *const T {
     fn value() -> Self {
         null()
+    }
+}
+
+impl NullParameterOrDefault for rustls_str<'static> {
+    fn value() -> Self {
+        rustls_str {
+            data: null(),
+            len: 0,
+            phantom: PhantomData,
+        }
     }
 }
 
