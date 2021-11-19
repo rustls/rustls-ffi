@@ -39,24 +39,24 @@ impl ClientHelloOwned {
     }
 }
 
-pub(crate) enum Acceptedor {
-    Acceptor(Acceptor),
-    Accepted(Accepted, ClientHelloOwned),
+pub(crate) enum State {
+    Reading(Acceptor),
+    Done(Accepted, ClientHelloOwned),
 }
 
-impl Acceptedor {
+impl State {
     fn roll(&mut self) -> rustls_result {
         match self {
-            Acceptedor::Acceptor(acceptor) => match acceptor.accept() {
+            State::Reading(acceptor) => match acceptor.accept() {
                 Ok(None) => rustls_result::NotReady,
                 Ok(Some(accepted)) => {
                     let choo = ClientHelloOwned::from_accepted(&accepted);
-                    *self = Acceptedor::Accepted(accepted, choo);
+                    *self = State::Done(accepted, choo);
                     rustls_result::Ok
                 }
                 Err(e) => map_error(e),
             },
-            Acceptedor::Accepted(_, _) => rustls_result::Ok,
+            State::Done(_, _) => rustls_result::Ok,
         }
     }
 }
@@ -66,7 +66,7 @@ pub struct rustls_acceptor {
 }
 
 impl CastPtr for rustls_acceptor {
-    type RustType = Acceptedor;
+    type RustType = State;
 }
 
 impl BoxCastPtr for rustls_acceptor {}
@@ -76,7 +76,7 @@ impl BoxCastPtr for rustls_acceptor {}
 extern "C" fn rustls_acceptor_new() -> *mut rustls_acceptor {
     ffi_panic_boundary! {
         match Acceptor::new() {
-            Ok(acceptor) => BoxCastPtr::to_mut_ptr(Acceptedor::Acceptor(acceptor)),
+            Ok(acceptor) => BoxCastPtr::to_mut_ptr(State::Reading(acceptor)),
             Err(_) => null_mut(),
         }
     }
@@ -100,15 +100,15 @@ pub extern "C" fn rustls_acceptor_read_tls(
     out_n: *mut size_t,
 ) -> rustls_io_result {
     ffi_panic_boundary! {
-        let acceptedor: &mut Acceptedor = try_mut_from_ptr!(acceptor);
+        let state: &mut State = try_mut_from_ptr!(acceptor);
         let out_n: &mut size_t = try_mut_from_ptr!(out_n);
         let callback: ReadCallback = try_callback!(callback);
 
         let mut reader = CallbackReader { callback, userdata };
 
-        let acceptor = match acceptedor {
-            Acceptedor::Acceptor(acceptor) => acceptor,
-            Acceptedor::Accepted(_, _) => return rustls_io_result(EIO),
+        let acceptor = match state {
+            State::Reading(acceptor) => acceptor,
+            State::Done(_, _) => return rustls_io_result(EIO),
         };
 
         let n_read: usize = match acceptor.read_tls(&mut reader) {
@@ -124,8 +124,8 @@ pub extern "C" fn rustls_acceptor_read_tls(
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_accept(acceptor: *mut rustls_acceptor) -> rustls_result {
     ffi_panic_boundary! {
-        let acceptedor: &mut Acceptedor = try_mut_from_ptr!(acceptor);
-        acceptedor.roll()
+        let state: &mut State = try_mut_from_ptr!(acceptor);
+        state.roll()
     }
 }
 
@@ -135,9 +135,9 @@ pub extern "C" fn rustls_acceptor_server_name(
 ) -> rustls_str<'static> {
     // XXX static is the wrong lifetime
     ffi_panic_boundary! {
-        let acceptedor: &Acceptedor = try_ref_from_ptr!(acceptor);
-        let sni = match acceptedor {
-            Acceptedor::Accepted(_, client_hello) => client_hello.server_name.as_str(),
+        let state: &State = try_ref_from_ptr!(acceptor);
+        let sni = match state {
+            State::Done(_, client_hello) => client_hello.server_name.as_str(),
             _ => "",
         };
         sni.try_into().unwrap_or_default()
@@ -150,9 +150,9 @@ pub extern "C" fn rustls_acceptor_signature_schemes(
 ) -> rustls_slice_u16<'static> {
     // XXX static is the wrong lifetime
     ffi_panic_boundary! {
-        let acceptedor: &Acceptedor = try_ref_from_ptr!(acceptor);
-        let signature_schemes: &[u16] = match acceptedor {
-            Acceptedor::Accepted(_, client_hello) => client_hello.signature_schemes.as_ref(),
+        let state: &State = try_ref_from_ptr!(acceptor);
+        let signature_schemes: &[u16] = match state {
+            State::Done(_, client_hello) => client_hello.signature_schemes.as_ref(),
             _ => return Default::default(),
         };
         signature_schemes.into()
@@ -166,9 +166,9 @@ pub extern "C" fn rustls_acceptor_alpn(
 ) -> rustls_slice_bytes<'static> {
     // XXX static is the wrong lifetime
     ffi_panic_boundary! {
-        let acceptedor: &Acceptedor = try_ref_from_ptr!(acceptor);
-        let alpns: &Vec<Vec<u8>> = match acceptedor {
-            Acceptedor::Accepted(_, client_hello) => &client_hello.alpn,
+        let state: &State = try_ref_from_ptr!(acceptor);
+        let alpns: &Vec<Vec<u8>> = match state {
+            State::Done(_, client_hello) => &client_hello.alpn,
             _ => return Default::default(),
         };
         let alpn: Option<&[u8]> = alpns.get(i).map(|v| v.as_ref());
@@ -186,11 +186,11 @@ pub extern "C" fn rustls_acceptor_into_connection(
     conn: *mut *mut rustls_connection,
 ) -> rustls_result {
     ffi_panic_boundary! {
-        let acceptedor: Box<Acceptedor> = try_box_from_ptr!(acceptor);
+        let state: Box<State> = try_box_from_ptr!(acceptor);
         let config: Arc<ServerConfig> = try_arc_from_ptr!(config);
-        match *acceptedor {
-            Acceptedor::Acceptor(_) => rustls_result::NotReady,
-            Acceptedor::Accepted(accepted, _) => {
+        match *state {
+            State::Reading(_) => rustls_result::NotReady,
+            State::Done(accepted, _) => {
                 match accepted.into_connection(config) {
                     Ok(built) => {
                         let wrapped = crate::connection::Connection::from_server(built);
