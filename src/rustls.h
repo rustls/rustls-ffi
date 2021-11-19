@@ -20,6 +20,7 @@ enum rustls_result {
   RUSTLS_RESULT_INVALID_PARAMETER = 7009,
   RUSTLS_RESULT_UNEXPECTED_EOF = 7010,
   RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
+  RUSTLS_RESULT_NOT_READY = 7012,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -95,6 +96,8 @@ typedef enum rustls_tls_version {
   RUSTLS_TLS_VERSION_TLSV1_2 = 771,
   RUSTLS_TLS_VERSION_TLSV1_3 = 772,
 } rustls_tls_version;
+
+typedef struct rustls_acceptor rustls_acceptor;
 
 /**
  * An X.509 certificate, as used in rustls.
@@ -242,6 +245,48 @@ typedef struct rustls_str {
 } rustls_str;
 
 /**
+ * A return value for a function that may return either success (0) or a
+ * non-zero value representing an error. The values should match socket
+ * error numbers for your operating system - for example, the integers for
+ * ETIMEDOUT, EAGAIN, or similar.
+ */
+typedef int rustls_io_result;
+
+/**
+ * A callback for rustls_connection_read_tls.
+ * An implementation of this callback should attempt to read up to n bytes from the
+ * network, storing them in `buf`. If any bytes were stored, the implementation should
+ * set out_n to the number of bytes stored and return 0. If there was an error,
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * It's best to make one read attempt to the network per call. Additional reads will
+ * be triggered by subsequent calls to one of the `_read_tls` methods.
+ * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
+typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
+
+/**
+ * A read-only view on a Rust slice of 16-bit integers in platform endianness.
+ *
+ * This is used to pass data from rustls-ffi to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_u16 {
+  const uint16_t *data;
+  size_t len;
+} rustls_slice_u16;
+
+/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from rustls-ffi to callback functions provided
@@ -288,30 +333,6 @@ typedef struct rustls_log_params {
 typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_params *params);
 
 /**
- * A return value for a function that may return either success (0) or a
- * non-zero value representing an error. The values should match socket
- * error numbers for your operating system - for example, the integers for
- * ETIMEDOUT, EAGAIN, or similar.
- */
-typedef int rustls_io_result;
-
-/**
- * A callback for rustls_connection_read_tls.
- * An implementation of this callback should attempt to read up to n bytes from the
- * network, storing them in `buf`. If any bytes were stored, the implementation should
- * set out_n to the number of bytes stored and return 0. If there was an error,
- * the implementation should return a nonzero rustls_io_result, which will be
- * passed through to the caller. On POSIX systems, returning `errno` is convenient.
- * On other systems, any appropriate error code works.
- * It's best to make one read attempt to the network per call. Additional reads will
- * be triggered by subsequent calls to one of the `_read_tls` methods.
- * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
- * cases that should be a struct that contains, at a minimum, a file descriptor.
- * The buf and out_n pointers are borrowed and should not be retained across calls.
- */
-typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
-
-/**
  * A callback for rustls_connection_write_tls.
  * An implementation of this callback should attempt to write the `n` bytes in buf
  * to the network. If any bytes were written, the implementation should
@@ -347,24 +368,6 @@ typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const
  * Any context information the callback will receive when invoked.
  */
 typedef void *rustls_client_hello_userdata;
-
-/**
- * A read-only view on a Rust slice of 16-bit integers in platform endianness.
- *
- * This is used to pass data from rustls-ffi to callback functions provided
- * by the user of the API.
- * `len` indicates the number of bytes than can be safely read.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_slice_u16 {
-  const uint16_t *data;
-  size_t len;
-} rustls_slice_u16;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -466,6 +469,37 @@ typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userd
  * not need to be freed.
  */
 struct rustls_str rustls_version(void);
+
+/**
+ * Read some TLS bytes from the network into internal buffers. The actual network
+ * I/O is performed by `callback`, which you provide. Rustls will invoke your
+ * callback with a suitable buffer to store the read bytes into. You don't have
+ * to fill it up, just fill with as many bytes as you get in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See rustls_read_callback for more details.
+ * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
+ */
+rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
+                                          rustls_read_callback callback,
+                                          void *userdata,
+                                          size_t *out_n);
+
+rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor);
+
+struct rustls_str rustls_acceptor_server_name(const struct rustls_acceptor *acceptor);
+
+struct rustls_slice_u16 rustls_acceptor_signature_schemes(const struct rustls_acceptor *acceptor);
+
+struct rustls_slice_bytes rustls_acceptor_alpn(const struct rustls_acceptor *acceptor, size_t i);
+
+rustls_result rustls_acceptor_into_connection(struct rustls_acceptor *acceptor,
+                                              const struct rustls_server_config *config,
+                                              struct rustls_connection **conn);
+
+void rustls_acceptor_free(struct rustls_acceptor *acceptor);
 
 /**
  * Get the DER data of the certificate itself.
