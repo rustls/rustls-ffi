@@ -87,6 +87,13 @@ impl State {
     }
 }
 
+/// Create a new rustls_acceptor. Once created, read bytes into it with rustls_acceptor_read_tls(),
+/// and after each read check rustls_acceptor_accept(). Once that returns RUSTLS_RESULT_OK,
+/// check the server name, signature schemes, and ALPN. Use those to build or select an appropriate
+/// rustls_server_config, then call rustls_acceptor_into_connection().
+///
+/// If there's an error, or you decide to abandon this connection, free this with
+/// rustls_acceptor_free().
 #[no_mangle]
 extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> rustls_result {
     ffi_panic_boundary! {
@@ -100,6 +107,28 @@ extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> ru
     }
 }
 
+/// Free a rustls_acceptor. Don't call this on a rustls_acceptor you've previously called
+/// rustls_acceptor_into_connection() on.
+#[no_mangle]
+pub extern "C" fn rustls_acceptor_free(acceptor: *mut rustls_acceptor) {
+    ffi_panic_boundary! {
+        BoxCastPtr::to_box(acceptor);
+    }
+}
+
+/// Check if this acceptor wants additional TLS bytes read into it. If this returns true,
+/// you should call rustls_acceptor_read_tls().
+#[no_mangle]
+pub extern "C" fn rustls_acceptor_wants_read(acceptor: *const rustls_acceptor) -> bool {
+    ffi_panic_boundary! {
+        let state: &State = try_ref_from_ptr!(acceptor);
+        match state {
+            State::Reading(acceptor) => acceptor.wants_read(),
+            State::Done(_, _) => false,
+        }
+    }
+}
+
 /// Read some TLS bytes from the network into internal buffers. The actual network
 /// I/O is performed by `callback`, which you provide. Rustls will invoke your
 /// callback with a suitable buffer to store the read bytes into. You don't have
@@ -109,6 +138,7 @@ extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> ru
 /// `rustls_connection_set_userdata`.
 /// Returns 0 for success, or an errno value on error. Passes through return values
 /// from callback. See rustls_read_callback for more details.
+/// If this returns success, you should call rustls_acceptor_accept().
 /// <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_read_tls(
@@ -139,6 +169,13 @@ pub extern "C" fn rustls_acceptor_read_tls(
     }
 }
 
+/// Process any TLS bytes read into this object so far. If a full ClientHello has
+/// not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
+/// keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
+/// which means:
+///  - rustls_acceptor_server_name(), rustls_acceptor_signature_schemes(), and
+///    rustls_acceptor_alpn() can be called, and
+///  - rustls_acceptor_into_connection() can be called.
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_accept(acceptor: *mut rustls_acceptor) -> rustls_result {
     ffi_panic_boundary! {
@@ -147,6 +184,9 @@ pub extern "C" fn rustls_acceptor_accept(acceptor: *mut rustls_acceptor) -> rust
     }
 }
 
+/// Return the server name indication (SNI) from a ClientHello read by this
+/// rustls_acceptor. If the acceptor is not ready, or the SNI contains a NUL
+/// byte, return a zero-length rustls_str.
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_server_name(
     acceptor: *const rustls_acceptor,
@@ -162,6 +202,11 @@ pub extern "C" fn rustls_acceptor_server_name(
     }
 }
 
+/// Return the list of signature schemes the client is able to process.
+/// This is useful in selecting a server certificate when there are multiple
+/// available for the same server name. For instance, it is useful in selecting
+/// between an RSA and an ECDSA certificate.
+/// If the acceptor is not ready, return a zero-length rustls_slice_u16.
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_signature_schemes(
     acceptor: *const rustls_acceptor,
@@ -177,6 +222,8 @@ pub extern "C" fn rustls_acceptor_signature_schemes(
     }
 }
 
+/// Return the i'th ALPN protocol requested by the client. If the acceptor is not ready,
+/// or the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_alpn(
     acceptor: *const rustls_acceptor,
@@ -197,6 +244,9 @@ pub extern "C" fn rustls_acceptor_alpn(
     }
 }
 
+/// Turn a rustls_acceptor into a rustls_connection, give the provided
+/// rustls_server_config. This consumes the rustls_acceptor, whether it suceeds
+/// or not, so don't call rustls_acceptor_free after this.
 #[no_mangle]
 pub extern "C" fn rustls_acceptor_into_connection(
     acceptor: *mut rustls_acceptor,
@@ -219,12 +269,5 @@ pub extern "C" fn rustls_acceptor_into_connection(
                 }
             }
         }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rustls_acceptor_free(acceptor: *mut rustls_acceptor) {
-    ffi_panic_boundary! {
-        BoxCastPtr::to_box(acceptor);
     }
 }
