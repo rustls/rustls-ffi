@@ -97,6 +97,13 @@ typedef enum rustls_tls_version {
   RUSTLS_TLS_VERSION_TLSV1_3 = 772,
 } rustls_tls_version;
 
+/**
+ * rustls_acceptor is used to read bytes from client connections before building
+ * a rustls_connection. Once enough bytes have been read, it allows access to the
+ * server name, signature schemes, and ALPN protocols from the ClientHello.
+ * Those can be used to build or select an appropriate rustls_server_config, and build
+ * a rustls_connection using it.
+ */
 typedef struct rustls_acceptor rustls_acceptor;
 
 /**
@@ -471,6 +478,18 @@ typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userd
 struct rustls_str rustls_version(void);
 
 /**
+ * Free a rustls_acceptor. Don't call this on a rustls_acceptor you've previously called
+ * rustls_acceptor_into_connection() on.
+ */
+void rustls_acceptor_free(struct rustls_acceptor *acceptor);
+
+/**
+ * Check if this acceptor wants additional TLS bytes read into it. If this returns true,
+ * you should call rustls_acceptor_read_tls().
+ */
+bool rustls_acceptor_wants_read(const struct rustls_acceptor *acceptor);
+
+/**
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
@@ -480,6 +499,7 @@ struct rustls_str rustls_version(void);
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
+ * If this returns success, you should call rustls_acceptor_accept().
  * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
  */
 rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
@@ -487,19 +507,47 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
                                           void *userdata,
                                           size_t *out_n);
 
+/**
+ * Process any TLS bytes read into this object so far. If a full ClientHello has
+ * not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
+ * keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
+ * which means:
+ *  - rustls_acceptor_server_name(), rustls_acceptor_signature_schemes(), and
+ *    rustls_acceptor_alpn() can be called, and
+ *  - rustls_acceptor_into_connection() can be called.
+ */
 rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor);
 
+/**
+ * Return the server name indication (SNI) from a ClientHello read by this
+ * rustls_acceptor. If the acceptor is not ready, or the SNI contains a NUL
+ * byte, return a zero-length rustls_str.
+ */
 struct rustls_str rustls_acceptor_server_name(const struct rustls_acceptor *acceptor);
 
+/**
+ * Return the list of signature schemes the client is able to process.
+ * This is useful in selecting a server certificate when there are multiple
+ * available for the same server name. For instance, it is useful in selecting
+ * between an RSA and an ECDSA certificate.
+ * If the acceptor is not ready, return a zero-length rustls_slice_u16.
+ */
 struct rustls_slice_u16 rustls_acceptor_signature_schemes(const struct rustls_acceptor *acceptor);
 
+/**
+ * Return the i'th ALPN protocol requested by the client. If the acceptor is not ready,
+ * or the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
+ */
 struct rustls_slice_bytes rustls_acceptor_alpn(const struct rustls_acceptor *acceptor, size_t i);
 
+/**
+ * Turn a rustls_acceptor into a rustls_connection, give the provided
+ * rustls_server_config. This consumes the rustls_acceptor, whether it suceeds
+ * or not, so don't call rustls_acceptor_free after this.
+ */
 rustls_result rustls_acceptor_into_connection(struct rustls_acceptor *acceptor,
                                               const struct rustls_server_config *config,
                                               struct rustls_connection **conn);
-
-void rustls_acceptor_free(struct rustls_acceptor *acceptor);
 
 /**
  * Get the DER data of the certificate itself.
