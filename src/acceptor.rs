@@ -104,18 +104,18 @@ pub extern "C" fn rustls_acceptor_read_tls(
 
         let mut reader = CallbackReader { callback, userdata };
 
-        match acceptedor {
-            Acceptedor::Acceptor(acceptor) => {
-                let n_read: usize = match acceptor.read_tls(&mut reader) {
-                    Ok(n) => n,
-                    Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
-                };
-                *out_n = n_read;
+        let acceptor = match acceptedor {
+            Acceptedor::Acceptor(acceptor) => acceptor,
+            Acceptedor::Accepted(_, _) => return rustls_io_result(EIO),
+        };
 
-                rustls_io_result(0)
-            },
-            Acceptedor::Accepted(_, _) => rustls_io_result(EIO),
-        }
+        let n_read: usize = match acceptor.read_tls(&mut reader) {
+            Ok(n) => n,
+            Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+        };
+        *out_n = n_read;
+
+        rustls_io_result(0)
     }
 }
 
