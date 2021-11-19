@@ -1,5 +1,5 @@
+use std::convert::TryInto;
 use std::sync::Arc;
-use std::{convert::TryInto, ptr::null_mut};
 
 use libc::{c_void, size_t, EIO};
 use rustls::server::{Accepted, Acceptor, ClientHello};
@@ -15,6 +15,37 @@ use crate::{
     try_mut_from_ptr, try_ref_from_ptr, BoxCastPtr, CastPtr,
 };
 
+/// rustls_acceptor is used to read bytes from client connections before building
+/// a rustls_connection. Once enough bytes have been read, it allows access to the
+/// server name, signature schemes, and ALPN protocols from the ClientHello.
+/// Those can be used to build or select an appropriate rustls_server_config, and build
+/// a rustls_connection using it.
+pub struct rustls_acceptor {
+    _private: [u8; 0],
+}
+
+impl CastPtr for rustls_acceptor {
+    type RustType = State;
+}
+
+impl BoxCastPtr for rustls_acceptor {}
+
+/// State is what is pointed to by a `struct rustls_acceptor *`. This combines two
+/// rustls types, Acceptor and Accepted, so that C code doesn't have to deal with the
+/// "into" pattern twice per handshake.
+/// When `rustls_acceptor_accept` returns rustls_result::Ok, this changes from Reading
+/// to Done.
+pub(crate) enum State {
+    Reading(Acceptor),
+    Done(Accepted, ClientHelloOwned),
+}
+
+/// ClientHelloOwned is a version of [rustls::server::ClientHello] that owns its
+/// contents. This is needed because
+///  - We have to transform `&[SignatureScheme]` to something that can be used
+///    as a base for `rustls_slice_u16`, and
+///  - alpn is an iterator, but we want to return rustls_slice_slice_bytes, so
+///    we have to collect it.
 pub(crate) struct ClientHelloOwned {
     server_name: String,
     signature_schemes: Vec<u16>,
@@ -39,11 +70,6 @@ impl ClientHelloOwned {
     }
 }
 
-pub(crate) enum State {
-    Reading(Acceptor),
-    Done(Accepted, ClientHelloOwned),
-}
-
 impl State {
     fn roll(&mut self) -> rustls_result {
         match self {
@@ -61,23 +87,15 @@ impl State {
     }
 }
 
-pub struct rustls_acceptor {
-    _private: [u8; 0],
-}
-
-impl CastPtr for rustls_acceptor {
-    type RustType = State;
-}
-
-impl BoxCastPtr for rustls_acceptor {}
-
-/// This can return NULL if there was an error setting up the connection state.
 #[no_mangle]
-extern "C" fn rustls_acceptor_new() -> *mut rustls_acceptor {
+extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> rustls_result {
     ffi_panic_boundary! {
         match Acceptor::new() {
-            Ok(acceptor) => BoxCastPtr::to_mut_ptr(State::Reading(acceptor)),
-            Err(_) => null_mut(),
+            Ok(acceptor) => {
+                BoxCastPtr::set_mut_ptr(acceptor_out, State::Reading(acceptor));
+                rustls_result::Ok
+            },
+            Err(e) => map_error(e),
         }
     }
 }
