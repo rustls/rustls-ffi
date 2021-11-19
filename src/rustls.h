@@ -460,6 +460,20 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  */
 typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
+
+extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
+
+extern const size_t RUSTLS_DEFAULT_CIPHER_SUITES_LEN;
+
+extern const uint16_t RUSTLS_ALL_VERSIONS[2];
+
+extern const size_t RUSTLS_ALL_VERSIONS_LEN;
+
+extern const uint16_t RUSTLS_DEFAULT_VERSIONS[2];
+
+extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
+
 /**
  * Returns a static string containing the rustls-ffi version as well as the
  * rustls version. The string is alive for the lifetime of the program and does
@@ -648,12 +662,14 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * resulting rustls_client_config. Specify cipher suites in preference
  * order; the `cipher_suites` parameter must point to an array containing
  * `len` pointers to `rustls_supported_ciphersuite` previously obtained
- * from `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol
- * versions to use when negotiating a TLS session.
+ * from `rustls_all_ciphersuites_get_entry()`, or to a provided array,
+ * RUSTLS_DEFAULT_CIPHER_SUITES or RUSTLS_ALL_CIPHER_SUITES. Set the TLS
+ * protocol versions to use when negotiating a TLS session.
  *
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
- * `rustls_tls_version` for convenience.
+ * `rustls_tls_version` for convenience, and the arrays
+ * RUSTLS_DEFAULT_VERSIONS or RUSTLS_ALL_VERSIONS can be used directly.
  *
  * `versions` will only be used during the call and the application retains
  * ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
