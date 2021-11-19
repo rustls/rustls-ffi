@@ -11,6 +11,9 @@
    rustls_result (#227).
  - rustls_session_store_get_callback and rustls_session_store_put_callback now
    return uint32_t (#227).
+ - Added arrays ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES, ALL_VERSIONS, and
+   DEFAULT_VERSIONS as more convenient alternatives to
+   rustls_default_ciphersuites_get_entry(), etc.
 
 ## 0.8.2 (2021-11-13)
 

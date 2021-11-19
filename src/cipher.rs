@@ -123,6 +123,94 @@ pub extern "C" fn rustls_default_ciphersuites_get_entry(
     }
 }
 
+/// Rustls' list of supported cipher suites. This is an array of pointers, and
+/// its length is given by `RUSTLS_ALL_CIPHER_SUITES_LEN`. The pointers will
+/// always be valid. The contents and order of this array may change between
+/// releases.
+#[no_mangle]
+static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
+    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+];
+
+/// The length of the array `RUSTLS_ALL_CIPHER_SUITES`.
+#[no_mangle]
+pub static RUSTLS_ALL_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_ALL_CIPHER_SUITES.len() };
+
+/// Rustls' list of default cipher suites. This is an array of pointers, and
+/// its length is given by `RUSTLS_DEFAULT_CIPHER_SUITES_LEN`. The pointers
+/// will always be valid. The contents and order of this array may change
+/// between releases.
+#[no_mangle]
+pub static mut RUSTLS_DEFAULT_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
+    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
+        as *const _,
+    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+];
+
+/// The length of the array `RUSTLS_DEFAULT_CIPHER_SUITES`.
+#[no_mangle]
+pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIPHER_SUITES.len() };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_cipher_suites_arrays() {
+        assert_eq!(RUSTLS_ALL_CIPHER_SUITES_LEN, ALL_CIPHER_SUITES.len());
+        for (original, ffi) in ALL_CIPHER_SUITES
+            .iter()
+            .zip(unsafe { RUSTLS_ALL_CIPHER_SUITES }.iter().copied())
+        {
+            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
+            assert_eq!(original, ffi_cipher_suite);
+        }
+    }
+
+    #[test]
+    fn default_cipher_suites_arrays() {
+        assert_eq!(
+            RUSTLS_DEFAULT_CIPHER_SUITES_LEN,
+            DEFAULT_CIPHER_SUITES.len()
+        );
+        for (original, ffi) in DEFAULT_CIPHER_SUITES
+            .iter()
+            .zip(unsafe { RUSTLS_DEFAULT_CIPHER_SUITES }.iter().copied())
+        {
+            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
+            assert_eq!(original, ffi_cipher_suite);
+        }
+    }
+}
+
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
