@@ -2,13 +2,10 @@ use libc::EINVAL;
 
 use crate::{
     error::{rustls_io_result, rustls_result},
-    rslice::rustls_str,
+    rslice::{rustls_slice_bytes, rustls_slice_u16, rustls_str},
 };
 
-use std::{
-    marker::PhantomData,
-    ptr::{null, null_mut},
-};
+use std::ptr::{null, null_mut};
 
 // We wrap all function calls in an ffi_panic_boundary! macro, which catches
 // panics and early-returns from the function. For functions that return
@@ -37,6 +34,10 @@ impl Defaultable for usize {}
 impl Defaultable for bool {}
 impl Defaultable for () {}
 impl<T> Defaultable for Option<T> {}
+
+impl<'a> Defaultable for rustls_str<'a> {}
+impl<'a> Defaultable for rustls_slice_bytes<'a> {}
+impl<'a> Defaultable for rustls_slice_u16<'a> {}
 
 impl<T: Defaultable> PanicOrDefault for T {
     fn value() -> Self {
@@ -83,16 +84,6 @@ impl<T> NullParameterOrDefault for *mut T {
 impl<T> NullParameterOrDefault for *const T {
     fn value() -> Self {
         null()
-    }
-}
-
-impl NullParameterOrDefault for rustls_str<'static> {
-    fn value() -> Self {
-        rustls_str {
-            data: null(),
-            len: 0,
-            phantom: PhantomData,
-        }
     }
 }
 
