@@ -21,6 +21,24 @@ pub(crate) struct ClientHelloOwned {
     alpn: Vec<Vec<u8>>,
 }
 
+impl ClientHelloOwned {
+    fn from_accepted(accepted: &Accepted) -> ClientHelloOwned {
+        let cho: ClientHello = accepted.client_hello();
+        ClientHelloOwned {
+            server_name: cho.server_name().unwrap_or("").to_string(),
+            signature_schemes: cho
+                .signature_schemes()
+                .iter()
+                .map(|ss| ss.get_u16())
+                .collect(),
+            alpn: match cho.alpn() {
+                Some(it) => it.map(|p| p.to_vec()).collect(),
+                None => vec![],
+            },
+        }
+    }
+}
+
 pub(crate) enum Acceptedor {
     Acceptor(Acceptor),
     Accepted(Accepted, ClientHelloOwned),
@@ -32,7 +50,7 @@ impl Acceptedor {
             Acceptedor::Acceptor(acceptor) => match acceptor.accept() {
                 Ok(None) => rustls_result::NotReady,
                 Ok(Some(accepted)) => {
-                    let choo = make_client_hello(&accepted);
+                    let choo = ClientHelloOwned::from_accepted(&accepted);
                     *self = Acceptedor::Accepted(accepted, choo);
                     rustls_result::Ok
                 }
@@ -40,22 +58,6 @@ impl Acceptedor {
             },
             Acceptedor::Accepted(_, _) => rustls_result::Ok,
         }
-    }
-}
-
-fn make_client_hello(accepted: &Accepted) -> ClientHelloOwned {
-    let cho: ClientHello = accepted.client_hello();
-    ClientHelloOwned {
-        server_name: cho.server_name().unwrap_or("").to_string(),
-        signature_schemes: cho
-            .signature_schemes()
-            .iter()
-            .map(|ss| ss.get_u16())
-            .collect(),
-        alpn: match cho.alpn() {
-            Some(it) => it.map(|p| p.to_vec()).collect(),
-            None => vec![],
-        },
     }
 }
 
