@@ -485,7 +485,7 @@ impl rustls_connection {
 
 #[cfg(test)]
 mod tests {
-    use std::{cmp::min, collections::VecDeque, convert::TryInto};
+    use std::{cmp::min, collections::VecDeque, convert::TryInto, thread, time::Duration};
 
     use libc::{c_char, c_int};
 
@@ -500,6 +500,7 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_communicate() {
+        env_logger::init();
         let builder: *mut rustls_client_config_builder =
             rustls_client_config_builder::rustls_client_config_builder_new();
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
@@ -531,11 +532,17 @@ mod tests {
                 result
             );
         }
-        rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+        let result = rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
             builder,
             &certified_key,
             1,
         );
+        if !matches!(result, rustls_result::Ok) {
+            panic!(
+                "expected RUSTLS_RESULT_OK from rustls_server_config_builder_set_certified_keys, got {:?}",
+                result
+            );
+        }
 
         let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
         assert_ne!(config, null());
@@ -584,11 +591,11 @@ mod tests {
         }
 
         fn process_io(
+            name: &str,
             conn: *mut rustls_connection,
             input: &mut VecDeque<u8>,
             output: &mut VecDeque<u8>,
-        ) -> Option<rustls_io_result> {
-            let mut wanted_something = false;
+        ) -> rustls_io_result {
             if rustls_connection::rustls_connection_wants_write(conn) {
                 let mut n: usize = 0;
                 let userdata: *mut c_void = output as *mut VecDeque<u8> as *mut _;
@@ -598,55 +605,67 @@ mod tests {
                     userdata,
                     &mut n,
                 );
-                wanted_something = true;
                 if result.0 != IO_SUCCESS {
-                    return Some(result);
+                    return result;
                 }
+                println!("{} wrote {} TLS bytes", name, n);
             }
             if rustls_connection::rustls_connection_wants_read(conn) && input.len() > 0 {
                 let mut n: usize = 0;
                 let userdata: *mut c_void = input as *mut VecDeque<u8> as *mut _;
-                let result = rustls_connection::rustls_connection_read_tls(
+                let result: rustls_io_result = rustls_connection::rustls_connection_read_tls(
                     conn,
                     Some(read_cb),
                     userdata,
                     &mut n,
                 );
-                wanted_something = true;
                 // TODO: EOF
                 if result.0 != IO_SUCCESS {
-                    return Some(result);
+                    return result;
                 }
+                println!("{} read {} TLS bytes", name, n);
+                let mut buf = [0u8; 1000];
+                let result: rustls_result = rustls_connection::rustls_connection_read(
+                    conn,
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                    &mut n,
+                );
+                if !matches!(result, rustls_result::Ok | rustls_result::PlaintextEmpty) {
+                    println!("{} read {} plaintext bytes", name, n);
+                    return rustls_io_result(999); //TODO: what type to return? maybe move this plaintext read elsewhere?
+                }
+                println!("{} read {} plaintext bytes", name, n);
             }
-            if wanted_something {
-                Some(rustls_io_result(IO_SUCCESS))
-            } else {
-                None
-            }
+            rustls_io_result(IO_SUCCESS)
         }
 
-        loop {
+        while rustls_connection::rustls_connection_is_handshaking(client_conn)
+            || rustls_connection::rustls_connection_is_handshaking(server_conn)
+        {
+            if rustls_connection::rustls_connection_is_handshaking(client_conn) {
+                println!("client is handshaking");
+            }
+            if rustls_connection::rustls_connection_is_handshaking(server_conn) {
+                println!("server is handshaking");
+            }
+            println!(
+                "client wants (r, w): {} {}; server wants (r, w): {} {}",
+                rustls_connection::rustls_connection_wants_read(client_conn),
+                rustls_connection::rustls_connection_wants_write(client_conn),
+                rustls_connection::rustls_connection_wants_read(server_conn),
+                rustls_connection::rustls_connection_wants_write(server_conn)
+            );
             println!("tick");
-            let result = process_io(client_conn, &mut server_out, &mut client_out);
-            match result.map(|r| r.0) {
-                Some(r) if r != IO_SUCCESS => {
-                    panic!("got IO error {} process client's I/O", r);
-                }
-                Some(IO_SUCCESS) => {}
-                None => {
-                    println!("no work done on client side")
-                }
+            let result = process_io("client", client_conn, &mut server_out, &mut client_out);
+            if result.0 != IO_SUCCESS {
+                panic!("got IO error {} processing client's I/O", result.0);
             }
-            let result = process_io(server_conn, &mut client_out, &mut server_out);
-            match result.map(|r| r.0) {
-                Some(r) if r != IO_SUCCESS => {
-                    panic!("got IO error {} process client's I/O", r);
-                }
-                Some(IO_SUCCESS) => {}
-                None => {
-                    println!("no work done on server side")
-                }
+            let result = process_io("server", server_conn, &mut client_out, &mut server_out);
+            if result.0 != IO_SUCCESS {
+                panic!("got IO error {} processing server's I/O", result.0);
             }
+            thread::sleep(Duration::from_millis(1000));
         }
     }
 }

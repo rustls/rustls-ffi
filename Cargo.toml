@@ -31,6 +31,7 @@ num_enum = "0.5.4"
 
 [dev_dependencies]
 cbindgen = "0.19.0"
+env_logger = "*"
 
 [lib]
 name = "rustls_ffi"
