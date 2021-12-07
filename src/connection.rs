@@ -497,6 +497,15 @@ mod tests {
 
     use super::*;
 
+    macro_rules! must {
+        ($e:expr) => {
+            let result = $e;
+            if !matches!(result, rustls_result::Ok) {
+                panic!("{}: {:?}", stringify!($e), result,)
+            }
+        };
+    }
+
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_communicate() {
@@ -505,60 +514,46 @@ mod tests {
             rustls_client_config_builder::rustls_client_config_builder_new();
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
         let mut client_conn: *mut rustls_connection = null_mut();
-        let result = rustls_client_config::rustls_client_connection_new(
+        must!(rustls_client_config::rustls_client_connection_new(
             config,
             "localhost\0".as_ptr() as *const c_char,
-            &mut client_conn,
-        );
-        if !matches!(result, rustls_result::Ok) {
-            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
-        }
+            &mut client_conn
+        ));
 
         let builder: *mut rustls_server_config_builder =
             rustls_server_config_builder::rustls_server_config_builder_new();
         let cert_pem = include_str!("../localhost/cert.pem").as_bytes();
         let key_pem = include_str!("../localhost/key.pem").as_bytes();
         let mut certified_key: *const rustls_certified_key = null();
-        let result = rustls_certified_key::rustls_certified_key_build(
+        must!(rustls_certified_key::rustls_certified_key_build(
             cert_pem.as_ptr(),
             cert_pem.len(),
             key_pem.as_ptr(),
             key_pem.len(),
             &mut certified_key,
+        ));
+        must!(
+            rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+                builder,
+                &certified_key,
+                1,
+            )
         );
-        if !matches!(result, rustls_result::Ok) {
-            panic!(
-                "expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {:?}",
-                result
-            );
-        }
-        let result = rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
-            builder,
-            &certified_key,
-            1,
-        );
-        if !matches!(result, rustls_result::Ok) {
-            panic!(
-                "expected RUSTLS_RESULT_OK from rustls_server_config_builder_set_certified_keys, got {:?}",
-                result
-            );
-        }
 
         let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
         assert_ne!(config, null());
 
         let mut server_conn: *mut rustls_connection = null_mut();
-        let result = rustls_server_config::rustls_server_connection_new(config, &mut server_conn);
-        if !matches!(result, rustls_result::Ok) {
-            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
-        }
+        must!(rustls_server_config::rustls_server_connection_new(
+            config,
+            &mut server_conn
+        ));
         assert_ne!(server_conn, null_mut());
 
         let mut client_out = VecDeque::<u8>::new();
         let mut server_out = VecDeque::<u8>::new();
 
         const IO_SUCCESS: c_int = 0;
-        println!("boop");
 
         unsafe extern "C" fn read_cb(
             userdata: *mut c_void,
@@ -624,11 +619,9 @@ mod tests {
                     return result;
                 }
                 println!("{} read {} TLS bytes", name, n);
-                let result: rustls_result =
-                    rustls_connection::rustls_connection_process_new_packets(conn);
-                if !matches!(result, rustls_result::Ok) {
-                    panic!("{}: process_new_packets: got {:?}", name, result);
-                }
+                must!(rustls_connection::rustls_connection_process_new_packets(
+                    conn
+                ));
                 let mut buf = [0u8; 1000];
                 let result: rustls_result = rustls_connection::rustls_connection_read(
                     conn,
@@ -655,15 +648,12 @@ mod tests {
 
         let buf = [0u8; 1000];
         let mut n: usize = 0;
-        let r = rustls_connection::rustls_connection_write(
+        must!(rustls_connection::rustls_connection_write(
             client_conn,
             buf.as_ptr(),
             buf.len(),
             &mut n,
-        );
-        if !matches!(r, rustls_result::Ok) {
-            panic!("client: error writing plaintext");
-        }
+        ));
         println!("client wrote {} bytes plaintext", n);
 
         while rustls_connection::rustls_connection_is_handshaking(client_conn)
