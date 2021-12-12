@@ -460,6 +460,8 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  */
 typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
+
 extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
 
 extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
