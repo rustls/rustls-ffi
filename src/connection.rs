@@ -448,6 +448,10 @@ impl rustls_connection {
     /// Rust-internal reasons). Initializing a buffer once and then using it
     /// multiple times without zeroizing before each call is fine.
     /// <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
+    ///
+    /// If rustls-ffi has been built with the `read_buf` feature enabled,
+    /// initializing the memory in `buf` is not required.
+    #[cfg(not(feature = "read_buf"))]
     #[no_mangle]
     pub extern "C" fn rustls_connection_read(
         conn: *mut rustls_connection,
@@ -462,6 +466,47 @@ impl rustls_connection {
 
             let n_read: usize = match conn.reader().read(read_buf) {
                 Ok(n) => n,
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
+                Err(_) => return rustls_result::Io,
+            };
+            *out_n = n_read;
+            rustls_result::Ok
+        }
+    }
+
+    /// Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
+    /// On success, store the number of bytes read in *out_n (this may be less
+    /// than `count`). A success with *out_n set to 0 means "all bytes currently
+    /// available have been read, but more bytes may become available after
+    /// subsequent calls to rustls_connection_read_tls and
+    /// rustls_connection_process_new_packets."
+    ///
+    /// Subtle note: Even though this function only writes to `buf` and does not
+    /// read from it, the memory in `buf` must be initialized before the call (for
+    /// Rust-internal reasons). Initializing a buffer once and then using it
+    /// multiple times without zeroizing before each call is fine.
+    /// <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
+    ///
+    /// If rustls-ffi has been built with the `read_buf` feature enabled,
+    /// initializing the memory in `buf` is not required.
+    #[cfg(feature = "read_buf")]
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_read(
+        conn: *mut rustls_connection,
+        buf: *mut std::mem::MaybeUninit<u8>,
+        count: size_t,
+        out_n: *mut size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let read_buf: &mut [std::mem::MaybeUninit<u8>] = try_mut_slice!(buf, count);
+            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+
+            let mut read_buf = std::io::ReadBuf::uninit(read_buf);
+
+            let n_read: usize = match conn.reader().read_buf(&mut read_buf) {
+                Ok(()) => read_buf.filled_len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
