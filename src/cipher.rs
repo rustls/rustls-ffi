@@ -100,30 +100,6 @@ pub extern "C" fn rustls_supported_ciphersuite_get_name(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::cipher::*;
-    use std::slice;
-    use std::str;
-
-    #[test]
-    fn ciphersuite_get_name() {
-        let suite = rustls_all_ciphersuites_get_entry(0);
-        let s = rustls_supported_ciphersuite_get_name(suite);
-        let want = "TLS13_AES_256_GCM_SHA384";
-        unsafe {
-            let got = str::from_utf8(slice::from_raw_parts(s.data as *const u8, s.len)).unwrap();
-            assert_eq!(want, got)
-        }
-    }
-
-    #[test]
-    fn test_all_ciphersuites_len() {
-        let len = rustls_all_ciphersuites_len();
-        assert!(len > 2);
-    }
-}
-
 /// Return the length of rustls' list of supported cipher suites.
 #[no_mangle]
 pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
@@ -223,6 +199,8 @@ pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIP
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::slice;
+    use std::str;
 
     #[test]
     fn all_cipher_suites_arrays() {
@@ -249,6 +227,23 @@ mod tests {
             let ffi_cipher_suite = try_ref_from_ptr!(ffi);
             assert_eq!(original, ffi_cipher_suite);
         }
+    }
+
+    #[test]
+    fn ciphersuite_get_name() {
+        let suite = rustls_all_ciphersuites_get_entry(0);
+        let s = rustls_supported_ciphersuite_get_name(suite);
+        let want = "TLS13_AES_256_GCM_SHA384";
+        unsafe {
+            let got = str::from_utf8(slice::from_raw_parts(s.data as *const u8, s.len)).unwrap();
+            assert_eq!(want, got)
+        }
+    }
+
+    #[test]
+    fn test_all_ciphersuites_len() {
+        let len = rustls_all_ciphersuites_len();
+        assert!(len > 2);
     }
 }
 
