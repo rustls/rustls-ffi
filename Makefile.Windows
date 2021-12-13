@@ -42,7 +42,7 @@ test: all
 
 $(RUSTLS_LIB): src/lib.rs Cargo.toml
 	$(call green_msg, Building '$@')
-	cargo build --release
+	RUSTFLAGS="--print native-static-libs" cargo build --release
 	@echo
 
 %.obj: tests/%.c
