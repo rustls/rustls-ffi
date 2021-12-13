@@ -499,6 +499,14 @@ rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
 uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
+ * Returns the name of the ciphersuite as a `rustls_str`. If the provided
+ * ciphersuite is invalid, the rustls_str will contain the empty string. The
+ * lifetime of the `rustls_str` is the lifetime of the program, it does not
+ * need to be freed.
+ */
+struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
+
+/**
  * Return the length of rustls' list of supported cipher suites.
  */
 size_t rustls_all_ciphersuites_len(void);

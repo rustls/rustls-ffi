@@ -1,6 +1,7 @@
 use libc::EINVAL;
 
 use crate::error::{rustls_io_result, rustls_result};
+use crate::rslice::rustls_str;
 
 use std::ptr::{null, null_mut};
 
@@ -56,6 +57,12 @@ impl PanicOrDefault for rustls_result {
     }
 }
 
+impl<'a> PanicOrDefault for rustls_str<'a> {
+    fn value() -> Self {
+        rustls_str::from_str_unchecked("")
+    }
+}
+
 impl PanicOrDefault for rustls_io_result {
     fn value() -> Self {
         rustls_io_result(EINVAL)
@@ -89,6 +96,12 @@ impl NullParameterOrDefault for rustls_result {
 impl NullParameterOrDefault for rustls_io_result {
     fn value() -> Self {
         rustls_io_result(EINVAL)
+    }
+}
+
+impl<'a> NullParameterOrDefault for rustls_str<'a> {
+    fn value() -> Self {
+        rustls_str::from_str_unchecked("")
     }
 }
 
