@@ -978,7 +978,6 @@ rustls_result rustls_connection_write(struct rustls_connection *conn,
                                       size_t count,
                                       size_t *out_n);
 
-#if !defined(DEFINE_READ_BUF)
 /**
  * Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
  * On success, store the number of bytes read in *out_n (this may be less
@@ -992,15 +991,11 @@ rustls_result rustls_connection_write(struct rustls_connection *conn,
  * Rust-internal reasons). Initializing a buffer once and then using it
  * multiple times without zeroizing before each call is fine.
  * <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
- *
- * If rustls-ffi has been built with the `read_buf` feature enabled,
- * initializing the memory in `buf` is not required.
  */
 rustls_result rustls_connection_read(struct rustls_connection *conn,
                                      uint8_t *buf,
                                      size_t count,
                                      size_t *out_n);
-#endif
 
 #if defined(DEFINE_READ_BUF)
 /**
@@ -1011,19 +1006,17 @@ rustls_result rustls_connection_read(struct rustls_connection *conn,
  * subsequent calls to rustls_connection_read_tls and
  * rustls_connection_process_new_packets."
  *
- * Subtle note: Even though this function only writes to `buf` and does not
- * read from it, the memory in `buf` must be initialized before the call (for
- * Rust-internal reasons). Initializing a buffer once and then using it
- * multiple times without zeroizing before each call is fine.
- * <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
+ * This experimental API is only available when using a nightly Rust compiler
+ * and enabling the `read_buf` Cargo feature. It will be deprecated and later
+ * removed in future versions.
  *
- * If rustls-ffi has been built with the `read_buf` feature enabled,
- * initializing the memory in `buf` is not required.
+ * Unlike with `rustls_connection_read`, this function may be called with `buf`
+ * pointing to an uninitialized memory buffer.
  */
-rustls_result rustls_connection_read(struct rustls_connection *conn,
-                                     uint8_t *buf,
-                                     size_t count,
-                                     size_t *out_n);
+rustls_result rustls_connection_read_2(struct rustls_connection *conn,
+                                       uint8_t *buf,
+                                       size_t count,
+                                       size_t *out_n);
 #endif
 
 /**

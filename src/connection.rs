@@ -448,10 +448,6 @@ impl rustls_connection {
     /// Rust-internal reasons). Initializing a buffer once and then using it
     /// multiple times without zeroizing before each call is fine.
     /// <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
-    ///
-    /// If rustls-ffi has been built with the `read_buf` feature enabled,
-    /// initializing the memory in `buf` is not required.
-    #[cfg(not(feature = "read_buf"))]
     #[no_mangle]
     pub extern "C" fn rustls_connection_read(
         conn: *mut rustls_connection,
@@ -482,17 +478,15 @@ impl rustls_connection {
     /// subsequent calls to rustls_connection_read_tls and
     /// rustls_connection_process_new_packets."
     ///
-    /// Subtle note: Even though this function only writes to `buf` and does not
-    /// read from it, the memory in `buf` must be initialized before the call (for
-    /// Rust-internal reasons). Initializing a buffer once and then using it
-    /// multiple times without zeroizing before each call is fine.
-    /// <https://docs.rs/rustls/0.20.0/rustls/struct.Reader.html#method.read>
+    /// This experimental API is only available when using a nightly Rust compiler
+    /// and enabling the `read_buf` Cargo feature. It will be deprecated and later
+    /// removed in future versions.
     ///
-    /// If rustls-ffi has been built with the `read_buf` feature enabled,
-    /// initializing the memory in `buf` is not required.
+    /// Unlike with `rustls_connection_read`, this function may be called with `buf`
+    /// pointing to an uninitialized memory buffer.
     #[cfg(feature = "read_buf")]
     #[no_mangle]
-    pub extern "C" fn rustls_connection_read(
+    pub extern "C" fn rustls_connection_read_2(
         conn: *mut rustls_connection,
         buf: *mut std::mem::MaybeUninit<u8>,
         count: size_t,
