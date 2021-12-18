@@ -38,4 +38,4 @@ name = "rustls_ffi"
 crate-type = ["lib", "staticlib"]
 
 [patch.crates-io]
-rustls = { git = "https://github.com/divergentdave/rustls", branch = "read_buf" }
+rustls = { git = "https://github.com/rustls/rustls", branch = "main" }
