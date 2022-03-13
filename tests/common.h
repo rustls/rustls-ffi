@@ -1,6 +1,27 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#ifdef _WIN32
+#define sleep(s) Sleep(1000 * (s))
+#define read(s, buf, n) recv(s, buf, n, 0)
+#define close(s) closesocket(s)
+#define bzero(buf, n) memset(buf, '\0', n)
+
+/* Hacks for 'errno' stuff
+ */
+#undef EAGAIN
+#define EAGAIN WSAEWOULDBLOCK
+#undef EWOULDBLOCK
+#define EWOULDBLOCK WSAEWOULDBLOCK
+#undef errno
+#define errno WSAGetLastError()
+#define perror(str) fprintf(stderr, str ": %d.\n", WSAGetLastError())
+#define strerror(e) ws_strerror(e)
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1 /* MinGW has this */
+#endif /* !STDOUT_FILENO */
+#endif /* _WIN32 */
+
 enum crustls_demo_result
 {
   CRUSTLS_DEMO_OK,
