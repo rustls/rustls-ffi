@@ -75,13 +75,13 @@ jobs:
       - name: Build, debug configuration
         run: cmake --build build --config Debug
       - name: Client-server test, debug
-        run: tests/client-server.py build/tests/Debug/client.exe build/tests/Debug/server.exe
+        run: python tests/client-server.py build/tests/Debug/client.exe build/tests/Debug/server.exe
       - name: Build, release configuration
         run: cmake --build build --config Release
       - name: Client-server test, release
-        run: tests/client-server.py build/tests/Release/client.exe build/tests/Release/server.exe
+        run: python tests/client-server.py build/tests/Release/client.exe build/tests/Release/server.exe
       - name: Check static library list
-        run: tests/verify-static-libraries.py
+        run: python tests/verify-static-libraries.py
 
   ensure-header-updated:
     runs-on: ubuntu-latest
