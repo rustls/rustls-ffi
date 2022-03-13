@@ -16,6 +16,7 @@
 #undef errno
 #define errno WSAGetLastError()
 #define perror(str) fprintf(stderr, str ": %d.\n", WSAGetLastError())
+const char * ws_strerror(int err);
 #define strerror(e) ws_strerror(e)
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1 /* MinGW has this */
