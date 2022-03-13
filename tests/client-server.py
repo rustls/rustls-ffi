@@ -116,11 +116,11 @@ def main():
               .format(PORT))
         sys.exit(1)
 
-    server = run_server(server, valgrind, {})
+    server_popen = run_server(server, valgrind, {})
     wait_tcp_port(HOST, PORT)
     run_client_tests(client, valgrind)
-    server.kill()
-    server.wait()
+    server_popen.kill()
+    server_popen.wait()
 
     run_server(server, valgrind, {
         "VECTORED_IO": ""
