@@ -63,6 +63,36 @@ jobs:
       - run: rm "C:\msys64\usr\bin\link.exe"
       - run: make -f Makefile.Windows
 
+  test-windows-cmake-debug:
+    name: Windows CMake, Debug configuration
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Configure CMake
+        run: cmake -S . -B build
+      - name: Build, debug configuration
+        run: cmake --build build --config Debug
+      - name: Client-server test, debug
+        run: python tests/client-server.py build/tests/Debug/client.exe build/tests/Debug/server.exe
+      - name: Check static library list
+        run: python tests/verify-static-libraries.py
+
+  test-windows-cmake-release:
+    name: Windows CMake, Release configuration
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Configure CMake
+        run: cmake -S . -B build
+      - name: Build, release configuration
+        run: cmake --build build --config Release
+      - name: Client-server test, release
+        run: python tests/client-server.py build/tests/Release/client.exe build/tests/Release/server.exe
+
   ensure-header-updated:
     runs-on: ubuntu-latest
     steps:
