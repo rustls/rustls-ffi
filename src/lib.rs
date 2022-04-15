@@ -472,16 +472,6 @@ macro_rules! try_mut_from_ptr {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! null_check {
-    ( $var:ident ) => {
-        if $var.is_null() {
-            return crate::panic::NullParameterOrDefault::value();
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_box_from_ptr {
     ( $var:ident ) => {
         match crate::try_box_from($var) {

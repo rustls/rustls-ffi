@@ -16,8 +16,8 @@ use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 use crate::error::rustls_result;
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, null_check, try_mut_from_ptr, try_ref_from_ptr, try_slice, ArcCastPtr,
-    BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, ArcCastPtr, BoxCastPtr,
+    CastConstPtr, CastPtr,
 };
 use rustls_result::NullParameter;
 use std::ops::Deref;
@@ -47,8 +47,8 @@ impl rustls_certificate {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let cert = try_ref_from_ptr!(cert);
-            null_check!(out_der_data);
-            null_check!(out_der_len);
+            if out_der_data.is_null() { return NullParameter }
+            if out_der_len.is_null() { return NullParameter }
             let der = cert.as_ref();
             unsafe {
                 *out_der_data = der.as_ptr();

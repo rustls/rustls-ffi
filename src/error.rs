@@ -25,23 +25,18 @@ impl rustls_result {
         out_n: *mut size_t,
     ) {
         ffi_panic_boundary! {
-            let write_buf: &mut [u8] = unsafe {
-                let out_n: &mut size_t = match out_n.as_mut() {
-                    Some(out_n) => out_n,
-                    None => return,
-                };
-                *out_n = 0;
-                if buf.is_null() {
-                    return;
-                }
-                slice::from_raw_parts_mut(buf as *mut u8, len as usize)
-            };
+            if buf.is_null() {
+                return
+            }
+            if out_n.is_null() {
+                return
+            }
             let result: rustls_result = rustls_result::try_from(result).unwrap_or(rustls_result::InvalidParameter);
             let error_str = result.to_string();
-            let len: usize = min(write_buf.len() - 1, error_str.len());
-            write_buf[..len].copy_from_slice(&error_str.as_bytes()[..len]);
+            let out_len: usize = min(len - 1, error_str.len());
             unsafe {
-                *out_n = len;
+                std::ptr::copy_nonoverlapping(error_str.as_ptr() as *mut c_char, buf, out_len);
+                *out_n = out_len;
             }
         }
     }
