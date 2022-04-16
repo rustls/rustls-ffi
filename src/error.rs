@@ -1,4 +1,6 @@
-use std::{cmp::min, convert::TryFrom, fmt::Display, slice};
+use std::cmp::min;
+use std::convert::TryFrom;
+use std::fmt::Display;
 
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};

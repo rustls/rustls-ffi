@@ -12,7 +12,7 @@
 //! [You may also want to read the rustls-ffi README](https://github.com/rustls/rustls-ffi#rustls-ffi-bindings).
 
 use crate::rslice::rustls_str;
-use libc::{c_void, size_t};
+use libc::c_void;
 use std::cell::RefCell;
 use std::mem;
 use std::sync::Arc;
@@ -433,14 +433,6 @@ where
     F: ArcCastPtr<RustType = T>,
 {
     F::to_arc(from)
-}
-
-impl CastPtr for size_t {
-    type RustType = size_t;
-}
-
-impl CastPtr for *const u8 {
-    type RustType = *const u8;
 }
 
 /// If the provided pointer is non-null, convert it to a reference.
