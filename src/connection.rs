@@ -148,7 +148,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            if out_n.is_null() { return rustls_io_result(EINVAL) }
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
             let callback: ReadCallback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
