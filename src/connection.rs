@@ -516,8 +516,12 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let read_buf: &mut [std::mem::MaybeUninit<u8>] = try_mut_slice!(buf, count);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if buf.is_null() || out_n.is_null() {
+                return NullParameter
+            }
+            let read_buf: &mut [std::mem::MaybeUninit<u8>] = unsafe {
+                slice::from_raw_parts_mut(buf, count)
+            };
 
             let mut read_buf = std::io::ReadBuf::uninit(read_buf);
 
@@ -527,7 +531,9 @@ impl rustls_connection {
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
             };
-            *out_n = n_read;
+            unsafe {
+                *out_n = n_read;
+            }
             rustls_result::Ok
         }
     }
