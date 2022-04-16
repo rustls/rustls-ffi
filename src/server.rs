@@ -28,8 +28,8 @@ use crate::session::{
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_mut_slice,
-    try_ref_from_ptr, try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -371,7 +371,9 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let conn: &Connection = try_ref_from_ptr!(conn);
-        let write_buf: &mut [u8] = try_mut_slice!(buf, count);
+        if buf.is_null() {
+            return NullParameter
+        }
         if out_n.is_null() {
             return NullParameter
         }
@@ -386,12 +388,15 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
             },
         };
         let len: usize = sni_hostname.len();
-        if len > write_buf.len() {
+        if len > count {
+            unsafe {
+                *out_n = 0
+            }
             return rustls_result::InsufficientSize;
         }
-        write_buf[..len].copy_from_slice(sni_hostname.as_bytes());
         unsafe {
-        *out_n = len;
+            std::ptr::copy_nonoverlapping(sni_hostname.as_ptr(), buf, len);
+            *out_n = len;
         }
         rustls_result::Ok
     }

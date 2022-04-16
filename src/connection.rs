@@ -18,7 +18,7 @@ use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
     io::{rustls_read_callback, rustls_write_callback},
-    try_callback, try_mut_slice,
+    try_callback,
 };
 use crate::{ffi_panic_boundary, try_ref_from_ptr};
 use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
@@ -194,7 +194,7 @@ impl rustls_connection {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-            *out_n = n_written;
+                *out_n = n_written;
             }
 
             rustls_io_result(0)
@@ -231,7 +231,7 @@ impl rustls_connection {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-            *out_n = n_written;
+                *out_n = n_written;
             }
 
             rustls_io_result(0)
@@ -440,7 +440,7 @@ impl rustls_connection {
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
-            *out_n = n_written;
+                *out_n = n_written;
             }
             rustls_result::Ok
         }
@@ -467,10 +467,18 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let read_buf: &mut [u8] = try_mut_slice!(buf, count);
+            if buf.is_null() {
+                return NullParameter
+            }
             if out_n.is_null() {
                 return NullParameter
             }
+
+            // Safety: the memory pointed at by buf must be initialized
+            // (required by documentation of this function).
+            let read_buf: &mut [u8] = unsafe {
+                slice::from_raw_parts_mut(buf, count)
+            };
 
             let n_read: usize = match conn.reader().read(read_buf) {
                 Ok(n) => n,
@@ -479,7 +487,7 @@ impl rustls_connection {
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
-            *out_n = n_read;
+                *out_n = n_read;
             }
             rustls_result::Ok
         }
