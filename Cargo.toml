@@ -18,10 +18,11 @@ links = "rustls_ffi"
 # interfering with copies of the global logger brought in by other Rust
 # libraries.
 no_log_capture = []
+read_buf = ["rustls/read_buf"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.20.2", features = [ "dangerous_configuration" ] }
+rustls = { version = "=0.20.4", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
 sct = "0.7"

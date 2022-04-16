@@ -1007,6 +1007,28 @@ rustls_result rustls_connection_read(struct rustls_connection *conn,
                                      size_t count,
                                      size_t *out_n);
 
+#if defined(DEFINE_READ_BUF)
+/**
+ * Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
+ * On success, store the number of bytes read in *out_n (this may be less
+ * than `count`). A success with *out_n set to 0 means "all bytes currently
+ * available have been read, but more bytes may become available after
+ * subsequent calls to rustls_connection_read_tls and
+ * rustls_connection_process_new_packets."
+ *
+ * This experimental API is only available when using a nightly Rust compiler
+ * and enabling the `read_buf` Cargo feature. It will be deprecated and later
+ * removed in future versions.
+ *
+ * Unlike with `rustls_connection_read`, this function may be called with `buf`
+ * pointing to an uninitialized memory buffer.
+ */
+rustls_result rustls_connection_read_2(struct rustls_connection *conn,
+                                       uint8_t *buf,
+                                       size_t count,
+                                       size_t *out_n);
+#endif
+
 /**
  * Free a rustls_connection. Calling with NULL is fine.
  * Must not be called twice with the same value.
