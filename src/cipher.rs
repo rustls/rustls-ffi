@@ -1,4 +1,5 @@
 use libc::size_t;
+use std::convert::TryFrom;
 use std::io::Cursor;
 use std::ptr::null;
 use std::slice;
@@ -13,7 +14,7 @@ use rustls::{
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::rustls_result;
-use crate::rslice::rustls_slice_bytes;
+use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, ArcCastPtr, BoxCastPtr,
     CastConstPtr, CastPtr,
@@ -83,6 +84,22 @@ impl rustls_supported_ciphersuite {
     }
 }
 
+/// Returns the name of the ciphersuite as a `rustls_str`. If the provided
+/// ciphersuite is invalid, the rustls_str will contain the empty string. The
+/// lifetime of the `rustls_str` is the lifetime of the program, it does not
+/// need to be freed.
+#[no_mangle]
+pub extern "C" fn rustls_supported_ciphersuite_get_name(
+    supported_ciphersuite: *const rustls_supported_ciphersuite,
+) -> rustls_str<'static> {
+    let supported_ciphersuite = try_ref_from_ptr!(supported_ciphersuite);
+    let s = supported_ciphersuite.suite().as_str().unwrap_or("");
+    match rustls_str::try_from(s) {
+        Ok(s) => s,
+        Err(_) => rustls_str::from_str_unchecked(""),
+    }
+}
+
 /// Return the length of rustls' list of supported cipher suites.
 #[no_mangle]
 pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
@@ -128,7 +145,7 @@ pub extern "C" fn rustls_default_ciphersuites_get_entry(
 /// always be valid. The contents and order of this array may change between
 /// releases.
 #[no_mangle]
-static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
+pub static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
     &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
     &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
     &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
@@ -182,6 +199,8 @@ pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIP
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::slice;
+    use std::str;
 
     #[test]
     fn all_cipher_suites_arrays() {
@@ -208,6 +227,23 @@ mod tests {
             let ffi_cipher_suite = try_ref_from_ptr!(ffi);
             assert_eq!(original, ffi_cipher_suite);
         }
+    }
+
+    #[test]
+    fn ciphersuite_get_name() {
+        let suite = rustls_all_ciphersuites_get_entry(0);
+        let s = rustls_supported_ciphersuite_get_name(suite);
+        let want = "TLS13_AES_256_GCM_SHA384";
+        unsafe {
+            let got = str::from_utf8(slice::from_raw_parts(s.data as *const u8, s.len)).unwrap();
+            assert_eq!(want, got)
+        }
+    }
+
+    #[test]
+    fn test_all_ciphersuites_len() {
+        let len = rustls_all_ciphersuites_len();
+        assert!(len > 2);
     }
 }
 

@@ -460,6 +460,8 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  */
 typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
+
 extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
 
 extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
@@ -495,6 +497,14 @@ rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
  * The bytes from the assignment are interpreted in network order.
  */
 uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
+
+/**
+ * Returns the name of the ciphersuite as a `rustls_str`. If the provided
+ * ciphersuite is invalid, the rustls_str will contain the empty string. The
+ * lifetime of the `rustls_str` is the lifetime of the program, it does not
+ * need to be freed.
+ */
+struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
  * Return the length of rustls' list of supported cipher suites.
