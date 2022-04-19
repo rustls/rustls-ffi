@@ -47,11 +47,14 @@ impl rustls_certificate {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let cert = try_ref_from_ptr!(cert);
-            let out_der_data: &mut *const u8 = try_mut_from_ptr!(out_der_data);
-            let out_der_len: &mut size_t = try_mut_from_ptr!(out_der_len);
+            if out_der_data.is_null() || out_der_len.is_null() {
+                return NullParameter
+            }
             let der = cert.as_ref();
-            *out_der_data = der.as_ptr();
-            *out_der_len = der.len();
+            unsafe {
+                *out_der_data = der.as_ptr();
+                *out_der_len = der.len();
+            }
             rustls_result::Ok
         }
     }

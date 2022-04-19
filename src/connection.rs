@@ -2,7 +2,7 @@ use std::io::{ErrorKind, Read, Write};
 use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
-use libc::{size_t, EIO};
+use libc::{size_t, EINVAL, EIO};
 use rustls::{
     Certificate, ClientConnection, ServerConnection, SupportedCipherSuite, ALL_CIPHER_SUITES,
 };
@@ -18,7 +18,7 @@ use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
     io::{rustls_read_callback, rustls_write_callback},
-    try_callback, try_mut_slice,
+    try_callback,
 };
 use crate::{ffi_panic_boundary, try_ref_from_ptr};
 use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
@@ -148,7 +148,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
             let callback: ReadCallback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
@@ -156,7 +158,9 @@ impl rustls_connection {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
-            *out_n = n_read;
+            unsafe {
+                *out_n = n_read;
+            }
 
             rustls_io_result(0)
         }
@@ -181,7 +185,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
             let callback: WriteCallback = try_callback!(callback);
 
             let mut writer = CallbackWriter { callback, userdata };
@@ -189,7 +195,9 @@ impl rustls_connection {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
-            *out_n = n_written;
+            unsafe {
+                *out_n = n_written;
+            }
 
             rustls_io_result(0)
         }
@@ -214,7 +222,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
             let callback: VectoredWriteCallback = try_callback!(callback);
 
             let mut writer = VectoredCallbackWriter { callback, userdata };
@@ -222,7 +232,9 @@ impl rustls_connection {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
-            *out_n = n_written;
+            unsafe {
+                *out_n = n_written;
+            }
 
             rustls_io_result(0)
         }
@@ -345,14 +357,15 @@ impl rustls_connection {
     ) {
         ffi_panic_boundary! {
             let conn: &Connection = try_ref_from_ptr!(conn);
-            let protocol_out = try_mut_from_ptr!(protocol_out);
-            let protocol_out_len = try_mut_from_ptr!(protocol_out_len);
+            if protocol_out.is_null() || protocol_out_len.is_null() {
+                return
+            }
             match conn.alpn_protocol() {
-                Some(p) => {
+                Some(p) => unsafe {
                     *protocol_out = p.as_ptr();
                     *protocol_out_len = p.len();
                 },
-                None => {
+                None => unsafe {
                     *protocol_out = null();
                     *protocol_out_len = 0;
                 }
@@ -421,17 +434,16 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             let write_buf: &[u8] = try_slice!(buf, count);
-            let out_n: &mut size_t = unsafe {
-                match out_n.as_mut() {
-                    Some(out_n) => out_n,
-                    None => return NullParameter,
-                }
-            };
+            if out_n.is_null() {
+                return NullParameter
+            }
             let n_written: usize = match conn.writer().write(write_buf) {
                 Ok(n) => n,
                 Err(_) => return rustls_result::Io,
             };
-            *out_n = n_written;
+            unsafe {
+                *out_n = n_written;
+            }
             rustls_result::Ok
         }
     }
@@ -457,8 +469,18 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let read_buf: &mut [u8] = try_mut_slice!(buf, count);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if buf.is_null() {
+                return NullParameter
+            }
+            if out_n.is_null() {
+                return NullParameter
+            }
+
+            // Safety: the memory pointed at by buf must be initialized
+            // (required by documentation of this function).
+            let read_buf: &mut [u8] = unsafe {
+                slice::from_raw_parts_mut(buf, count)
+            };
 
             let n_read: usize = match conn.reader().read(read_buf) {
                 Ok(n) => n,
@@ -466,7 +488,9 @@ impl rustls_connection {
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
             };
-            *out_n = n_read;
+            unsafe {
+                *out_n = n_read;
+            }
             rustls_result::Ok
         }
     }
@@ -494,8 +518,12 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let read_buf: &mut [std::mem::MaybeUninit<u8>] = try_mut_slice!(buf, count);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if buf.is_null() || out_n.is_null() {
+                return NullParameter
+            }
+            let read_buf: &mut [std::mem::MaybeUninit<u8>] = unsafe {
+                slice::from_raw_parts_mut(buf, count)
+            };
 
             let mut read_buf = std::io::ReadBuf::uninit(read_buf);
 
@@ -505,7 +533,9 @@ impl rustls_connection {
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
             };
-            *out_n = n_read;
+            unsafe {
+                *out_n = n_read;
+            }
             rustls_result::Ok
         }
     }

@@ -28,8 +28,8 @@ use crate::session::{
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_mut_slice,
-    try_ref_from_ptr, try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -371,8 +371,12 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let conn: &Connection = try_ref_from_ptr!(conn);
-        let write_buf: &mut [u8] = try_mut_slice!(buf, count);
-        let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+        if buf.is_null() {
+            return NullParameter
+        }
+        if out_n.is_null() {
+            return NullParameter
+        }
         let server_connection = match conn.as_server() {
             Some(s) => s,
             _ => return rustls_result::InvalidParameter,
@@ -384,11 +388,16 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
             },
         };
         let len: usize = sni_hostname.len();
-        if len > write_buf.len() {
+        if len > count {
+            unsafe {
+                *out_n = 0
+            }
             return rustls_result::InsufficientSize;
         }
-        write_buf[..len].copy_from_slice(sni_hostname.as_bytes());
-        *out_n = len;
+        unsafe {
+            std::ptr::copy_nonoverlapping(sni_hostname.as_ptr(), buf, len);
+            *out_n = len;
+        }
         rustls_result::Ok
     }
 }
@@ -625,17 +634,16 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
     ffi_panic_boundary! {
         let hello = try_ref_from_ptr!(hello);
         let schemes: Vec<SignatureScheme> = sigschemes(try_slice!(hello.signature_schemes.data, hello.signature_schemes.len));
-        let out_key: &mut *const rustls_certified_key = unsafe {
-            match out_key.as_mut() {
-                Some(out_key) => out_key,
-                None => return NullParameter,
-            }
-        };
+        if out_key.is_null() {
+            return NullParameter
+        }
         let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
             let key_ref: &CertifiedKey = try_ref_from_ptr!(key_ptr);
             if key_ref.key.choose_scheme(&schemes).is_some() {
-                *out_key = key_ptr;
+                unsafe {
+                    *out_key = key_ptr;
+                }
                 return rustls_result::Ok;
             }
         }
