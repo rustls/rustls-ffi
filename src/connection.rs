@@ -471,6 +471,45 @@ impl rustls_connection {
         }
     }
 
+    /// Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
+    /// On success, store the number of bytes read in *out_n (this may be less
+    /// than `count`). A success with *out_n set to 0 means "all bytes currently
+    /// available have been read, but more bytes may become available after
+    /// subsequent calls to rustls_connection_read_tls and
+    /// rustls_connection_process_new_packets."
+    ///
+    /// This experimental API is only available when using a nightly Rust compiler
+    /// and enabling the `read_buf` Cargo feature. It will be deprecated and later
+    /// removed in future versions.
+    ///
+    /// Unlike with `rustls_connection_read`, this function may be called with `buf`
+    /// pointing to an uninitialized memory buffer.
+    #[cfg(feature = "read_buf")]
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_read_2(
+        conn: *mut rustls_connection,
+        buf: *mut std::mem::MaybeUninit<u8>,
+        count: size_t,
+        out_n: *mut size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let read_buf: &mut [std::mem::MaybeUninit<u8>] = try_mut_slice!(buf, count);
+            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+
+            let mut read_buf = std::io::ReadBuf::uninit(read_buf);
+
+            let n_read: usize = match conn.reader().read_buf(&mut read_buf) {
+                Ok(()) => read_buf.filled_len(),
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
+                Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
+                Err(_) => return rustls_result::Io,
+            };
+            *out_n = n_read;
+            rustls_result::Ok
+        }
+    }
+
     /// Free a rustls_connection. Calling with NULL is fine.
     /// Must not be called twice with the same value.
     #[no_mangle]

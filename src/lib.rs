@@ -1,6 +1,7 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![cfg_attr(feature = "read_buf", feature(read_buf))]
 
 //! This package contains bindings for using rustls via a C API. If
 //! you're looking at this on docs.rs, [you may want the rustls docs

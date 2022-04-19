@@ -470,6 +470,22 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  */
 typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
 
+extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
+
+extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
+
+extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
+
+extern const size_t RUSTLS_DEFAULT_CIPHER_SUITES_LEN;
+
+extern const uint16_t RUSTLS_ALL_VERSIONS[2];
+
+extern const size_t RUSTLS_ALL_VERSIONS_LEN;
+
+extern const uint16_t RUSTLS_DEFAULT_VERSIONS[2];
+
+extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
+
 /**
  * Returns a static string containing the rustls-ffi version as well as the
  * rustls version. The string is alive for the lifetime of the program and does
@@ -563,6 +579,14 @@ rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
  * The bytes from the assignment are interpreted in network order.
  */
 uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
+
+/**
+ * Returns the name of the ciphersuite as a `rustls_str`. If the provided
+ * ciphersuite is invalid, the rustls_str will contain the empty string. The
+ * lifetime of the `rustls_str` is the lifetime of the program, it does not
+ * need to be freed.
+ */
+struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
  * Return the length of rustls' list of supported cipher suites.
@@ -730,12 +754,14 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * resulting rustls_client_config. Specify cipher suites in preference
  * order; the `cipher_suites` parameter must point to an array containing
  * `len` pointers to `rustls_supported_ciphersuite` previously obtained
- * from `rustls_all_ciphersuites_get_entry()`. Set the TLS protocol
- * versions to use when negotiating a TLS session.
+ * from `rustls_all_ciphersuites_get_entry()`, or to a provided array,
+ * RUSTLS_DEFAULT_CIPHER_SUITES or RUSTLS_ALL_CIPHER_SUITES. Set the TLS
+ * protocol versions to use when negotiating a TLS session.
  *
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
- * `rustls_tls_version` for convenience.
+ * `rustls_tls_version` for convenience, and the arrays
+ * RUSTLS_DEFAULT_VERSIONS or RUSTLS_ALL_VERSIONS can be used directly.
  *
  * `versions` will only be used during the call and the application retains
  * ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
@@ -1062,6 +1088,28 @@ rustls_result rustls_connection_read(struct rustls_connection *conn,
                                      uint8_t *buf,
                                      size_t count,
                                      size_t *out_n);
+
+#if defined(DEFINE_READ_BUF)
+/**
+ * Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
+ * On success, store the number of bytes read in *out_n (this may be less
+ * than `count`). A success with *out_n set to 0 means "all bytes currently
+ * available have been read, but more bytes may become available after
+ * subsequent calls to rustls_connection_read_tls and
+ * rustls_connection_process_new_packets."
+ *
+ * This experimental API is only available when using a nightly Rust compiler
+ * and enabling the `read_buf` Cargo feature. It will be deprecated and later
+ * removed in future versions.
+ *
+ * Unlike with `rustls_connection_read`, this function may be called with `buf`
+ * pointing to an uninitialized memory buffer.
+ */
+rustls_result rustls_connection_read_2(struct rustls_connection *conn,
+                                       uint8_t *buf,
+                                       size_t count,
+                                       size_t *out_n);
+#endif
 
 /**
  * Free a rustls_connection. Calling with NULL is fine.

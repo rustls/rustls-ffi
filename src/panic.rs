@@ -1,9 +1,7 @@
 use libc::EINVAL;
 
-use crate::{
-    error::{rustls_io_result, rustls_result},
-    rslice::{rustls_slice_bytes, rustls_slice_u16, rustls_str},
-};
+use crate::error::{rustls_io_result, rustls_result};
+use crate::rslice::{rustls_slice_bytes, rustls_slice_u16, rustls_str};
 
 use std::ptr::{null, null_mut};
 
