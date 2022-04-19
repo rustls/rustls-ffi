@@ -190,7 +190,7 @@ impl<'a> Default for rustls_str<'a> {
 }
 
 /// rustls_str represents a string that can be passed to C code. The string
-/// should not have any internal null bytes and is not null terminated. C code
+/// should not have any internal NUL bytes and is not NUL terminated. C code
 /// should not create rustls_str objects, they should only be created in Rust
 /// code.
 impl<'a> rustls_str<'a> {
@@ -200,6 +200,20 @@ impl<'a> rustls_str<'a> {
             len: s.len(),
             phantom: PhantomData,
         }
+    }
+
+    /// Change a rustls_str's lifetime to 'static. This doesn't actually change
+    /// how long the pointed-to data lives, but is necessary when returning a
+    /// rustls_str (as opposed to passing it into a callback), because Rust
+    /// can't figure out the "real" lifetime.
+    /// Safety: The caller is responsible for requiring (usually via
+    /// documentation) that nothing uses the resulting rustls_str past its
+    /// actual validity period. The validity period is somewhat ill-defined
+    /// at present, but the Stacked Borrows experiment provides one definition,
+    /// by which a shared reference is valid until a mutable reference (to
+    /// the object or a parent object) is created.
+    pub unsafe fn into_static(self) -> rustls_str<'static> {
+        std::mem::transmute(self)
     }
 }
 

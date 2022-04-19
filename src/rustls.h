@@ -98,6 +98,11 @@ typedef enum rustls_tls_version {
 } rustls_tls_version;
 
 /**
+ * rustls_accepted is ...
+ */
+typedef struct rustls_accepted rustls_accepted;
+
+/**
  * rustls_acceptor is used to read bytes from client connections before building
  * a rustls_connection. Once enough bytes have been read, it allows access to the
  * server name, signature schemes, and ALPN protocols from the ClientHello.
@@ -276,24 +281,6 @@ typedef int rustls_io_result;
 typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
 
 /**
- * A read-only view on a Rust slice of 16-bit integers in platform endianness.
- *
- * This is used to pass data from rustls-ffi to callback functions provided
- * by the user of the API.
- * `len` indicates the number of bytes than can be safely read.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_slice_u16 {
-  const uint16_t *data;
-  size_t len;
-} rustls_slice_u16;
-
-/**
  * A read-only view on a Rust byte slice.
  *
  * This is used to pass data from rustls-ffi to callback functions provided
@@ -375,6 +362,24 @@ typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const
  * Any context information the callback will receive when invoked.
  */
 typedef void *rustls_client_hello_userdata;
+
+/**
+ * A read-only view on a Rust slice of 16-bit integers in platform endianness.
+ *
+ * This is used to pass data from rustls-ffi to callback functions provided
+ * by the user of the API.
+ * `len` indicates the number of bytes than can be safely read.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_slice_u16 {
+  const uint16_t *data;
+  size_t len;
+} rustls_slice_u16;
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
@@ -527,41 +532,39 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * Process any TLS bytes read into this object so far. If a full ClientHello has
  * not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
  * keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
- * which means:
- *  - rustls_acceptor_server_name(), rustls_acceptor_signature_schemes(), and
- *    rustls_acceptor_alpn() can be called, and
- *  - rustls_acceptor_into_connection() can be called.
+ * which means that a pointer to a *rustls_accepted has been written to *out_accepted.
  */
-rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor);
+rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
+                                     struct rustls_accepted **out_accepted);
 
 /**
  * Return the server name indication (SNI) from a ClientHello read by this
- * rustls_acceptor. If the acceptor is not ready, or the SNI contains a NUL
- * byte, return a zero-length rustls_str.
+ * rustls_accepted. If the SNI contains a NUL byte, return a zero-length
+ * rustls_str.
  */
-struct rustls_str rustls_acceptor_server_name(const struct rustls_acceptor *acceptor);
+struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
 /**
- * Return the list of signature schemes the client is able to process.
+ * Return the i'th in the list of signature schemes the client is able to process.
  * This is useful in selecting a server certificate when there are multiple
  * available for the same server name. For instance, it is useful in selecting
- * between an RSA and an ECDSA certificate.
- * If the acceptor is not ready, return a zero-length rustls_slice_u16.
+ * between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
+ * the list.
  */
-struct rustls_slice_u16 rustls_acceptor_signature_schemes(const struct rustls_acceptor *acceptor);
+uint16_t rustls_acceptor_signature_scheme(const struct rustls_accepted *accepted, size_t i);
 
 /**
- * Return the i'th ALPN protocol requested by the client. If the acceptor is not ready,
- * or the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
+ * Return the i'th ALPN protocol requested by the client.
+ * If the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
  */
-struct rustls_slice_bytes rustls_acceptor_alpn(const struct rustls_acceptor *acceptor, size_t i);
+struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *accepted, size_t i);
 
 /**
- * Turn a rustls_acceptor into a rustls_connection, give the provided
- * rustls_server_config. This consumes the rustls_acceptor, whether it suceeds
- * or not, so don't call rustls_acceptor_free after this.
+ * Turn a rustls_accepted into a rustls_connection, given the provided
+ * rustls_server_config. This consumes the rustls_accepted, whether it suceeds
+ * or not, so don't call rustls_accepted_free after this.
  */
-rustls_result rustls_acceptor_into_connection(struct rustls_acceptor *acceptor,
+rustls_result rustls_acceptor_into_connection(struct rustls_accepted *accepted,
                                               const struct rustls_server_config *config,
                                               struct rustls_connection **conn);
 

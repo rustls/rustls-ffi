@@ -8,7 +8,7 @@ use rustls::ServerConfig;
 use crate::connection::rustls_connection;
 use crate::error::{map_error, rustls_io_result};
 use crate::io::{rustls_read_callback, CallbackReader, ReadCallback};
-use crate::rslice::{rustls_slice_bytes, rustls_slice_u16, rustls_str};
+use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
     ffi_panic_boundary, rustls_result, try_arc_from_ptr, try_box_from_ptr, try_callback,
@@ -148,34 +148,39 @@ pub extern "C" fn rustls_acceptor_accept(
 pub extern "C" fn rustls_accepted_server_name(
     accepted: *const rustls_accepted,
 ) -> rustls_str<'static> {
-    // XXX static is the wrong lifetime
     ffi_panic_boundary! {
         let accepted: &Accepted = try_ref_from_ptr!(accepted);
-        let sni = match accepted.client_hello().server_name() {
+        let hello = accepted.client_hello();
+        let sni = match hello.server_name() {
             Some(s) => s,
             None => return Default::default(),
         };
         match rustls_str::try_from(sni) {
-            Ok(s) => s,
+            Ok(s) => unsafe { s.into_static() },
             Err(_) => Default::default(),
         }
     }
 }
 
-/// Return the list of signature schemes the client is able to process.
+/// Return the i'th in the list of signature schemes the client is able to process.
 /// This is useful in selecting a server certificate when there are multiple
 /// available for the same server name. For instance, it is useful in selecting
-/// between an RSA and an ECDSA certificate.
+/// between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
+/// the list.
 #[no_mangle]
-pub extern "C" fn rustls_acceptor_signature_schemes(
+pub extern "C" fn rustls_acceptor_signature_scheme(
     accepted: *const rustls_accepted,
-) -> rustls_slice_u16<'static> {
-    // XXX static is the wrong lifetime
+    i: usize,
+) -> u16 {
     ffi_panic_boundary! {
         let accepted = try_ref_from_ptr!(accepted);
-        let _signature_schemes: &[rustls::SignatureScheme] = accepted.client_hello().signature_schemes().as_ref();
-        // signature_schemes.into()
-        todo!()
+        let hello = accepted.client_hello();
+        let signature_schemes = hello.signature_schemes();
+        if i < signature_schemes.len() {
+            signature_schemes[i].get_u16()
+        } else {
+            0
+        }
     }
 }
 
@@ -186,7 +191,6 @@ pub extern "C" fn rustls_accepted_alpn(
     accepted: *const rustls_accepted,
     i: usize,
 ) -> rustls_slice_bytes<'static> {
-    // XXX static is the wrong lifetime
     ffi_panic_boundary! {
         let accepted: &Accepted = try_ref_from_ptr!(accepted);
         let mut alpn_iter = match accepted.client_hello().alpn() {
