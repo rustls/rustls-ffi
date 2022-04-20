@@ -162,13 +162,13 @@ pub extern "C" fn rustls_accepted_server_name(
     }
 }
 
-/// Return the i'th in the list of signature schemes the client is able to process.
+/// Return the i'th in the list of signature schemes offered in the ClientHello.
 /// This is useful in selecting a server certificate when there are multiple
 /// available for the same server name. For instance, it is useful in selecting
 /// between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
 /// the list.
 #[no_mangle]
-pub extern "C" fn rustls_acceptor_signature_scheme(
+pub extern "C" fn rustls_accepted_signature_scheme(
     accepted: *const rustls_accepted,
     i: usize,
 ) -> u16 {
@@ -209,7 +209,7 @@ pub extern "C" fn rustls_accepted_alpn(
 /// rustls_server_config. This consumes the rustls_accepted, whether it suceeds
 /// or not, so don't call rustls_accepted_free after this.
 #[no_mangle]
-pub extern "C" fn rustls_acceptor_into_connection(
+pub extern "C" fn rustls_accepted_into_connection(
     accepted: *mut rustls_accepted,
     config: *const rustls_server_config,
     conn: *mut *mut rustls_connection,
@@ -225,5 +225,33 @@ pub extern "C" fn rustls_acceptor_into_connection(
             },
             Err(e) => map_error(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ptr::null_mut;
+
+    use super::*;
+
+    #[test]
+    fn test_acceptor_new() {
+        let mut acceptor: *mut rustls_acceptor = null_mut();
+        let result = rustls_acceptor_new(&mut acceptor);
+        assert!(matches!(result, rustls_result::Ok));
+
+        rustls_acceptor_free(acceptor);
+    }
+
+    #[test]
+    fn test_acceptor() {
+        let mut acceptor: *mut rustls_acceptor = null_mut();
+        let result = rustls_acceptor_new(&mut acceptor);
+        assert!(matches!(result, rustls_result::Ok));
+        assert!(rustls_acceptor_wants_read(acceptor));
+
+        let result = rustls_acceptor_read_tls(acceptor, read_callback, null_mut(), &mut n);
+
+        rustls_acceptor_free(acceptor);
     }
 }
