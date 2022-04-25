@@ -254,7 +254,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_acceptor_new() {
+    fn test_acceptor_new_and_free() {
         let mut acceptor: *mut rustls_acceptor = null_mut();
         let result = rustls_acceptor::rustls_acceptor_new(&mut acceptor);
         assert!(matches!(result, rustls_result::Ok));
@@ -383,6 +383,15 @@ mod tests {
         let result = rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted);
         assert_eq!(result, rustls_result::Ok);
         assert_ne!(accepted, null_mut());
+
+        let sni = rustls_accepted::rustls_accepted_server_name(accepted);
+        let sni_as_slice = unsafe { std::slice::from_raw_parts(sni.data as *const u8, sni.len) };
+        let sni_as_str = std::str::from_utf8(sni_as_slice).unwrap_or("%!(ERROR)");
+        assert_eq!(sni_as_str, "example.com");
+
+        // TODO: check signature schemes
+        // TODO: check alpn
+
         rustls_acceptor::rustls_acceptor_free(acceptor);
         rustls_accepted::rustls_accepted_free(accepted);
     }
