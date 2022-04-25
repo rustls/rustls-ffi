@@ -10,6 +10,7 @@ use rustls::Error;
 /// error numbers for your operating system - for example, the integers for
 /// ETIMEDOUT, EAGAIN, or similar.
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
 
 impl rustls_result {
@@ -119,7 +120,7 @@ fn test_rustls_result_is_cert_error() {
 
 #[allow(dead_code)]
 #[repr(u32)]
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, Clone, Copy, PartialEq, Eq)]
 pub enum rustls_result {
     Ok = 7000,
     Io = 7001,
