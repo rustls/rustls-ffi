@@ -230,7 +230,7 @@ pub extern "C" fn rustls_accepted_into_connection(
 
 #[cfg(test)]
 mod tests {
-    use std::ptr::null_mut;
+    use std::{cmp::min, collections::VecDeque, ptr::null_mut};
 
     use super::*;
 
@@ -243,15 +243,84 @@ mod tests {
         rustls_acceptor_free(acceptor);
     }
 
-    #[test]
-    fn test_acceptor() {
+    fn make_acceptor() -> *mut rustls_acceptor {
         let mut acceptor: *mut rustls_acceptor = null_mut();
         let result = rustls_acceptor_new(&mut acceptor);
         assert!(matches!(result, rustls_result::Ok));
-        assert!(rustls_acceptor_wants_read(acceptor));
+        acceptor
+    }
 
-        let result = rustls_acceptor_read_tls(acceptor, read_callback, null_mut(), &mut n);
+    unsafe extern "C" fn vecdeque_read(
+        userdata: *mut c_void,
+        buf: *mut u8,
+        n: usize,
+        out_n: *mut usize,
+    ) -> rustls_io_result {
+        let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
+        (*vecdeq).make_contiguous();
+        let first: &[u8] = (*vecdeq).as_slices().0;
+        let n = min(n, first.len());
+        std::ptr::copy_nonoverlapping(first.as_ptr(), buf, n);
+        (*vecdeq).drain(0..n).count();
+        *out_n = n;
+        rustls_io_result(0)
+    }
 
+    // Send junk data to a rustls_acceptor, expect CorruptMessage from accept().
+    #[test]
+    fn test_acceptor_corrupt_message() {
+        let acceptor = make_acceptor();
+
+        let mut accepted: *mut rustls_accepted = null_mut();
+        let mut n: usize = 0;
+        let mut data = VecDeque::from([0u8; 1024]);
+        let result = rustls_acceptor_read_tls(
+            acceptor,
+            Some(vecdeque_read),
+            &mut data as *mut _ as *mut _,
+            &mut n,
+        );
+        assert!(matches!(result, rustls_io_result(0)));
+        assert_eq!(data.len(), 0);
+        assert_eq!(n, 1024);
+
+        let result = rustls_acceptor_accept(acceptor, &mut accepted);
+        if !matches!(result, rustls_result::CorruptMessage) {
+            panic!(
+                "acceptor_accept(): expected CorruptMessage, got {:?}",
+                result
+            );
+        }
+        assert_eq!(accepted, null_mut());
+        rustls_acceptor_free(acceptor);
+    }
+
+    // Send a real ClientHello to acceptor, expect success
+    #[test]
+    fn test_acceptor_success() {
+        let acceptor = make_acceptor();
+
+        let mut accepted: *mut rustls_accepted = null_mut();
+        let mut n: usize = 0;
+        let mut data = VecDeque::from([0u8; 1024]);
+        let result = rustls_acceptor_read_tls(
+            acceptor,
+            Some(vecdeque_read),
+            &mut data as *mut _ as *mut _,
+            &mut n,
+        );
+        assert!(matches!(result, rustls_io_result(0)));
+        assert_eq!(data.len(), 0);
+        assert_eq!(n, 1024);
+
+        let result = rustls_acceptor_accept(acceptor, &mut accepted);
+        if !matches!(result, rustls_result::CorruptMessage) {
+            panic!(
+                "acceptor_accept(): expected CorruptMessage, got {:?}",
+                result
+            );
+        }
+        assert_eq!(accepted, null_mut());
         rustls_acceptor_free(acceptor);
     }
 }
