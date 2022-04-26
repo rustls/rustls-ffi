@@ -243,13 +243,15 @@ impl rustls_accepted {
 mod tests {
     use std::cmp::min;
     use std::collections::VecDeque;
-    use std::ptr::null_mut;
+    use std::ptr::{null, null_mut};
     use std::slice;
 
     use libc::c_char;
 
+    use crate::cipher::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
     use crate::connection::rustls_connection;
+    use crate::server::rustls_server_config_builder;
 
     use super::*;
 
@@ -370,6 +372,32 @@ mod tests {
         buf
     }
 
+    fn make_server_config() -> *const rustls_server_config {
+        let builder: *mut rustls_server_config_builder =
+            rustls_server_config_builder::rustls_server_config_builder_new();
+        let cert_pem = include_str!("../testdata/example.com/cert.pem").as_bytes();
+        let key_pem = include_str!("../testdata/example.com/key.pem").as_bytes();
+        let mut certified_key: *const rustls_certified_key = null();
+        let result = rustls_certified_key::rustls_certified_key_build(
+            cert_pem.as_ptr(),
+            cert_pem.len(),
+            key_pem.as_ptr(),
+            key_pem.len(),
+            &mut certified_key,
+        );
+        assert_eq!(result, rustls_result::Ok);
+        let result = rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+            builder,
+            &certified_key,
+            1,
+        );
+        assert_eq!(result, rustls_result::Ok);
+
+        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
+        assert_ne!(config, null());
+        config
+    }
+
     // Send a real ClientHello to acceptor, expect success
     #[test]
     fn test_acceptor_success() {
@@ -407,6 +435,7 @@ mod tests {
             }
             signature_schemes.push(s);
         }
+        // Sort to ensure consistent comparison
         signature_schemes.sort();
         assert_eq!(
             &signature_schemes,
@@ -429,7 +458,18 @@ mod tests {
         assert_eq!(alpn0, "zarp".as_bytes());
         assert_eq!(alpn1, "yuun".as_bytes());
 
+        let server_config = make_server_config();
+        let mut conn: *mut rustls_connection = null_mut();
+        let result =
+            rustls_accepted::rustls_accepted_into_connection(accepted, server_config, &mut conn);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!rustls_connection::rustls_connection_wants_read(conn));
+        assert!(rustls_connection::rustls_connection_wants_write(conn));
+        assert!(rustls_connection::rustls_connection_is_handshaking(conn));
+
         rustls_acceptor::rustls_acceptor_free(acceptor);
-        rustls_accepted::rustls_accepted_free(accepted);
+        // TODO: This is a double free because "into" consumes the Accepted
+        // rustls_accepted::rustls_accepted_free(accepted);
+        rustls_connection::rustls_connection_free(conn);
     }
 }
