@@ -16,13 +16,13 @@ use crate::{
 };
 use rustls_result::NullParameter;
 
-/// This struct allows a server to read and parse ClientHello bytes before
-/// choosing a *const rustls_server_config. It's useful when choosing a server
-/// config based on parameters in the ClientHello: server name indication
-/// (SNI), ALPN protocols, and supported signature schemes. In particular, if
-/// a server wants to some potentially expensive work to load a certificate for
-/// a given hostname, rustls_acceptor allows doing that asynchronously, as
-/// opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
+/// A buffer and parsers for ClientHello bytes. This allows reading ClientHello
+/// before choosing a *const rustls_server_config. It's useful when the server
+/// config will be based on parameters in the ClientHello: server name
+/// indication (SNI), ALPN protocols, and supported signature schemes. In
+/// particular, if a server wants to some potentially expensive work to load a
+/// certificate for a given hostname, rustls_acceptor allows doing that asynchronously,
+/// as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
 /// work well for asynchronous I/O.
 ///
 /// The general workflow is:
@@ -51,9 +51,10 @@ impl CastPtr for rustls_acceptor {
 
 impl BoxCastPtr for rustls_acceptor {}
 
-/// rustls_accepted represents a parsed ClientHello produced by a
-/// rustls_acceptor. It is used to check server name indication (SNI),
-/// ALPN protocols, and signature schemes.
+/// A parsed ClientHello produced by a rustls_acceptor. It is used to check
+/// server name indication (SNI), ALPN protocols, and signature schemes.
+/// It can be combined with a rustls_server_config to build a
+/// rustls_connection.
 pub struct rustls_accepted {
     _private: [u8; 0],
 }
@@ -179,7 +180,7 @@ impl rustls_accepted {
     /// rustls_accepted. If the SNI contains a NUL byte, return a zero-length
     /// rustls_str. Also return a zero-length rustls_str if there was some other
     /// usage error, like calling with a NULL pointer or with an already-used
-    /// *rustls_accepted.
+    /// rustls_accepted.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_server_name(
         accepted: *const rustls_accepted,
@@ -207,7 +208,7 @@ impl rustls_accepted {
     /// available for the same server name. For instance, it is useful in selecting
     /// between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
     /// the list or on a usage error, like calling with a NULL pointer or an
-    /// already-used *rustls_accepted.
+    /// already-used rustls_accepted.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_signature_scheme(
         accepted: *const rustls_accepted,
