@@ -33,7 +33,6 @@ impl Defaultable for bool {}
 impl Defaultable for () {}
 impl<T> Defaultable for Option<T> {}
 
-impl<'a> Defaultable for rustls_str<'a> {}
 impl<'a> Defaultable for rustls_slice_bytes<'a> {}
 
 impl<T: Defaultable> PanicOrDefault for T {
@@ -57,6 +56,12 @@ impl<T> PanicOrDefault for *const T {
 impl PanicOrDefault for rustls_result {
     fn value() -> Self {
         rustls_result::Panic
+    }
+}
+
+impl<'a> PanicOrDefault for rustls_str<'a> {
+    fn value() -> Self {
+        rustls_str::from_str_unchecked("")
     }
 }
 
@@ -93,6 +98,12 @@ impl NullParameterOrDefault for rustls_result {
 impl NullParameterOrDefault for rustls_io_result {
     fn value() -> Self {
         rustls_io_result(EINVAL)
+    }
+}
+
+impl<'a> NullParameterOrDefault for rustls_str<'a> {
+    fn value() -> Self {
+        rustls_str::from_str_unchecked("")
     }
 }
 
