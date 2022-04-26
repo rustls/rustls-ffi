@@ -26,12 +26,10 @@ pub struct rustls_slice_bytes<'a> {
     phantom: PhantomData<&'a [u8]>,
 }
 
-const EMPTY_ARRAY_BYTES: [u8; 0] = [0; 0];
-
 impl<'a> Default for rustls_slice_bytes<'a> {
     fn default() -> rustls_slice_bytes<'a> {
         Self {
-            data: &EMPTY_ARRAY_BYTES as *const u8,
+            data: &[0u8; 0] as *const u8,
             len: 0,
             phantom: PhantomData,
         }

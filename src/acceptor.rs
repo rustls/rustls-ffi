@@ -16,11 +16,31 @@ use crate::{
 };
 use rustls_result::NullParameter;
 
-/// rustls_acceptor is used to read bytes from client connections before building
-/// a rustls_connection. Once enough bytes have been read, it allows access to the
-/// server name, signature schemes, and ALPN protocols from the ClientHello.
-/// Those can be used to build or select an appropriate rustls_server_config, and build
-/// a rustls_connection using it.
+/// This struct allows a server to read and parse ClientHello bytes before
+/// choosing a *const rustls_server_config. It's useful when choosing a server
+/// config based on parameters in the ClientHello: server name indication
+/// (SNI), ALPN protocols, and supported signature schemes. In particular, if
+/// a server wants to some potentially expensive work to load a certificate for
+/// a given hostname, rustls_acceptor allows doing that asynchronously, as
+/// opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
+/// work well for asynchronous I/O.
+///
+/// The general workflow is:
+///  - rustls_acceptor_new()
+///  - While rustls_acceptor_wants_read():
+///    - Read bytes from the network it with rustls_acceptor_read_tls().
+///    - If successful, parse those bytes with rustls_acceptor_accept().
+///    - If that returns RUSTLS_RESULT_NOT_READY, continue.
+///    - Otherwise, break.
+///
+/// If the loop concluded with RUSTLS_RESULT_OK, rustls_acceptor_accept()
+/// has generated a rustls_accepted (note -ed vs -or). Use that to check the
+/// server name, signature schemes, and ALPN protocols from the client
+/// hello, then create or choose a *config rustls_server_config and use
+/// that to build a *rustls_connection.
+///
+/// If the loop concluded with another error, there was a problem with the
+/// ClientHello data and the connection should be rejected.
 pub struct rustls_acceptor {
     _private: [u8; 0],
 }
@@ -31,7 +51,9 @@ impl CastPtr for rustls_acceptor {
 
 impl BoxCastPtr for rustls_acceptor {}
 
-/// rustls_accepted is ...
+/// rustls_accepted represents a parsed ClientHello produced by a
+/// rustls_acceptor. It is used to check server name indication (SNI),
+/// ALPN protocols, and signature schemes.
 pub struct rustls_accepted {
     _private: [u8; 0],
 }
@@ -43,36 +65,17 @@ impl CastPtr for rustls_accepted {
 impl BoxCastPtr for rustls_accepted {}
 
 impl rustls_acceptor {
-    /// Create a new rustls_acceptor. This struct allows a server to read
-    /// and parse ClientHello bytes before choosing a *const rustls_server_config.
-    /// It's useful when choosing a server config based on parameters in the
-    /// ClientHello: server name, ALPN protocols, and supported signature
-    /// schemes. In particular, if a server wants to some potentially expensive
-    /// work to load a certificate for a given hostname, rustls_acceptor allows
-    /// doing that asynchronously, as opposed to
-    /// rustls_server_config_builder_set_hello_callback(), which doesn't work
-    /// well for asynchronous I/O.
+    /// Create a new rustls_acceptor.
     ///
-    /// Once created:
-    ///  - While rustls_acceptor_wants_read():
-    ///  - Read bytes from the network it with rustls_acceptor_read_tls().
-    ///  - If successful, parse those bytes with rustls_acceptor_accept().
-    ///  - If that returns RUSTLS_RESULT_NOT_READY, continue.
-    ///  - Otherwise, break.
-    ///
-    /// If the loop concluded with RUSTLS_RESULT_OK, you will also have a new
-    /// *rustls_accepted in hand (note -ed vs -or). Use that to check the
-    /// server name, signature schemes, and ALPN protocols from the client
-    /// hello, then create or choose a *config rustls_server_config and use
-    /// that to build a *rustls_connection.
-    ///
-    /// If the loop concluded with another error, there was a problem with the
-    /// ClientHello data and the connection should be rejected.
+    /// This can be combined at most once with a rustls_server_config to
+    /// produce a rustls_connection.
     ///
     /// Caller owns the pointed-to memory and must eventually free it with
     /// rustls_acceptor_free().
     #[no_mangle]
-    extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> rustls_result {
+    pub extern "C" fn rustls_acceptor_new(
+        acceptor_out: *mut *mut rustls_acceptor,
+    ) -> rustls_result {
         ffi_panic_boundary! {
             match Acceptor::new() {
                 Ok(acceptor) => {
@@ -93,8 +96,8 @@ impl rustls_acceptor {
         }
     }
 
-    /// Check if this acceptor wants additional TLS bytes read into it. If this returns true,
-    /// you should call rustls_acceptor_read_tls().
+    /// Check if this rustls_acceptor wants additional TLS bytes read into it.
+    /// If this returns true, you should call rustls_acceptor_read_tls().
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_wants_read(acceptor: *const rustls_acceptor) -> bool {
         ffi_panic_boundary! {
@@ -110,6 +113,7 @@ impl rustls_acceptor {
     /// The `userdata` parameter is passed through directly to `callback`. Note that
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
+    ///
     /// Returns 0 for success, or an errno value on error. Passes through return values
     /// from callback. See rustls_read_callback for more details.
     /// If this returns success, you should call rustls_acceptor_accept().
@@ -138,13 +142,16 @@ impl rustls_acceptor {
         }
     }
 
-    /// Process any TLS bytes read into this object so far. If a full ClientHello has
-    /// not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
-    /// keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
-    /// which means that a pointer to a *rustls_accepted has been written to *out_accepted.
-    /// If the bytes so far are not an acceptable ClientHello
-    /// The caller owns the pointed-to memory and must eventually free it with
-    /// rustls_accepted_free()
+    /// Attempt to parse all TLS bytes read so far. Returns:
+    ///
+    /// - RUSTLS_RESULT_NOT_READY: a full ClientHello has not yet been read.
+    ///   Read more TLS bytes to continue.
+    /// - RUSTLS_RESULT_OK: a ClientHello has successfully been read.
+    ///   A pointer to a newly allocated *rustls_accepted has been written to
+    ///   *out_accepted. The caller owns the pointed-to memory and must
+    ///   eventually free it with rustls_accepted_free().
+    /// - Any other rustls_result: the TLS bytes read so far cannot be parsed
+    ///   as a ClientHello, and reading additional bytes won't help.
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_accept(
         acceptor: *mut rustls_acceptor,
