@@ -280,6 +280,18 @@ impl rustls_certified_key {
     /// the original caller has called `rustls_certified_key_free`, other objects
     /// may retain a pointer to the object. The memory will be freed when all
     /// references are gone.
+    ///
+    /// This function does not take ownership of any of its input pointers. It
+    /// parses the pointed-to data and makes a copy of the result. You may
+    /// free the cert_chain and private_key pointers after calling it.
+    ///
+    /// Typically, you will build a `rustls_certified_key`, use it to create a
+    /// `rustls_server_config` (which increments the reference count), and then
+    /// immediately call `rustls_certified_key_free`. That leaves the
+    /// `rustls_server_config` in posession of the sole reference, so the
+    /// `rustls_certified_key`'s memory will automatically be released when
+    /// the `rustls_server_config` is freed.
+    ///
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_build(
         cert_chain: *const u8,

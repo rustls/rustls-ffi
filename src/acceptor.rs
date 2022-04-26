@@ -11,8 +11,8 @@ use crate::io::{rustls_read_callback, CallbackReader, ReadCallback};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
-    ffi_panic_boundary, rustls_result, try_arc_from_ptr, try_box_from_ptr, try_callback,
-    try_mut_from_ptr, try_ref_from_ptr, BoxCastPtr, CastPtr,
+    ffi_panic_boundary, rustls_result, try_arc_from_ptr, try_callback, try_mut_from_ptr,
+    try_ref_from_ptr, BoxCastPtr, CastPtr,
 };
 use rustls_result::NullParameter;
 
@@ -37,18 +37,39 @@ pub struct rustls_accepted {
 }
 
 impl CastPtr for rustls_accepted {
-    type RustType = Accepted;
+    type RustType = Option<Accepted>;
 }
 
 impl BoxCastPtr for rustls_accepted {}
 
 impl rustls_acceptor {
-    /// Create a new rustls_acceptor. Once created, read bytes into it with rustls_acceptor_read_tls(),
-    /// and after each read check rustls_acceptor_accept(). Once that returns RUSTLS_RESULT_OK,
-    /// check the server name, signature schemes, and ALPN. Use those to build or select an appropriate
-    /// rustls_server_config, then call rustls_acceptor_into_connection().
+    /// Create a new rustls_acceptor. This struct allows a server to read
+    /// and parse ClientHello bytes before choosing a *const rustls_server_config.
+    /// It's useful when choosing a server config based on parameters in the
+    /// ClientHello: server name, ALPN protocols, and supported signature
+    /// schemes. In particular, if a server wants to some potentially expensive
+    /// work to load a certificate for a given hostname, rustls_acceptor allows
+    /// doing that asynchronously, as opposed to
+    /// rustls_server_config_builder_set_hello_callback(), which doesn't work
+    /// well for asynchronous I/O.
     ///
-    /// If there's an error, or you decide to abandon this connection, free this with
+    /// Once created:
+    ///  - While rustls_acceptor_wants_read():
+    ///  - Read bytes from the network it with rustls_acceptor_read_tls().
+    ///  - If successful, parse those bytes with rustls_acceptor_accept().
+    ///  - If that returns RUSTLS_RESULT_NOT_READY, continue.
+    ///  - Otherwise, break.
+    ///
+    /// If the loop concluded with RUSTLS_RESULT_OK, you will also have a new
+    /// *rustls_accepted in hand (note -ed vs -or). Use that to check the
+    /// server name, signature schemes, and ALPN protocols from the client
+    /// hello, then create or choose a *config rustls_server_config and use
+    /// that to build a *rustls_connection.
+    ///
+    /// If the loop concluded with another error, there was a problem with the
+    /// ClientHello data and the connection should be rejected.
+    ///
+    /// Caller owns the pointed-to memory and must eventually free it with
     /// rustls_acceptor_free().
     #[no_mangle]
     extern "C" fn rustls_acceptor_new(acceptor_out: *mut *mut rustls_acceptor) -> rustls_result {
@@ -63,8 +84,8 @@ impl rustls_acceptor {
         }
     }
 
-    /// Free a rustls_acceptor. Don't call this on a rustls_acceptor you've previously called
-    /// rustls_acceptor_into_connection() on.
+    /// Free a rustls_acceptor. Calling with NULL is fine.
+    /// Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_free(acceptor: *mut rustls_acceptor) {
         ffi_panic_boundary! {
@@ -121,6 +142,9 @@ impl rustls_acceptor {
     /// not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
     /// keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
     /// which means that a pointer to a *rustls_accepted has been written to *out_accepted.
+    /// If the bytes so far are not an acceptable ClientHello
+    /// The caller owns the pointed-to memory and must eventually free it with
+    /// rustls_accepted_free()
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_accept(
         acceptor: *mut rustls_acceptor,
@@ -135,7 +159,7 @@ impl rustls_acceptor {
                 Ok(None) => rustls_result::NotReady,
                 Err(e) => map_error(e),
                 Ok(Some(accepted)) => {
-                    BoxCastPtr::set_mut_ptr(out_accepted, accepted);
+                    BoxCastPtr::set_mut_ptr(out_accepted, Some(accepted));
                     rustls_result::Ok
                 }
             }
@@ -146,13 +170,19 @@ impl rustls_acceptor {
 impl rustls_accepted {
     /// Return the server name indication (SNI) from a ClientHello read by this
     /// rustls_accepted. If the SNI contains a NUL byte, return a zero-length
-    /// rustls_str.
+    /// rustls_str. Also return a zero-length rustls_str if there was some other
+    /// usage error, like calling with a NULL pointer or with an already-used
+    /// *rustls_accepted.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_server_name(
         accepted: *const rustls_accepted,
     ) -> rustls_str<'static> {
         ffi_panic_boundary! {
-            let accepted: &Accepted = try_ref_from_ptr!(accepted);
+            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = match accepted {
+                Some(a) => a,
+                None => return Default::default(),
+            };
             let hello = accepted.client_hello();
             let sni = match hello.server_name() {
                 Some(s) => s,
@@ -169,14 +199,19 @@ impl rustls_accepted {
     /// This is useful in selecting a server certificate when there are multiple
     /// available for the same server name. For instance, it is useful in selecting
     /// between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
-    /// the list.
+    /// the list or on a usage error, like calling with a NULL pointer or an
+    /// already-used *rustls_accepted.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_signature_scheme(
         accepted: *const rustls_accepted,
         i: usize,
     ) -> u16 {
         ffi_panic_boundary! {
-            let accepted = try_ref_from_ptr!(accepted);
+            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = match accepted {
+                Some(a) => a,
+                None => return Default::default(),
+            };
             let hello = accepted.client_hello();
             let signature_schemes = hello.signature_schemes();
             if i < signature_schemes.len() {
@@ -195,7 +230,11 @@ impl rustls_accepted {
         i: usize,
     ) -> rustls_slice_bytes<'static> {
         ffi_panic_boundary! {
-            let accepted: &Accepted = try_ref_from_ptr!(accepted);
+            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = match accepted {
+                Some(a) => a,
+                None => return Default::default(),
+            };
             let mut alpn_iter = match accepted.client_hello().alpn() {
                 Some(iter) => iter,
                 None => return Default::default(),
@@ -209,8 +248,9 @@ impl rustls_accepted {
     }
 
     /// Turn a rustls_accepted into a rustls_connection, given the provided
-    /// rustls_server_config. This consumes the rustls_accepted, whether it suceeds
-    /// or not, so don't call rustls_accepted_free after this.
+    /// rustls_server_config. This consumes the contents of the rustls_accepted,
+    /// whether it succeeds or not, so calling accessor methods will fail after
+    /// this. Call rustls_accepted_free after this.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_into_connection(
         accepted: *mut rustls_accepted,
@@ -218,7 +258,11 @@ impl rustls_accepted {
         conn: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let accepted: Box<Accepted> = try_box_from_ptr!(accepted);
+            let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
+            let accepted = match accepted.take() {
+                Some(a) => a,
+                None => return rustls_result::AlreadyUsed,
+            };
             let config: Arc<ServerConfig> = try_arc_from_ptr!(config);
             match accepted.into_connection(config) {
                 Ok(built) => {
@@ -231,6 +275,8 @@ impl rustls_accepted {
         }
     }
 
+    /// Free a rustls_accepted. Calling with NULL is fine.
+    /// Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_free(accepted: *mut rustls_accepted) {
         ffi_panic_boundary! {
@@ -320,17 +366,12 @@ mod tests {
         assert_eq!(n, 1024);
 
         let result = rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted);
-        if !matches!(result, rustls_result::CorruptMessage) {
-            panic!(
-                "acceptor_accept(): expected CorruptMessage, got {:?}",
-                result
-            );
-        }
+        assert_eq!(result, rustls_result::CorruptMessage);
         assert_eq!(accepted, null_mut());
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
 
-    // Generate the bytes of a Client Hello for example.com. Helper function.
+    // Generate the bytes of a ClientHello for example.com. Helper function.
     fn client_hello_bytes() -> VecDeque<u8> {
         type ccb = rustls_client_config_builder;
         type conn = rustls_connection;
@@ -353,9 +394,7 @@ mod tests {
             "example.com\0".as_ptr() as *const c_char,
             &mut client_conn,
         );
-        if !matches!(result, rustls_result::Ok) {
-            panic!("expected rustls_result::Ok, got {:?}", result);
-        }
+        assert_eq!(result, rustls_result::Ok);
         assert_ne!(client_conn, null_mut());
 
         let mut buf = VecDeque::<u8>::new();
@@ -392,6 +431,7 @@ mod tests {
             1,
         );
         assert_eq!(result, rustls_result::Ok);
+        rustls_certified_key::rustls_certified_key_free(certified_key);
 
         let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
         assert_ne!(config, null());
@@ -468,8 +508,8 @@ mod tests {
         assert!(rustls_connection::rustls_connection_is_handshaking(conn));
 
         rustls_acceptor::rustls_acceptor_free(acceptor);
-        // TODO: This is a double free because "into" consumes the Accepted
-        // rustls_accepted::rustls_accepted_free(accepted);
+        rustls_accepted::rustls_accepted_free(accepted);
         rustls_connection::rustls_connection_free(conn);
+        rustls_server_config::rustls_server_config_free(server_config);
     }
 }
