@@ -333,6 +333,16 @@ mod tests {
         type ccb = rustls_client_config_builder;
         type conn = rustls_connection;
         let builder = ccb::rustls_client_config_builder_new();
+        let protocols: Vec<Vec<u8>> = vec!["zarp".into(), "yuun".into()];
+        let mut protocols_slices: Vec<rustls_slice_bytes> = vec![];
+        for p in &protocols {
+            protocols_slices.push(p.as_slice().into());
+        }
+        ccb::rustls_client_config_builder_set_alpn_protocols(
+            builder,
+            protocols_slices.as_slice().as_ptr(),
+            protocols_slices.len(),
+        );
 
         let config = ccb::rustls_client_config_builder_build(builder);
         let mut client_conn: *mut conn = null_mut();
@@ -389,8 +399,35 @@ mod tests {
         let sni_as_str = std::str::from_utf8(sni_as_slice).unwrap_or("%!(ERROR)");
         assert_eq!(sni_as_str, "example.com");
 
-        // TODO: check signature schemes
-        // TODO: check alpn
+        let mut signature_schemes: Vec<u16> = vec![];
+        for i in 0.. {
+            let s = rustls_accepted::rustls_accepted_signature_scheme(accepted, i);
+            if s == 0 {
+                break;
+            }
+            signature_schemes.push(s);
+        }
+        signature_schemes.sort();
+        assert_eq!(
+            &signature_schemes,
+            &[1025, 1027, 1281, 1283, 1537, 2052, 2053, 2054, 2055]
+        );
+
+        let mut alpn: Vec<rustls_slice_bytes> = vec![];
+        for i in 0.. {
+            let a = rustls_accepted::rustls_accepted_alpn(accepted, i);
+            if a.len == 0 {
+                break;
+            }
+            alpn.push(a);
+        }
+
+        assert_eq!(alpn.len(), 2);
+        // No need to sort ALPN because order is determine by what the client sent.
+        let alpn0 = unsafe { std::slice::from_raw_parts(alpn[0].data, alpn[0].len) };
+        let alpn1 = unsafe { std::slice::from_raw_parts(alpn[1].data, alpn[1].len) };
+        assert_eq!(alpn0, "zarp".as_bytes());
+        assert_eq!(alpn1, "yuun".as_bytes());
 
         rustls_acceptor::rustls_acceptor_free(acceptor);
         rustls_accepted::rustls_accepted_free(accepted);
