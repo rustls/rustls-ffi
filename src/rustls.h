@@ -21,6 +21,7 @@ enum rustls_result {
   RUSTLS_RESULT_UNEXPECTED_EOF = 7010,
   RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
   RUSTLS_RESULT_NOT_READY = 7012,
+  RUSTLS_RESULT_ALREADY_USED = 7013,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -499,8 +500,8 @@ extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
 struct rustls_str rustls_version(void);
 
 /**
- * Free a rustls_acceptor. Don't call this on a rustls_acceptor you've previously called
- * rustls_acceptor_into_connection() on.
+ * Free a rustls_acceptor. Calling with NULL is fine.
+ * Must not be called twice with the same value.
  */
 void rustls_acceptor_free(struct rustls_acceptor *acceptor);
 
@@ -533,6 +534,9 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * not yet been read, return RUSTLS_RESULT_NOT_READY, which means the caller can
  * keep trying. If a ClientHello has successfully been read, return RUSTLS_RESULT_OK,
  * which means that a pointer to a *rustls_accepted has been written to *out_accepted.
+ * If the bytes so far are not an acceptable ClientHello
+ * The caller owns the pointed-to memory and must eventually free it with
+ * rustls_accepted_free()
  */
 rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
                                      struct rustls_accepted **out_accepted);
@@ -540,18 +544,21 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
 /**
  * Return the server name indication (SNI) from a ClientHello read by this
  * rustls_accepted. If the SNI contains a NUL byte, return a zero-length
- * rustls_str.
+ * rustls_str. Also return a zero-length rustls_str if there was some other
+ * usage error, like calling with a NULL pointer or with an already-used
+ * *rustls_accepted.
  */
 struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
 /**
- * Return the i'th in the list of signature schemes the client is able to process.
+ * Return the i'th in the list of signature schemes offered in the ClientHello.
  * This is useful in selecting a server certificate when there are multiple
  * available for the same server name. For instance, it is useful in selecting
  * between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
- * the list.
+ * the list or on a usage error, like calling with a NULL pointer or an
+ * already-used *rustls_accepted.
  */
-uint16_t rustls_acceptor_signature_scheme(const struct rustls_accepted *accepted, size_t i);
+uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted, size_t i);
 
 /**
  * Return the i'th ALPN protocol requested by the client.
@@ -561,12 +568,19 @@ struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *acc
 
 /**
  * Turn a rustls_accepted into a rustls_connection, given the provided
- * rustls_server_config. This consumes the rustls_accepted, whether it suceeds
- * or not, so don't call rustls_accepted_free after this.
+ * rustls_server_config. This consumes the contents of the rustls_accepted,
+ * whether it succeeds or not, so calling accessor methods will fail after
+ * this. Call rustls_accepted_free after this.
  */
-rustls_result rustls_acceptor_into_connection(struct rustls_accepted *accepted,
+rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
                                               const struct rustls_server_config *config,
                                               struct rustls_connection **conn);
+
+/**
+ * Free a rustls_accepted. Calling with NULL is fine.
+ * Must not be called twice with the same value.
+ */
+void rustls_accepted_free(struct rustls_accepted *accepted);
 
 /**
  * Get the DER data of the certificate itself.
@@ -633,6 +647,18 @@ const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry
  * the original caller has called `rustls_certified_key_free`, other objects
  * may retain a pointer to the object. The memory will be freed when all
  * references are gone.
+ *
+ * This function does not take ownership of any of its input pointers. It
+ * parses the pointed-to data and makes a copy of the result. You may
+ * free the cert_chain and private_key pointers after calling it.
+ *
+ * Typically, you will build a `rustls_certified_key`, use it to create a
+ * `rustls_server_config` (which increments the reference count), and then
+ * immediately call `rustls_certified_key_free`. That leaves the
+ * `rustls_server_config` in posession of the sole reference, so the
+ * `rustls_certified_key`'s memory will automatically be released when
+ * the `rustls_server_config` is freed.
+ *
  */
 rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                          size_t cert_chain_len,
