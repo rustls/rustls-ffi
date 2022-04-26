@@ -118,11 +118,6 @@ pub extern "C" fn rustls_slice_slice_bytes_get(
     }
 }
 
-impl<'a> From<&'a Vec<&'a [u8]>> for rustls_slice_slice_bytes<'a> {
-    fn from(s: &'a Vec<&'a [u8]>) -> rustls_slice_slice_bytes<'a> {
-        rustls_slice_slice_bytes { inner: &*s }
-    }
-}
 #[test]
 fn test_rustls_slice_slice_bytes() {
     let many_bytes: Vec<&[u8]> = vec![b"abcd", b"", b"xyz"];
@@ -377,16 +372,6 @@ pub struct rustls_slice_u16<'a> {
     pub data: *const u16,
     pub len: size_t,
     phantom: PhantomData<&'a [u16]>,
-}
-
-impl<'a> Default for rustls_slice_u16<'a> {
-    fn default() -> Self {
-        Self {
-            data: null(),
-            len: 0,
-            phantom: PhantomData,
-        }
-    }
 }
 
 impl<'a> From<&'a [u16]> for rustls_slice_u16<'a> {

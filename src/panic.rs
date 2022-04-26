@@ -1,7 +1,7 @@
 use libc::EINVAL;
 
 use crate::error::{rustls_io_result, rustls_result};
-use crate::rslice::{rustls_slice_bytes, rustls_slice_u16, rustls_str};
+use crate::rslice::{rustls_slice_bytes, rustls_str};
 
 use std::ptr::{null, null_mut};
 
@@ -35,7 +35,6 @@ impl<T> Defaultable for Option<T> {}
 
 impl<'a> Defaultable for rustls_str<'a> {}
 impl<'a> Defaultable for rustls_slice_bytes<'a> {}
-impl<'a> Defaultable for rustls_slice_u16<'a> {}
 
 impl<T: Defaultable> PanicOrDefault for T {
     fn value() -> Self {

@@ -210,7 +210,7 @@ impl rustls_accepted {
             let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
-                None => return Default::default(),
+                None => return 0,
             };
             let hello = accepted.client_hello();
             let signature_schemes = hello.signature_schemes();
