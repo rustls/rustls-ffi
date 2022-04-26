@@ -107,11 +107,11 @@ typedef enum rustls_tls_version {
 typedef struct rustls_accepted rustls_accepted;
 
 /**
- * A buffer and parsers for ClientHello bytes. This allows reading ClientHello
- * before choosing a *const rustls_server_config. It's useful when the server
+ * A buffer and parser for ClientHello bytes. This allows reading ClientHello
+ * before choosing a rustls_server_config. It's useful when the server
  * config will be based on parameters in the ClientHello: server name
  * indication (SNI), ALPN protocols, and supported signature schemes. In
- * particular, if a server wants to some potentially expensive work to load a
+ * particular, if a server wants to do some potentially expensive work to load a
  * certificate for a given hostname, rustls_acceptor allows doing that asynchronously,
  * as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
  * work well for asynchronous I/O.
@@ -126,9 +126,8 @@ typedef struct rustls_accepted rustls_accepted;
  *
  * If the loop concluded with RUSTLS_RESULT_OK, rustls_acceptor_accept()
  * has generated a rustls_accepted (note -ed vs -or). Use that to check the
- * server name, signature schemes, and ALPN protocols from the client
- * hello, then create or choose a *config rustls_server_config and use
- * that to build a *rustls_connection.
+ * parameters from the ClientHello, then create or choose a
+ * rustls_server_config and use that to build a rustls_connection.
  *
  * If the loop concluded with another error, there was a problem with the
  * ClientHello data and the connection should be rejected.
@@ -525,7 +524,7 @@ struct rustls_str rustls_version(void);
 /**
  * Create a new rustls_acceptor.
  *
- * This can be combined at most once with a rustls_server_config to
+ * This can be combined once with a rustls_server_config to
  * produce a rustls_connection.
  *
  * Caller owns the pointed-to memory and must eventually free it with
@@ -557,7 +556,6 @@ bool rustls_acceptor_wants_read(const struct rustls_acceptor *acceptor);
  * Returns 0 for success, or an errno value on error. Passes through return values
  * from callback. See rustls_read_callback for more details.
  * If this returns success, you should call rustls_acceptor_accept().
- * <https://docs.rs/rustls/0.20.0/rustls/enum.Connection.html#method.read_tls>
  */
 rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
                                           rustls_read_callback callback,
@@ -565,7 +563,7 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
                                           size_t *out_n);
 
 /**
- * Attempt to parse all TLS bytes read so far. Returns:
+ * Parse all TLS bytes read so far. Returns:
  *
  * - RUSTLS_RESULT_NOT_READY: a full ClientHello has not yet been read.
  *   Read more TLS bytes to continue.
@@ -580,9 +578,9 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
                                      struct rustls_accepted **out_accepted);
 
 /**
- * Return the server name indication (SNI) from a ClientHello read by this
- * rustls_accepted. If the SNI contains a NUL byte, return a zero-length
- * rustls_str. Also return a zero-length rustls_str if there was some other
+ * Return the server name indication (SNI) from the ClientHello.
+ * If the SNI contains a NUL byte, return a zero-length/ rustls_str.
+ * Also return a zero-length rustls_str if there was some other
  * usage error, like calling with a NULL pointer or with an already-used
  * rustls_accepted.
  */
@@ -591,7 +589,7 @@ struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *acce
 /**
  * Return the i'th in the list of signature schemes offered in the ClientHello.
  * This is useful in selecting a server certificate when there are multiple
- * available for the same server name. For instance, it is useful in selecting
+ * available for the same server name, for instance when selecting
  * between an RSA and an ECDSA certificate. Returns 0 if i is past the end of
  * the list or on a usage error, like calling with a NULL pointer or an
  * already-used rustls_accepted.
@@ -599,8 +597,10 @@ struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *acce
 uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted, size_t i);
 
 /**
- * Return the i'th ALPN protocol requested by the client.
+ * Return the i'th ALPN protocol requested by the client in the ClientHello.
  * If the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
+ * Also return a zero-length rustls_slice_bytes on a usage error, like
+ * calling with a NULL pointer or an already-used rustls_accepted.
  */
 struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *accepted, size_t i);
 
@@ -685,18 +685,6 @@ const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry
  * the original caller has called `rustls_certified_key_free`, other objects
  * may retain a pointer to the object. The memory will be freed when all
  * references are gone.
- *
- * This function does not take ownership of any of its input pointers. It
- * parses the pointed-to data and makes a copy of the result. You may
- * free the cert_chain and private_key pointers after calling it.
- *
- * Typically, you will build a `rustls_certified_key`, use it to create a
- * `rustls_server_config` (which increments the reference count), and then
- * immediately call `rustls_certified_key_free`. That leaves the
- * `rustls_server_config` in posession of the sole reference, so the
- * `rustls_certified_key`'s memory will automatically be released when
- * the `rustls_server_config` is freed.
- *
  */
 rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                          size_t cert_chain_len,
