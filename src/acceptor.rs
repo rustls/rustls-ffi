@@ -361,7 +361,10 @@ mod tests {
 
         let mut accepted: *mut rustls_accepted = null_mut();
         let mut n: usize = 0;
-        let mut data = VecDeque::from([0u8; 1024]);
+        let mut data = VecDeque::new();
+        for i in 0..1024 {
+            data.push_back(0u8);
+        }
         let result = rustls_acceptor::rustls_acceptor_read_tls(
             acceptor,
             Some(vecdeque_read),
