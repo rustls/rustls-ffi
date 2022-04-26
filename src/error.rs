@@ -307,7 +307,7 @@ impl Display for rustls_result {
         CertInvalidData => write!(f, "invalid certificate data found"),
         UnexpectedEof => write!(f,  "unexpected EOF"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
-        NotReady => write!(f, "acceptor not ready"),
+        NotReady => write!(f, "rustls_acceptor not ready yet; read more TLS bytes into it"),
         AlreadyUsed => write!(f, "tried to use a rustls struct after it had been converted to another struct"),
 
         // These variants correspond to a rustls::Error variant with a field,
