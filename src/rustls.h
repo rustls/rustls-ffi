@@ -607,7 +607,7 @@ struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *acc
  * Turn a rustls_accepted into a rustls_connection, given the provided
  * rustls_server_config. This consumes the contents of the rustls_accepted,
  * whether it succeeds or not, so calling accessor methods will fail after
- * this. Call rustls_accepted_free after this.
+ * this. Call rustls_accepted_free() after this.
  */
 rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
                                               const struct rustls_server_config *config,

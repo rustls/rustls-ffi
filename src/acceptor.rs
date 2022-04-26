@@ -256,7 +256,7 @@ impl rustls_accepted {
     /// Turn a rustls_accepted into a rustls_connection, given the provided
     /// rustls_server_config. This consumes the contents of the rustls_accepted,
     /// whether it succeeds or not, so calling accessor methods will fail after
-    /// this. Call rustls_accepted_free after this.
+    /// this. Call rustls_accepted_free() after this.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_into_connection(
         accepted: *mut rustls_accepted,
