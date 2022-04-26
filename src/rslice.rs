@@ -206,7 +206,10 @@ impl<'a> rustls_str<'a> {
     /// how long the pointed-to data lives, but is necessary when returning a
     /// rustls_str (as opposed to passing it into a callback), because Rust
     /// can't figure out the "real" lifetime.
-    /// Safety: The caller is responsible for requiring (usually via
+    ///
+    /// # Safety
+    ///
+    /// The caller is responsible for requiring (usually via
     /// documentation) that nothing uses the resulting rustls_str past its
     /// actual validity period. The validity period is somewhat ill-defined
     /// at present, but the Stacked Borrows experiment provides one definition,

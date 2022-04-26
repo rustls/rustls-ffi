@@ -239,8 +239,7 @@ impl rustls_accepted {
                 Some(iter) => iter,
                 None => return Default::default(),
             };
-            let alpn: Option<&[u8]> = alpn_iter.nth(i).map(|v| v.as_ref());
-            match alpn {
+            match alpn_iter.nth(i) {
                 Some(slice_bytes) => slice_bytes.into(),
                 None => rustls_slice_bytes::default(),
             }
