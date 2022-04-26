@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
-use libc::{c_void, size_t, EIO};
+use libc::{c_void, size_t, EINVAL, EIO};
 use rustls::server::{Accepted, Acceptor};
 use rustls::ServerConfig;
 
@@ -126,7 +126,9 @@ impl rustls_acceptor {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
-            let out_n: &mut size_t = try_mut_from_ptr!(out_n);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL);
+            }
             let callback: ReadCallback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
@@ -135,7 +137,9 @@ impl rustls_acceptor {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
-            *out_n = n_read;
+            unsafe {
+                *out_n = n_read;
+            }
 
             rustls_io_result(0)
         }
