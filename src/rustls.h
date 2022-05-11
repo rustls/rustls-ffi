@@ -556,7 +556,7 @@ const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry
  * Typically, you will build a `rustls_certified_key`, use it to create a
  * `rustls_server_config` (which increments the reference count), and then
  * immediately call `rustls_certified_key_free`. That leaves the
- * `rustls_server_config` in posession of the sole reference, so the
+ * `rustls_server_config` in possession of the sole reference, so the
  * `rustls_certified_key`'s memory will automatically be released when
  * the `rustls_server_config` is freed.
  */
