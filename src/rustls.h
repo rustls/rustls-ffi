@@ -579,10 +579,12 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
 
 /**
  * Return the server name indication (SNI) from the ClientHello.
- * If the SNI contains a NUL byte, return a zero-length/ rustls_str.
+ * If the SNI contains a NUL byte, return a zero-length rustls_str.
  * Also return a zero-length rustls_str if there was some other
  * usage error, like calling with a NULL pointer or with an already-used
- * rustls_accepted.
+ * rustls_accepted. The returned rustls_str is valid until the next
+ * time a method is called on the `rustls_accepted`. It is not owned
+ * by the caller and does not need to be freed.
  */
 struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
@@ -601,6 +603,9 @@ uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted
  * If the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
  * Also return a zero-length rustls_slice_bytes on a usage error, like
  * calling with a NULL pointer or an already-used rustls_accepted.
+ * The returned rustls_slice_bytes is valid until the next
+ * time a method is called on the `rustls_accepted`. It is not owned
+ * by the caller and does not need to be freed.
  */
 struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *accepted, size_t i);
 

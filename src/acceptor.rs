@@ -179,10 +179,12 @@ impl rustls_acceptor {
 
 impl rustls_accepted {
     /// Return the server name indication (SNI) from the ClientHello.
-    /// If the SNI contains a NUL byte, return a zero-length/ rustls_str.
+    /// If the SNI contains a NUL byte, return a zero-length rustls_str.
     /// Also return a zero-length rustls_str if there was some other
     /// usage error, like calling with a NULL pointer or with an already-used
-    /// rustls_accepted.
+    /// rustls_accepted. The returned rustls_str is valid until the next
+    /// time a method is called on the `rustls_accepted`. It is not owned
+    /// by the caller and does not need to be freed.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_server_name(
         accepted: *const rustls_accepted,
@@ -236,6 +238,9 @@ impl rustls_accepted {
     /// If the client did not offer the ALPN extension, return a zero-length rustls_slice_bytes.
     /// Also return a zero-length rustls_slice_bytes on a usage error, like
     /// calling with a NULL pointer or an already-used rustls_accepted.
+    /// The returned rustls_slice_bytes is valid until the next
+    /// time a method is called on the `rustls_accepted`. It is not owned
+    /// by the caller and does not need to be freed.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_alpn(
         accepted: *const rustls_accepted,
