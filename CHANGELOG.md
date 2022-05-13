@@ -1,19 +1,33 @@
 # Changelog
 
-## 0.9.0 (unreleased)
+## 0.9.0 (2022-05-12)
 
-### Changed
+### Added
+
+ - Add ciphersuite and version arrays (#242).
+ - Add method to get ciphersuite name (#147).
+ - Add static libs on Windows (#249).
+ - Added arrays ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES, ALL_VERSIONS, and
+   DEFAULT_VERSIONS as more convenient alternatives to
+   rustls_default_ciphersuites_get_entry(), etc.
+ - Add CMake build system (with Windows support) (#253).
+ - Add feature for early testing of feature(read_buf) (#248).
+
+
+### Fixed
 
  - rustls_is_cert_error now returns true for invalid certificate data
    (this was broken by v0.8.0). It also takes unsigned int as its input
    parameter instead of rustls_result (#227).
+ - Avoid creating references to out params (#256).
+
+### Changed
+
  - rustls_verify_server_cert_callback now returns uint32_t instead of
    rustls_result (#227).
  - rustls_session_store_get_callback and rustls_session_store_put_callback now
    return uint32_t (#227).
- - Added arrays ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES, ALL_VERSIONS, and
-   DEFAULT_VERSIONS as more convenient alternatives to
-   rustls_default_ciphersuites_get_entry(), etc.
+ - Update rustls dependency to 0.20.4.
 
 ## 0.8.2 (2021-11-13)
 
