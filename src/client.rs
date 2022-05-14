@@ -2,6 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::BufReader;
+use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -47,7 +48,7 @@ pub(crate) struct ClientConfigBuilder {
 }
 
 impl CastPtr for rustls_client_config_builder {
-    type RustType = ClientConfigBuilder;
+    type RustType = Option<ClientConfigBuilder>;
 }
 
 impl BoxCastPtr for rustls_client_config_builder {}
@@ -96,13 +97,13 @@ impl rustls_client_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
-            let builder = ClientConfigBuilder {
+            let builder = Some(ClientConfigBuilder {
                 base: rustls::ClientConfig::builder().with_safe_defaults(),
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],
                 enable_sni: true,
-            };
+            });
             BoxCastPtr::to_mut_ptr(builder)
         }
     }
@@ -158,13 +159,13 @@ impl rustls_client_config_builder {
                 Ok(new) => new,
                 Err(_) => return rustls_result::InvalidParameter,
             };
-            let config_builder = ClientConfigBuilder {
+            let config_builder = Some(ClientConfigBuilder {
                 base,
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],
                 enable_sni: true,
-            };
+            });
 
             BoxCastPtr::set_mut_ptr(builder_out, config_builder);
             rustls_result::Ok
@@ -300,18 +301,22 @@ impl rustls_client_config_builder {
     /// <https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
-        config_builder: *mut rustls_client_config_builder,
+        builder: *mut rustls_client_config_builder,
         callback: rustls_verify_server_cert_callback,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config_builder = try_mut_from_ptr!(config_builder);
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return rustls_result::AlreadyUsed,
+            };
             let callback: VerifyCallback = match callback {
                 Some(cb) => cb,
                 None => return rustls_result::InvalidParameter,
             };
 
             let verifier: Verifier = Verifier{callback};
-            config_builder.verifier = Arc::new(verifier);
+            builder.verifier = Arc::new(verifier);
             rustls_result::Ok
         }
     }
@@ -324,11 +329,15 @@ impl rustls_client_config_builder {
     /// those will subtract 1 from the refcount for `roots`.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_use_roots(
-        config_builder: *mut rustls_client_config_builder,
+        builder: *mut rustls_client_config_builder,
         roots: *const rustls_root_cert_store,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let builder = try_mut_from_ptr!(config_builder);
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return rustls_result::AlreadyUsed,
+            };
             let root_store: &RootCertStore = try_ref_from_ptr!(roots);
             builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(root_store.clone(), None));
             rustls_result::Ok
@@ -339,11 +348,15 @@ impl rustls_client_config_builder {
     /// PEM-formatted certificates.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
-        config_builder: *mut rustls_client_config_builder,
+        builder: *mut rustls_client_config_builder,
         filename: *const c_char,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config_builder = try_mut_from_ptr!(config_builder);
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return rustls_result::AlreadyUsed,
+            };
             let filename: &CStr = unsafe {
                 if filename.is_null() {
                     return rustls_result::NullParameter;
@@ -374,7 +387,7 @@ impl rustls_client_config_builder {
                 return rustls_result::CertificateParseError;
             }
 
-            config_builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(roots, None));
+            builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(roots, None));
             rustls_result::Ok
         }
     }
@@ -397,7 +410,11 @@ impl rustls_client_config_builder {
         len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return rustls_result::AlreadyUsed,
+            };
             let protocols: &[rustls_slice_bytes] = try_slice!(protocols, len);
 
             let mut vv: Vec<Vec<u8>> = Vec::with_capacity(protocols.len());
@@ -405,7 +422,7 @@ impl rustls_client_config_builder {
                 let v: &[u8] = try_slice!(p.data, p.len);
                 vv.push(v.to_vec());
             }
-            config.alpn_protocols = vv;
+            builder.alpn_protocols = vv;
             rustls_result::Ok
         }
     }
@@ -414,12 +431,16 @@ impl rustls_client_config_builder {
     /// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni>
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_enable_sni(
-        config: *mut rustls_client_config_builder,
+        builder: *mut rustls_client_config_builder,
         enable: bool,
     ) {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(config);
-            config.enable_sni = enable;
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return,
+            };
+            builder.enable_sni = enable;
         }
     }
 
@@ -442,14 +463,18 @@ impl rustls_client_config_builder {
         certified_keys_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
+            let builder: &mut Option<ClientConfigBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                Some(c) => c,
+                None => return rustls_result::AlreadyUsed,
+            };
             let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
             let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
             for &key_ptr in keys_ptrs {
                 let certified_key: Arc<CertifiedKey> = try_arc_from_ptr!(key_ptr);
                 keys.push(certified_key);
             }
-            config.cert_resolver = Some(Arc::new(ResolvesClientCertFromChoices { keys }));
+            builder.cert_resolver = Some(Arc::new(ResolvesClientCertFromChoices { keys }));
             rustls_result::Ok
         }
     }
@@ -487,7 +512,11 @@ impl rustls_client_config_builder {
         builder: *mut rustls_client_config_builder,
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
-            let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
+            let builder: Box<Option<ClientConfigBuilder>> = try_box_from_ptr!(builder);
+            let builder = match *builder {
+                Some(c) => c,
+                None => return null(),
+            };
             let config = builder.base.with_custom_certificate_verifier(builder.verifier);
             let mut config = match builder.cert_resolver {
                 Some(r) => config.with_client_cert_resolver(r),

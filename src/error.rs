@@ -130,6 +130,7 @@ pub enum rustls_result {
     InvalidParameter = 7009,
     UnexpectedEof = 7010,
     PlaintextEmpty = 7011,
+    AlreadyUsed = 7013,
 
     // From https://docs.rs/rustls/0.20.0/rustls/enum.Error.html
     CorruptMessage = 7100,
@@ -301,6 +302,7 @@ impl Display for rustls_result {
         CertInvalidData => write!(f, "invalid certificate data found"),
         UnexpectedEof => write!(f,  "unexpected EOF"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
+        AlreadyUsed => write!(f, "tried to use a rustls struct after it had been converted to another struct"),
 
         // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error

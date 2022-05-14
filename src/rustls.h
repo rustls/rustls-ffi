@@ -20,6 +20,7 @@ enum rustls_result {
   RUSTLS_RESULT_INVALID_PARAMETER = 7009,
   RUSTLS_RESULT_UNEXPECTED_EOF = 7010,
   RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
+  RUSTLS_RESULT_ALREADY_USED = 7013,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
@@ -724,7 +725,7 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_suppor
  *
  * <https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
  */
-rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *config_builder,
+rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(struct rustls_client_config_builder *builder,
                                                                               rustls_verify_server_cert_callback callback);
 
 /**
@@ -735,14 +736,14 @@ rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(st
  * call rustls_client_config_free or rustls_client_config_builder_free,
  * those will subtract 1 from the refcount for `roots`.
  */
-rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config_builder,
+rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *builder,
                                                      const struct rustls_root_cert_store *roots);
 
 /**
  * Add trusted root certificates from the named file, which should contain
  * PEM-formatted certificates.
  */
-rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config_builder,
+rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *builder,
                                                                 const char *filename);
 
 /**
@@ -766,7 +767,7 @@ rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_clie
  * Enable or disable SNI.
  * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni>
  */
-void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *config,
+void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_builder *builder,
                                                  bool enable);
 
 /**
@@ -1114,7 +1115,7 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_suppor
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
 
 /**
@@ -1124,7 +1125,7 @@ void rustls_server_config_builder_set_client_verifier(struct rustls_server_confi
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *builder,
                                                                const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
