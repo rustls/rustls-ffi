@@ -206,7 +206,9 @@ impl rustls_acceptor {
     /// Memory and lifetimes:
     ///
     /// After this method returns RUSTLS_RESULT_OK, the rustls_acceptor is
-    /// still allocated and valid. You should free it to avoid memory leaks.
+    /// still allocated and valid. It needs to be free regardless of success
+    /// or failure of this function.
+    ///
     /// Calling rustls_acceptor_accept multiple times on the same
     /// rustls_acceptor is acceptable from a memory perspective but pointless
     /// from a protocol perspective.
