@@ -624,7 +624,9 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * Memory and lifetimes:
  *
  * After this method returns RUSTLS_RESULT_OK, the rustls_acceptor is
- * still allocated and valid. You should free it to avoid memory leaks.
+ * still allocated and valid. It needs to be free regardless of success
+ * or failure of this function.
+ *
  * Calling rustls_acceptor_accept multiple times on the same
  * rustls_acceptor is acceptable from a memory perspective but pointless
  * from a protocol perspective.
@@ -674,7 +676,7 @@ struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *acce
  *
  * Returns:
  *
- * A TLS Signature Scheme from https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme
+ * A TLS Signature Scheme from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme>
  *
  * This will be 0 in these cases:
  *   - i is greater than the number of available cipher suites.
@@ -694,7 +696,7 @@ uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted
  *
  * Returns:
  *
- * A cipher suite value from https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.
+ * A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.>
  *
  * This will be 0 in these cases:
  *   - i is greater than the number of available cipher suites.

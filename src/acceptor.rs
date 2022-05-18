@@ -294,7 +294,7 @@ impl rustls_accepted {
     ///
     /// Returns:
     ///
-    /// A TLS Signature Scheme from https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme
+    /// A TLS Signature Scheme from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme>
     ///
     /// This will be 0 in these cases:
     ///   - i is greater than the number of available cipher suites.
@@ -330,7 +330,7 @@ impl rustls_accepted {
     ///
     /// Returns:
     ///
-    /// A cipher suite value from https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.
+    /// A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.>
     ///
     /// This will be 0 in these cases:
     ///   - i is greater than the number of available cipher suites.
