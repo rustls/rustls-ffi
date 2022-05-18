@@ -33,13 +33,12 @@ target:
 	mkdir -p $@
 
 src/rustls.h: src/*.rs cbindgen.toml
-	cargo check
 	cbindgen --lang C > $@
 
 target/$(PROFILE)/librustls_ffi.a: src/*.rs Cargo.toml
 	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
 
-target/%.o: tests/%.c src/rustls.h tests/common.h | target
+target/%.o: tests/%.c tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 target/client: target/client.o target/common.o target/$(PROFILE)/librustls_ffi.a
@@ -48,7 +47,7 @@ target/client: target/client.o target/common.o target/$(PROFILE)/librustls_ffi.a
 target/server: target/server.o target/common.o target/$(PROFILE)/librustls_ffi.a
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-install: target/$(PROFILE)/librustls_ffi.a src/rustls.h
+install: target/$(PROFILE)/librustls_ffi.a
 	mkdir -p $(DESTDIR)/lib
 	install target/$(PROFILE)/librustls_ffi.a $(DESTDIR)/lib/librustls.a
 	mkdir -p $(DESTDIR)/include
