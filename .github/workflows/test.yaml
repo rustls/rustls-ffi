@@ -183,7 +183,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --workspace
+          args: --workspace -- -D warnings
 
   miri:
     name: Miri
