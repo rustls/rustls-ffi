@@ -116,9 +116,9 @@ typedef struct rustls_accepted rustls_accepted;
  * as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
  * work well for asynchronous I/O.
  *
- * The general workflow is:
+ * The general flow is:
  *  - rustls_acceptor_new()
- *  - While rustls_acceptor_wants_read():
+ *  - Loop:
  *    - Read bytes from the network it with rustls_acceptor_read_tls().
  *    - If successful, parse those bytes with rustls_acceptor_accept().
  *    - If that returns RUSTLS_RESULT_NOT_READY, continue.
@@ -524,18 +524,14 @@ struct rustls_str rustls_version(void);
  *
  * Parameters:
  *
- * out_acceptor: An output parameter. The pointed-to pointer will be set
- *   to a new rustls_acceptor on success.
+ * out_acceptor: An output parameter. On success, the pointed-to pointer
+ * will be set to a new rustls_acceptor. Caller owns the pointed-to memory
+ * and must eventually free it with `rustls_acceptor_free()`.
  *
  * Returns:
  *
- * - RUSTLS_RESULT_OK: Success. *rustls_acceptor has been written to.
- * - Other rustls_result: Error. *rustls_acceptor has not been written to.
- *
- * Memory and lifetimes:
- *
- * On success, caller owns the pointed-to memory and must eventually free
- * it with rustls_acceptor_free().
+ * - RUSTLS_RESULT_OK: Success. `*out_acceptor` has been written to.
+ * - Other rustls_result: Error. `*out_acceptor` has not been written to.
  */
 rustls_result rustls_acceptor_new(struct rustls_acceptor **out_acceptor);
 
@@ -551,21 +547,6 @@ rustls_result rustls_acceptor_new(struct rustls_acceptor **out_acceptor);
 void rustls_acceptor_free(struct rustls_acceptor *acceptor);
 
 /**
- * Check if this rustls_acceptor wants additional TLS bytes read into it.
- * If this returns true, you should call rustls_acceptor_read_tls().
- *
- * Parameters:
- *
- * acceptor: The rustls_acceptor to check.
- *
- * Returns:
- *
- * True if and only iff this rustls_acceptor wants additional TLS bytes
- * (and is non-NULL).
- */
-bool rustls_acceptor_wants_read(const struct rustls_acceptor *acceptor);
-
-/**
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
@@ -575,25 +556,22 @@ bool rustls_acceptor_wants_read(const struct rustls_acceptor *acceptor);
  *
  * acceptor: The rustls_acceptor to read bytes into.
  * callback: A function that will perform the actual network I/O.
+ *   Must be valid to call with the given userdata parameter until
+ *   this function call returns.
  * userdata: An opaque parameter to be passed directly to `callback`.
  *   Note: this is distinct from the `userdata` parameter set with
  *   `rustls_connection_set_userdata`.
- * out_n: An output parameter. On success, this will be written with
- *   the number of bytes `callback` said that it wrote.
+ * out_n: An output parameter. This will be passed through to `callback`,
+ *   which should use it to store the number of bytes written.
  *
  * Returns:
  *
- * - 0: Success. You should call rustls_acceptor_accept() next.
+ * - 0: Success. You should call `rustls_acceptor_accept()` next.
  * - Any non-zero value: error.
  *
- * This function passes through return values from callback. Typically
- * callback should return an errno value. See rustls_read_callback for
+ * This function passes through return values from `callback`. Typically
+ * `callback` should return an errno value. See `rustls_read_callback()` for
  * more details.
- *
- * Memory and lifetimes:
- *
- * The rustls_read_callback must be valid to call with the given userdata
- * parameter for the duration of this call.
  */
 rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
                                           rustls_read_callback callback,
@@ -609,7 +587,8 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * acceptor: The rustls_acceptor to access.
  * out_accepted: An output parameter. The pointed-to pointer will be set
  *   to a new rustls_accepted only when the function returns
- *   RUSTLS_RESULT_OK.
+ *   RUSTLS_RESULT_OK. The memory is owned by the caller and must eventually
+ *   be freed.
  *
  * Returns:
  *
@@ -623,16 +602,13 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  *
  * Memory and lifetimes:
  *
- * After this method returns RUSTLS_RESULT_OK, the rustls_acceptor is
- * still allocated and valid. It needs to be free regardless of success
+ * After this method returns RUSTLS_RESULT_OK, `acceptor` is
+ * still allocated and valid. It needs to be freed regardless of success
  * or failure of this function.
  *
- * Calling rustls_acceptor_accept multiple times on the same
- * rustls_acceptor is acceptable from a memory perspective but pointless
+ * Calling `rustls_acceptor_accept()` multiple times on the same
+ * `rustls_acceptor` is acceptable from a memory perspective but pointless
  * from a protocol perspective.
- *
- * The rustls_accepted emitted from this function upon returning
- * RUSTLS_RESULT_OK is owned by the caller and must eventually be freed.
  */
 rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
                                      struct rustls_accepted **out_accepted);
@@ -646,7 +622,9 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
  *
  * Returns:
  *
- * A rustls_str containing the SNI field.
+ * A rustls_str containing the SNI field. The returned value is valid
+ * until the next time a method is called on the `rustls_accepted`.
+ * It is not owned by the caller and does not need to be freed.
  *
  * This will be a zero-length rustls_str in these error cases:
  *
@@ -654,12 +632,6 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
  *  - The `accepted` parameter was NULL.
  *  - The `accepted` parameter was already transformed into a connection
  *      with rustls_accepted_into_connection.
- *
- * Memory and lifetimes:
- *
- * The returned rustls_str is valid until the next time a method is called
- * on the `rustls_accepted`. It is not owned by the caller and does not
- * need to be freed.
  */
 struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
@@ -727,11 +699,9 @@ uint16_t rustls_accepted_cipher_suite(const struct rustls_accepted *accepted,
  *   - The `accepted` parameter was already transformed into a connection
  *      with rustls_accepted_into_connection.
  *
- * Memory and lifetimes:
- *
- * The returned rustls_slice_bytes is valid until the next
- * time a method is called on the same `accepted`. It is not owned
- * by the caller and does not need to be freed.
+ * The returned value is valid until the next time a method is called
+ * on the same `accepted`. It is not owned by the caller and does not
+ * need to be freed.
  */
 struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *accepted, size_t i);
 
@@ -743,7 +713,7 @@ struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *acc
  *
  * accepted: The rustls_accepted to transform.
  * config: The configuration with which to create this connection.
- * out_accepted: An output parameter. The pointed-to pointer will be set
+ * out_conn: An output parameter. The pointed-to pointer will be set
  *   to a new rustls_connection only when the function returns
  *   RUSTLS_RESULT_OK.
  *
