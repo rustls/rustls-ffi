@@ -218,9 +218,11 @@ impl rustls_accepted {
     ///
     /// Returns:
     ///
-    /// A rustls_str containing the SNI field. The returned value is valid
-    /// until the next time a method is called on the `rustls_accepted`.
-    /// It is not owned by the caller and does not need to be freed.
+    /// A rustls_str containing the SNI field.
+    ///
+    /// The returned value is valid until rustls_accepted_into_connection or
+    /// rustls_accepted_free is called on the same `accepted`. It is not owned
+    /// by the caller and does not need to be freed.
     ///
     /// This will be a zero-length rustls_str in these error cases:
     ///
@@ -343,9 +345,12 @@ impl rustls_accepted {
     ///   - The `accepted` parameter was already transformed into a connection
     ///      with rustls_accepted_into_connection.
     ///   
-    /// The returned value is valid until the next time a method is called
-    /// on the same `accepted`. It is not owned by the caller and does not
-    /// need to be freed.
+    /// The returned value is valid until rustls_accepted_into_connection or
+    /// rustls_accepted_free is called on the same `accepted`. It is not owned
+    /// by the caller and does not need to be freed.
+    ///
+    /// If you are calling this from Rust, note that the `'static` lifetime
+    /// in the return signature is fake and must not be relied upon.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_alpn(
         accepted: *const rustls_accepted,
