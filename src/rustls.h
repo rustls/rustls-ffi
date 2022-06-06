@@ -1125,7 +1125,7 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_suppor
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
 
 /**
@@ -1135,7 +1135,7 @@ void rustls_server_config_builder_set_client_verifier(struct rustls_server_confi
  * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *builder,
                                                                const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
