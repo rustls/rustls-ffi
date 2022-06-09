@@ -384,6 +384,9 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
         let sni_hostname = match server_connection.sni_hostname() {
             Some(sni_hostname) => sni_hostname,
             None => {
+                unsafe {
+                    *out_n = 0;
+                }
                 return rustls_result::Ok
             },
         };
