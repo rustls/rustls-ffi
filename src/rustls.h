@@ -1122,20 +1122,18 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_suppor
  * Create a rustls_server_config_builder for TLS sessions that require
  * valid client certificates. The passed rustls_client_cert_verifier may
  * be used in several builders.
- * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that accept
  * valid client certificates, but do not require them. The passed
  * rustls_client_cert_verifier_optional may be used in several builders.
- * If input is NULL, this will return NULL.
  * For memory lifetime, see rustls_server_config_builder_new.
  */
-void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *config_builder,
+void rustls_server_config_builder_set_client_verifier_optional(struct rustls_server_config_builder *builder,
                                                                const struct rustls_client_cert_verifier_optional *verifier);
 
 /**
