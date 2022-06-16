@@ -35,7 +35,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - run: make CC=${{ matrix.cc }} PROFILE=release test
+      - env:
+          CARGO_UNSTABLE_HTTP_REGISTRY: true
+        run: make CC=${{ matrix.cc }} PROFILE=release test
 
   valgrind:
     name: Valgrind
