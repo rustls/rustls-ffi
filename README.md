@@ -9,9 +9,8 @@ to make an HTTPS request. Note: this crate was recently renamed from "crustls."
 
 # Build
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) and a C
-compiler (gcc and clang should both work). Once you've got the Rust toolchain
-installed, run `cargo install cbindgen`. Then, to build in optimized mode:
+You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.52.1
+or above and a C compiler (gcc and clang should both work). To build in optimized mode:
 
     make
 
@@ -35,6 +34,12 @@ If the linking instructions above go out of date, [you can get an up-to-date lis
 via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
 
     RUSTFLAGS="--print native-static-libs" cargo build
+
+If you're making changes to rustls-ffi, you'll need Rust 1.56.1 or above, plus
+`cbindgen` (run `cargo install cbindgen`). After you've made your changes,
+regenerate the header file:
+
+    make src/rustls.h
 
 # Overview
 
