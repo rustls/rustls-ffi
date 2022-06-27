@@ -15,7 +15,7 @@ IF(WIN32)
         client
         debug "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
         optimized "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib credui.lib kernel32.lib secur32.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib instead of advapi32.lib cfgmgr32.lib credui.lib gdi32.lib kernel32.lib msimg32.lib opengl32.lib secur32.lib user32.lib winspool.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib
+        advapi32.lib credui.lib kernel32.lib secur32.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib
     )
     set_property(TARGET client PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 ENDIF(WIN32)
@@ -34,7 +34,7 @@ IF(WIN32)
         server
         debug "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
         optimized "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib credui.lib kernel32.lib secur32.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib instead of advapi32.lib cfgmgr32.lib credui.lib gdi32.lib kernel32.lib msimg32.lib opengl32.lib secur32.lib user32.lib winspool.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib
+        advapi32.lib credui.lib kernel32.lib secur32.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib msvcrt.lib
     )
     set_property(TARGET server PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 ENDIF(WIN32)
