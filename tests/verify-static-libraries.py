@@ -21,10 +21,7 @@ def main():
         want = (
             "advapi32.lib credui.lib kernel32.lib secur32.lib kernel32.lib "
             "ws2_32.lib bcrypt.lib advapi32.lib userenv.lib kernel32.lib "
-            "msvcrt.lib instead of advapi32.lib cfgmgr32.lib credui.lib gdi32.lib "
-            "kernel32.lib msimg32.lib opengl32.lib secur32.lib user32.lib "
-            "winspool.lib kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib "
-            "userenv.lib kernel32.lib msvcrt.lib"
+            "msvcrt.lib "
         )
     else:
         want = ""
