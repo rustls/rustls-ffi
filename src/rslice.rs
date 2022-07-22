@@ -78,11 +78,9 @@ pub struct rustls_slice_slice_bytes<'a> {
 /// returns 0.
 #[no_mangle]
 pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> size_t {
-    unsafe {
-        match input.as_ref() {
-            Some(c) => c.inner.len(),
-            None => 0,
-        }
+    match unsafe { input.as_ref() } {
+        Some(c) => c.inner.len(),
+        None => 0,
     }
 }
 
@@ -94,8 +92,8 @@ pub extern "C" fn rustls_slice_slice_bytes_get(
     input: *const rustls_slice_slice_bytes,
     n: size_t,
 ) -> rustls_slice_bytes {
-    let input: &rustls_slice_slice_bytes = unsafe {
-        match input.as_ref() {
+    let input: &rustls_slice_slice_bytes = {
+        match unsafe { input.as_ref() } {
             Some(c) => c,
             None => {
                 return rustls_slice_bytes {

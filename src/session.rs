@@ -96,23 +96,24 @@ impl SessionStoreBroker {
         // See <https://github.com/rustls/rustls-ffi/pull/64#issuecomment-800766940>
         let mut data: Vec<u8> = vec![0; 65 * 1024];
         let mut out_n: size_t = 0;
-        unsafe {
-            let cb = self.get_cb;
-            let result = cb(
+
+        let cb = self.get_cb;
+        let result = unsafe {
+            cb(
                 userdata,
                 &key,
                 remove as c_int,
                 data.as_mut_ptr(),
                 data.len(),
                 &mut out_n,
-            );
-            match rustls_result::from(result) {
-                rustls_result::Ok => {
-                    data.set_len(out_n);
-                    Some(data)
-                }
-                _ => None,
+            )
+        };
+        match rustls_result::from(result) {
+            rustls_result::Ok => {
+                unsafe { data.set_len(out_n) };
+                Some(data)
             }
+            _ => None,
         }
     }
 
