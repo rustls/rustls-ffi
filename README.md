@@ -45,7 +45,7 @@ regenerate the header file:
 
 Rustls doesn't do any I/O on its own. It provides the protocol handling, and
 leaves it up to the user to send and receive bytes on the network. Because of
-that it can be used equally well in a blockng or non-blocking I/O context. See
+that it can be used equally well in a blocking or non-blocking I/O context. See
 the [rustls documentation](https://docs.rs/rustls/) for a diagram
 of its input and output methods, along with a description of the TLS features it
 supports.
