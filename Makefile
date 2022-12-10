@@ -38,7 +38,7 @@ target:
 	mkdir -p $@
 
 src/rustls.h: src/*.rs cbindgen.toml
-	cbindgen --lang C > $@
+	cbindgen > $@
 
 target/$(PROFILE)/librustls_ffi.a: src/*.rs Cargo.toml
 	RUSTFLAGS="-C metadata=rustls-ffi" ${CARGO} build $(CARGOFLAGS)
