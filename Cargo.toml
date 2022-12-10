@@ -20,6 +20,7 @@ rust-version = "1.61"
 # libraries.
 no_log_capture = []
 read_buf = ["rustls/read_buf"]
+capi = []
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
@@ -36,3 +37,16 @@ crate-type = ["lib", "staticlib"]
 
 [dev-dependencies]
 regex = "1.9.6"
+
+[package.metadata.capi.header]
+name = "rustls"
+subdirectory = false
+
+[package.metadata.capi.library]
+name = "rustls"
+version_suffix_components = 3
+rustflags = "-Cmetadata=rustls-ffi"
+
+[package.metadata.capi.pkg_config]
+name = "rustls"
+filename = "rustls"
