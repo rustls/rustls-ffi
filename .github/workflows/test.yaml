@@ -17,7 +17,7 @@ jobs:
           - stable
           - beta
           - nightly
-          - 1.52.1 # MSRV - keep in sync with what rustls considers MSRV
+          - 1.56.0 # MSRV - keep in sync with what rustls considers MSRV
         os: [ubuntu-18.04]
         # but only stable on macos/windows (slower platforms)
         include:
