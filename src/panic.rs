@@ -113,7 +113,7 @@ macro_rules! ffi_panic_boundary {
             $($tt)*
         }) {
             Ok(ret) => ret,
-            Err(_) => return crate::PanicOrDefault::value(),
+            Err(_) => return $crate::PanicOrDefault::value(),
         }
     }
 }
