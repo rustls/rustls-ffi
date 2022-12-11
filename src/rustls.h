@@ -132,7 +132,7 @@ typedef struct rustls_client_cert_verifier_optional rustls_client_cert_verifier_
 
 /**
  * A client config that is done being constructed and is now read-only.
- * Under the hood, this object corresponds to an Arc<ClientConfig>.
+ * Under the hood, this object corresponds to an `Arc<ClientConfig>`.
  * <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
  */
 typedef struct rustls_client_config rustls_client_config;
@@ -143,7 +143,7 @@ typedef struct rustls_client_config rustls_client_config;
  * done configuring settings, call rustls_client_config_builder_build
  * to turn it into a *rustls_client_config. This object is not safe
  * for concurrent mutation. Under the hood, it corresponds to a
- * Box<ClientConfig>.
+ * `Box<ClientConfig>`.
  * <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
  */
 typedef struct rustls_client_config_builder rustls_client_config_builder;
@@ -166,7 +166,7 @@ typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
  * A server config that is done being constructed and is now read-only.
- * Under the hood, this object corresponds to an Arc<ServerConfig>.
+ * Under the hood, this object corresponds to an `Arc<ServerConfig>`.
  * <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
  */
 typedef struct rustls_server_config rustls_server_config;

@@ -61,7 +61,7 @@ impl CastPtr for rustls_server_config_builder {
 impl BoxCastPtr for rustls_server_config_builder {}
 
 /// A server config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an Arc<ServerConfig>.
+/// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
 pub struct rustls_server_config {
     // We use the opaque struct pattern to tell C about our types without
