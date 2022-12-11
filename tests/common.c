@@ -197,7 +197,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
     }
     newdata = realloc(vec->data, newsize);
     if(newdata == NULL) {
-      fprintf(stderr, "out of memory trying to get %ld bytes\n", newsize);
+      fprintf(stderr, "out of memory trying to get %zu bytes\n", newsize);
       return CRUSTLS_DEMO_ERROR;
     }
     vec->data = newdata;
