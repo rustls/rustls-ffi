@@ -29,7 +29,7 @@ use crate::{
 /// done configuring settings, call rustls_client_config_builder_build
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
-/// Box<ClientConfig>.
+/// `Box<ClientConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
 pub struct rustls_client_config_builder {
     // We use the opaque struct pattern to tell C about our types without
@@ -53,7 +53,7 @@ impl CastPtr for rustls_client_config_builder {
 impl BoxCastPtr for rustls_client_config_builder {}
 
 /// A client config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an Arc<ClientConfig>.
+/// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
 pub struct rustls_client_config {
     // We use the opaque struct pattern to tell C about our types without
