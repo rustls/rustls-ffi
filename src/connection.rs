@@ -525,10 +525,10 @@ impl rustls_connection {
                 slice::from_raw_parts_mut(buf, count)
             };
 
-            let mut read_buf = std::io::ReadBuf::uninit(read_buf);
+            let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
 
-            let n_read: usize = match conn.reader().read_buf(&mut read_buf) {
-                Ok(()) => read_buf.filled_len(),
+            let n_read: usize = match conn.reader().read_buf(read_buf.unfilled()) {
+                Ok(()) => read_buf.filled().len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
