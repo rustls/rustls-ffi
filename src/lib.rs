@@ -384,7 +384,7 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return crate::panic::NullParameterOrDefault::value();
+            return $crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts($ptr, $count as usize) }
         }
@@ -396,7 +396,7 @@ macro_rules! try_slice {
 macro_rules! try_mut_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return crate::panic::NullParameterOrDefault::value();
+            return $crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
         }
@@ -445,9 +445,9 @@ where
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
-        match crate::try_from($var) {
+        match $crate::try_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -456,9 +456,9 @@ macro_rules! try_ref_from_ptr {
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
-        match crate::try_from_mut($var) {
+        match $crate::try_from_mut($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -467,9 +467,9 @@ macro_rules! try_mut_from_ptr {
 #[macro_export]
 macro_rules! try_box_from_ptr {
     ( $var:ident ) => {
-        match crate::try_box_from($var) {
+        match $crate::try_box_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -478,9 +478,9 @@ macro_rules! try_box_from_ptr {
 #[macro_export]
 macro_rules! try_arc_from_ptr {
     ( $var:ident ) => {
-        match crate::try_arc_from($var) {
+        match $crate::try_arc_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -491,7 +491,7 @@ macro_rules! try_callback {
     ( $var:ident ) => {
         match $var {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }

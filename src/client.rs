@@ -243,7 +243,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
         let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
 
         let intermediates = rustls_slice_slice_bytes {
-            inner: &*intermediates,
+            inner: &intermediates,
         };
 
         let params = rustls_verify_server_cert_params {
