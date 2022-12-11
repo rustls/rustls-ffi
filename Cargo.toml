@@ -1,6 +1,6 @@
 [package]
 name = "rustls-ffi"
-version = "0.9.1"
+version = "0.9.2-alpha1"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 license = "Apache-2.0/ISC/MIT"
 readme = "README-crates.io.md"
@@ -23,7 +23,7 @@ read_buf = ["rustls/read_buf"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.20.4", features = [ "dangerous_configuration" ] }
+rustls = { version = "=0.20.7", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
 sct = "0.7"
