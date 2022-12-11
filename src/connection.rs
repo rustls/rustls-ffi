@@ -547,7 +547,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             // Convert the pointer to a Box and drop it.
-            unsafe { Box::from_raw(conn); }
+            drop(unsafe { Box::from_raw(conn) });
         }
     }
 }
