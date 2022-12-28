@@ -28,7 +28,7 @@ To link against the resulting library, on **Linux**:
 
 To link against the resulting library, on **macOS**:
 
-    -lrustls -framework Security -liconv -lSystem -lresolv -lc -lm -liconv
+    -lrustls -framework Security -liconv -lSystem -lc -l
 
 If the linking instructions above go out of date, [you can get an up-to-date list
 via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
