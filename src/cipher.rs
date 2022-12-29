@@ -399,13 +399,13 @@ impl rustls_certified_key {
             if cert_chain.is_null() {
                 return Err(NullParameter);
             }
-            slice::from_raw_parts(cert_chain, cert_chain_len as usize)
+            slice::from_raw_parts(cert_chain, cert_chain_len)
         };
         let private_key: &[u8] = unsafe {
             if private_key.is_null() {
                 return Err(NullParameter);
             }
-            slice::from_raw_parts(private_key, private_key_len as usize)
+            slice::from_raw_parts(private_key, private_key_len)
         };
         let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key))
         {

@@ -15,7 +15,7 @@ fn main() {
     println!("cargo:include={}", include_dir.to_str().unwrap());
 
     let dest_path = out_dir.join("version.rs");
-    let mut f = File::create(&dest_path).expect("Could not create file");
+    let mut f = File::create(dest_path).expect("Could not create file");
     let pkg_version = env!("CARGO_PKG_VERSION");
     writeln!(
         &mut f,
