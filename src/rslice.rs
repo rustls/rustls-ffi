@@ -194,7 +194,7 @@ impl<'a> fmt::Debug for rustls_str<'a> {
             // - all values are properly initialized because we only init
             // rustls_str objects inside of Rust code
             // - not larger than isize::MAX because, again, it's coming from Rust
-            slice::from_raw_parts(self.data as *const u8, self.len as usize)
+            slice::from_raw_parts(self.data as *const u8, self.len)
         };
         let s = str::from_utf8(raw).unwrap_or("%!(ERROR)");
         f.debug_struct("rustls_str")
