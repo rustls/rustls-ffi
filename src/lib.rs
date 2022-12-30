@@ -360,9 +360,11 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
     /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
     /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
     ///
+    /// Does nothing when passed null.
+    ///
     /// Unsafety:
     ///
-    /// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+    /// If non-null, ptr must be a pointer that resulted from previously calling `Arc::into_raw`.
     fn to_arc(ptr: *const Self) -> Option<Arc<Self::RustType>> {
         if ptr.is_null() {
             return None;
@@ -372,6 +374,21 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
         let val = Arc::clone(&r);
         mem::forget(r);
         Some(val)
+    }
+
+    /// For types represented with an Arc on the Rust side, we offer a _free()
+    /// method to the C side that decrements the refcount and ultimately drops
+    /// the Arc if the refcount reaches 0. By contrast with to_arc, we call
+    /// Arc::from_raw on the input pointer, but we _don't_ clone it, because we
+    /// want the refcount to be lower by one when we reach the end of the function.
+    ///
+    /// Does nothing when passed null.
+    fn free(ptr: *const Self) {
+        if ptr.is_null() {
+            return;
+        }
+        let rs_typed = Self::cast_const_ptr(ptr);
+        drop(unsafe { Arc::from_raw(rs_typed) });
     }
 
     fn to_const_ptr(src: Self::RustType) -> *const Self {
