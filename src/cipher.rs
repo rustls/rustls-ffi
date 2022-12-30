@@ -379,13 +379,7 @@ impl rustls_certified_key {
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
         ffi_panic_boundary! {
-            if key.is_null() {
-                return;
-            }
-            // To free the certified_key, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner ServerConfig will be dropped.
-            unsafe { drop(Arc::from_raw(key)) };
+            rustls_certified_key::free(key);
         }
     }
 
@@ -555,13 +549,7 @@ impl rustls_client_cert_verifier {
         verifier: *const rustls_client_cert_verifier,
     ) {
         ffi_panic_boundary! {
-            if verifier.is_null() {
-                return;
-            }
-            // To free the verifier, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner object will be dropped.
-            unsafe { drop(Arc::from_raw(verifier)) };
+            rustls_client_cert_verifier::free(verifier);
         }
     }
 }
@@ -610,13 +598,7 @@ impl rustls_client_cert_verifier_optional {
         verifier: *const rustls_client_cert_verifier_optional,
     ) {
         ffi_panic_boundary! {
-            if verifier.is_null() {
-                return;
-            }
-            // To free the verifier, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner object will be dropped.
-            unsafe { drop(Arc::from_raw(verifier)) };
+            rustls_client_cert_verifier_optional::free(verifier);
         }
     }
 }

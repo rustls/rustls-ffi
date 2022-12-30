@@ -522,11 +522,7 @@ impl rustls_client_config {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
         ffi_panic_boundary! {
-            let config: &ClientConfig = try_ref_from_ptr!(config);
-            // To free the rustls_client_config, we reconstruct the Arc and then drop it. It should
-            // have a refcount of 1, representing the C code's copy. When it drops, that
-            // refcount will go down to 0 and the inner ClientConfig will be dropped.
-            unsafe { drop(Arc::from_raw(config)) };
+            rustls_client_config::free(config);
         }
     }
 
