@@ -299,7 +299,7 @@ impl Display for rustls_result {
         NotFound => write!(f, "the item was not found"),
         InvalidParameter => write!(f, "a parameter had an invalid value"),
         CertInvalidData => write!(f, "invalid certificate data found"),
-        UnexpectedEof => write!(f,  "unexpected EOF"),
+        UnexpectedEof => write!(f,  "peer closed TCP connection without first closing TLS connection"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
 
         // These variants correspond to a rustls::Error variant with a field,
