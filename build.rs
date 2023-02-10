@@ -3,7 +3,7 @@ use std::io::Write;
 use std::{env, fs, path::PathBuf};
 
 // Keep in sync with Cargo.toml.
-const RUSTLS_CRATE_VERSION: &str = "0.20.4";
+const RUSTLS_CRATE_VERSION: &str = "0.20.7";
 
 fn main() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
@@ -15,7 +15,7 @@ fn main() {
     println!("cargo:include={}", include_dir.to_str().unwrap());
 
     let dest_path = out_dir.join("version.rs");
-    let mut f = File::create(&dest_path).expect("Could not create file");
+    let mut f = File::create(dest_path).expect("Could not create file");
     let pkg_version = env!("CARGO_PKG_VERSION");
     writeln!(
         &mut f,

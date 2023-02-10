@@ -1,6 +1,6 @@
 [package]
 name = "rustls-ffi"
-version = "0.9.0"
+version = "0.9.2-alpha1"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 license = "Apache-2.0/ISC/MIT"
 readme = "README-crates.io.md"
@@ -10,6 +10,7 @@ repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
 edition = "2018"
 links = "rustls_ffi"
+rust-version = "1.56"
 
 [features]
 # Enable this feature when building as Rust dependency. It inhibits the
@@ -22,16 +23,13 @@ read_buf = ["rustls/read_buf"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.20.6", features = [ "dangerous_configuration" ] }
+rustls = { version = "=0.20.7", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
 sct = "0.7"
 rustls-pemfile = "0.2.1"
 log = "0.4.14"
 num_enum = "0.5.4"
-
-[dev_dependencies]
-cbindgen = "0.19.0"
 
 [lib]
 name = "rustls_ffi"

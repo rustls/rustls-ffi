@@ -14,15 +14,15 @@ def main():
     # the README. Alternatively, it is possible that adding new libraries to
     # link against was a mistake that should be reverted or worked around.
     if sys.platform.startswith("darwin"):
-        want = "-framework Security -liconv -lSystem -lresolv -lc -lm -liconv"
+        want = "-framework Security -liconv -lSystem -lc -lm"
     elif sys.platform.startswith("linux"):
         want = "-lgcc_s -lutil -lrt -lpthread -lm -ldl -lc"
     elif sys.platform.startswith("win32"):
         want = (
-            "advapi32.lib cfgmgr32.lib credui.lib gdi32.lib kernel32.lib "
-            "msimg32.lib opengl32.lib secur32.lib user32.lib winspool.lib "
-            "kernel32.lib ws2_32.lib bcrypt.lib advapi32.lib userenv.lib "
-            "kernel32.lib msvcrt.lib"
+            "advapi32.lib credui.lib kernel32.lib secur32.lib "
+            "legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib "
+            "kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib "
+            "legacy_stdio_definitions.lib"
         )
     else:
         want = ""

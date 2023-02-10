@@ -61,7 +61,7 @@ impl CastPtr for rustls_server_config_builder {
 impl BoxCastPtr for rustls_server_config_builder {}
 
 /// A server config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an Arc<ServerConfig>.
+/// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
 pub struct rustls_server_config {
     // We use the opaque struct pattern to tell C about our types without
@@ -162,35 +162,33 @@ impl rustls_server_config_builder {
     /// Create a rustls_server_config_builder for TLS sessions that require
     /// valid client certificates. The passed rustls_client_cert_verifier may
     /// be used in several builders.
-    /// If input is NULL, this will return NULL.
     /// For memory lifetime, see rustls_server_config_builder_new.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier(
-        config_builder: *mut rustls_server_config_builder,
+        builder: *mut rustls_server_config_builder,
         verifier: *const rustls_client_cert_verifier,
     ) {
         ffi_panic_boundary! {
-        let mut config_builder = *try_box_from_ptr!(config_builder);
+        let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
         let verifier: Arc<AllowAnyAuthenticatedClient> = try_arc_from_ptr!(verifier);
-        config_builder.verifier = verifier;
+        builder.verifier = verifier;
         }
     }
 
     /// Create a rustls_server_config_builder for TLS sessions that accept
     /// valid client certificates, but do not require them. The passed
     /// rustls_client_cert_verifier_optional may be used in several builders.
-    /// If input is NULL, this will return NULL.
     /// For memory lifetime, see rustls_server_config_builder_new.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier_optional(
-        config_builder: *mut rustls_server_config_builder,
+        builder: *mut rustls_server_config_builder,
         verifier: *const rustls_client_cert_verifier_optional,
     ) {
         ffi_panic_boundary! {
-            let mut config_builder = *try_box_from_ptr!(config_builder);
+            let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
             let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = try_arc_from_ptr!(verifier);
 
-            config_builder.verifier = verifier;
+            builder.verifier = verifier;
         }
     }
 
@@ -319,11 +317,7 @@ impl rustls_server_config {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
         ffi_panic_boundary! {
-            let config: &ServerConfig = try_ref_from_ptr!(config);
-            // To free the rustls_server_config, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner ServerConfig will be dropped.
-            unsafe { drop(Arc::from_raw(config)) };
+            rustls_server_config::free(config);
         }
     }
 
@@ -384,6 +378,9 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
         let sni_hostname = match server_connection.sni_hostname() {
             Some(sni_hostname) => sni_hostname,
             None => {
+                unsafe {
+                    *out_n = 0;
+                }
                 return rustls_result::Ok
             },
         };

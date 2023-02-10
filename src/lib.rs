@@ -361,9 +361,11 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
     /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
     /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
     ///
+    /// Does nothing when passed null.
+    ///
     /// Unsafety:
     ///
-    /// v must be a non-null pointer that resulted from previously calling `Arc::into_raw`.
+    /// If non-null, ptr must be a pointer that resulted from previously calling `Arc::into_raw`.
     fn to_arc(ptr: *const Self) -> Option<Arc<Self::RustType>> {
         if ptr.is_null() {
             return None;
@@ -373,6 +375,21 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
         let val = Arc::clone(&r);
         mem::forget(r);
         Some(val)
+    }
+
+    /// For types represented with an Arc on the Rust side, we offer a _free()
+    /// method to the C side that decrements the refcount and ultimately drops
+    /// the Arc if the refcount reaches 0. By contrast with to_arc, we call
+    /// Arc::from_raw on the input pointer, but we _don't_ clone it, because we
+    /// want the refcount to be lower by one when we reach the end of the function.
+    ///
+    /// Does nothing when passed null.
+    fn free(ptr: *const Self) {
+        if ptr.is_null() {
+            return;
+        }
+        let rs_typed = Self::cast_const_ptr(ptr);
+        drop(unsafe { Arc::from_raw(rs_typed) });
     }
 
     fn to_const_ptr(src: Self::RustType) -> *const Self {
@@ -385,7 +402,7 @@ pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return crate::panic::NullParameterOrDefault::value();
+            return $crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts($ptr, $count as usize) }
         }
@@ -397,7 +414,7 @@ macro_rules! try_slice {
 macro_rules! try_mut_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
-            return crate::panic::NullParameterOrDefault::value();
+            return $crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
         }
@@ -446,9 +463,9 @@ where
 #[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
-        match crate::try_from($var) {
+        match $crate::try_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -457,9 +474,9 @@ macro_rules! try_ref_from_ptr {
 #[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
-        match crate::try_from_mut($var) {
+        match $crate::try_from_mut($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -468,9 +485,9 @@ macro_rules! try_mut_from_ptr {
 #[macro_export]
 macro_rules! try_box_from_ptr {
     ( $var:ident ) => {
-        match crate::try_box_from($var) {
+        match $crate::try_box_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -479,9 +496,9 @@ macro_rules! try_box_from_ptr {
 #[macro_export]
 macro_rules! try_arc_from_ptr {
     ( $var:ident ) => {
-        match crate::try_arc_from($var) {
+        match $crate::try_arc_from($var) {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -492,7 +509,7 @@ macro_rules! try_callback {
     ( $var:ident ) => {
         match $var {
             Some(c) => c,
-            None => return crate::panic::NullParameterOrDefault::value(),
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }

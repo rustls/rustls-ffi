@@ -9,9 +9,8 @@ to make an HTTPS request. Note: this crate was recently renamed from "crustls."
 
 # Build
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) and a C
-compiler (gcc and clang should both work). Once you've got the Rust toolchain
-installed, run `cargo install cbindgen`. Then, to build in optimized mode:
+You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.52.1
+or above and a C compiler (gcc and clang should both work). To build in optimized mode:
 
     make
 
@@ -29,18 +28,24 @@ To link against the resulting library, on **Linux**:
 
 To link against the resulting library, on **macOS**:
 
-    -lrustls -framework Security -liconv -lSystem -lresolv -lc -lm -liconv
+    -lrustls -framework Security -liconv -lSystem -lc -l
 
 If the linking instructions above go out of date, [you can get an up-to-date list
 via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
 
     RUSTFLAGS="--print native-static-libs" cargo build
 
+If you're making changes to rustls-ffi, you'll need Rust 1.56.1 or above, plus
+`cbindgen` (run `cargo install cbindgen`). After you've made your changes,
+regenerate the header file:
+
+    make src/rustls.h
+
 # Overview
 
 Rustls doesn't do any I/O on its own. It provides the protocol handling, and
 leaves it up to the user to send and receive bytes on the network. Because of
-that it can be used equally well in a blockng or non-blocking I/O context. See
+that it can be used equally well in a blocking or non-blocking I/O context. See
 the [rustls documentation](https://docs.rs/rustls/) for a diagram
 of its input and output methods, along with a description of the TLS features it
 supports.

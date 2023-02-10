@@ -17,7 +17,7 @@ jobs:
           - stable
           - beta
           - nightly
-          - 1.52.1 # MSRV - keep in sync with what rustls considers MSRV
+          - 1.56.0 # MSRV - keep in sync with what rustls considers MSRV
         os: [ubuntu-18.04]
         # but only stable on macos/windows (slower platforms)
         include:
@@ -35,7 +35,9 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
           override: true
-      - run: make CC=${{ matrix.cc }} PROFILE=release test
+      - env:
+          CARGO_UNSTABLE_HTTP_REGISTRY: true
+        run: make CC=${{ matrix.cc }} PROFILE=release test
 
   valgrind:
     name: Valgrind
@@ -154,7 +156,7 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.65.0
           override: true
           default: true
           components: rustfmt
@@ -175,7 +177,7 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.65.0
           override: true
           default: true
           components: clippy
@@ -183,7 +185,28 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --workspace
+          args: --workspace -- -D warnings
+
+  clippy-nightly-optional:
+    name: Clippy nightly (optional)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          default: true
+          components: clippy
+      - name: Check formatting
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace -- -D warnings
 
   miri:
     name: Miri

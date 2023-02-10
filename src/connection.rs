@@ -525,10 +525,10 @@ impl rustls_connection {
                 slice::from_raw_parts_mut(buf, count)
             };
 
-            let mut read_buf = std::io::ReadBuf::uninit(read_buf);
+            let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
 
-            let n_read: usize = match conn.reader().read_buf(&mut read_buf) {
-                Ok(()) => read_buf.filled_len(),
+            let n_read: usize = match conn.reader().read_buf(read_buf.unfilled()) {
+                Ok(()) => read_buf.filled().len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
                 Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
                 Err(_) => return rustls_result::Io,
@@ -547,7 +547,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             // Convert the pointer to a Box and drop it.
-            unsafe { Box::from_raw(conn); }
+            drop(unsafe { Box::from_raw(conn) });
         }
     }
 }

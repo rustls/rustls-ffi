@@ -16,8 +16,8 @@ use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 use crate::error::rustls_result;
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, try_mut_from_ptr, try_ref_from_ptr, try_slice, ArcCastPtr, BoxCastPtr,
-    CastConstPtr, CastPtr,
+    ffi_panic_boundary, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
+    ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 use rustls_result::NullParameter;
 use std::ops::Deref;
@@ -379,13 +379,7 @@ impl rustls_certified_key {
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
         ffi_panic_boundary! {
-            if key.is_null() {
-                return;
-            }
-            // To free the certified_key, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner ServerConfig will be dropped.
-            unsafe { drop(Arc::from_raw(key)) };
+            rustls_certified_key::free(key);
         }
     }
 
@@ -399,13 +393,13 @@ impl rustls_certified_key {
             if cert_chain.is_null() {
                 return Err(NullParameter);
             }
-            slice::from_raw_parts(cert_chain, cert_chain_len as usize)
+            slice::from_raw_parts(cert_chain, cert_chain_len)
         };
         let private_key: &[u8] = unsafe {
             if private_key.is_null() {
                 return Err(NullParameter);
             }
-            slice::from_raw_parts(private_key, private_key_len as usize)
+            slice::from_raw_parts(private_key, private_key_len)
         };
         let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key))
         {
@@ -439,8 +433,7 @@ impl rustls_certified_key {
     }
 }
 
-/// A root cert store that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an Arc<RootCertStore>.
+/// A root certificate store.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html>
 pub struct rustls_root_cert_store {
     // We use the opaque struct pattern to tell C about our types without
@@ -472,7 +465,7 @@ impl rustls_root_cert_store {
     ///
     /// When `strict` is true an error will return a `CertificateParseError`
     /// result. So will an attempt to parse data that has zero certificates.
-
+    ///
     /// When `strict` is false, unparseable root certificates will be ignored.
     /// This may be useful on systems that have syntactically invalid root
     /// certificates.
@@ -505,18 +498,13 @@ impl rustls_root_cert_store {
         }
     }
 
-    /// "Free" a rustls_root_cert_store previously returned from
-    /// rustls_root_cert_store_builder_build. Since rustls_root_cert_store is actually an
-    /// atomically reference-counted pointer, extant rustls_root_cert_store may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
+    /// Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_free(store: *mut rustls_root_cert_store) {
         ffi_panic_boundary! {
-            let store: &mut RootCertStore = try_mut_from_ptr!(store);
-            // Convert the pointer to a Box and drop it.
-            unsafe { drop(Box::from_raw(store)) }
+            let store = try_box_from_ptr!(store);
+            drop(store)
         }
     }
 }
@@ -540,11 +528,13 @@ impl rustls_client_cert_verifier {
     /// can be used in several rustls_server_config instances. Must be freed by
     /// the application when no longer needed. See the documentation of
     /// rustls_client_cert_verifier_free for details about lifetime.
+    /// This copies the contents of the rustls_root_cert_store. It does not take
+    /// ownership of the pointed-to memory.
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_new(
-        store: *mut rustls_root_cert_store,
+        store: *const rustls_root_cert_store,
     ) -> *const rustls_client_cert_verifier {
-        let store: &mut RootCertStore = try_mut_from_ptr!(store);
+        let store: &RootCertStore = try_ref_from_ptr!(store);
         return Arc::into_raw(AllowAnyAuthenticatedClient::new(store.clone())) as *const _;
     }
 
@@ -559,13 +549,7 @@ impl rustls_client_cert_verifier {
         verifier: *const rustls_client_cert_verifier,
     ) {
         ffi_panic_boundary! {
-            if verifier.is_null() {
-                return;
-            }
-            // To free the verifier, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner object will be dropped.
-            unsafe { drop(Arc::from_raw(verifier)) };
+            rustls_client_cert_verifier::free(verifier);
         }
     }
 }
@@ -592,11 +576,13 @@ impl rustls_client_cert_verifier_optional {
     /// verifier can be used in several rustls_server_config instances. Must be
     /// freed by the application when no longer needed. See the documentation of
     /// rustls_client_cert_verifier_optional_free for details about lifetime.
+    /// This copies the contents of the rustls_root_cert_store. It does not take
+    /// ownership of the pointed-to data.
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_optional_new(
-        store: *mut rustls_root_cert_store,
+        store: *const rustls_root_cert_store,
     ) -> *const rustls_client_cert_verifier_optional {
-        let store: &mut RootCertStore = try_mut_from_ptr!(store);
+        let store: &RootCertStore = try_ref_from_ptr!(store);
         return Arc::into_raw(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()))
             as *const _;
     }
@@ -612,13 +598,7 @@ impl rustls_client_cert_verifier_optional {
         verifier: *const rustls_client_cert_verifier_optional,
     ) {
         ffi_panic_boundary! {
-            if verifier.is_null() {
-                return;
-            }
-            // To free the verifier, we reconstruct the Arc. It should have a refcount of 1,
-            // representing the C code's copy. When it drops, that refcount will go down to 0
-            // and the inner object will be dropped.
-            unsafe { drop(Arc::from_raw(verifier)) };
+            rustls_client_cert_verifier_optional::free(verifier);
         }
     }
 }

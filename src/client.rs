@@ -29,7 +29,7 @@ use crate::{
 /// done configuring settings, call rustls_client_config_builder_build
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
-/// Box<ClientConfig>.
+/// `Box<ClientConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
 pub struct rustls_client_config_builder {
     // We use the opaque struct pattern to tell C about our types without
@@ -53,7 +53,7 @@ impl CastPtr for rustls_client_config_builder {
 impl BoxCastPtr for rustls_client_config_builder {}
 
 /// A client config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an Arc<ClientConfig>.
+/// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
 /// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
 pub struct rustls_client_config {
     // We use the opaque struct pattern to tell C about our types without
@@ -243,7 +243,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
         let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
 
         let intermediates = rustls_slice_slice_bytes {
-            inner: &*intermediates,
+            inner: &intermediates,
         };
 
         let params = rustls_verify_server_cert_params {
@@ -522,11 +522,7 @@ impl rustls_client_config {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
         ffi_panic_boundary! {
-            let config: &ClientConfig = try_ref_from_ptr!(config);
-            // To free the rustls_client_config, we reconstruct the Arc and then drop it. It should
-            // have a refcount of 1, representing the C code's copy. When it drops, that
-            // refcount will go down to 0 and the inner ClientConfig will be dropped.
-            unsafe { drop(Arc::from_raw(config)) };
+            rustls_client_config::free(config);
         }
     }
 

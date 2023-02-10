@@ -86,7 +86,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   if(n == 0) {
     return CRUSTLS_DEMO_EOF;
   }
-  fprintf(stderr, "server: read %ld bytes from socket\n", n);
+  fprintf(stderr, "server: read %zu bytes from socket\n", n);
 
   result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
@@ -105,7 +105,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
-            "server: error: read returned %ld bytes after receiving close_notify\n",
+            "server: error: read returned %zu bytes after receiving close_notify\n",
             n);
     return CRUSTLS_DEMO_ERROR;
   }
@@ -144,7 +144,7 @@ send_response(struct conndata *conn)
 
   free(response);
   if(n != response_size) {
-    fprintf(stderr, "server: failed to write all response bytes. wrote %ld\n", n);
+    fprintf(stderr, "server: failed to write all response bytes. wrote %zu\n", n);
     return CRUSTLS_DEMO_ERROR;
   }
   return CRUSTLS_DEMO_OK;
