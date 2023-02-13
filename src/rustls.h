@@ -519,20 +519,12 @@ extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
 struct rustls_str rustls_version(void);
 
 /**
- * Create a new rustls_acceptor.
+ * Create and return a new rustls_acceptor.
  *
- * Parameters:
- *
- * out_acceptor: An output parameter. On success, the pointed-to pointer
- * will be set to a new rustls_acceptor. Caller owns the pointed-to memory
- * and must eventually free it with `rustls_acceptor_free()`.
- *
- * Returns:
- *
- * - RUSTLS_RESULT_OK: Success. `*out_acceptor` has been written to.
- * - Other rustls_result: Error. `*out_acceptor` has not been written to.
+ * Caller owns the pointed-to memory and must eventually free it with
+ * `rustls_acceptor_free()`.
  */
-rustls_result rustls_acceptor_new(struct rustls_acceptor **out_acceptor);
+struct rustls_acceptor *rustls_acceptor_new(void);
 
 /**
  * Free a rustls_acceptor.
