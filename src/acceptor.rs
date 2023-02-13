@@ -63,30 +63,14 @@ impl CastPtr for rustls_accepted {
 impl BoxCastPtr for rustls_accepted {}
 
 impl rustls_acceptor {
-    /// Create a new rustls_acceptor.
+    /// Create and return a new rustls_acceptor.
     ///
-    /// Parameters:
-    ///
-    /// out_acceptor: An output parameter. On success, the pointed-to pointer
-    /// will be set to a new rustls_acceptor. Caller owns the pointed-to memory
-    /// and must eventually free it with `rustls_acceptor_free()`.
-    ///
-    /// Returns:
-    ///
-    /// - RUSTLS_RESULT_OK: Success. `*out_acceptor` has been written to.
-    /// - Other rustls_result: Error. `*out_acceptor` has not been written to.
+    /// Caller owns the pointed-to memory and must eventually free it with
+    /// `rustls_acceptor_free()`.
     #[no_mangle]
-    pub extern "C" fn rustls_acceptor_new(
-        out_acceptor: *mut *mut rustls_acceptor,
-    ) -> rustls_result {
+    pub extern "C" fn rustls_acceptor_new() -> *mut rustls_acceptor {
         ffi_panic_boundary! {
-            match Acceptor::new() {
-                Ok(acceptor) => {
-                    BoxCastPtr::set_mut_ptr(out_acceptor, acceptor);
-                    rustls_result::Ok
-                },
-                Err(e) => map_error(e),
-            }
+            BoxCastPtr::to_mut_ptr(Acceptor::default())
         }
     }
 
@@ -465,18 +449,12 @@ mod tests {
 
     #[test]
     fn test_acceptor_new_and_free() {
-        let mut acceptor: *mut rustls_acceptor = null_mut();
-        let result = rustls_acceptor::rustls_acceptor_new(&mut acceptor);
-        assert!(matches!(result, rustls_result::Ok));
-
+        let acceptor: *mut rustls_acceptor = rustls_acceptor::rustls_acceptor_new();
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
 
     fn make_acceptor() -> *mut rustls_acceptor {
-        let mut acceptor: *mut rustls_acceptor = null_mut();
-        let result = rustls_acceptor::rustls_acceptor_new(&mut acceptor);
-        assert!(matches!(result, rustls_result::Ok));
-        acceptor
+        rustls_acceptor::rustls_acceptor_new()
     }
 
     unsafe extern "C" fn vecdeque_read(
