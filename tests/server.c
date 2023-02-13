@@ -133,7 +133,7 @@ send_response(struct conndata *conn)
     return CRUSTLS_DEMO_ERROR;
   }
 
-  n = sprintf(response, "%s %d\r\n\r\n", prefix, body_size);
+  n = snprintf(response, response_size, "%s %d\r\n\r\n", prefix, body_size);
   memset(response + n, 'a', body_size);
   *(response + n + body_size) = '\n';
   *(response + n + body_size + 1) = '\0';
