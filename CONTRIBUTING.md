@@ -12,5 +12,17 @@ the summary of your PR, and the description set to the description of your PR.
 That way we maintain a linear git history, where each commit corresponds to a
 fully reviewed PR that passed tests.
 
-Check out README.md if you haven't already to find the conventions we follow.
-All code must be rustfmt'ed, which we enforce in CI.
+In README.md, under the "Conventions" section, are described the the API
+conventions we follow.
+
+All code must be rustfmt'ed, which we enforce in CI. Check
+.github/workflows/test.yml for the current Rust version against which we enforce
+rustfmt, since rustfmt's output sometimes changes between Rust versions.
+
+## Dev dependencies
+
+If you're making changes to rustls-ffi, you'll need
+`cbindgen` (run `cargo install cbindgen`). After you've made your changes,
+regenerate the header file:
+
+    make src/rustls.h

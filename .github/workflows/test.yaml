@@ -17,7 +17,7 @@ jobs:
           - stable
           - beta
           - nightly
-          - 1.56.0 # MSRV - keep in sync with what rustls considers MSRV
+          - 1.57.0 # MSRV - keep in sync with what rustls considers MSRV
         os: [ubuntu-18.04]
         # but only stable on macos/windows (slower platforms)
         include:
@@ -156,7 +156,7 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.65.0
+          toolchain: 1.67.1
           override: true
           default: true
           components: rustfmt
@@ -177,7 +177,7 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.65.0
+          toolchain: 1.67.1
           override: true
           default: true
           components: clippy

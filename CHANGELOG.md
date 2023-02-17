@@ -1,17 +1,34 @@
 # Changelog
 
+## 0.9.2 (2023-02-17)
+
+### Added
+
+ - Added support for Acceptor, allowing more flexible server-side handshake
+   handling (#243).
+
+### Fixed
+
+ - Fixed violation of stacked borrows when freeing Arcs, detected by Miri (#283).
+
+### Changed
+
+ - Update minimum supported Rust version to 1.57.0, following rustls (#276).
+ - Update rustls (#279).
+ - Update list of libraries required to link against (#281).
+
 ## 0.9.1 (2022-06-10)
 
 ### Fixed
 
  - rustls_server_config_builder_set_client_verifier and
    rustls_server_config_builder_set_client_verifier_optional: fix a double
-   free (#263)
+   free (#263).
  - rustls_server_connection_get_sni_hostname: actually set \*out_n when SNI
    unavailable (#262).
  - rustls_client_cert_verifier_new and rustls_client_cert_verifier_optional_new:
    change to const and fix some lifecycle comments (#260).
- - Fixed documentation for rustls_certified_key_build (#257)
+ - Fixed documentation for rustls_certified_key_build (#257).
 
 ## 0.9.0 (2022-05-12)
 
