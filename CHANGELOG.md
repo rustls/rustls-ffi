@@ -13,7 +13,7 @@
 
 ### Changed
 
- - Update minimum supported Rust version to 1.56.0, following rustls (#276).
+ - Update minimum supported Rust version to 1.57.0, following rustls (#276).
  - Update rustls (#279).
  - Update list of libraries required to link against (#281).
 

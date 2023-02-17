@@ -1,22 +1,32 @@
-# Rustls FFI bindings
+# Rustls FFI bindings - use Rustls from any language
 
 [![Build Status](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml/badge.svg)](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml)
 
 This crate contains FFI bindings for the [rustls](https://docs.rs/rustls) TLS
-library, so you can use the library in C programs or any other language that
-supports FFI. It also contains a small demo C program that uses those bindings
-to make an HTTPS request. Note: this crate was recently renamed from "crustls."
+library, so you can use the library in any language that supports FFI (C, C++, Python, etc).
+It also contains demo C programs that use those bindings to run an HTTPS server, and to
+make an HTTPS request.
+
+Rustls is a modern TLS library written in Rust, meaning it is less likely to
+have memory safety vulnerabilities that equivalent TLS libraries written in
+memory unsafe languages.
+
+If you are using rustls-ffi to replace OpenSSL, note that OpenSSL provides
+[cryptographic primitives](https://www.openssl.org/docs/man3.0/man7/crypto.html)
+in addition to a TLS library. Rustls-ffi only provides the TLS library. If you
+use the cryptographic primitives from OpenSSL you may need to
+need to find another library to provide the cryptographic primitives.
 
 # Build
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.52.1
+You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.57
 or above and a C compiler (gcc and clang should both work). To build in optimized mode:
 
     make
 
-To install:
+To install in /usr/local/:
 
-    make install
+    sudo make install
 
 To build in debug mode:
 
@@ -34,12 +44,6 @@ If the linking instructions above go out of date, [you can get an up-to-date lis
 via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
 
     RUSTFLAGS="--print native-static-libs" cargo build
-
-If you're making changes to rustls-ffi, you'll need Rust 1.56.1 or above, plus
-`cbindgen` (run `cargo install cbindgen`). After you've made your changes,
-regenerate the header file:
-
-    make src/rustls.h
 
 # Overview
 
