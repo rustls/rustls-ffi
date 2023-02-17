@@ -1,14 +1,14 @@
 [package]
 name = "rustls-ffi"
-version = "0.9.2-alpha1"
+version = "0.10.0"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 license = "Apache-2.0/ISC/MIT"
 readme = "README-crates.io.md"
-description = "C-to-rustls bindings"
+description = "Rustls bindings for non-Rust languages"
 homepage = "https://github.com/rustls/rustls-ffi"
 repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
-edition = "2018"
+edition = "2021"
 links = "rustls_ffi"
 rust-version = "1.56"
 
@@ -23,13 +23,13 @@ read_buf = ["rustls/read_buf"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.20.7", features = [ "dangerous_configuration" ] }
+rustls = { version = "=0.20.8", features = [ "dangerous_configuration" ] }
 webpki = "0.22"
 libc = "0.2"
 sct = "0.7"
 rustls-pemfile = "0.2.1"
-log = "0.4.14"
-num_enum = "0.5.4"
+log = "0.4.17"
+num_enum = "0.5.10"
 
 [lib]
 name = "rustls_ffi"
