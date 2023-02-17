@@ -12,6 +12,7 @@ use rustls::Error;
 /// error numbers for your operating system - for example, the integers for
 /// ETIMEDOUT, EAGAIN, or similar.
 #[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
 
 impl rustls_result {
@@ -116,7 +117,7 @@ fn test_rustls_result_is_cert_error() {
 
 #[allow(dead_code)]
 #[repr(u32)]
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, TryFromPrimitive, Clone, Copy, PartialEq, Eq)]
 pub enum rustls_result {
     Ok = 7000,
     Io = 7001,
@@ -130,6 +131,8 @@ pub enum rustls_result {
     InvalidParameter = 7009,
     UnexpectedEof = 7010,
     PlaintextEmpty = 7011,
+    AcceptorNotReady = 7012,
+    AlreadyUsed = 7013,
 
     // From https://docs.rs/rustls/0.20.0/rustls/enum.Error.html
     CorruptMessage = 7100,
@@ -301,6 +304,8 @@ impl Display for rustls_result {
         CertInvalidData => write!(f, "invalid certificate data found"),
         UnexpectedEof => write!(f,  "unexpected EOF"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
+        AcceptorNotReady => write!(f, "rustls_acceptor not ready yet; read more TLS bytes into it"),
+        AlreadyUsed => write!(f, "tried to use a rustls struct after it had been converted to another struct"),
 
         // These variants correspond to a rustls::Error variant with a field,
         // where generating an arbitrary field would produce a confusing error
