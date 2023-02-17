@@ -131,7 +131,7 @@ pub enum rustls_result {
     InvalidParameter = 7009,
     UnexpectedEof = 7010,
     PlaintextEmpty = 7011,
-    NotReady = 7012,
+    AcceptorNotReady = 7012,
     AlreadyUsed = 7013,
 
     // From https://docs.rs/rustls/0.20.0/rustls/enum.Error.html
@@ -304,7 +304,7 @@ impl Display for rustls_result {
         CertInvalidData => write!(f, "invalid certificate data found"),
         UnexpectedEof => write!(f,  "unexpected EOF"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
-        NotReady => write!(f, "rustls_acceptor not ready yet; read more TLS bytes into it"),
+        AcceptorNotReady => write!(f, "rustls_acceptor not ready yet; read more TLS bytes into it"),
         AlreadyUsed => write!(f, "tried to use a rustls struct after it had been converted to another struct"),
 
         // These variants correspond to a rustls::Error variant with a field,

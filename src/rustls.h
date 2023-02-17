@@ -20,7 +20,7 @@ enum rustls_result {
   RUSTLS_RESULT_INVALID_PARAMETER = 7009,
   RUSTLS_RESULT_UNEXPECTED_EOF = 7010,
   RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
-  RUSTLS_RESULT_NOT_READY = 7012,
+  RUSTLS_RESULT_ACCEPTOR_NOT_READY = 7012,
   RUSTLS_RESULT_ALREADY_USED = 7013,
   RUSTLS_RESULT_CORRUPT_MESSAGE = 7100,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
@@ -121,7 +121,7 @@ typedef struct rustls_accepted rustls_accepted;
  *  - Loop:
  *    - Read bytes from the network it with rustls_acceptor_read_tls().
  *    - If successful, parse those bytes with rustls_acceptor_accept().
- *    - If that returns RUSTLS_RESULT_NOT_READY, continue.
+ *    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
  *    - Otherwise, break.
  *  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
  *    - Examine the resulting rustls_accepted.
@@ -586,7 +586,7 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * - RUSTLS_RESULT_OK: a ClientHello has successfully been parsed.
  *   A pointer to a newly allocated rustls_accepted has been written to
  *   *out_accepted.
- * - RUSTLS_RESULT_NOT_READY: a full ClientHello has not yet been read.
+ * - RUSTLS_RESULT_ACCEPTOR_NOT_READY: a full ClientHello has not yet been read.
  *   Read more TLS bytes to continue.
  * - Any other rustls_result: the TLS bytes read so far cannot be parsed
  *   as a ClientHello, and reading additional bytes won't help.

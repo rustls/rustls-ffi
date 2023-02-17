@@ -30,7 +30,7 @@ use rustls_result::NullParameter;
 ///  - Loop:
 ///    - Read bytes from the network it with rustls_acceptor_read_tls().
 ///    - If successful, parse those bytes with rustls_acceptor_accept().
-///    - If that returns RUSTLS_RESULT_NOT_READY, continue.
+///    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
 ///    - Otherwise, break.
 ///  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
 ///    - Examine the resulting rustls_accepted.
@@ -157,7 +157,7 @@ impl rustls_acceptor {
     /// - RUSTLS_RESULT_OK: a ClientHello has successfully been parsed.
     ///   A pointer to a newly allocated rustls_accepted has been written to
     ///   *out_accepted.
-    /// - RUSTLS_RESULT_NOT_READY: a full ClientHello has not yet been read.
+    /// - RUSTLS_RESULT_ACCEPTOR_NOT_READY: a full ClientHello has not yet been read.
     ///   Read more TLS bytes to continue.
     /// - Any other rustls_result: the TLS bytes read so far cannot be parsed
     ///   as a ClientHello, and reading additional bytes won't help.
@@ -182,7 +182,7 @@ impl rustls_acceptor {
                 return NullParameter
             }
             match acceptor.accept() {
-                Ok(None) => rustls_result::NotReady,
+                Ok(None) => rustls_result::AcceptorNotReady,
                 Err(e) => map_error(e),
                 Ok(Some(accepted)) => {
                     BoxCastPtr::set_mut_ptr(out_accepted, Some(accepted));
