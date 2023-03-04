@@ -58,8 +58,6 @@ install: target/$(PROFILE)/librustls_ffi.a
 	install target/$(PROFILE)/librustls_ffi.a $(DESTDIR)/lib/librustls.a
 	mkdir -p $(DESTDIR)/include
 	install src/rustls.h $(DESTDIR)/include/
-	ln -s librustls.a $(DESTDIR)/lib/libcrustls.a
-	ln -s rustls.h $(DESTDIR)/include/crustls.h
 
 clean:
 	rm -rf target

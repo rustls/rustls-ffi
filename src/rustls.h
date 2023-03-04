@@ -1,5 +1,5 @@
-#ifndef CRUSTLS_H
-#define CRUSTLS_H
+#ifndef RUSTLS_H
+#define RUSTLS_H
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -1553,4 +1553,4 @@ rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_
                                                            rustls_session_store_get_callback get_cb,
                                                            rustls_session_store_put_callback put_cb);
 
-#endif /* CRUSTLS_H */
+#endif /* RUSTLS_H */
