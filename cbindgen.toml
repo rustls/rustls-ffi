@@ -1,4 +1,4 @@
-include_guard = "CRUSTLS_H"
+include_guard = "RUSTLS_H"
 
 usize_is_size_t = true
 

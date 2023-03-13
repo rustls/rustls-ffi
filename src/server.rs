@@ -340,7 +340,7 @@ impl rustls_server_config {
                 Err(e) => return map_error(e),
             };
             // We've succeeded. Put the server on the heap, and transfer ownership
-            // to the caller. After this point, we must return CRUSTLS_OK so the
+            // to the caller. After this point, we must return rustls_result::Ok so the
             // caller knows it is responsible for this memory.
             let c = Connection::from_server(server_connection);
             BoxCastPtr::set_mut_ptr(conn_out, c);

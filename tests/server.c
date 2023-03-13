@@ -28,22 +28,22 @@
 #include "rustls.h"
 #include "common.h"
 
-enum crustls_demo_result
+enum demo_result
 read_file(const char *filename, char *buf, size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
     fprintf(stderr, "server: opening %s: %s\n", filename, strerror(errno));
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
   *n = fread(buf, 1, buflen, f);
   if(!feof(f)) {
     fprintf(stderr, "server: reading %s: %s\n", filename, strerror(errno));
     fclose(f);
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
   fclose(f);
-  return CRUSTLS_DEMO_OK;
+  return DEMO_OK;
 }
 
 typedef enum exchange_state
@@ -56,13 +56,13 @@ typedef enum exchange_state
  * Do one read from the socket, and process all resulting bytes into the
  * rustls_connection, then copy all plaintext bytes from the session to stdout.
  * Returns:
- *  - CRUSTLS_DEMO_OK for success
- *  - CRUSTLS_DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
+ *  - DEMO_OK for success
+ *  - DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
  *    socket
- *  - CRUSTLS_DEMO_EOF if we got EOF
- *  - CRUSTLS_DEMO_ERROR for other errors.
+ *  - DEMO_EOF if we got EOF
+ *  - DEMO_ERROR for other errors.
  */
-enum crustls_demo_result
+enum demo_result
 do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
   int err = 1;
@@ -76,26 +76,26 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
     fprintf(stderr,
             "server: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
             strerror(errno));
-    return CRUSTLS_DEMO_AGAIN;
+    return DEMO_AGAIN;
   }
   else if(err != 0) {
     fprintf(stderr, "server: reading from socket: errno %d\n", err);
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
 
   if(n == 0) {
-    return CRUSTLS_DEMO_EOF;
+    return DEMO_EOF;
   }
   fprintf(stderr, "server: read %zu bytes from socket\n", n);
 
   result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
     print_error("server", "in process_new_packets", result);
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
 
   result = copy_plaintext_to_buffer(conn);
-  if(result != CRUSTLS_DEMO_EOF) {
+  if(result != DEMO_EOF) {
     fprintf(stderr, "server: do_read returning %d\n", result);
     return result;
   }
@@ -107,18 +107,18 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
     fprintf(stderr,
             "server: error: read returned %zu bytes after receiving close_notify\n",
             n);
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
   else if (signed_n < 0 && errno != EWOULDBLOCK) {
     fprintf(stderr,
             "server: error: read returned incorrect error after receiving close_notify: %s\n",
             strerror(errno));
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
-  return CRUSTLS_DEMO_EOF;
+  return DEMO_EOF;
 }
 
-enum crustls_demo_result
+enum demo_result
 send_response(struct conndata *conn)
 {
   struct rustls_connection *rconn = conn->rconn;
@@ -130,10 +130,10 @@ send_response(struct conndata *conn)
 
   if(response == NULL) {
     fprintf(stderr, "server: failed malloc\n");
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
 
-  n = sprintf(response, "%s %d\r\n\r\n", prefix, body_size);
+  n = snprintf(response, response_size, "%s %d\r\n\r\n", prefix, body_size);
   memset(response + n, 'a', body_size);
   *(response + n + body_size) = '\n';
   *(response + n + body_size + 1) = '\0';
@@ -145,9 +145,9 @@ send_response(struct conndata *conn)
   free(response);
   if(n != response_size) {
     fprintf(stderr, "server: failed to write all response bytes. wrote %zu\n", n);
-    return CRUSTLS_DEMO_ERROR;
+    return DEMO_ERROR;
   }
-  return CRUSTLS_DEMO_OK;
+  return DEMO_OK;
 }
 
 void
@@ -198,13 +198,13 @@ handle_conn(struct conndata *conn)
          select awaiting the next bit of data. */
       for(;;) {
         result = do_read(conn, rconn);
-        if(result == CRUSTLS_DEMO_AGAIN) {
+        if(result == DEMO_AGAIN) {
           break;
         }
-        else if(result == CRUSTLS_DEMO_EOF) {
+        else if(result == DEMO_EOF) {
           goto cleanup;
         }
-        else if(result != CRUSTLS_DEMO_OK) {
+        else if(result != DEMO_OK) {
           goto cleanup;
         }
       }
@@ -234,7 +234,7 @@ handle_conn(struct conndata *conn)
         fprintf(stderr, "server: no ALPN protocol was negotiated\n");
       }
 
-      if(send_response(conn) != CRUSTLS_DEMO_OK) {
+      if(send_response(conn) != DEMO_OK) {
         goto cleanup;
       };
     }
@@ -261,12 +261,12 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   size_t keybuf_len;
 
   int result = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
-  if(result != CRUSTLS_DEMO_OK) {
+  if(result != DEMO_OK) {
     return NULL;
   }
 
   result = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
-  if(result != CRUSTLS_DEMO_OK) {
+  if(result != DEMO_OK) {
     return NULL;
   }
 

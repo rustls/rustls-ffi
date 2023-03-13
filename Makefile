@@ -5,8 +5,9 @@ else
 
 endif
 
-CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
+CARGO ?= cargo
 
+CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
 DESTDIR=/usr/local
 
@@ -20,6 +21,11 @@ ifeq ($(PROFILE), release)
 	CARGOFLAGS += --release
 endif
 
+ifneq (,$(TARGET))
+	PROFILE := $(TARGET)/$(PROFILE)
+	CARGOFLAGS += --target $(TARGET)
+endif
+
 all: target/client target/server
 
 test: all test-rust
@@ -27,7 +33,7 @@ test: all test-rust
 	./tests/client-server.py ./target/client ./target/server
 
 test-rust:
-	cargo test
+	${CARGO} test
 
 target:
 	mkdir -p $@
@@ -36,7 +42,7 @@ src/rustls.h: src/*.rs cbindgen.toml
 	cbindgen --lang C > $@
 
 target/$(PROFILE)/librustls_ffi.a: src/*.rs Cargo.toml
-	RUSTFLAGS="-C metadata=rustls-ffi" cargo build $(CARGOFLAGS)
+	RUSTFLAGS="-C metadata=rustls-ffi" ${CARGO} build $(CARGOFLAGS)
 
 target/%.o: tests/%.c tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
@@ -52,8 +58,6 @@ install: target/$(PROFILE)/librustls_ffi.a
 	install target/$(PROFILE)/librustls_ffi.a $(DESTDIR)/lib/librustls.a
 	mkdir -p $(DESTDIR)/include
 	install src/rustls.h $(DESTDIR)/include/
-	ln -s librustls.a $(DESTDIR)/lib/libcrustls.a
-	ln -s rustls.h $(DESTDIR)/include/crustls.h
 
 clean:
 	rm -rf target

@@ -534,8 +534,10 @@ impl rustls_client_cert_verifier {
     pub extern "C" fn rustls_client_cert_verifier_new(
         store: *const rustls_root_cert_store,
     ) -> *const rustls_client_cert_verifier {
-        let store: &RootCertStore = try_ref_from_ptr!(store);
-        return Arc::into_raw(AllowAnyAuthenticatedClient::new(store.clone())) as *const _;
+        ffi_panic_boundary! {
+            let store: &RootCertStore = try_ref_from_ptr!(store);
+            return Arc::into_raw(AllowAnyAuthenticatedClient::new(store.clone())) as *const _;
+        }
     }
 
     /// "Free" a verifier previously returned from
@@ -582,9 +584,11 @@ impl rustls_client_cert_verifier_optional {
     pub extern "C" fn rustls_client_cert_verifier_optional_new(
         store: *const rustls_root_cert_store,
     ) -> *const rustls_client_cert_verifier_optional {
-        let store: &RootCertStore = try_ref_from_ptr!(store);
-        return Arc::into_raw(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()))
-            as *const _;
+        ffi_panic_boundary! {
+            let store: &RootCertStore = try_ref_from_ptr!(store);
+            return Arc::into_raw(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()))
+                as *const _;
+        }
     }
 
     /// "Free" a verifier previously returned from
