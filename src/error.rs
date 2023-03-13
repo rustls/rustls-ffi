@@ -302,7 +302,7 @@ impl Display for rustls_result {
         NotFound => write!(f, "the item was not found"),
         InvalidParameter => write!(f, "a parameter had an invalid value"),
         CertInvalidData => write!(f, "invalid certificate data found"),
-        UnexpectedEof => write!(f,  "unexpected EOF"),
+        UnexpectedEof => write!(f,  "peer closed TCP connection without first closing TLS connection"),
         PlaintextEmpty => write!(f,  "no plaintext available; call rustls_connection_read_tls again"),
         AcceptorNotReady => write!(f, "rustls_acceptor not ready yet; read more TLS bytes into it"),
         AlreadyUsed => write!(f, "tried to use a rustls struct after it had been converted to another struct"),
