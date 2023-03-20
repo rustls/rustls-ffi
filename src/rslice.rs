@@ -77,12 +77,10 @@ pub struct rustls_slice_slice_bytes<'a> {
 /// Return the length of the outer slice. If the input pointer is NULL,
 /// returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> size_t {
-    unsafe {
-        match input.as_ref() {
-            Some(c) => c.inner.len(),
-            None => 0,
-        }
+pub unsafe extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_bytes) -> size_t {
+    match input.as_ref() {
+        Some(c) => c.inner.len(),
+        None => 0,
     }
 }
 
@@ -293,12 +291,10 @@ pub struct rustls_slice_str<'a> {
 /// Return the length of the outer slice. If the input pointer is NULL,
 /// returns 0.
 #[no_mangle]
-pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t {
-    unsafe {
-        match input.as_ref() {
-            Some(c) => c.inner.len(),
-            None => 0,
-        }
+pub unsafe extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t {
+    match input.as_ref() {
+        Some(c) => c.inner.len(),
+        None => 0,
     }
 }
 
