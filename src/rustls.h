@@ -1487,15 +1487,15 @@ rustls_result rustls_server_connection_new(const struct rustls_server_config *co
                                            struct rustls_connection **conn_out);
 
 /**
- * Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
- * and the length of that hostname in `out_n`. The string is stored in UTF-8
- * with no terminating NUL byte.
+ * Copy the server name from the server name indication (SNI) extension to `buf` which can
+ * hold up  to `count` bytes, and the length of that server name in `out_n`. The string is
+ * stored in UTF-8 with no terminating NUL byte.
  * Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
  * Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
  * because it hasn't been processed yet, or because the client did not send SNI.
- * <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname>
+ * <https://docs.rs/rustls/0.21.0/rustls/server/struct.ServerConnection.html#method.server_name>
  */
-rustls_result rustls_server_connection_get_sni_hostname(const struct rustls_connection *conn,
+rustls_result rustls_server_connection_get_server_name(const struct rustls_connection *conn,
                                                         uint8_t *buf,
                                                         size_t count,
                                                         size_t *out_n);
