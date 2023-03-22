@@ -536,7 +536,8 @@ impl rustls_client_cert_verifier {
     ) -> *const rustls_client_cert_verifier {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
-            return Arc::into_raw(AllowAnyAuthenticatedClient::new(store.clone())) as *const _;
+            let client_cert_verifier = AllowAnyAuthenticatedClient::new(store.clone());
+            return Arc::into_raw(client_cert_verifier.boxed()) as *const _;
         }
     }
 
@@ -586,7 +587,8 @@ impl rustls_client_cert_verifier_optional {
     ) -> *const rustls_client_cert_verifier_optional {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
-            return Arc::into_raw(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()))
+            let client_cert_verifier = AllowAnyAnonymousOrAuthenticatedClient::new(store.clone());
+            return Arc::into_raw(client_cert_verifier.boxed())
                 as *const _;
         }
     }
