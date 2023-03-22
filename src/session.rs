@@ -151,16 +151,6 @@ impl rustls::server::StoresServerSessions for SessionStoreBroker {
     }
 }
 
-impl rustls::client::StoresClientSessions for SessionStoreBroker {
-    fn put(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
-        self.store(key, value)
-    }
-
-    fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        self.retrieve(key, false)
-    }
-}
-
 /// This struct can be considered thread safe, as long
 /// as the registered callbacks are thread safe. This is
 /// documented as a requirement in the API.
