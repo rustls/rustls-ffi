@@ -430,11 +430,12 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 }
 
 /// The TLS Client Hello information provided to a ClientHelloCallback function.
-/// `sni_name` is the SNI servername provided by the client. If the client
-/// did not provide an SNI, the length of this `rustls_string` will be 0. The
-/// signature_schemes carries the values supplied by the client or, should
-/// the client not use this TLS extension, the default schemes in the rustls
-/// library. See: <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+/// `server_name` is the value of the ServerNameIndication extension provided
+/// by the client. If the client did not send an SNI, the length of this
+/// `rustls_string` will be 0. The signature_schemes field carries the values
+/// supplied by the client or, if the client did not send this TLS extension,
+/// the default schemes in the rustls library. See:
+/// <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
 /// the server. Again, the length of this list will be 0 if none were supplied.
 ///
@@ -446,7 +447,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 /// the rustls library is re-evaluating their current approach to client hello handling.
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
-    sni_name: rustls_str<'a>,
+    server_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
     alpn: *const rustls_slice_slice_bytes<'a>,
 }
@@ -502,13 +503,13 @@ impl ClientHelloResolver {
 
 impl ResolvesServerCert for ClientHelloResolver {
     fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
-        let sni_name: &str = {
+        let server_name: &str = {
             match client_hello.server_name() {
                 Some(c) => c,
                 None => "",
             }
         };
-        let sni_name: rustls_str = match sni_name.try_into() {
+        let server_name: rustls_str = match server_name.try_into() {
             Ok(r) => r,
             Err(_) => return None,
         };
@@ -526,7 +527,7 @@ impl ResolvesServerCert for ClientHelloResolver {
         let alpn = rustls_slice_slice_bytes { inner: &alpn };
         let signature_schemes: rustls_slice_u16 = (&*mapped_sigs).into();
         let hello = rustls_client_hello {
-            sni_name,
+            server_name,
             signature_schemes,
             alpn: &alpn,
         };
