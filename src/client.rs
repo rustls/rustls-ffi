@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::{CStr, OsStr};
 use std::fs::File;
@@ -176,12 +177,15 @@ impl rustls_client_config_builder {
 
 /// Input to a custom certificate verifier callback. See
 /// rustls_client_config_builder_dangerous_set_certificate_verifier().
+///
+/// server_name can contain a hostname, an IPv4 address in textual form, or an
+/// IPv6 address in textual form.
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
     pub end_entity_cert_der: rustls_slice_bytes<'a>,
     pub intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
-    pub dns_name: rustls_str<'a>,
+    pub server_name: rustls_str<'a>,
     pub ocsp_response: rustls_slice_bytes<'a>,
 }
 
@@ -233,11 +237,12 @@ impl rustls::client::ServerCertVerifier for Verifier {
         _now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
-        let dns_name: &str = match server_name {
-            rustls::ServerName::DnsName(n) => n.as_ref(),
+        let server_name: Cow<'_, str> = match server_name {
+            rustls::ServerName::DnsName(n) => n.as_ref().into(),
+            rustls::ServerName::IpAddress(ip) => ip.to_string().into(),
             _ => return Err(rustls::Error::General("unknown name type".to_string())),
         };
-        let dns_name: rustls_str = match dns_name.try_into() {
+        let server_name: rustls_str = match server_name.as_ref().try_into() {
             Ok(r) => r,
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
         };
@@ -251,7 +256,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
         let params = rustls_verify_server_cert_params {
             end_entity_cert_der: end_entity.as_ref().into(),
             intermediate_certs_der: &intermediates,
-            dns_name,
+            server_name,
             ocsp_response: ocsp_response.into(),
         };
         let userdata = userdata_get().map_err(|_| {
@@ -282,17 +287,9 @@ impl rustls_client_config_builder {
     /// to make such mutation safe.
     ///
     /// The callback receives certificate chain information as raw bytes.
-    /// Currently this library offers no functions for C code to parse the
-    /// certificates, so you'll need to bring your own certificate parsing library
+    /// Currently this library offers no functions to parse the certificates,
+    /// so you'll need to bring your own certificate parsing library
     /// if you need to parse them.
-    ///
-    /// If you intend to write a verifier that accepts all certificates, be aware
-    /// that special measures are required for IP addresses. Rustls currently
-    /// (0.20.0) doesn't support building a ClientConnection with an IP address
-    /// (because it's not a valid DnsNameRef). One workaround is to detect IP
-    /// addresses and rewrite them to `example.invalid`, and _also_ to disable
-    /// SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
-    /// need SNI).
     ///
     /// If the custom verifier accepts the certificate, it should return
     /// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
@@ -534,25 +531,29 @@ impl rustls_client_config {
     /// non-error, the memory pointed to by `conn_out` is modified to point at a
     /// valid rustls_connection. The caller now owns the rustls_connection and must
     /// call `rustls_connection_free` when done with it.
+    ///
+    /// The server_name parameter can contain a hostname or an IP address in
+    /// textual form (IPv4 or IPv6). This function will return an error if it
+    /// cannot be parsed as one of those types.
     #[no_mangle]
     pub extern "C" fn rustls_client_connection_new(
         config: *const rustls_client_config,
-        hostname: *const c_char,
+        server_name: *const c_char,
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-        let hostname: &CStr = unsafe {
-            if hostname.is_null() {
+        let server_name: &CStr = unsafe {
+            if server_name.is_null() {
                 return NullParameter;
             }
-            CStr::from_ptr(hostname)
+            CStr::from_ptr(server_name)
         };
         let config: Arc<ClientConfig> = try_arc_from_ptr!(config);
-        let hostname: &str = match hostname.to_str() {
+        let server_name: &str = match server_name.to_str() {
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let server_name: rustls::ServerName = match hostname.try_into() {
+        let server_name: rustls::ServerName = match server_name.try_into() {
             Ok(sn) => sn,
             Err(_) => return rustls_result::InvalidDnsNameError,
         };
@@ -644,5 +645,22 @@ mod tests {
             0
         );
         rustls_connection::rustls_connection_free(conn);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_client_connection_new_ipaddress() {
+        let builder: *mut rustls_client_config_builder =
+            rustls_client_config_builder::rustls_client_config_builder_new();
+        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut conn: *mut rustls_connection = null_mut();
+        let result = rustls_client_config::rustls_client_connection_new(
+            config,
+            "198.51.100.198\0".as_ptr() as *const c_char,
+            &mut conn,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+        }
     }
 }
