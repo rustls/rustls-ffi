@@ -349,15 +349,15 @@ impl rustls_server_config {
     }
 }
 
-/// Copy the SNI hostname to `buf` which can hold up  to `count` bytes,
-/// and the length of that hostname in `out_n`. The string is stored in UTF-8
-/// with no terminating NUL byte.
+/// Copy the server name from the server name indication (SNI) extension to `buf` which can
+/// hold up  to `count` bytes, and the length of that server name in `out_n`. The string is
+/// stored in UTF-8 with no terminating NUL byte.
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
 /// Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
 /// because it hasn't been processed yet, or because the client did not send SNI.
-/// <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConnection.html#method.sni_hostname>
+/// <https://docs.rs/rustls/0.21.0/rustls/server/struct.ServerConnection.html#method.server_name>
 #[no_mangle]
-pub extern "C" fn rustls_server_connection_get_sni_hostname(
+pub extern "C" fn rustls_server_connection_get_server_name(
     conn: *const rustls_connection,
     buf: *mut u8,
     count: size_t,
@@ -375,7 +375,7 @@ pub extern "C" fn rustls_server_connection_get_sni_hostname(
             Some(s) => s,
             _ => return rustls_result::InvalidParameter,
         };
-        let sni_hostname = match server_connection.sni_hostname() {
+        let sni_hostname = match server_connection.server_name() {
             Some(sni_hostname) => sni_hostname,
             None => {
                 unsafe {
