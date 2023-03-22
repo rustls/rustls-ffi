@@ -86,7 +86,7 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let builder = ServerConfigBuilder {
                            base: rustls::ServerConfig::builder().with_safe_defaults(),
-                           verifier: NoClientAuth::new(),
+                           verifier: NoClientAuth::boxed(),
                            cert_resolver: None,
                            session_storage: None,
                            alpn_protocols: vec![],
@@ -148,7 +148,7 @@ impl rustls_server_config_builder {
 
             let builder = ServerConfigBuilder {
                 base,
-                verifier: NoClientAuth::new(),
+                verifier: NoClientAuth::boxed(),
                 cert_resolver: None,
                 session_storage: None,
                 alpn_protocols: vec![],
