@@ -206,7 +206,7 @@ pub enum rustls_result {
 }
 
 pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
-    use rustls::internal::msgs::enums::AlertDescription as alert;
+    use rustls::AlertDescription as alert;
     use rustls_result::*;
     use sct::Error as sct;
 
@@ -285,7 +285,7 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
 
 impl Display for rustls_result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use rustls::internal::msgs::enums::AlertDescription as alert;
+        use rustls::AlertDescription as alert;
         use rustls_result::*;
         use sct::Error as sct;
 

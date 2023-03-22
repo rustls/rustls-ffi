@@ -9,8 +9,8 @@ use std::time::SystemTime;
 use libc::{c_char, size_t};
 use rustls::client::{ResolvesClientCert, ServerCertVerified, ServerCertVerifier};
 use rustls::{
-    sign::CertifiedKey, Certificate, ClientConfig, ClientConnection, ProtocolVersion,
-    RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
+    sign::CertifiedKey, Certificate, CertificateError, ClientConfig, ClientConnection,
+    ProtocolVersion, RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
 };
 
 use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
@@ -80,7 +80,9 @@ impl ServerCertVerifier for NoneVerifier {
         _ocsp_response: &[u8],
         _now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        Err(rustls::Error::InvalidCertificateSignature)
+        Err(rustls::Error::InvalidCertificate(
+            CertificateError::BadSignature,
+        ))
     }
 }
 
