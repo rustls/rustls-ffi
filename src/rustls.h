@@ -327,11 +327,14 @@ typedef void *rustls_verify_server_cert_user_data;
 /**
  * Input to a custom certificate verifier callback. See
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
+ *
+ * server_name can contain a hostname, an IPv4 address in textual form, or an
+ * IPv6 address in textual form.
  */
 typedef struct rustls_verify_server_cert_params {
   struct rustls_slice_bytes end_entity_cert_der;
   const struct rustls_slice_slice_bytes *intermediate_certs_der;
-  struct rustls_str dns_name;
+  struct rustls_str server_name;
   struct rustls_slice_bytes ocsp_response;
 } rustls_verify_server_cert_params;
 
@@ -403,11 +406,12 @@ typedef struct rustls_slice_u16 {
 
 /**
  * The TLS Client Hello information provided to a ClientHelloCallback function.
- * `sni_name` is the SNI servername provided by the client. If the client
- * did not provide an SNI, the length of this `rustls_string` will be 0. The
- * signature_schemes carries the values supplied by the client or, should
- * the client not use this TLS extension, the default schemes in the rustls
- * library. See: <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+ * `server_name` is the value of the ServerNameIndication extension provided
+ * by the client. If the client did not send an SNI, the length of this
+ * `rustls_string` will be 0. The signature_schemes field carries the values
+ * supplied by the client or, if the client did not send this TLS extension,
+ * the default schemes in the rustls library. See:
+ * <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
  * `alpn` carries the list of ALPN protocol names that the client proposed to
  * the server. Again, the length of this list will be 0 if none were supplied.
  *
@@ -419,7 +423,7 @@ typedef struct rustls_slice_u16 {
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
 typedef struct rustls_client_hello {
-  struct rustls_str sni_name;
+  struct rustls_str server_name;
   struct rustls_slice_u16 signature_schemes;
   const struct rustls_slice_slice_bytes *alpn;
 } rustls_client_hello;
@@ -987,17 +991,9 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_suppor
  * to make such mutation safe.
  *
  * The callback receives certificate chain information as raw bytes.
- * Currently this library offers no functions for C code to parse the
- * certificates, so you'll need to bring your own certificate parsing library
+ * Currently this library offers no functions to parse the certificates,
+ * so you'll need to bring your own certificate parsing library
  * if you need to parse them.
- *
- * If you intend to write a verifier that accepts all certificates, be aware
- * that special measures are required for IP addresses. Rustls currently
- * (0.20.0) doesn't support building a ClientConnection with an IP address
- * (because it's not a valid DnsNameRef). One workaround is to detect IP
- * addresses and rewrite them to `example.invalid`, and _also_ to disable
- * SNI via rustls_client_config_builder_set_enable_sni (IP addresses don't
- * need SNI).
  *
  * If the custom verifier accepts the certificate, it should return
  * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
@@ -1101,9 +1097,13 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * non-error, the memory pointed to by `conn_out` is modified to point at a
  * valid rustls_connection. The caller now owns the rustls_connection and must
  * call `rustls_connection_free` when done with it.
+ *
+ * The server_name parameter can contain a hostname or an IP address in
+ * textual form (IPv4 or IPv6). This function will return an error if it
+ * cannot be parsed as one of those types.
  */
 rustls_result rustls_client_connection_new(const struct rustls_client_config *config,
-                                           const char *hostname,
+                                           const char *server_name,
                                            struct rustls_connection **conn_out);
 
 /**
@@ -1496,9 +1496,9 @@ rustls_result rustls_server_connection_new(const struct rustls_server_config *co
  * <https://docs.rs/rustls/0.21.0/rustls/server/struct.ServerConnection.html#method.server_name>
  */
 rustls_result rustls_server_connection_get_server_name(const struct rustls_connection *conn,
-                                                        uint8_t *buf,
-                                                        size_t count,
-                                                        size_t *out_n);
+                                                       uint8_t *buf,
+                                                       size_t count,
+                                                       size_t *out_n);
 
 /**
  * Register a callback to be invoked when a connection created from this config
