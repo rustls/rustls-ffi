@@ -487,7 +487,7 @@ mod tests {
         rustls_io_result(0)
     }
 
-    // Send junk data to a rustls_acceptor, expect CorruptMessage from accept().
+    // Send junk data to a rustls_acceptor, expect MessageInvalidContentType from accept().
     #[test]
     fn test_acceptor_corrupt_message() {
         let acceptor = make_acceptor();
@@ -509,7 +509,7 @@ mod tests {
         assert_eq!(n, 1024);
 
         let result = rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted);
-        assert_eq!(result, rustls_result::CorruptMessage);
+        assert_eq!(result, rustls_result::MessageInvalidContentType);
         assert_eq!(accepted, null_mut());
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
