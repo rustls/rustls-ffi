@@ -364,6 +364,7 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             alert::CertificateRequired => AlertCertificateRequired,
             alert::NoApplicationProtocol => AlertNoApplicationProtocol,
             alert::Unknown(_) => AlertUnknown,
+            _ => AlertUnknown,
         },
         Error::InvalidSct(e) => match e {
             sct::MalformedSct => CertSCTMalformed,
@@ -372,6 +373,7 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             sct::UnsupportedSctVersion => CertSCTUnsupportedVersion,
             sct::UnknownLog => CertSCTUnknownLog,
         },
+        _ => General,
     }
 }
 
