@@ -42,7 +42,7 @@ def main():
     if want != got:
         print(
             "got unexpected list of native static libraries, "
-            "fix or update README: {} instead of {}"
+            "fix or update README. Got:\n {}\nInstead of:\n {}"
             .format(got, want)
         )
         sys.exit(1)
