@@ -31,7 +31,7 @@ use crate::{
 /// to turn it into a *rustls_client_config. This object is not safe
 /// for concurrent mutation. Under the hood, it corresponds to a
 /// `Box<ClientConfig>`.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
 pub struct rustls_client_config_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -55,7 +55,7 @@ impl BoxCastPtr for rustls_client_config_builder {}
 
 /// A client config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
 pub struct rustls_client_config {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -296,7 +296,7 @@ impl rustls_client_config_builder {
     /// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
     /// section.
     ///
-    /// <https://docs.rs/rustls/0.20.0/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
+    /// <https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
         config_builder: *mut rustls_client_config_builder,
@@ -388,7 +388,7 @@ impl rustls_client_config_builder {
     /// This function makes a copy of the data in `protocols` and does not retain
     /// any pointers, so the caller can free the pointed-to memory after calling.
     ///
-    /// <https://docs.rs/rustls/0.20.0/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols>
+    /// <https://docs.rs/rustls/latest/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols>
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_alpn_protocols(
         builder: *mut rustls_client_config_builder,
@@ -410,7 +410,7 @@ impl rustls_client_config_builder {
     }
 
     /// Enable or disable SNI.
-    /// <https://docs.rs/rustls/0.20.0/rustls/struct.ClientConfig.html#structfield.enable_sni>
+    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_enable_sni(
         config: *mut rustls_client_config_builder,

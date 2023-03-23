@@ -24,7 +24,7 @@ use std::ops::Deref;
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.Certificate.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.Certificate.html>
 pub struct rustls_certificate {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -253,7 +253,7 @@ mod tests {
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
-/// <https://docs.rs/rustls/0.20.0/rustls/sign/struct.CertifiedKey.html>
+/// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
 pub struct rustls_certified_key {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -434,7 +434,7 @@ impl rustls_certified_key {
 }
 
 /// A root certificate store.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
 pub struct rustls_root_cert_store {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -452,7 +452,7 @@ impl rustls_root_cert_store {
     /// Create a rustls_root_cert_store. Caller owns the memory and must
     /// eventually call rustls_root_cert_store_free. The store starts out empty.
     /// Caller must add root certificates with rustls_root_cert_store_add_pem.
-    /// <https://docs.rs/rustls/0.20.0/rustls/struct.RootCertStore.html#method.empty>
+    /// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.empty>
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
         ffi_panic_boundary! {

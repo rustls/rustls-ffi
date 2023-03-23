@@ -154,7 +154,7 @@ pub enum rustls_result {
     AcceptorNotReady = 7012,
     AlreadyUsed = 7013,
 
-    // From https://docs.rs/rustls/0.21.0/rustls/enum.Error.html
+    // From https://docs.rs/rustls/latest/rustls/enum.Error.html
     NoCertificatesPresented = 7101,
     DecryptError = 7102,
     FailedToGetCurrentTime = 7103,
@@ -220,7 +220,7 @@ pub enum rustls_result {
     General = 7112,
 
     // From Error, with fields that get flattened.
-    // https://docs.rs/rustls/0.21.0/rustls/internal/msgs/enums/enum.AlertDescription.html
+    // https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.AlertDescription.html
     AlertCloseNotify = 7200,
     AlertUnexpectedMessage = 7201,
     AlertBadRecordMac = 7202,
@@ -257,7 +257,7 @@ pub enum rustls_result {
     AlertNoApplicationProtocol = 7233,
     AlertUnknown = 7234,
 
-    // https://docs.rs/sct/0.7.0/sct/enum.Error.html
+    // https://docs.rs/sct/latest/sct/enum.Error.html
     CertSCTMalformed = 7319,
     CertSCTInvalidSignature = 7320,
     CertSCTTimestampInFuture = 7321,
