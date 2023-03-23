@@ -37,7 +37,7 @@ use crate::{
 /// done configuring settings, call rustls_server_config_builder_build
 /// to turn it into a *const rustls_server_config. This object is not safe
 /// for concurrent mutation.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ConfigBuilder.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
 pub struct rustls_server_config_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -62,7 +62,7 @@ impl BoxCastPtr for rustls_server_config_builder {}
 
 /// A server config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
-/// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html>
+/// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
 pub struct rustls_server_config {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
@@ -207,7 +207,7 @@ impl rustls_server_config_builder {
     /// With `ignore` != 0, the server will ignore the client ordering of cipher
     /// suites, aka preference, during handshake and respect its own ordering
     /// as configured.
-    /// <https://docs.rs/rustls/0.20.0/rustls/struct.ServerConfig.html#structfield.ignore_client_order>
+    /// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html#structfield.ignore_client_order>
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
         builder: *mut rustls_server_config_builder,
@@ -229,7 +229,7 @@ impl rustls_server_config_builder {
     /// This function makes a copy of the data in `protocols` and does not retain
     /// any pointers, so the caller can free the pointed-to memory after calling.
     ///
-    /// <https://docs.rs/rustls/0.20.0/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols>
+    /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols>
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_alpn_protocols(
         builder: *mut rustls_server_config_builder,
@@ -355,7 +355,7 @@ impl rustls_server_config {
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
 /// Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
 /// because it hasn't been processed yet, or because the client did not send SNI.
-/// <https://docs.rs/rustls/0.21.0/rustls/server/struct.ServerConnection.html#method.server_name>
+/// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConnection.html#method.server_name>
 #[no_mangle]
 pub extern "C" fn rustls_server_connection_get_server_name(
     conn: *const rustls_connection,
@@ -435,7 +435,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 /// `rustls_string` will be 0. The signature_schemes field carries the values
 /// supplied by the client or, if the client did not send this TLS extension,
 /// the default schemes in the rustls library. See:
-/// <https://docs.rs/rustls/0.20.0/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+/// <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
 /// the server. Again, the length of this list will be 0 if none were supplied.
 ///
