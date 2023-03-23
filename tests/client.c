@@ -373,8 +373,8 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
 
   fprintf(stderr,
           "client: custom certificate verifier called for %.*s\n",
-          (int)params->dns_name.len,
-          params->dns_name.data);
+          (int)params->server_name.len,
+          params->server_name.data);
   fprintf(stderr, "client: end entity len: %zu\n", params->end_entity_cert_der.len);
   fprintf(stderr, "client: intermediates:\n");
   for(i = 0; i < intermediates_len; i++) {
