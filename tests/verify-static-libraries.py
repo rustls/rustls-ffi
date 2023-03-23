@@ -20,7 +20,7 @@ def main():
     elif sys.platform.startswith("win32"):
         want = (
             "advapi32.lib credui.lib kernel32.lib secur32.lib "
-            "legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib "
+            "kernel32.lib advapi32.lib userenv.lib "
             "kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib "
             "legacy_stdio_definitions.lib"
         )
@@ -42,7 +42,7 @@ def main():
     if want != got:
         print(
             "got unexpected list of native static libraries, "
-            "fix or update README: {} instead of {}"
+            "fix or update README. Got:\n {}\nInstead of:\n {}"
             .format(got, want)
         )
         sys.exit(1)
