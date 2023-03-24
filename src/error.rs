@@ -208,7 +208,7 @@ pub enum rustls_result {
     MessageUnexpectedMessage = 7148,
     MessageUnknownProtocolVersion = 7149,
     MessageUnsupportedCompression = 7150,
-    MessageUnsupportedCurve = 7151,
+    MessageUnsupportedCurveType = 7151,
     MessageUnsupportedKeyExchangeAlgorithm = 7152,
     MessageInvalidOther = 7153, // Last added.
 
@@ -285,11 +285,11 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             InvalidMessage::HandshakePayloadTooLarge => MessageHandshakePayloadTooLarge,
             InvalidMessage::InvalidCcs => MessageInvalidCcs,
             InvalidMessage::InvalidContentType => MessageInvalidContentType,
-            InvalidMessage::InvalidCertificateStatusType(_) => MessageInvalidCertStatusType,
+            InvalidMessage::InvalidCertificateStatusType => MessageInvalidCertStatusType,
             InvalidMessage::InvalidCertRequest => MessageInvalidCertRequest,
             InvalidMessage::InvalidDhParams => MessageInvalidDhParams,
             InvalidMessage::InvalidEmptyPayload => MessageInvalidEmptyPayload,
-            InvalidMessage::InvalidKeyUpdate(_) => MessageInvalidKeyUpdate,
+            InvalidMessage::InvalidKeyUpdate => MessageInvalidKeyUpdate,
             InvalidMessage::InvalidServerName => MessageInvalidServerName,
             InvalidMessage::MessageTooLarge => MessageTooLarge,
             InvalidMessage::MessageTooShort => MessageTooShort,
@@ -300,7 +300,7 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             InvalidMessage::UnexpectedMessage(_) => MessageUnexpectedMessage,
             InvalidMessage::UnknownProtocolVersion => MessageUnknownProtocolVersion,
             InvalidMessage::UnsupportedCompression => MessageUnsupportedCompression,
-            InvalidMessage::UnsupportedCurve(_) => MessageUnsupportedCurve,
+            InvalidMessage::UnsupportedCurveType => MessageUnsupportedCurveType,
             InvalidMessage::UnsupportedKeyExchangeAlgorithm(_) => MessageUnsupportedCompression,
             _ => MessageInvalidOther,
         },
@@ -461,21 +461,25 @@ impl Display for rustls_result {
             MessageInvalidEmptyPayload => {
                 Error::InvalidMessage(InvalidMessage::InvalidEmptyPayload).fmt(f)
             }
+            MessageInvalidCertStatusType => {
+                Error::InvalidMessage(InvalidMessage::InvalidCertificateStatusType).fmt(f)
+            }
+            MessageInvalidKeyUpdate => {
+                Error::InvalidMessage(InvalidMessage::InvalidKeyUpdate).fmt(f)
+            }
+            MessageUnsupportedCurveType => {
+                Error::InvalidMessage(InvalidMessage::UnsupportedCurveType).fmt(f)
+            }
 
             // These variants correspond to a InvalidMessage variant with a field where generating an
             // arbitrary field would produce a confusing error message. So we reproduce a simplified
             // error string.
-            MessageInvalidCertStatusType => {
-                write!(f, "peer sent an invalid certificate status type")
-            }
-            MessageInvalidKeyUpdate => write!(f, "peer sent an unexpected key update request"),
             MessageMissingData => write!(f, "missing data for the named handshake payload value"),
             MessageTrailingData => write!(
                 f,
                 "trailing data found for the named handshake payload value"
             ),
             MessageUnexpectedMessage => write!(f, "peer sent unexpected message type"),
-            MessageUnsupportedCurve => write!(f, "peer sent an unknown elliptic curve type"),
             MessageUnsupportedKeyExchangeAlgorithm => {
                 write!(f, "peer sent an unsupported key exchange algorithm")
             }
