@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.10.0 (2023-03-29)
+
+### Added
+
+ - Some new certificate-related error codes starting with RUSTLS_RESULT_CERT_.
+   Some new message-related error codes starting with RUSTLS_RESULT_MESSAGE_ (#303).
+ - Support for IP addresses in server names (#302).
+
+### Removed
+
+ - RUSTLS_CERT_INVALID_{ENCODING,SIGNATURE_TYPE,SIGNATURE,DATA}. Replaced by
+   other RUSTLS_CERT_RESULT_ errors to match upstream rustls (#303).
+ - Old "crustls.h" and "libcrustls.a" symlinks to the current "rustls.h" and
+   "librustls.a" names (#289).
+
+### Changed
+
+ - rustls_verify_server_cert_params->dns_name became server_name (#303).
+ - rustls_server_connection_get_sni_hostname became
+   rustls_server_connection_get_server_name (#298).
+ - Give a better error message for UnexpectedEof (#284).
+
 ## 0.9.2 (2023-02-17)
 
 ### Added
