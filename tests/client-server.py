@@ -52,7 +52,7 @@ def run_client_tests(client, valgrind):
             "/"
         ],
         {
-            "CA_FILE": "minica.pem"
+            "CA_FILE": "testdata/minica.pem"
         },
         valgrind
     )
@@ -76,7 +76,7 @@ def run_client_tests(client, valgrind):
             "/"
         ],
         {
-            "CA_FILE": "minica.pem",
+            "CA_FILE": "testdata/minica.pem",
             "VECTORED_IO": ""
         },
         valgrind
@@ -86,8 +86,8 @@ def run_client_tests(client, valgrind):
 def run_server(server, valgrind, env):
     args = [
         server,
-        "localhost/cert.pem",
-        "localhost/key.pem"
+        "testdata/localhost/cert.pem",
+        "testdata/localhost/key.pem"
     ]
     if valgrind is not None:
         args = [valgrind] + args
