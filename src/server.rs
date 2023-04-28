@@ -724,8 +724,8 @@ mod tests {
     fn test_server_connection_new() {
         let builder: *mut rustls_server_config_builder =
             rustls_server_config_builder::rustls_server_config_builder_new();
-        let cert_pem = include_str!("../localhost/cert.pem").as_bytes();
-        let key_pem = include_str!("../localhost/key.pem").as_bytes();
+        let cert_pem = include_str!("../testdata/localhost/cert.pem").as_bytes();
+        let key_pem = include_str!("../testdata/localhost/key.pem").as_bytes();
         let mut certified_key: *const rustls_certified_key = null();
         let result = rustls_certified_key::rustls_certified_key_build(
             cert_pem.as_ptr(),
