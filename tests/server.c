@@ -302,6 +302,7 @@ main(int argc, const char **argv)
     rustls_server_config_builder_new();
   const struct rustls_server_config *server_config = NULL;
   struct rustls_connection *rconn = NULL;
+  const struct rustls_certified_key *certified_key = NULL;
   struct rustls_slice_bytes alpn_http11;
 
   alpn_http11.data = (unsigned char*)"http/1.1";
@@ -324,8 +325,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  const struct rustls_certified_key *certified_key =
-    load_cert_and_key(argv[1], argv[2]);
+  certified_key = load_cert_and_key(argv[1], argv[2]);
   if(certified_key == NULL) {
     goto cleanup;
   }
