@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::BufReader;
@@ -263,9 +263,7 @@ impl rustls::client::ServerCertVerifier for Verifier {
             rustls::Error::General("internal error with thread-local storage".to_string())
         })?;
         let result: u32 = unsafe { cb(userdata, &params) };
-        let result: rustls_result =
-            rustls_result::try_from(result).unwrap_or(rustls_result::General);
-        match result {
+        match rustls_result::from(result) {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => Err(error::cert_result_to_error(r)),
         }

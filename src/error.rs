@@ -1,11 +1,9 @@
 use std::cmp::min;
-use std::convert::TryFrom;
 use std::fmt::Display;
 use std::sync::Arc;
 
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
-use num_enum::TryFromPrimitive;
 use rustls::{CertificateError, Error, InvalidMessage};
 
 /// A return value for a function that may return either success (0) or a
@@ -15,6 +13,162 @@ use rustls::{CertificateError, Error, InvalidMessage};
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
+
+macro_rules! u32_enum_builder {
+    (
+    $(#[$comment:meta])*
+        EnumName: $enum_name: ident;
+        EnumDefault: $enum_default: ident;
+        EnumVal { $( $enum_var: ident => $enum_val: expr ),* }
+    ) => {
+        $(#[$comment])*
+        #[allow(dead_code)]
+        #[repr(u32)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        pub enum $enum_name {
+            $( $enum_var = $enum_val),*
+        }
+        impl From<u32> for $enum_name {
+            fn from(x: u32) -> Self {
+                match x {
+                    $($enum_val => $enum_name::$enum_var),*
+                    , _ => $enum_name::$enum_default,
+                }
+            }
+        }
+    };
+}
+
+u32_enum_builder! {
+    EnumName: rustls_result;
+    EnumDefault: InvalidParameter;
+    EnumVal{
+        Ok => 7000,
+        Io => 7001,
+        NullParameter => 7002,
+        InvalidDnsNameError => 7003,
+        Panic => 7004,
+        CertificateParseError => 7005,
+        PrivateKeyParseError => 7006,
+        InsufficientSize => 7007,
+        NotFound => 7008,
+        InvalidParameter => 7009,
+        UnexpectedEof => 7010,
+        PlaintextEmpty => 7011,
+        AcceptorNotReady => 7012,
+        AlreadyUsed => 7013,
+
+        // From https://docs.rs/rustls/latest/rustls/enum.Error.html
+        NoCertificatesPresented => 7101,
+        DecryptError => 7102,
+        FailedToGetCurrentTime => 7103,
+        FailedToGetRandomBytes => 7113,
+        HandshakeNotComplete => 7104,
+        PeerSentOversizedRecord => 7105,
+        NoApplicationProtocol => 7106,
+        BadMaxFragmentSize => 7114,
+        UnsupportedNameType => 7115,
+        EncryptError => 7116,
+
+        // Reserved from previous use pre rustls-ffi <0.21.0
+        //  CorruptMessage => 7100,
+        //  CorruptMessagePayload => 7111,
+        //  CertInvalidEncoding => 7117,
+        //  CertInvalidSignatureType => 7118,
+        //  CertInvalidSignature => 7119,
+        //  CertInvalidData => 7120,
+
+        // From InvalidCertificate, with fields that get flattened.
+        // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidCertificate
+        CertEncodingBad => 7121,
+        CertExpired => 7122,
+        CertNotYetValid => 7123,
+        CertRevoked => 7124,
+        CertUnhandledCriticalExtension => 7125,
+        CertUnknownIssuer => 7126,
+        CertBadSignature => 7127,
+        CertNotValidForName => 7128,
+        CertInvalidPurpose => 7129,
+        CertApplicationVerificationFailure => 7130,
+        CertOtherError => 7131,
+
+        // From InvalidMessage, with fields that get flattened.
+        // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
+        MessageHandshakePayloadTooLarge => 7133,
+        MessageInvalidCcs => 7134,
+        MessageInvalidContentType => 7135,
+        MessageInvalidCertStatusType => 7136,
+        MessageInvalidCertRequest => 7137,
+        MessageInvalidDhParams => 7138,
+        MessageInvalidEmptyPayload => 7139,
+        MessageInvalidKeyUpdate => 7140,
+        MessageInvalidServerName => 7141,
+        MessageTooLarge => 7142,
+        MessageTooShort => 7143,
+        MessageMissingData => 7144,
+        MessageMissingKeyExchange => 7145,
+        MessageNoSignatureSchemes => 7146,
+        MessageTrailingData => 7147,
+        MessageUnexpectedMessage => 7148,
+        MessageUnknownProtocolVersion => 7149,
+        MessageUnsupportedCompression => 7150,
+        MessageUnsupportedCurveType => 7151,
+        MessageUnsupportedKeyExchangeAlgorithm => 7152,
+        MessageInvalidOther => 7153, // Last added.
+
+        // From Error, with fields that get dropped.
+        PeerIncompatibleError => 7107,
+        PeerMisbehavedError => 7108,
+        InappropriateMessage => 7109,
+        InappropriateHandshakeMessage => 7110,
+        General => 7112,
+
+        // From Error, with fields that get flattened.
+        // https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.AlertDescription.html
+        AlertCloseNotify => 7200,
+        AlertUnexpectedMessage => 7201,
+        AlertBadRecordMac => 7202,
+        AlertDecryptionFailed => 7203,
+        AlertRecordOverflow => 7204,
+        AlertDecompressionFailure => 7205,
+        AlertHandshakeFailure => 7206,
+        AlertNoCertificate => 7207,
+        AlertBadCertificate => 7208,
+        AlertUnsupportedCertificate => 7209,
+        AlertCertificateRevoked => 7210,
+        AlertCertificateExpired => 7211,
+        AlertCertificateUnknown => 7212,
+        AlertIllegalParameter => 7213,
+        AlertUnknownCA => 7214,
+        AlertAccessDenied => 7215,
+        AlertDecodeError => 7216,
+        AlertDecryptError => 7217,
+        AlertExportRestriction => 7218,
+        AlertProtocolVersion => 7219,
+        AlertInsufficientSecurity => 7220,
+        AlertInternalError => 7221,
+        AlertInappropriateFallback => 7222,
+        AlertUserCanceled => 7223,
+        AlertNoRenegotiation => 7224,
+        AlertMissingExtension => 7225,
+        AlertUnsupportedExtension => 7226,
+        AlertCertificateUnobtainable => 7227,
+        AlertUnrecognisedName => 7228,
+        AlertBadCertificateStatusResponse => 7229,
+        AlertBadCertificateHashValue => 7230,
+        AlertUnknownPSKIdentity => 7231,
+        AlertCertificateRequired => 7232,
+        AlertNoApplicationProtocol => 7233,
+        AlertUnknown => 7234,
+
+        // https://docs.rs/sct/latest/sct/enum.Error.html
+        CertSCTMalformed => 7319,
+        CertSCTInvalidSignature => 7320,
+        CertSCTTimestampInFuture => 7321,
+        CertSCTUnsupportedVersion => 7322,
+        CertSCTUnknownLog => 7323
+    }
+}
 
 impl rustls_result {
     /// After a rustls function returns an error, you may call
@@ -35,8 +189,7 @@ impl rustls_result {
             if out_n.is_null() {
                 return
             }
-            let result: rustls_result = rustls_result::try_from(result).unwrap_or(rustls_result::InvalidParameter);
-            let error_str = result.to_string();
+            let error_str =  rustls_result::from(result).to_string();
             let out_len: usize = min(len - 1, error_str.len());
             unsafe {
                 std::ptr::copy_nonoverlapping(error_str.as_ptr() as *mut c_char, buf, out_len);
@@ -47,11 +200,9 @@ impl rustls_result {
 
     #[no_mangle]
     pub extern "C" fn rustls_result_is_cert_error(result: c_uint) -> bool {
-        let result: rustls_result =
-            rustls_result::try_from(result).unwrap_or(rustls_result::InvalidParameter);
         use rustls_result::*;
         matches!(
-            result,
+            rustls_result::from(result),
             CertEncodingBad
                 | CertExpired
                 | CertNotYetValid
@@ -133,136 +284,6 @@ fn test_rustls_result_is_cert_error() {
     for id in 7319..=7323 {
         assert!(rustls_result::rustls_result_is_cert_error(id));
     }
-}
-
-#[allow(dead_code)]
-#[repr(u32)]
-#[derive(Debug, TryFromPrimitive, Clone, Copy, PartialEq, Eq)]
-pub enum rustls_result {
-    Ok = 7000,
-    Io = 7001,
-    NullParameter = 7002,
-    InvalidDnsNameError = 7003,
-    Panic = 7004,
-    CertificateParseError = 7005,
-    PrivateKeyParseError = 7006,
-    InsufficientSize = 7007,
-    NotFound = 7008,
-    InvalidParameter = 7009,
-    UnexpectedEof = 7010,
-    PlaintextEmpty = 7011,
-    AcceptorNotReady = 7012,
-    AlreadyUsed = 7013,
-
-    // From https://docs.rs/rustls/latest/rustls/enum.Error.html
-    NoCertificatesPresented = 7101,
-    DecryptError = 7102,
-    FailedToGetCurrentTime = 7103,
-    FailedToGetRandomBytes = 7113,
-    HandshakeNotComplete = 7104,
-    PeerSentOversizedRecord = 7105,
-    NoApplicationProtocol = 7106,
-    BadMaxFragmentSize = 7114,
-    UnsupportedNameType = 7115,
-    EncryptError = 7116,
-
-    // Reserved from previous use pre rustls-ffi <0.21.0
-    //  CorruptMessage = 7100,
-    //  CorruptMessagePayload = 7111,
-    //  CertInvalidEncoding = 7117,
-    //  CertInvalidSignatureType = 7118,
-    //  CertInvalidSignature = 7119,
-    //  CertInvalidData = 7120,
-
-    // From InvalidCertificate, with fields that get flattened.
-    // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidCertificate
-    CertEncodingBad = 7121,
-    CertExpired = 7122,
-    CertNotYetValid = 7123,
-    CertRevoked = 7124,
-    CertUnhandledCriticalExtension = 7125,
-    CertUnknownIssuer = 7126,
-    CertBadSignature = 7127,
-    CertNotValidForName = 7128,
-    CertInvalidPurpose = 7129,
-    CertApplicationVerificationFailure = 7130,
-    CertOtherError = 7131,
-
-    // From InvalidMessage, with fields that get flattened.
-    // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
-    MessageHandshakePayloadTooLarge = 7133,
-    MessageInvalidCcs = 7134,
-    MessageInvalidContentType = 7135,
-    MessageInvalidCertStatusType = 7136,
-    MessageInvalidCertRequest = 7137,
-    MessageInvalidDhParams = 7138,
-    MessageInvalidEmptyPayload = 7139,
-    MessageInvalidKeyUpdate = 7140,
-    MessageInvalidServerName = 7141,
-    MessageTooLarge = 7142,
-    MessageTooShort = 7143,
-    MessageMissingData = 7144,
-    MessageMissingKeyExchange = 7145,
-    MessageNoSignatureSchemes = 7146,
-    MessageTrailingData = 7147,
-    MessageUnexpectedMessage = 7148,
-    MessageUnknownProtocolVersion = 7149,
-    MessageUnsupportedCompression = 7150,
-    MessageUnsupportedCurveType = 7151,
-    MessageUnsupportedKeyExchangeAlgorithm = 7152,
-    MessageInvalidOther = 7153, // Last added.
-
-    // From Error, with fields that get dropped.
-    PeerIncompatibleError = 7107,
-    PeerMisbehavedError = 7108,
-    InappropriateMessage = 7109,
-    InappropriateHandshakeMessage = 7110,
-    General = 7112,
-
-    // From Error, with fields that get flattened.
-    // https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.AlertDescription.html
-    AlertCloseNotify = 7200,
-    AlertUnexpectedMessage = 7201,
-    AlertBadRecordMac = 7202,
-    AlertDecryptionFailed = 7203,
-    AlertRecordOverflow = 7204,
-    AlertDecompressionFailure = 7205,
-    AlertHandshakeFailure = 7206,
-    AlertNoCertificate = 7207,
-    AlertBadCertificate = 7208,
-    AlertUnsupportedCertificate = 7209,
-    AlertCertificateRevoked = 7210,
-    AlertCertificateExpired = 7211,
-    AlertCertificateUnknown = 7212,
-    AlertIllegalParameter = 7213,
-    AlertUnknownCA = 7214,
-    AlertAccessDenied = 7215,
-    AlertDecodeError = 7216,
-    AlertDecryptError = 7217,
-    AlertExportRestriction = 7218,
-    AlertProtocolVersion = 7219,
-    AlertInsufficientSecurity = 7220,
-    AlertInternalError = 7221,
-    AlertInappropriateFallback = 7222,
-    AlertUserCanceled = 7223,
-    AlertNoRenegotiation = 7224,
-    AlertMissingExtension = 7225,
-    AlertUnsupportedExtension = 7226,
-    AlertCertificateUnobtainable = 7227,
-    AlertUnrecognisedName = 7228,
-    AlertBadCertificateStatusResponse = 7229,
-    AlertBadCertificateHashValue = 7230,
-    AlertUnknownPSKIdentity = 7231,
-    AlertCertificateRequired = 7232,
-    AlertNoApplicationProtocol = 7233,
-    AlertUnknown = 7234,
-
-    // https://docs.rs/sct/latest/sct/enum.Error.html
-    CertSCTMalformed = 7319,
-    CertSCTInvalidSignature = 7320,
-    CertSCTTimestampInFuture = 7321,
-    CertSCTUnsupportedVersion = 7322,
-    CertSCTUnknownLog = 7323,
 }
 
 pub(crate) fn map_error(input: rustls::Error) -> rustls_result {

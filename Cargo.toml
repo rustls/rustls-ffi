@@ -29,7 +29,6 @@ libc = "0.2"
 sct = "0.7"
 rustls-pemfile = "0.2.1"
 log = "0.4.17"
-num_enum = "0.5.10"
 
 [lib]
 name = "rustls_ffi"
