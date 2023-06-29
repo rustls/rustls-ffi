@@ -3,7 +3,12 @@ name: rustls-ffi
 permissions:
   contents: read
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  merge_group:
+  schedule:
+    - cron: '15 12 * * 3'
 
 jobs:
   build:
