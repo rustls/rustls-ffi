@@ -102,6 +102,7 @@ jobs:
         with:
           persist-credentials: false
       - run: touch src/lib.rs
+      - run: cbindgen --version
       - run: make src/rustls.h
       - run: git diff --exit-code
 
