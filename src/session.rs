@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::error::rustls_result;
 use crate::rslice::rustls_slice_bytes;
 use crate::userdata_get;
@@ -108,9 +106,7 @@ impl SessionStoreBroker {
                 data.len(),
                 &mut out_n,
             );
-            let result: rustls_result =
-                rustls_result::try_from(result).unwrap_or(rustls_result::General);
-            match result {
+            match rustls_result::from(result) {
                 rustls_result::Ok => {
                     data.set_len(out_n);
                     Some(data)
