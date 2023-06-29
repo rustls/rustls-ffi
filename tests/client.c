@@ -409,6 +409,7 @@ main(int argc, const char **argv)
     rustls_client_config_builder_new();
   const struct rustls_client_config *client_config = NULL;
   struct rustls_slice_bytes alpn_http11;
+  const struct rustls_certified_key *certified_key = NULL;
 
   alpn_http11.data = (unsigned char*)"http/1.1";
   alpn_http11.len = 8;
@@ -434,6 +435,19 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
+  char* auth_cert = getenv("AUTH_CERT");
+  char* auth_key = getenv("AUTH_KEY");
+  if((auth_cert && !auth_key) || (!auth_cert && auth_key)) {
+    fprintf(stderr, "client: must set both AUTH_CERT and AUTH_KEY env vars, or neither\n");
+    goto cleanup;
+  } else if (auth_cert && auth_key) {
+    certified_key = load_cert_and_key(argv[0], auth_cert, auth_key);
+    if(certified_key == NULL) {
+      goto cleanup;
+    }
+    rustls_client_config_builder_set_certified_key(config_builder, &certified_key, 1);
+  }
+
   rustls_client_config_builder_set_alpn_protocols(config_builder, &alpn_http11, 1);
 
   client_config = rustls_client_config_builder_build(config_builder);
@@ -450,6 +464,7 @@ main(int argc, const char **argv)
   ret = 0;
 
 cleanup:
+  rustls_certified_key_free(certified_key);
   rustls_client_config_free(client_config);
 
 #ifdef _WIN32
