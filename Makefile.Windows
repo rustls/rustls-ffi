@@ -50,7 +50,7 @@ $(RUSTLS_LIB): src/lib.rs Cargo.toml
 	@echo
 
 target/%.exe: common.obj %.obj $(RUSTLS_LIB)
-	$(call link_EXE, $@, $^ advapi32.lib credui.lib kernel32.lib secur32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib legacy_stdio_definitions.lib userenv.lib kernel32.lib msvcrt.lib)
+	$(call link_EXE, $@, $^ advapi32.lib credui.lib kernel32.lib secur32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib legacy_stdio_definitions.lib userenv.lib kernel32.lib msvcrt.lib ntdll.lib)
 
 clean:
 	rm -f *.obj target/.rustc_info.json $(RUSTLS_LIB) vc1*.pdb
