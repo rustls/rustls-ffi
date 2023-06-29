@@ -63,11 +63,6 @@ impl rustls_result {
                 | CertInvalidPurpose
                 | CertApplicationVerificationFailure
                 | CertOtherError
-                | CertSCTMalformed
-                | CertSCTInvalidSignature
-                | CertSCTTimestampInFuture
-                | CertSCTUnsupportedVersion
-                | CertSCTUnknownLog
         )
     }
 }
@@ -93,11 +88,6 @@ pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
             InvalidCertificate(CertificateError::ApplicationVerificationFailure)
         }
         CertOtherError => InvalidCertificate(CertificateError::Other(Arc::from(Box::from("")))),
-        CertSCTMalformed => InvalidSct(sct::Error::MalformedSct),
-        CertSCTInvalidSignature => InvalidSct(sct::Error::InvalidSignature),
-        CertSCTTimestampInFuture => InvalidSct(sct::Error::TimestampInFuture),
-        CertSCTUnsupportedVersion => InvalidSct(sct::Error::UnsupportedSctVersion),
-        CertSCTUnknownLog => InvalidSct(sct::Error::UnknownLog),
         _ => rustls::Error::General("".into()),
     }
 }
@@ -126,11 +116,6 @@ fn test_rustls_result_is_cert_error() {
 
     // Test CertificateError range.
     for id in 7121..=7131 {
-        assert!(rustls_result::rustls_result_is_cert_error(id));
-    }
-
-    // Test SCTError range
-    for id in 7319..=7323 {
         assert!(rustls_result::rustls_result_is_cert_error(id));
     }
 }
@@ -257,18 +242,17 @@ pub enum rustls_result {
     AlertNoApplicationProtocol = 7233,
     AlertUnknown = 7234,
 
-    // https://docs.rs/sct/latest/sct/enum.Error.html
-    CertSCTMalformed = 7319,
-    CertSCTInvalidSignature = 7320,
-    CertSCTTimestampInFuture = 7321,
-    CertSCTUnsupportedVersion = 7322,
-    CertSCTUnknownLog = 7323,
+    // Reserved from previous use
+    // CertSCTMalformed = 7319,
+    // CertSCTInvalidSignature = 7320,
+    // CertSCTTimestampInFuture = 7321,
+    // CertSCTUnsupportedVersion = 7322,
+    // CertSCTUnknownLog = 7323,
 }
 
 pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
     use rustls::AlertDescription as alert;
     use rustls_result::*;
-    use sct::Error as sct;
 
     match input {
         Error::InappropriateMessage { .. } => InappropriateMessage,
@@ -366,13 +350,6 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             alert::Unknown(_) => AlertUnknown,
             _ => AlertUnknown,
         },
-        Error::InvalidSct(e) => match e {
-            sct::MalformedSct => CertSCTMalformed,
-            sct::InvalidSignature => CertSCTInvalidSignature,
-            sct::TimestampInFuture => CertSCTTimestampInFuture,
-            sct::UnsupportedSctVersion => CertSCTUnsupportedVersion,
-            sct::UnknownLog => CertSCTUnknownLog,
-        },
         _ => General,
     }
 }
@@ -381,7 +358,6 @@ impl Display for rustls_result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use rustls::AlertDescription as alert;
         use rustls_result::*;
-        use sct::Error as sct;
 
         match self {
             // These variants are local to this glue layer.
@@ -557,12 +533,6 @@ impl Display for rustls_result {
             AlertCertificateRequired => Error::AlertReceived(alert::CertificateRequired).fmt(f),
             AlertNoApplicationProtocol => Error::AlertReceived(alert::NoApplicationProtocol).fmt(f),
             AlertUnknown => Error::AlertReceived(alert::Unknown(0)).fmt(f),
-
-            CertSCTMalformed => Error::InvalidSct(sct::MalformedSct).fmt(f),
-            CertSCTInvalidSignature => Error::InvalidSct(sct::InvalidSignature).fmt(f),
-            CertSCTTimestampInFuture => Error::InvalidSct(sct::TimestampInFuture).fmt(f),
-            CertSCTUnsupportedVersion => Error::InvalidSct(sct::UnsupportedSctVersion).fmt(f),
-            CertSCTUnknownLog => Error::InvalidSct(sct::UnknownLog).fmt(f),
         }
     }
 }
