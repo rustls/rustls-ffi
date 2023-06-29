@@ -324,7 +324,10 @@ typedef int rustls_io_result;
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_result (*rustls_read_callback)(void *userdata, uint8_t *buf, size_t n, size_t *out_n);
+typedef rustls_io_result (*rustls_read_callback)(void *userdata,
+                                                 uint8_t *buf,
+                                                 size_t n,
+                                                 size_t *out_n);
 
 /**
  * A read-only view on a Rust byte slice.
@@ -364,7 +367,8 @@ typedef struct rustls_verify_server_cert_params {
   struct rustls_slice_bytes ocsp_response;
 } rustls_verify_server_cert_params;
 
-typedef uint32_t (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata, const struct rustls_verify_server_cert_params *params);
+typedef uint32_t (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata,
+                                                       const struct rustls_verify_server_cert_params *params);
 
 typedef size_t rustls_log_level;
 
@@ -389,7 +393,10 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t *buf, size_t n, size_t *out_n);
+typedef rustls_io_result (*rustls_write_callback)(void *userdata,
+                                                  const uint8_t *buf,
+                                                  size_t n,
+                                                  size_t *out_n);
 
 /**
  * A callback for rustls_connection_write_tls_vectored.
@@ -405,7 +412,10 @@ typedef rustls_io_result (*rustls_write_callback)(void *userdata, const uint8_t 
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  * The buf and out_n pointers are borrowed and should not be retained across calls.
  */
-typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n);
+typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata,
+                                                           const struct rustls_iovec *iov,
+                                                           size_t count,
+                                                           size_t *out_n);
 
 /**
  * Any context information the callback will receive when invoked.
@@ -472,7 +482,8 @@ typedef struct rustls_client_hello {
  * EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
  * the rustls library is re-evaluating their current approach to client hello handling.
  */
-typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata, const struct rustls_client_hello *hello);
+typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(rustls_client_hello_userdata userdata,
+                                                                           const struct rustls_client_hello *hello);
 
 /**
  * Any context information the callback will receive when invoked.
@@ -506,7 +517,12 @@ typedef void *rustls_session_store_userdata;
  * NOTE: callbacks used in several sessions via a common config
  * must be implemented thread-safe.
  */
-typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, int remove_after, uint8_t *buf, size_t count, size_t *out_n);
+typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userdata userdata,
+                                                      const struct rustls_slice_bytes *key,
+                                                      int remove_after,
+                                                      uint8_t *buf,
+                                                      size_t count,
+                                                      size_t *out_n);
 
 /**
  * Prototype of a callback that can be installed by the application at the
@@ -523,7 +539,9 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  * NOTE: callbacks used in several sessions via a common config
  * must be implemented thread-safe.
  */
-typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata, const struct rustls_slice_bytes *key, const struct rustls_slice_bytes *val);
+typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userdata userdata,
+                                                      const struct rustls_slice_bytes *key,
+                                                      const struct rustls_slice_bytes *val);
 
 extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
 
