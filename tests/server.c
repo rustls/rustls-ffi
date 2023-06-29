@@ -23,24 +23,6 @@
 #include "rustls.h"
 #include "common.h"
 
-enum demo_result
-read_file(const char *filename, char *buf, size_t buflen, size_t *n)
-{
-  FILE *f = fopen(filename, "r");
-  if(f == NULL) {
-    fprintf(stderr, "server: opening %s: %s\n", filename, strerror(errno));
-    return DEMO_ERROR;
-  }
-  *n = fread(buf, 1, buflen, f);
-  if(!feof(f)) {
-    fprintf(stderr, "server: reading %s: %s\n", filename, strerror(errno));
-    fclose(f);
-    return DEMO_ERROR;
-  }
-  fclose(f);
-  return DEMO_OK;
-}
-
 typedef enum exchange_state
 {
   READING_REQUEST,
@@ -242,37 +224,6 @@ cleanup:
   free(conn);
 }
 
-const struct rustls_certified_key *
-load_cert_and_key(const char *certfile, const char *keyfile)
-{
-  char certbuf[10000];
-  size_t certbuf_len;
-  char keybuf[10000];
-  size_t keybuf_len;
-
-  unsigned int result = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
-  if(result != DEMO_OK) {
-    return NULL;
-  }
-
-  result = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
-  if(result != DEMO_OK) {
-    return NULL;
-  }
-
-  const struct rustls_certified_key *certified_key;
-  result = rustls_certified_key_build((uint8_t *)certbuf,
-                                      certbuf_len,
-                                      (uint8_t *)keybuf,
-                                      keybuf_len,
-                                      &certified_key);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("server", "parsing certificate and key", result);
-    return NULL;
-  }
-  return certified_key;
-}
-
 bool shutting_down = false;
 
 void handle_signal(int signo) {
@@ -315,7 +266,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  certified_key = load_cert_and_key(argv[1], argv[2]);
+  certified_key = load_cert_and_key(argv[0], argv[1], argv[2]);
   if(certified_key == NULL) {
     goto cleanup;
   }
