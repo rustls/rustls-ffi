@@ -22,7 +22,7 @@ def main():
             "advapi32.lib credui.lib kernel32.lib secur32.lib "
             "legacy_stdio_definitions.lib "
             "kernel32.lib advapi32.lib userenv.lib "
-            "kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib "
+            "kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib ntdll.lib msvcrt.lib "
             "legacy_stdio_definitions.lib"
         )
     else:
