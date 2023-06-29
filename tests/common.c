@@ -353,3 +353,52 @@ log_cb(void *userdata, const struct rustls_log_params *params)
   fprintf(stderr, "%s[fd %d][%.*s]: %.*s\n", conn->program_name, conn->fd,
     (int)level_str.len, level_str.data, (int)params->message.len, params->message.data);
 }
+
+enum demo_result
+read_file(const char *progname, const char *filename, char *buf, size_t buflen, size_t *n)
+{
+  FILE *f = fopen(filename, "r");
+  if(f == NULL) {
+    fprintf(stderr, "%s: opening %s: %s\n", progname, filename, strerror(errno));
+    return DEMO_ERROR;
+  }
+  *n = fread(buf, 1, buflen, f);
+  if(!feof(f)) {
+    fprintf(stderr, "%s: reading %s: %s\n", progname, filename, strerror(errno));
+    fclose(f);
+    return DEMO_ERROR;
+  }
+  fclose(f);
+  return DEMO_OK;
+}
+
+const struct rustls_certified_key *
+load_cert_and_key(const char *progname, const char *certfile, const char *keyfile)
+{
+  char certbuf[10000];
+  size_t certbuf_len;
+  char keybuf[10000];
+  size_t keybuf_len;
+
+  int result = read_file(progname, certfile, certbuf, sizeof(certbuf), &certbuf_len);
+  if(result != DEMO_OK) {
+    return NULL;
+  }
+
+  result = read_file(progname, keyfile, keybuf, sizeof(keybuf), &keybuf_len);
+  if(result != DEMO_OK) {
+    return NULL;
+  }
+
+  const struct rustls_certified_key *certified_key;
+  result = rustls_certified_key_build((uint8_t *)certbuf,
+                                      certbuf_len,
+                                      (uint8_t *)keybuf,
+                                      keybuf_len,
+                                      &certified_key);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error(progname, "parsing certificate and key", result);
+    return NULL;
+  }
+  return certified_key;
+}

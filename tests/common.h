@@ -125,4 +125,10 @@ get_first_header_value(const char *headers, size_t headers_len,
 void
 log_cb(void *userdata, const struct rustls_log_params *params);
 
+enum demo_result
+read_file(const char *progname, const char *filename, char *buf, size_t buflen, size_t *n);
+
+const struct rustls_certified_key *
+load_cert_and_key(const char *progname, const char *certfile, const char *keyfile);
+
 #endif /* COMMON_H */
