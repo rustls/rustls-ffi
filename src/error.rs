@@ -241,7 +241,6 @@ pub enum rustls_result {
     AlertCertificateRequired = 7232,
     AlertNoApplicationProtocol = 7233,
     AlertUnknown = 7234,
-
     // Reserved from previous use
     // CertSCTMalformed = 7319,
     // CertSCTInvalidSignature = 7320,
