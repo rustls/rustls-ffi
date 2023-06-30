@@ -77,7 +77,6 @@ impl ServerCertVerifier for NoneVerifier {
         _end_entity: &Certificate,
         _intermediates: &[Certificate],
         _server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp_response: &[u8],
         _now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
@@ -232,7 +231,6 @@ impl rustls::client::ServerCertVerifier for Verifier {
         end_entity: &Certificate,
         intermediates: &[Certificate],
         server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
         _now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
@@ -327,7 +325,7 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder = try_mut_from_ptr!(config_builder);
             let root_store: &RootCertStore = try_ref_from_ptr!(roots);
-            builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(root_store.clone(), None));
+            builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(root_store.clone()));
             rustls_result::Ok
         }
     }
@@ -371,7 +369,7 @@ impl rustls_client_config_builder {
                 return rustls_result::CertificateParseError;
             }
 
-            config_builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(roots, None));
+            config_builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(roots));
             rustls_result::Ok
         }
     }
