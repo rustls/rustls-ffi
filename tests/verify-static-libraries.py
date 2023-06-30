@@ -9,6 +9,14 @@ STATIC_LIBS_RE = re.compile(
 )
 
 
+def uniquify_consecutive(items):
+    r = []
+    for i in items.split():
+        if not (r and r[-1] == i):
+            r.append(i)
+    return r
+
+
 def main():
     # If you need to change the values here, be sure to update the values in
     # the README. Alternatively, it is possible that adding new libraries to
@@ -20,10 +28,9 @@ def main():
     elif sys.platform.startswith("win32"):
         want = (
             "advapi32.lib credui.lib kernel32.lib secur32.lib "
-            "legacy_stdio_definitions.lib "
-            "kernel32.lib advapi32.lib userenv.lib "
-            "kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib ntdll.lib msvcrt.lib "
-            "legacy_stdio_definitions.lib"
+            "legacy_stdio_definitions.lib kernel32.lib advapi32.lib "
+            "bcrypt.lib kernel32.lib ntdll.lib userenv.lib ws2_32.lib "
+            "kernel32.lib ws2_32.lib kernel32.lib msvcrt.lib"
         )
     else:
         want = ""
@@ -39,7 +46,8 @@ def main():
         print("could not find list of native static libraries, check for "
               "compilation errors")
         sys.exit(1)
-    got = match.group(1).decode("ascii")
+    got = uniquify_consecutive(match.group(1).decode("ascii"))
+    want = uniquify_consecutive(want)
     if want != got:
         print(
             "got unexpected list of native static libraries, "
