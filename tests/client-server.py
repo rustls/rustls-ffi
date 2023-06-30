@@ -35,12 +35,16 @@ def wait_tcp_port(host, port):
     print("Connected to {}:{}".format(host, port))
 
 
-def run_with_maybe_valgrind(args, env, valgrind):
+def run_with_maybe_valgrind(args, env, valgrind, expect_error=False):
     if valgrind is not None:
         args = [valgrind] + args
     process_env = os.environ.copy()
     process_env.update(env)
-    subprocess.check_call(args, env=process_env, stdout=subprocess.DEVNULL)
+    try:
+        subprocess.check_call(args, env=process_env, stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        if not expect_error:
+            raise e
 
 
 def run_client_tests(client, valgrind):
@@ -81,6 +85,50 @@ def run_client_tests(client, valgrind):
         },
         valgrind
     )
+    run_with_maybe_valgrind(
+        [
+            client,
+            HOST,
+            str(PORT),
+            "/"
+        ],
+        {
+            "CA_FILE": "testdata/minica.pem",
+            "AUTH_CERT": "testdata/localhost/cert.pem",
+            "AUTH_KEY": "testdata/localhost/key.pem",
+        },
+        valgrind
+    )
+
+
+def run_mtls_client_tests(client, valgrind):
+    run_with_maybe_valgrind(
+        [
+            client,
+            HOST,
+            str(PORT),
+            "/"
+        ],
+        {
+            "CA_FILE": "testdata/minica.pem",
+        },
+        valgrind,
+        expect_error=True  # Client connecting w/o AUTH_CERT/AUTH_KEY should err.
+    )
+    run_with_maybe_valgrind(
+        [
+            client,
+            HOST,
+            str(PORT),
+            "/"
+        ],
+        {
+            "CA_FILE": "testdata/minica.pem",
+            "AUTH_CERT": "testdata/localhost/cert.pem",
+            "AUTH_KEY": "testdata/localhost/key.pem",
+        },
+        valgrind
+    )
 
 
 def run_server(server, valgrind, env):
@@ -116,17 +164,27 @@ def main():
               .format(PORT))
         sys.exit(1)
 
+    # Standard client/server tests.
     server_popen = run_server(server, valgrind, {})
     wait_tcp_port(HOST, PORT)
     run_client_tests(client, valgrind)
     server_popen.kill()
     server_popen.wait()
 
-    run_server(server, valgrind, {
+    # Client/server tests w/ vectored I/O.
+    server_popen = run_server(server, valgrind, {
         "VECTORED_IO": ""
     })
     wait_tcp_port(HOST, PORT)
     run_client_tests(client, valgrind)
+    server_popen.kill()
+    server_popen.wait()
+
+    # Client/server tests w/ mandatory client authentication.
+    run_server(server, valgrind, {
+        "AUTH_CERT": "testdata/minica.pem",
+    })
+    run_mtls_client_tests(client, valgrind)
 
 
 if __name__ == "__main__":
