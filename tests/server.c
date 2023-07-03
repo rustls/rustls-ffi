@@ -255,7 +255,7 @@ main(int argc, const char **argv)
   struct rustls_connection *rconn = NULL;
   const struct rustls_certified_key *certified_key = NULL;
   struct rustls_slice_bytes alpn_http11;
-  const struct rustls_client_cert_verifier *client_cert_verifier = NULL;
+  struct rustls_client_cert_verifier *client_cert_verifier = NULL;
   struct rustls_root_cert_store *client_cert_root_store = NULL;
 
   alpn_http11.data = (unsigned char*)"http/1.1";
@@ -300,6 +300,22 @@ main(int argc, const char **argv)
     rustls_root_cert_store_add_pem(client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
 
     client_cert_verifier = rustls_client_cert_verifier_new(client_cert_root_store);
+
+    char* auth_crl = getenv("AUTH_CRL");
+    char crlbuf[10000];
+    size_t crlbuf_len;
+    if(auth_crl) {
+      result = read_file(argv[0], auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
+      if(result != DEMO_OK) {
+        goto cleanup;
+      }
+      
+      result = rustls_client_cert_verifier_add_crl_pem(client_cert_verifier, (uint8_t *)crlbuf, crlbuf_len);
+      if(result != RUSTLS_RESULT_OK) {
+        goto cleanup;
+      }
+    }
+
     rustls_server_config_builder_set_client_verifier(config_builder, client_cert_verifier);
   }
 
