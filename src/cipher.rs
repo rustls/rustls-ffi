@@ -17,7 +17,7 @@ use crate::error::rustls_result;
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
-    ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ArcCastPtr, BoxCastPtr, CastPtr,
 };
 use rustls_result::NullParameter;
 use std::ops::Deref;
@@ -517,10 +517,11 @@ pub struct rustls_client_cert_verifier {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_client_cert_verifier {
+impl CastPtr for rustls_client_cert_verifier {
     type RustType = AllowAnyAuthenticatedClient;
 }
 
+impl BoxCastPtr for rustls_client_cert_verifier {}
 impl ArcCastPtr for rustls_client_cert_verifier {}
 
 impl rustls_client_cert_verifier {
@@ -533,11 +534,11 @@ impl rustls_client_cert_verifier {
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_new(
         store: *const rustls_root_cert_store,
-    ) -> *const rustls_client_cert_verifier {
+    ) -> *mut rustls_client_cert_verifier {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = AllowAnyAuthenticatedClient::new(store.clone());
-            return Arc::into_raw(client_cert_verifier.boxed()) as *const _;
+            BoxCastPtr::to_mut_ptr(client_cert_verifier)
         }
     }
 
@@ -548,9 +549,7 @@ impl rustls_client_cert_verifier {
     /// consider this pointer unusable after "free"ing it.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_free(
-        verifier: *const rustls_client_cert_verifier,
-    ) {
+    pub extern "C" fn rustls_client_cert_verifier_free(verifier: *mut rustls_client_cert_verifier) {
         ffi_panic_boundary! {
             rustls_client_cert_verifier::free(verifier);
         }
@@ -568,10 +567,11 @@ pub struct rustls_client_cert_verifier_optional {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_client_cert_verifier_optional {
+impl CastPtr for rustls_client_cert_verifier_optional {
     type RustType = AllowAnyAnonymousOrAuthenticatedClient;
 }
 
+impl BoxCastPtr for rustls_client_cert_verifier_optional {}
 impl ArcCastPtr for rustls_client_cert_verifier_optional {}
 
 impl rustls_client_cert_verifier_optional {
@@ -583,13 +583,12 @@ impl rustls_client_cert_verifier_optional {
     /// ownership of the pointed-to data.
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_optional_new(
-        store: *const rustls_root_cert_store,
+        store: *mut rustls_root_cert_store,
     ) -> *const rustls_client_cert_verifier_optional {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = AllowAnyAnonymousOrAuthenticatedClient::new(store.clone());
-            return Arc::into_raw(client_cert_verifier.boxed())
-                as *const _;
+            BoxCastPtr::to_mut_ptr(client_cert_verifier)
         }
     }
 
@@ -601,7 +600,7 @@ impl rustls_client_cert_verifier_optional {
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_optional_free(
-        verifier: *const rustls_client_cert_verifier_optional,
+        verifier: *mut rustls_client_cert_verifier_optional,
     ) {
         ffi_panic_boundary! {
             rustls_client_cert_verifier_optional::free(verifier);

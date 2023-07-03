@@ -947,7 +947,7 @@ void rustls_root_cert_store_free(struct rustls_root_cert_store *store);
  * This copies the contents of the rustls_root_cert_store. It does not take
  * ownership of the pointed-to memory.
  */
-const struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(const struct rustls_root_cert_store *store);
+struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(const struct rustls_root_cert_store *store);
 
 /**
  * "Free" a verifier previously returned from
@@ -957,7 +957,7 @@ const struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(const 
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_client_cert_verifier_free(const struct rustls_client_cert_verifier *verifier);
+void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
 
 /**
  * Create a new rustls_client_cert_verifier_optional for the root store. The
@@ -967,7 +967,7 @@ void rustls_client_cert_verifier_free(const struct rustls_client_cert_verifier *
  * This copies the contents of the rustls_root_cert_store. It does not take
  * ownership of the pointed-to data.
  */
-const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_optional_new(const struct rustls_root_cert_store *store);
+const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_optional_new(struct rustls_root_cert_store *store);
 
 /**
  * "Free" a verifier previously returned from
@@ -977,7 +977,7 @@ const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_o
  * consider this pointer unusable after "free"ing it.
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
-void rustls_client_cert_verifier_optional_free(const struct rustls_client_cert_verifier_optional *verifier);
+void rustls_client_cert_verifier_optional_free(struct rustls_client_cert_verifier_optional *verifier);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
