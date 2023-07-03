@@ -131,6 +131,38 @@ def run_mtls_client_tests(client, valgrind):
     )
 
 
+def run_mtls_client_crl_tests(client, valgrind):
+    run_with_maybe_valgrind(
+        [
+            client,
+            HOST,
+            str(PORT),
+            "/"
+        ],
+        {
+            "CA_FILE": "testdata/minica.pem",
+            "AUTH_CERT": "testdata/example.com/cert.pem",
+            "AUTH_KEY": "testdata/example.com/key.pem",
+        },
+        valgrind
+    )
+    run_with_maybe_valgrind(
+        [
+            client,
+            HOST,
+            str(PORT),
+            "/"
+        ],
+        {
+            "CA_FILE": "testdata/minica.pem",
+            "AUTH_CERT": "testdata/localhost/cert.pem",
+            "AUTH_KEY": "testdata/localhost/key.pem",
+        },
+        valgrind,
+        expect_error=True  # Client connecting w/ revoked cert should err.
+    )
+
+
 def run_server(server, valgrind, env):
     args = [
         server,
@@ -181,10 +213,19 @@ def main():
     server_popen.wait()
 
     # Client/server tests w/ mandatory client authentication.
-    run_server(server, valgrind, {
+    server_popen = run_server(server, valgrind, {
         "AUTH_CERT": "testdata/minica.pem",
     })
     run_mtls_client_tests(client, valgrind)
+    server_popen.kill()
+    server_popen.wait()
+
+    # Client/server tests w/ mandatory client authentication & CRL.
+    run_server(server, valgrind, {
+        "AUTH_CERT": "testdata/minica.pem",
+        "AUTH_CRL": "testdata/test.crl.pem",
+    })
+    run_mtls_client_crl_tests(client, valgrind)
 
 
 if __name__ == "__main__":
