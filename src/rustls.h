@@ -950,6 +950,14 @@ void rustls_root_cert_store_free(struct rustls_root_cert_store *store);
 struct rustls_client_cert_verifier *rustls_client_cert_verifier_new(const struct rustls_root_cert_store *store);
 
 /**
+ * Add one or more certificate revocation lists (CRLs) to the client certificate
+ * verifier using PEM encoded data.
+ */
+rustls_result rustls_client_cert_verifier_add_crl_pem(struct rustls_client_cert_verifier *verifier,
+                                                      const uint8_t *pem,
+                                                      size_t pem_len);
+
+/**
  * "Free" a verifier previously returned from
  * rustls_client_cert_verifier_new. Since rustls_client_cert_verifier is actually an
  * atomically reference-counted pointer, extant server_configs may still
@@ -968,6 +976,14 @@ void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifi
  * ownership of the pointed-to data.
  */
 const struct rustls_client_cert_verifier_optional *rustls_client_cert_verifier_optional_new(struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the client certificate
+ * verifier using PEM encoded data.
+ */
+rustls_result rustls_client_cert_verifier_optional_add_crl_pem(struct rustls_client_cert_verifier_optional *verifier,
+                                                               const uint8_t *pem,
+                                                               size_t pem_len);
 
 /**
  * "Free" a verifier previously returned from

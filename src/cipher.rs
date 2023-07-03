@@ -5,7 +5,9 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient};
+use rustls::server::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, UnparsedCertRevocationList,
+};
 use rustls::sign::CertifiedKey;
 use rustls::{
     Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES,
@@ -13,7 +15,7 @@ use rustls::{
 };
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};
 
-use crate::error::rustls_result;
+use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
@@ -542,6 +544,30 @@ impl rustls_client_cert_verifier {
         }
     }
 
+    /// Add one or more certificate revocation lists (CRLs) to the client certificate
+    /// verifier using PEM encoded data.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_cert_verifier_add_crl_pem(
+        verifier: *mut rustls_client_cert_verifier,
+        pem: *const u8,
+        pem_len: size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let verifier: &mut AllowAnyAuthenticatedClient = try_mut_from_ptr!(verifier);
+            let crl_pem: &[u8] = try_slice!(pem, pem_len);
+            let crls_der = match rustls_pemfile::crls(&mut Cursor::new(crl_pem)) {
+                Ok(vv) => vv,
+                Err(_) => return rustls_result::CertificateParseError, // TODO(XXX): Better err.
+            };
+            for crl_der in crls_der {
+                if let Err(e) = verifier.add_crl(UnparsedCertRevocationList(crl_der)) {
+                    return map_error(e);
+                }
+            }
+            rustls_result::Ok
+        }
+    }
+
     /// "Free" a verifier previously returned from
     /// rustls_client_cert_verifier_new. Since rustls_client_cert_verifier is actually an
     /// atomically reference-counted pointer, extant server_configs may still
@@ -589,6 +615,30 @@ impl rustls_client_cert_verifier_optional {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = AllowAnyAnonymousOrAuthenticatedClient::new(store.clone());
             BoxCastPtr::to_mut_ptr(client_cert_verifier)
+        }
+    }
+
+    /// Add one or more certificate revocation lists (CRLs) to the client certificate
+    /// verifier using PEM encoded data.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_cert_verifier_optional_add_crl_pem(
+        verifier: *mut rustls_client_cert_verifier_optional,
+        pem: *const u8,
+        pem_len: size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let verifier: &mut AllowAnyAnonymousOrAuthenticatedClient = try_mut_from_ptr!(verifier);
+            let crl_pem: &[u8] = try_slice!(pem, pem_len);
+            let crls_der = match rustls_pemfile::crls(&mut Cursor::new(crl_pem)) {
+                Ok(vv) => vv,
+                Err(_) => return rustls_result::CertificateParseError, // TODO(XXX): Better err.
+            };
+            for crl_der in crls_der {
+                if let Err(e) = verifier.add_crl(UnparsedCertRevocationList(crl_der)) {
+                    return map_error(e);
+                }
+            }
+            rustls_result::Ok
         }
     }
 

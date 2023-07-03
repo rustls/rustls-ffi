@@ -271,6 +271,7 @@ fn test_rustls_result_is_cert_error() {
     }
 }
 
+// TODO(@cpu): update for CRL errors.
 pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
     use rustls::AlertDescription as alert;
     use rustls_result::*;
