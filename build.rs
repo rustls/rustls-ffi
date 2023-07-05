@@ -3,7 +3,7 @@ use std::io::Write;
 use std::{env, fs, path::PathBuf};
 
 // Keep in sync with Cargo.toml.
-const RUSTLS_CRATE_VERSION: &str = "0.21.0";
+const RUSTLS_CRATE_VERSION: &str = "0.21.5";
 
 fn main() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
