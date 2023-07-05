@@ -23,11 +23,11 @@ read_buf = ["rustls/read_buf"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.21.0", features = [ "dangerous_configuration" ] }
-webpki = "0.22"
+rustls = { version = "=0.21.5", features = [ "dangerous_configuration" ] }
+rustls-webpki = "0.101.0"
 libc = "0.2"
 sct = "0.7"
-rustls-pemfile = "0.2.1"
+rustls-pemfile = "1.0.3"
 log = "0.4.17"
 
 [lib]
