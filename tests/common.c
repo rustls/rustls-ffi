@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
 
 #include "rustls.h"
 #include "common.h"
@@ -127,7 +128,9 @@ rustls_io_result write_vectored_cb(
   ssize_t n = 0;
   struct conndata *conn = (struct conndata *)userdata;
 
-  n = writev(conn->fd, (const struct iovec *)iov, count);
+  // safety: narrowing conversion from `size_t count` to `int` is safe because
+  // writev return -1 and sets errno to EINVAL on out of range input (<0 || > IOV_MAX).
+  n = writev(conn->fd, (const struct iovec *)iov, (int) count);
   if(n < 0) {
     return errno;
   }
@@ -186,7 +189,7 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
 int
 copy_plaintext_to_buffer(struct conndata *conn)
 {
-  int result;
+  unsigned int result;
   size_t n;
   struct rustls_connection *rconn = conn->rconn;
 
