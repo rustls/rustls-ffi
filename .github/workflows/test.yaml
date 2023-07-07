@@ -232,6 +232,17 @@ jobs:
           command: clippy
           args: --workspace -- -D warnings
 
+  clang-tidy:
+    name: Clang Tidy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Clang tidy
+        run: clang-tidy tests/*.c -- -I src/
+
   miri:
     name: Miri
     runs-on: ubuntu-latest
