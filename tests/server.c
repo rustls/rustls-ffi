@@ -232,8 +232,6 @@ handle_conn(struct conndata *conn)
     }
   }
 
-  fprintf(stderr, "server: handle_conn: loop fell through");
-
 cleanup:
   fprintf(stderr, "server: closing socket %d\n", sockfd);
   if(sockfd > 0) {
