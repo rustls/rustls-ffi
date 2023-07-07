@@ -215,8 +215,6 @@ copy_plaintext_to_buffer(struct conndata *conn)
       return DEMO_ERROR;
     }
   }
-
-  return DEMO_ERROR;
 }
 
 /**
