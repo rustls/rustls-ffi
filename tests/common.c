@@ -50,28 +50,6 @@ ws_strerror(int err)
 #endif
 
 /*
- * Write n bytes from buf to the provided fd (on Windows, this must be
- * stdout/stderr or a file, not a socket), retrying short writes until
- * we finish or hit an error. Assumes fd is blocking and therefore doesn't
- * handle EAGAIN. Returns 0 for success or 1 for error.
- */
-int
-write_all(int fd, const char *buf, int n)
-{
-  int m = 0;
-
-  while(n > 0) {
-    m = write(fd, buf, n);
-    if(m < 0) {
-      perror("write_all");
-      return 1;
-    }
-    n -= m;
-  }
-  return 0;
-}
-
-/*
  * Set a socket to be nonblocking.
  *
  * Returns DEMO_OK on success, DEMO_ERROR on error.
