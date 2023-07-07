@@ -91,7 +91,7 @@ enum demo_result
 do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
   int err = 1;
-  int result = 1;
+  unsigned result = 1;
   size_t n = 0;
   ssize_t signed_n = 0;
   char buf[1];
@@ -153,7 +153,7 @@ send_request_and_read_response(struct conndata *conn,
   int sockfd = conn->fd;
   int ret = 1;
   int err = 1;
-  int result = 1;
+  unsigned result = 1;
   char buf[2048];
   fd_set read_fds;
   fd_set write_fds;
@@ -209,8 +209,8 @@ send_request_and_read_response(struct conndata *conn,
       goto drain_plaintext;
     }
 
-    result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
-    if(result == -1) {
+    int select_result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
+    if(select_result == -1) {
       perror("select");
       goto cleanup;
     }
@@ -391,7 +391,7 @@ int
 main(int argc, const char **argv)
 {
   int ret = 1;
-  int result = 1;
+  unsigned result = 1;
   if(argc <= 2) {
     fprintf(stderr,
             "usage: %s hostname port path\n\n"

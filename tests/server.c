@@ -61,7 +61,7 @@ enum demo_result
 do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
   int err = 1;
-  int result = 1;
+  unsigned int result = 1;
   size_t n = 0;
   ssize_t signed_n = 0;
   char buf[1];
@@ -250,7 +250,7 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   char keybuf[10000];
   size_t keybuf_len;
 
-  int result = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
+  unsigned int result = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
   if(result != DEMO_OK) {
     return NULL;
   }
@@ -286,7 +286,7 @@ int
 main(int argc, const char **argv)
 {
   int ret = 1;
-  int result = 1;
+  unsigned int result = 1;
   int sockfd = 0;
   struct rustls_server_config_builder *config_builder =
     rustls_server_config_builder_new();
