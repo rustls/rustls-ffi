@@ -228,7 +228,7 @@ handle_conn(struct conndata *conn)
 
       if(send_response(conn) != DEMO_OK) {
         goto cleanup;
-      };
+      }
     }
   }
 
