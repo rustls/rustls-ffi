@@ -196,9 +196,6 @@ handle_conn(struct conndata *conn)
         if(result == DEMO_AGAIN) {
           break;
         }
-        else if(result == DEMO_EOF) {
-          goto cleanup;
-        }
         else if(result != DEMO_OK) {
           goto cleanup;
         }
