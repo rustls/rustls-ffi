@@ -306,7 +306,7 @@ cleanup:
 
 int
 do_request(const struct rustls_client_config *client_config,
-           const char *hostname, const char *port, const char *path)
+           const char *hostname, const char *port, const char *path) // NOLINT(bugprone-easily-swappable-parameters)
 {
   struct rustls_connection *rconn = NULL;
   struct conndata *conn = NULL;
