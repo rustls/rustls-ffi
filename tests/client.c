@@ -166,7 +166,7 @@ send_request_and_read_response(struct conndata *conn,
   struct rustls_str version;
 
   version = rustls_version();
-  bzero(buf, sizeof(buf));
+  memset(buf, '\0', sizeof(buf));
   snprintf(buf,
            sizeof(buf),
            "GET %s HTTP/1.1\r\n"
