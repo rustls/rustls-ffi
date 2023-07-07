@@ -585,27 +585,7 @@ impl rustls_server_config_builder {
 
 // Turn a slice of u16's into a vec of SignatureScheme as needed by rustls.
 fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
-    use rustls::SignatureScheme::*;
-    input
-        .iter()
-        .map(|n| match n {
-            // TODO: Once rustls 0.20.0+ is released, we can use `.into()` instead of this match.
-            0x0201 => RSA_PKCS1_SHA1,
-            0x0203 => ECDSA_SHA1_Legacy,
-            0x0401 => RSA_PKCS1_SHA256,
-            0x0403 => ECDSA_NISTP256_SHA256,
-            0x0501 => RSA_PKCS1_SHA384,
-            0x0503 => ECDSA_NISTP384_SHA384,
-            0x0601 => RSA_PKCS1_SHA512,
-            0x0603 => ECDSA_NISTP521_SHA512,
-            0x0804 => RSA_PSS_SHA256,
-            0x0805 => RSA_PSS_SHA384,
-            0x0806 => RSA_PSS_SHA512,
-            0x0807 => ED25519,
-            0x0808 => ED448,
-            n => SignatureScheme::Unknown(*n),
-        })
-        .collect()
+    input.iter().copied().map(Into::into).collect()
 }
 
 /// Select a `rustls_certified_key` from the list that matches the cryptographic
