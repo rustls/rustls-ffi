@@ -9,14 +9,9 @@
 #else
 #include <sys/socket.h>
 #include <sys/uio.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <fcntl.h>
 #endif
 
-#include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
