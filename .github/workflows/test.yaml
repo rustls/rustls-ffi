@@ -36,10 +36,9 @@ jobs:
           persist-credentials: false
 
       - name: Install ${{ matrix.rust }} toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
       - env:
           CARGO_UNSTABLE_HTTP_REGISTRY: true
         run: make CC=${{ matrix.cc }} PROFILE=release test
@@ -78,11 +77,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install nightly rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
       - name: Configure CMake
         run: cmake -S . -B build
       - name: Build, debug configuration
@@ -100,11 +95,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install nightly rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
       - name: Configure CMake
         run: cmake -S . -B build
       - name: Build, release configuration
@@ -119,11 +110,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install nightly rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
       - run: touch src/lib.rs
       - run: cbindgen --version
       - run: make src/rustls.h
@@ -139,11 +126,7 @@ jobs:
           persist-credentials: false
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo doc (all features)
         run: cargo doc --all-features --no-deps --workspace
@@ -160,11 +143,7 @@ jobs:
           persist-credentials: false
 
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          default: true
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo test (debug; all features; -Z minimal-versions)
         run: cargo -Z minimal-versions test --all-features
@@ -178,17 +157,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.67.1
-          override: true
-          default: true
           components: rustfmt
       - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
@@ -199,17 +173,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.67.1
-          override: true
-          default: true
           components: clippy
-      - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace -- -D warnings
+      - name: Check clippy
+        run: cargo clippy --workspace -- -D warnings
 
   clippy-nightly-optional:
     name: Clippy nightly (optional)
@@ -220,17 +189,11 @@ jobs:
         with:
           persist-credentials: false
       - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: nightly
-          override: true
-          default: true
           components: clippy
-      - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace -- -D warnings
+      - name: Check clippy
+        run: cargo clippy --workspace -- -D warnings
 
   clang-tidy:
     name: Clang Tidy
@@ -253,11 +216,7 @@ jobs:
           persist-credentials: false
 
       - name: Install nightly Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
-          override: true
+        uses: dtolnay/rust-toolchain@nightly
       - run: rustup override set "nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)"
       - run: rustup component add miri
       - run: cargo miri test
