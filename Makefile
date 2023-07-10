@@ -61,4 +61,18 @@ install: target/$(PROFILE)/librustls_ffi.a
 clean:
 	rm -rf target
 
-.PHONY: all clean test
+format:
+	find . \
+		-name '*.[c|h]' \
+		! -path "./target/*" \
+		! -wholename './src/rustls.h' | \
+			xargs clang-format -i
+
+format-check:
+	find . \
+		-name '*.[c|h]' \
+		! -path "./target/*" \
+		! -wholename './src/rustls.h' | \
+			xargs clang-format --dry-run -Werror -i
+
+.PHONY: all clean test format format-check
