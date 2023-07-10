@@ -36,7 +36,7 @@ def main():
         want = ""
 
     build = subprocess.run(
-        ["cargo", "build"],
+        ["cargo", "build", "--color", "never"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         env=dict(os.environ, RUSTFLAGS="--print native-static-libs")
