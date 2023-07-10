@@ -60,3 +60,5 @@ install: target/$(PROFILE)/librustls_ffi.a
 
 clean:
 	rm -rf target
+
+.PHONY: all clean test
