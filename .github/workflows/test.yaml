@@ -161,8 +161,10 @@ jobs:
         with:
           toolchain: 1.67.1
           components: rustfmt
-      - name: Check formatting
+      - name: Check Rust formatting
         run: cargo fmt --all -- --check
+      - name: Check C formatting
+        run: make format-check
 
   clippy:
     name: Clippy
