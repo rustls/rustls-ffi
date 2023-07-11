@@ -177,10 +177,14 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.67.1
+          toolchain: 1.70.0
           components: clippy
       - name: Check clippy
-        run: cargo clippy --workspace -- -D warnings
+        # We allow unknown lints here because sometimes the nightly job
+        # (below) will have a new lint that we want to suppress.
+        # If we suppress (e.g. #![allow(clippy::arc_with_non_send_sync)]),
+        # we would get an unknown-lint error from older clippy versions.
+        run: cargo clippy --workspace -- -D warnings -A unknown-lints
 
   clippy-nightly-optional:
     name: Clippy nightly (optional)
