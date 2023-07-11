@@ -30,7 +30,6 @@ int
 make_conn(const char *hostname, const char *port)
 {
   int sockfd = 0;
-  enum demo_result result = 0;
   struct addrinfo *getaddrinfo_output = NULL, hints;
 
   memset(&hints, 0, sizeof(hints));
@@ -59,7 +58,7 @@ make_conn(const char *hostname, const char *port)
     perror("connecting");
     goto cleanup;
   }
-  result = nonblock(sockfd);
+  enum demo_result result = nonblock(sockfd);
   if(result != DEMO_OK) {
     return 1;
   }
