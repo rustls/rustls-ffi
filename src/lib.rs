@@ -1,6 +1,8 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
+// TODO(#333): Fix this clippy warning.
+#![allow(clippy::arc_with_non_send_sync)]
 #![cfg_attr(feature = "read_buf", feature(read_buf))]
 
 //! This package contains bindings for using rustls via a C API. If
