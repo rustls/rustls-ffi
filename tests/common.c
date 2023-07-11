@@ -111,22 +111,26 @@ write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
   return rustls_connection_write_tls(rconn, write_cb, conn, n);
 #else
   if(getenv("VECTORED_IO")) {
-    return rustls_connection_write_tls_vectored(rconn, write_vectored_cb, conn, n);
-  } else {
+    return rustls_connection_write_tls_vectored(
+      rconn, write_vectored_cb, conn, n);
+  }
+  else {
     return rustls_connection_write_tls(rconn, write_cb, conn, n);
   }
 #endif /* _WIN32 */
 }
 
 #ifndef _WIN32
-rustls_io_result write_vectored_cb(
-    void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n)
+rustls_io_result
+write_vectored_cb(void *userdata, const struct rustls_iovec *iov, size_t count,
+                  size_t *out_n)
 {
   struct conndata *conn = (struct conndata *)userdata;
 
   // safety: narrowing conversion from `size_t count` to `int` is safe because
-  // writev return -1 and sets errno to EINVAL on out of range input (<0 || > IOV_MAX).
-  ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int) count);
+  // writev return -1 and sets errno to EINVAL on out of range input (<0 || >
+  // IOV_MAX).
+  ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int)count);
   if(n < 0) {
     return errno;
   }
@@ -202,7 +206,8 @@ copy_plaintext_to_buffer(struct conndata *conn)
       return DEMO_OK;
     }
     if(result != RUSTLS_RESULT_OK) {
-      print_error(conn->program_name, "Error in rustls_connection_read", result);
+      print_error(
+        conn->program_name, "Error in rustls_connection_read", result);
       return DEMO_ERROR;
     }
     if(n == 0) {
@@ -318,23 +323,32 @@ get_first_header_value(const char *headers, size_t headers_len,
 void
 log_cb(void *userdata, const struct rustls_log_params *params)
 {
-  struct conndata *conn = (struct conndata*)userdata;
+  struct conndata *conn = (struct conndata *)userdata;
   struct rustls_str level_str = rustls_log_level_str(params->level);
-  fprintf(stderr, "%s[fd %d][%.*s]: %.*s\n", conn->program_name, conn->fd,
-    (int)level_str.len, level_str.data, (int)params->message.len, params->message.data);
+  fprintf(stderr,
+          "%s[fd %d][%.*s]: %.*s\n",
+          conn->program_name,
+          conn->fd,
+          (int)level_str.len,
+          level_str.data,
+          (int)params->message.len,
+          params->message.data);
 }
 
 enum demo_result
-read_file(const char *progname, const char *filename, char *buf, size_t buflen, size_t *n)
+read_file(const char *progname, const char *filename, char *buf, size_t buflen,
+          size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
-    fprintf(stderr, "%s: opening %s: %s\n", progname, filename, strerror(errno));
+    fprintf(
+      stderr, "%s: opening %s: %s\n", progname, filename, strerror(errno));
     return DEMO_ERROR;
   }
   *n = fread(buf, 1, buflen, f);
   if(!feof(f)) {
-    fprintf(stderr, "%s: reading %s: %s\n", progname, filename, strerror(errno));
+    fprintf(
+      stderr, "%s: reading %s: %s\n", progname, filename, strerror(errno));
     fclose(f);
     return DEMO_ERROR;
   }
@@ -343,14 +357,16 @@ read_file(const char *progname, const char *filename, char *buf, size_t buflen, 
 }
 
 const struct rustls_certified_key *
-load_cert_and_key(const char *progname, const char *certfile, const char *keyfile)
+load_cert_and_key(const char *progname, const char *certfile,
+                  const char *keyfile)
 {
   char certbuf[10000];
   size_t certbuf_len;
   char keybuf[10000];
   size_t keybuf_len;
 
-  unsigned int result = read_file(progname, certfile, certbuf, sizeof(certbuf), &certbuf_len);
+  unsigned int result =
+    read_file(progname, certfile, certbuf, sizeof(certbuf), &certbuf_len);
   if(result != DEMO_OK) {
     return NULL;
   }

@@ -16,7 +16,7 @@
 #undef errno
 #define errno WSAGetLastError()
 #define perror(str) fprintf(stderr, str ": %d.\n", WSAGetLastError())
-const char * ws_strerror(int err);
+const char *ws_strerror(int err);
 #define strerror(e) ws_strerror(e)
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1 /* MinGW has this */
@@ -32,13 +32,15 @@ enum demo_result
 };
 
 /* A growable vector of bytes. */
-struct bytevec {
+struct bytevec
+{
   char *data;
   size_t len;
   size_t capacity;
 };
 
-struct conndata {
+struct conndata
+{
   int fd;
   const char *verify_arg;
   const char *program_name;
@@ -46,51 +48,45 @@ struct conndata {
   struct rustls_connection *rconn;
 };
 
-void
-print_error(const char *program_name, const char *prefix, rustls_result result);
+void print_error(const char *program_name, const char *prefix,
+                 rustls_result result);
 
-int
-write_all(int fd, const char *buf, int n);
+int write_all(int fd, const char *buf, int n);
 
 /* Make a socket nonblocking. */
-enum demo_result
-nonblock(int sockfd);
+enum demo_result nonblock(int sockfd);
 
 /* A callback that reads bytes from the network. */
-int
-read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n);
+int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n);
 
 /* Invoke rustls_connection_write_tls with either a vectored or unvectored
    callback, depending on environment variable. */
-rustls_io_result
-write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n);
+rustls_io_result write_tls(struct rustls_connection *rconn,
+                           struct conndata *conn, size_t *n);
 
 /* A callback that writes bytes to the network. */
-int
-write_cb(void *userdata, const uint8_t *buf, uintptr_t len, uintptr_t *out_n);
+int write_cb(void *userdata, const uint8_t *buf, uintptr_t len,
+             uintptr_t *out_n);
 
 #ifndef _WIN32
-rustls_io_result write_vectored_cb(
-    void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n);
+rustls_io_result write_vectored_cb(void *userdata,
+                                   const struct rustls_iovec *iov,
+                                   size_t count, size_t *out_n);
 #endif /* _WIN32 */
 
 /* Number of bytes available for writing. */
-size_t
-bytevec_available(struct bytevec *vec);
+size_t bytevec_available(struct bytevec *vec);
 
 /* Pointer to the writeable region. */
-char *
-bytevec_writeable(struct bytevec *vec);
+char *bytevec_writeable(struct bytevec *vec);
 
 /* Indicate that n bytes have been written, increasing len. */
-void
-bytevec_consume(struct bytevec *vec, size_t n);
+void bytevec_consume(struct bytevec *vec, size_t n);
 
 /* Ensure there are at least n bytes available between vec->len and
  * vec->capacity. If this requires reallocating, this may return
  * DEMO_ERROR. */
-enum demo_result
-bytevec_ensure_available(struct bytevec *vec, size_t n);
+enum demo_result bytevec_ensure_available(struct bytevec *vec, size_t n);
 
 /* Read all available bytes from the rustls_connection until EOF.
  * Note that EOF here indicates "no more bytes until
@@ -100,17 +96,16 @@ bytevec_ensure_available(struct bytevec *vec, size_t n);
  * DEMO_ERROR for error,
  * DEMO_EOF for "connection cleanly terminated by peer"
  */
-int
-copy_plaintext_to_buffer(struct conndata *conn);
+int copy_plaintext_to_buffer(struct conndata *conn);
 
 /* Polyfill */
-void *memmem(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen);
+void *memmem(const void *haystack, size_t haystacklen, const void *needle,
+             size_t needlelen);
 
 /* If headers are done (received \r\n\r\n), return a pointer to the beginning
  * of the body. Otherwise return NULL.
  */
-char *
-body_beginning(struct bytevec *vec);
+char *body_beginning(struct bytevec *vec);
 
 /* If any header matching the provided name (NUL-terminated) exists, return
  * a pointer to the beginning of the value for the first such occurrence
@@ -118,17 +113,17 @@ body_beginning(struct bytevec *vec);
  * If no such header exists, return NULL and don't modify n.
  * The returned pointer will be borrowed from `headers`.
  */
-const char *
-get_first_header_value(const char *headers, size_t headers_len,
-  const char *name, size_t name_len, size_t *n);
+const char *get_first_header_value(const char *headers, size_t headers_len,
+                                   const char *name, size_t name_len,
+                                   size_t *n);
 
-void
-log_cb(void *userdata, const struct rustls_log_params *params);
+void log_cb(void *userdata, const struct rustls_log_params *params);
 
-enum demo_result
-read_file(const char *progname, const char *filename, char *buf, size_t buflen, size_t *n);
+enum demo_result read_file(const char *progname, const char *filename,
+                           char *buf, size_t buflen, size_t *n);
 
-const struct rustls_certified_key *
-load_cert_and_key(const char *progname, const char *certfile, const char *keyfile);
+const struct rustls_certified_key *load_cert_and_key(const char *progname,
+                                                     const char *certfile,
+                                                     const char *keyfile);
 
 #endif /* COMMON_H */

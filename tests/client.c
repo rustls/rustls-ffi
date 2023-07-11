@@ -40,7 +40,8 @@ make_conn(const char *hostname, const char *port)
   int getaddrinfo_result =
     getaddrinfo(hostname, port, &hints, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
-    fprintf(stderr, "client: getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
+    fprintf(
+      stderr, "client: getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
     goto cleanup;
   }
 
@@ -123,14 +124,16 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
    * verify that the sender then closed the TCP connection. */
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
-    fprintf(stderr,
-            "client: error: read returned %zu bytes after receiving close_notify\n",
-            n);
+    fprintf(
+      stderr,
+      "client: error: read returned %zu bytes after receiving close_notify\n",
+      n);
     return DEMO_ERROR;
   }
-  else if (signed_n < 0 && errno != EWOULDBLOCK) {
+  else if(signed_n < 0 && errno != EWOULDBLOCK) {
     fprintf(stderr,
-            "client: error: read returned incorrect error after receiving close_notify: %s\n",
+            "client: error: read returned incorrect error after receiving "
+            "close_notify: %s\n",
             strerror(errno));
     return DEMO_ERROR;
   }
@@ -182,12 +185,14 @@ send_request_and_read_response(struct conndata *conn,
    * us- to the rustls connection. */
   result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
   if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "client: error writing plaintext bytes to rustls_connection\n");
+    fprintf(stderr,
+            "client: error writing plaintext bytes to rustls_connection\n");
     goto cleanup;
   }
   if(n != strlen(buf)) {
-    fprintf(stderr,
-            "client: short write writing plaintext bytes to rustls_connection\n");
+    fprintf(
+      stderr,
+      "client: short write writing plaintext bytes to rustls_connection\n");
     goto cleanup;
   }
 
@@ -203,8 +208,11 @@ send_request_and_read_response(struct conndata *conn,
       FD_SET(sockfd, &write_fds);
     }
 
-    if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
-      fprintf(stderr, "client: rustls wants neither read nor write. draining plaintext and exiting.\n");
+    if(!rustls_connection_wants_read(rconn) &&
+       !rustls_connection_wants_write(rconn)) {
+      fprintf(stderr,
+              "client: rustls wants neither read nor write. draining "
+              "plaintext and exiting.\n");
       goto drain_plaintext;
     }
 
@@ -267,15 +275,18 @@ send_request_and_read_response(struct conndata *conn,
          * encrypted bytes, that we will write to `conn`. */
         err = write_tls(rconn, conn, &n);
         if(err != 0) {
-          fprintf(
-            stderr, "client: error in rustls_connection_write_tls: errno %d\n", err);
+          fprintf(stderr,
+                  "client: error in rustls_connection_write_tls: errno %d\n",
+                  err);
           goto cleanup;
         }
         if(result == DEMO_AGAIN) {
           break;
         }
         else if(n == 0) {
-          fprintf(stderr, "client: write returned 0 from rustls_connection_write_tls\n");
+          fprintf(
+            stderr,
+            "client: write returned 0 from rustls_connection_write_tls\n");
           break;
         }
       }
@@ -305,7 +316,8 @@ cleanup:
 
 int
 do_request(const struct rustls_client_config *client_config,
-           const char *hostname, const char *port, const char *path) // NOLINT(bugprone-easily-swappable-parameters)
+           const char *hostname, const char *port,
+           const char *path) // NOLINT(bugprone-easily-swappable-parameters)
 {
   struct rustls_connection *rconn = NULL;
   struct conndata *conn = NULL;
@@ -370,7 +382,8 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
           "client: custom certificate verifier called for %.*s\n",
           (int)params->server_name.len,
           params->server_name.data);
-  fprintf(stderr, "client: end entity len: %zu\n", params->end_entity_cert_der.len);
+  fprintf(
+    stderr, "client: end entity len: %zu\n", params->end_entity_cert_der.len);
   fprintf(stderr, "client: intermediates:\n");
   for(i = 0; i < intermediates_len; i++) {
     bytes = rustls_slice_slice_bytes_get(intermediates, i);
@@ -378,7 +391,8 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
       fprintf(stderr, "client:   intermediate, len = %zu\n", bytes.len);
     }
   }
-  fprintf(stderr, "client: ocsp response len: %zu\n", params->ocsp_response.len);
+  fprintf(
+    stderr, "client: ocsp response len: %zu\n", params->ocsp_response.len);
   if(0 != strcmp(conn->verify_arg, "verify_arg")) {
     fprintf(stderr, "client: invalid argument to verify: %p\n", userdata);
     return RUSTLS_RESULT_GENERAL;
@@ -410,7 +424,7 @@ main(int argc, const char **argv)
   struct rustls_slice_bytes alpn_http11;
   const struct rustls_certified_key *certified_key = NULL;
 
-  alpn_http11.data = (unsigned char*)"http/1.1";
+  alpn_http11.data = (unsigned char *)"http/1.1";
   alpn_http11.len = 8;
 
 #ifdef _WIN32
@@ -426,28 +440,37 @@ main(int argc, const char **argv)
       print_error("server", "loading trusted certificates", result);
       goto cleanup;
     }
-  } else if(getenv("NO_CHECK_CERTIFICATE")) {
+  }
+  else if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(
       config_builder, verify);
-  } else {
-    fprintf(stderr, "client: must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
+  }
+  else {
+    fprintf(
+      stderr,
+      "client: must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
     goto cleanup;
   }
 
-  char* auth_cert = getenv("AUTH_CERT");
-  char* auth_key = getenv("AUTH_KEY");
+  char *auth_cert = getenv("AUTH_CERT");
+  char *auth_key = getenv("AUTH_KEY");
   if((auth_cert && !auth_key) || (!auth_cert && auth_key)) {
-    fprintf(stderr, "client: must set both AUTH_CERT and AUTH_KEY env vars, or neither\n");
+    fprintf(
+      stderr,
+      "client: must set both AUTH_CERT and AUTH_KEY env vars, or neither\n");
     goto cleanup;
-  } else if (auth_cert && auth_key) {
+  }
+  else if(auth_cert && auth_key) {
     certified_key = load_cert_and_key(argv[0], auth_cert, auth_key);
     if(certified_key == NULL) {
       goto cleanup;
     }
-    rustls_client_config_builder_set_certified_key(config_builder, &certified_key, 1);
+    rustls_client_config_builder_set_certified_key(
+      config_builder, &certified_key, 1);
   }
 
-  rustls_client_config_builder_set_alpn_protocols(config_builder, &alpn_http11, 1);
+  rustls_client_config_builder_set_alpn_protocols(
+    config_builder, &alpn_http11, 1);
 
   client_config = rustls_client_config_builder_build(config_builder);
 

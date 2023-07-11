@@ -78,14 +78,16 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
    * verify that the sender then closed the TCP connection. */
   ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
-    fprintf(stderr,
-            "server: error: read returned %zu bytes after receiving close_notify\n",
-            n);
+    fprintf(
+      stderr,
+      "server: error: read returned %zu bytes after receiving close_notify\n",
+      n);
     return DEMO_ERROR;
   }
-  else if (signed_n < 0 && errno != EWOULDBLOCK) {
+  else if(signed_n < 0 && errno != EWOULDBLOCK) {
     fprintf(stderr,
-            "server: error: read returned incorrect error after receiving close_notify: %s\n",
+            "server: error: read returned incorrect error after receiving "
+            "close_notify: %s\n",
             strerror(errno));
     return DEMO_ERROR;
   }
@@ -113,12 +115,12 @@ send_response(struct conndata *conn)
   *(response + n + body_size + 1) = '\0';
   response_size = strlen(response);
 
-  rustls_connection_write(
-    rconn, (const uint8_t *)response, response_size, &n);
+  rustls_connection_write(rconn, (const uint8_t *)response, response_size, &n);
 
   free(response);
   if(n != response_size) {
-    fprintf(stderr, "server: failed to write all response bytes. wrote %zu\n", n);
+    fprintf(
+      stderr, "server: failed to write all response bytes. wrote %zu\n", n);
     return DEMO_ERROR;
   }
   return DEMO_OK;
@@ -147,8 +149,11 @@ handle_conn(struct conndata *conn)
       FD_SET(sockfd, &write_fds);
     }
 
-    if(!rustls_connection_wants_read(rconn) && !rustls_connection_wants_write(rconn)) {
-      fprintf(stderr, "server: rustls wants neither read nor write. closing connection\n");
+    if(!rustls_connection_wants_read(rconn) &&
+       !rustls_connection_wants_write(rconn)) {
+      fprintf(
+        stderr,
+        "server: rustls wants neither read nor write. closing connection\n");
       goto cleanup;
     }
 
@@ -195,11 +200,15 @@ handle_conn(struct conndata *conn)
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       fprintf(stderr, "server: writing response\n");
-      rustls_connection_get_alpn_protocol(rconn, &negotiated_alpn, &negotiated_alpn_len);
+      rustls_connection_get_alpn_protocol(
+        rconn, &negotiated_alpn, &negotiated_alpn_len);
       if(negotiated_alpn != NULL) {
-        fprintf(stderr, "server: negotiated ALPN protocol: '%.*s'\n",
-          (int)negotiated_alpn_len, negotiated_alpn);
-      } else {
+        fprintf(stderr,
+                "server: negotiated ALPN protocol: '%.*s'\n",
+                (int)negotiated_alpn_len,
+                negotiated_alpn);
+      }
+      else {
         fprintf(stderr, "server: no ALPN protocol was negotiated\n");
       }
 
@@ -221,7 +230,9 @@ cleanup:
 
 bool shutting_down = false;
 
-void handle_signal(int signo) {
+void
+handle_signal(int signo)
+{
   if(signo == SIGTERM) {
     fprintf(stderr, "server: received SIGTERM, shutting down\n");
     shutting_down = true;
@@ -242,13 +253,13 @@ main(int argc, const char **argv)
   const struct rustls_client_cert_verifier *client_cert_verifier = NULL;
   struct rustls_root_cert_store *client_cert_root_store = NULL;
 
-  alpn_http11.data = (unsigned char*)"http/1.1";
+  alpn_http11.data = (unsigned char *)"http/1.1";
   alpn_http11.len = 8;
 
 #ifndef _WIN32
   struct sigaction siga = { 0 };
   siga.sa_handler = handle_signal;
-  if (sigaction(SIGTERM, &siga, NULL) == -1) {
+  if(sigaction(SIGTERM, &siga, NULL) == -1) {
     perror("setting a signal handler");
     return 1;
   }
@@ -269,22 +280,27 @@ main(int argc, const char **argv)
 
   rustls_server_config_builder_set_certified_keys(
     config_builder, &certified_key, 1);
-  rustls_server_config_builder_set_alpn_protocols(config_builder, &alpn_http11, 1);
+  rustls_server_config_builder_set_alpn_protocols(
+    config_builder, &alpn_http11, 1);
 
-  char* auth_cert = getenv("AUTH_CERT");
+  char *auth_cert = getenv("AUTH_CERT");
   if(auth_cert) {
     char certbuf[10000];
     size_t certbuf_len;
-    int result = read_file(argv[0], auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
+    int result =
+      read_file(argv[0], auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
     if(result != DEMO_OK) {
       goto cleanup;
     }
 
     client_cert_root_store = rustls_root_cert_store_new();
-    rustls_root_cert_store_add_pem(client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
+    rustls_root_cert_store_add_pem(
+      client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
 
-    client_cert_verifier = rustls_client_cert_verifier_new(client_cert_root_store);
-    rustls_server_config_builder_set_client_verifier(config_builder, client_cert_verifier);
+    client_cert_verifier =
+      rustls_client_cert_verifier_new(client_cert_root_store);
+    rustls_server_config_builder_set_client_verifier(config_builder,
+                                                     client_cert_verifier);
   }
 
   server_config = rustls_server_config_builder_build(config_builder);
@@ -366,7 +382,7 @@ cleanup:
   rustls_client_cert_verifier_free(client_cert_verifier);
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
-  if(sockfd>0) {
+  if(sockfd > 0) {
     close(sockfd);
   }
 
