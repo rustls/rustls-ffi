@@ -78,9 +78,8 @@ nonblock(int sockfd)
 int
 read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 {
-  ssize_t n = 0;
   struct conndata *conn = (struct conndata *)userdata;
-  n = recv(conn->fd, buf, len, 0);
+  ssize_t n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -93,10 +92,9 @@ read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 int
 write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
 {
-  ssize_t n = 0;
   struct conndata *conn = (struct conndata *)userdata;
 
-  n = send(conn->fd, buf, len, 0);
+  ssize_t n = send(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -124,12 +122,11 @@ write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
 rustls_io_result write_vectored_cb(
     void *userdata, const struct rustls_iovec *iov, size_t count, size_t *out_n)
 {
-  ssize_t n = 0;
   struct conndata *conn = (struct conndata *)userdata;
 
   // safety: narrowing conversion from `size_t count` to `int` is safe because
   // writev return -1 and sets errno to EINVAL on out of range input (<0 || > IOV_MAX).
-  n = writev(conn->fd, (const struct iovec *)iov, (int) count);
+  ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int) count);
   if(n < 0) {
     return errno;
   }

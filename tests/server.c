@@ -42,13 +42,10 @@ typedef enum exchange_state
 enum demo_result
 do_read(struct conndata *conn, struct rustls_connection *rconn)
 {
-  int err = 1;
-  unsigned int result = 1;
   size_t n = 0;
-  ssize_t signed_n = 0;
   char buf[1];
 
-  err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
+  int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EAGAIN || err == EWOULDBLOCK) {
     fprintf(stderr,
             "server: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
@@ -65,7 +62,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   }
   fprintf(stderr, "server: read %zu bytes from socket\n", n);
 
-  result = rustls_connection_process_new_packets(rconn);
+  unsigned int result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
     print_error("server", "in process_new_packets", result);
     return DEMO_ERROR;
@@ -79,7 +76,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
    * verify that the sender then closed the TCP connection. */
-  signed_n = read(conn->fd, buf, sizeof(buf));
+  ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     fprintf(stderr,
             "server: error: read returned %zu bytes after receiving close_notify\n",
@@ -130,8 +127,6 @@ send_response(struct conndata *conn)
 void
 handle_conn(struct conndata *conn)
 {
-  int err = 1;
-  int result = 1;
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
@@ -160,7 +155,7 @@ handle_conn(struct conndata *conn)
     tv.tv_sec = 1;
     tv.tv_usec = 0;
 
-    result = select(sockfd + 1, &read_fds, &write_fds, NULL, &tv);
+    int result = select(sockfd + 1, &read_fds, &write_fds, NULL, &tv);
     if(result == -1) {
       perror("select");
       goto cleanup;
@@ -184,7 +179,7 @@ handle_conn(struct conndata *conn)
       }
     }
     if(FD_ISSET(sockfd, &write_fds)) {
-      err = write_tls(rconn, conn, &n);
+      int err = write_tls(rconn, conn, &n);
       if(err != 0) {
         fprintf(stderr, "server: error in write_tls: errno %d\n", err);
         goto cleanup;
@@ -237,7 +232,6 @@ int
 main(int argc, const char **argv)
 {
   int ret = 1;
-  unsigned int result = 1;
   int sockfd = 0;
   struct rustls_server_config_builder *config_builder =
     rustls_server_config_builder_new();
@@ -345,7 +339,7 @@ main(int argc, const char **argv)
 
     nonblock(clientfd);
 
-    result = rustls_server_connection_new(server_config, &rconn);
+    unsigned int result = rustls_server_connection_new(server_config, &rconn);
     if(result != RUSTLS_RESULT_OK) {
       print_error("server", "making session", result);
       goto cleanup;
