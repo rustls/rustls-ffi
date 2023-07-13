@@ -513,27 +513,27 @@ impl rustls_root_cert_store {
 /// trusted based on a given `rustls_root_cert_store`. Usable in building server
 /// configurations. Connections without such a client certificate will not
 /// be accepted.
-pub struct rustls_client_cert_verifier {
+pub struct rustls_allow_any_authenticated_client_verifier {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_client_cert_verifier {
+impl CastConstPtr for rustls_allow_any_authenticated_client_verifier {
     type RustType = AllowAnyAuthenticatedClient;
 }
 
-impl ArcCastPtr for rustls_client_cert_verifier {}
+impl ArcCastPtr for rustls_allow_any_authenticated_client_verifier {}
 
-impl rustls_client_cert_verifier {
-    /// Create a new client certificate verifier for the root store. The verifier
-    /// can be used in several rustls_server_config instances. Must be freed by
+impl rustls_allow_any_authenticated_client_verifier {
+    /// Create a new allow any authenticated client certificate verifier for the root
+    /// store. The verifier can be used in several `rustls_server_config` instances. Must be freed by
     /// the application when no longer needed. See the documentation of
-    /// rustls_client_cert_verifier_free for details about lifetime.
-    /// This copies the contents of the rustls_root_cert_store. It does not take
+    /// `rustls_allow_any_authenticated_client_verifier_free` for details about lifetime.
+    /// This copies the contents of the `rustls_root_cert_store`. It does not take
     /// ownership of the pointed-to memory.
     #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_new(
+    pub extern "C" fn rustls_allow_any_authenticated_client_verifier_new(
         store: *const rustls_root_cert_store,
-    ) -> *const rustls_client_cert_verifier {
+    ) -> *const rustls_allow_any_authenticated_client_verifier {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = AllowAnyAuthenticatedClient::new(store.clone());
@@ -542,49 +542,50 @@ impl rustls_client_cert_verifier {
     }
 
     /// "Free" a verifier previously returned from
-    /// rustls_client_cert_verifier_new. Since rustls_client_cert_verifier is actually an
+    /// `rustls_allow_any_authenticated_client_verifier_new`. Since
+    /// `rustls_allow_any_authenticated_client_verifier` is actually an
     /// atomically reference-counted pointer, extant server_configs may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_free(
-        verifier: *const rustls_client_cert_verifier,
+    pub extern "C" fn rustls_allow_any_authenticated_client_verifier_free(
+        verifier: *const rustls_allow_any_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
-            rustls_client_cert_verifier::free(verifier);
+            rustls_allow_any_authenticated_client_verifier::free(verifier);
         }
     }
 }
 
-/// Alternative to `rustls_client_cert_verifier` that allows connections
+/// Alternative to `rustls_allow_any_authenticated_client_verifier` that allows connections
 /// with or without a client certificate. If the client offers a certificate,
 /// it will be verified (and rejected if it is not valid). If the client
 /// does not offer a certificate, the connection will succeed.
 ///
 /// The application can retrieve the certificate, if any, with
-/// rustls_connection_get_peer_certificate.
-pub struct rustls_client_cert_verifier_optional {
+/// `rustls_connection_get_peer_certificate`.
+pub struct rustls_allow_any_anonymous_or_authenticated_client_verifier {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_client_cert_verifier_optional {
+impl CastConstPtr for rustls_allow_any_anonymous_or_authenticated_client_verifier {
     type RustType = AllowAnyAnonymousOrAuthenticatedClient;
 }
 
-impl ArcCastPtr for rustls_client_cert_verifier_optional {}
+impl ArcCastPtr for rustls_allow_any_anonymous_or_authenticated_client_verifier {}
 
-impl rustls_client_cert_verifier_optional {
-    /// Create a new rustls_client_cert_verifier_optional for the root store. The
-    /// verifier can be used in several rustls_server_config instances. Must be
+impl rustls_allow_any_anonymous_or_authenticated_client_verifier {
+    /// Create a new allow any anonymous or authenticated client certificate verifier for the root
+    /// store. The verifier can be used in several `rustls_server_config` instances. Must be
     /// freed by the application when no longer needed. See the documentation of
-    /// rustls_client_cert_verifier_optional_free for details about lifetime.
-    /// This copies the contents of the rustls_root_cert_store. It does not take
+    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier_free` for details about lifetime.
+    /// This copies the contents of the `rustls_root_cert_store`. It does not take
     /// ownership of the pointed-to data.
     #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_optional_new(
+    pub extern "C" fn rustls_allow_any_anonymous_or_authenticated_client_verifier_new(
         store: *const rustls_root_cert_store,
-    ) -> *const rustls_client_cert_verifier_optional {
+    ) -> *const rustls_allow_any_anonymous_or_authenticated_client_verifier {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = AllowAnyAnonymousOrAuthenticatedClient::new(store.clone());
@@ -594,17 +595,18 @@ impl rustls_client_cert_verifier_optional {
     }
 
     /// "Free" a verifier previously returned from
-    /// rustls_client_cert_verifier_optional_new. Since rustls_client_cert_verifier_optional
-    /// is actually an atomically reference-counted pointer, extant server_configs may still
+    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier_new`. Since
+    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier`
+    /// is actually an atomically reference-counted pointer, extant `server_configs` may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_optional_free(
-        verifier: *const rustls_client_cert_verifier_optional,
+    pub extern "C" fn rustls_allow_any_anonymous_or_authenticated_client_verifier_free(
+        verifier: *const rustls_allow_any_anonymous_or_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
-            rustls_client_cert_verifier_optional::free(verifier);
+            rustls_allow_any_anonymous_or_authenticated_client_verifier::free(verifier);
         }
     }
 }

@@ -250,7 +250,8 @@ main(int argc, const char **argv)
   struct rustls_connection *rconn = NULL;
   const struct rustls_certified_key *certified_key = NULL;
   struct rustls_slice_bytes alpn_http11;
-  const struct rustls_client_cert_verifier *client_cert_verifier = NULL;
+  const struct rustls_allow_any_authenticated_client_verifier
+    *client_cert_verifier = NULL;
   struct rustls_root_cert_store *client_cert_root_store = NULL;
 
   alpn_http11.data = (unsigned char *)"http/1.1";
@@ -297,8 +298,8 @@ main(int argc, const char **argv)
     rustls_root_cert_store_add_pem(
       client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
 
-    client_cert_verifier =
-      rustls_client_cert_verifier_new(client_cert_root_store);
+    client_cert_verifier = rustls_allow_any_authenticated_client_verifier_new(
+      client_cert_root_store);
     rustls_server_config_builder_set_client_verifier(config_builder,
                                                      client_cert_verifier);
   }
@@ -379,7 +380,7 @@ main(int argc, const char **argv)
 cleanup:
   rustls_certified_key_free(certified_key);
   rustls_root_cert_store_free(client_cert_root_store);
-  rustls_client_cert_verifier_free(client_cert_verifier);
+  rustls_allow_any_authenticated_client_verifier_free(client_cert_verifier);
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
   if(sockfd > 0) {
