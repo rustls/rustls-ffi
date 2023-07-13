@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <fcntl.h>
+#include <unistd.h>
 #endif
 
 #include <stdio.h>
@@ -20,13 +21,16 @@
 #include "rustls.h"
 #include "common.h"
 
+/* Set by client.c's and server.c's main() */
+const char *programname;
+
 void
-print_error(const char *program_name, const char *prefix, rustls_result result)
+print_error(const char *prefix, rustls_result result)
 {
   char buf[256];
   size_t n;
   rustls_error(result, buf, sizeof(buf), &n);
-  fprintf(stderr, "%s: %s: %.*s\n", program_name, prefix, (int)n, buf);
+  LOG("%s: %.*s", prefix, (int)n, buf);
 }
 
 #ifdef _WIN32
@@ -206,8 +210,7 @@ copy_plaintext_to_buffer(struct conndata *conn)
       return DEMO_OK;
     }
     if(result != RUSTLS_RESULT_OK) {
-      print_error(
-        conn->program_name, "Error in rustls_connection_read", result);
+      print_error("error in rustls_connection_read", result);
       return DEMO_ERROR;
     }
     if(n == 0) {
@@ -325,30 +328,25 @@ log_cb(void *userdata, const struct rustls_log_params *params)
 {
   struct conndata *conn = (struct conndata *)userdata;
   struct rustls_str level_str = rustls_log_level_str(params->level);
-  fprintf(stderr,
-          "%s[fd %d][%.*s]: %.*s\n",
-          conn->program_name,
-          conn->fd,
-          (int)level_str.len,
-          level_str.data,
-          (int)params->message.len,
-          params->message.data);
+  LOG("[fd %d][%.*s]: %.*s",
+      conn->fd,
+      (int)level_str.len,
+      level_str.data,
+      (int)params->message.len,
+      params->message.data);
 }
 
 enum demo_result
-read_file(const char *progname, const char *filename, char *buf, size_t buflen,
-          size_t *n)
+read_file(const char *filename, char *buf, size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
-    fprintf(
-      stderr, "%s: opening %s: %s\n", progname, filename, strerror(errno));
+    LOG("opening %s: %s", filename, strerror(errno));
     return DEMO_ERROR;
   }
   *n = fread(buf, 1, buflen, f);
   if(!feof(f)) {
-    fprintf(
-      stderr, "%s: reading %s: %s\n", progname, filename, strerror(errno));
+    LOG("reading %s: %s", filename, strerror(errno));
     fclose(f);
     return DEMO_ERROR;
   }
@@ -357,8 +355,7 @@ read_file(const char *progname, const char *filename, char *buf, size_t buflen,
 }
 
 const struct rustls_certified_key *
-load_cert_and_key(const char *progname, const char *certfile,
-                  const char *keyfile)
+load_cert_and_key(const char *certfile, const char *keyfile)
 {
   char certbuf[10000];
   size_t certbuf_len;
@@ -366,12 +363,12 @@ load_cert_and_key(const char *progname, const char *certfile,
   size_t keybuf_len;
 
   unsigned int result =
-    read_file(progname, certfile, certbuf, sizeof(certbuf), &certbuf_len);
+    read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
   if(result != DEMO_OK) {
     return NULL;
   }
 
-  result = read_file(progname, keyfile, keybuf, sizeof(keybuf), &keybuf_len);
+  result = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
   if(result != DEMO_OK) {
     return NULL;
   }
@@ -383,7 +380,7 @@ load_cert_and_key(const char *progname, const char *certfile,
                                       keybuf_len,
                                       &certified_key);
   if(result != RUSTLS_RESULT_OK) {
-    print_error(progname, "parsing certificate and key", result);
+    print_error("parsing certificate and key", result);
     return NULL;
   }
   return certified_key;

@@ -23,13 +23,6 @@
 #include "rustls.h"
 #include "common.h"
 
-/* Log a formatted message prefixed with `server[<pid>]: "` */
-#define LOG(f_, ...)                                                          \
-  fprintf(stderr, "server[%ld]: " f_ "\n", (long)getpid(), __VA_ARGS__)
-/* Since the `...` / __VA_ARGS__ technique requires at least one arg,
- * we have a special case for when there are no formatting parameters. */
-#define LOG_SIMPLE(s) LOG("%s", s)
-
 typedef enum exchange_state
 {
   READING_REQUEST,
@@ -69,7 +62,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   unsigned int result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("server", "in process_new_packets", result);
+    print_error("in process_new_packets", result);
     return DEMO_ERROR;
   }
 
@@ -251,6 +244,9 @@ main(int argc, const char **argv)
   const struct rustls_allow_any_authenticated_client_verifier
     *client_cert_verifier = NULL;
 
+  /* Set this global variable for logging purposes. */
+  programname = "server";
+
   alpn_http11.data = (unsigned char *)"http/1.1";
   alpn_http11.len = 8;
 
@@ -271,7 +267,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  certified_key = load_cert_and_key(argv[0], argv[1], argv[2]);
+  certified_key = load_cert_and_key(argv[1], argv[2]);
   if(certified_key == NULL) {
     goto cleanup;
   }
@@ -287,7 +283,7 @@ main(int argc, const char **argv)
     char certbuf[10000];
     size_t certbuf_len;
     unsigned result =
-      read_file(argv[0], auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
+      read_file(auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
     if(result != DEMO_OK) {
       goto cleanup;
     }
@@ -302,8 +298,7 @@ main(int argc, const char **argv)
     char crlbuf[10000];
     size_t crlbuf_len;
     if(auth_crl) {
-      result =
-        read_file(argv[0], auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
+      result = read_file(auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
       if(result != DEMO_OK) {
         goto cleanup;
       }
@@ -335,7 +330,7 @@ main(int argc, const char **argv)
 
   int enable = 1;
   if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
-    print_error("server", "setsockopt(SO_REUSEADDR) failed", 7001);
+    print_error("setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
   struct sockaddr_in my_addr, peer_addr;
@@ -378,7 +373,7 @@ main(int argc, const char **argv)
 
     unsigned int result = rustls_server_connection_new(server_config, &rconn);
     if(result != RUSTLS_RESULT_OK) {
-      print_error("server", "making session", result);
+      print_error("making session", result);
       goto cleanup;
     }
 
@@ -386,7 +381,6 @@ main(int argc, const char **argv)
     conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
-    conndata->program_name = "server";
     rustls_connection_set_userdata(rconn, conndata);
     rustls_connection_set_log_callback(rconn, log_cb);
     handle_conn(conndata);
