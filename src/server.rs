@@ -16,7 +16,8 @@ use rustls::{
 };
 
 use crate::cipher::{
-    rustls_certified_key, rustls_client_cert_verifier, rustls_client_cert_verifier_optional,
+    rustls_allow_any_anonymous_or_authenticated_client_verifier,
+    rustls_allow_any_authenticated_client_verifier, rustls_certified_key,
     rustls_supported_ciphersuite,
 };
 use crate::connection::{rustls_connection, Connection};
@@ -166,7 +167,7 @@ impl rustls_server_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier(
         builder: *mut rustls_server_config_builder,
-        verifier: *const rustls_client_cert_verifier,
+        verifier: *const rustls_allow_any_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
         let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
@@ -182,7 +183,7 @@ impl rustls_server_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier_optional(
         builder: *mut rustls_server_config_builder,
-        verifier: *const rustls_client_cert_verifier_optional,
+        verifier: *const rustls_allow_any_anonymous_or_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
             let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
