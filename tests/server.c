@@ -23,6 +23,13 @@
 #include "rustls.h"
 #include "common.h"
 
+/* Log a formatted message prefixed with `server[<pid>]: "` */
+#define LOG(f_, ...)                                                          \
+  fprintf(stderr, "server[%ld]: " f_ "\n", (long)getpid(), __VA_ARGS__)
+/* Since the `...` / __VA_ARGS__ technique requires at least one arg,
+ * we have a special case for when there are no formatting parameters. */
+#define LOG_SIMPLE(s) LOG("%s", s)
+
 typedef enum exchange_state
 {
   READING_REQUEST,
@@ -47,20 +54,18 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EAGAIN || err == EWOULDBLOCK) {
-    fprintf(stderr,
-            "server: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
-            strerror(errno));
+    LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
     return DEMO_AGAIN;
   }
   else if(err != 0) {
-    fprintf(stderr, "server: reading from socket: errno %d\n", err);
+    LOG("reading from socket: errno %d", err);
     return DEMO_ERROR;
   }
 
   if(n == 0) {
     return DEMO_EOF;
   }
-  fprintf(stderr, "server: read %zu bytes from socket\n", n);
+  LOG("read %zu bytes from socket", n);
 
   unsigned int result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
@@ -70,7 +75,7 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
 
   result = copy_plaintext_to_buffer(conn);
   if(result != DEMO_EOF) {
-    fprintf(stderr, "server: do_read returning %d\n", result);
+    LOG("do_read returning %d", result);
     return result;
   }
 
@@ -78,17 +83,11 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
    * verify that the sender then closed the TCP connection. */
   ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
-    fprintf(
-      stderr,
-      "server: error: read returned %zu bytes after receiving close_notify\n",
-      n);
+    LOG("error: read returned %zu bytes after receiving close_notify", n);
     return DEMO_ERROR;
   }
   else if(signed_n < 0 && errno != EWOULDBLOCK) {
-    fprintf(stderr,
-            "server: error: read returned incorrect error after receiving "
-            "close_notify: %s\n",
-            strerror(errno));
+    LOG("wrong error after receiving close_notify: %s", strerror(errno));
     return DEMO_ERROR;
   }
   return DEMO_EOF;
@@ -105,7 +104,7 @@ send_response(struct conndata *conn)
   size_t n;
 
   if(response == NULL) {
-    fprintf(stderr, "server: failed malloc\n");
+    LOG_SIMPLE("failed malloc");
     return DEMO_ERROR;
   }
 
@@ -119,8 +118,7 @@ send_response(struct conndata *conn)
 
   free(response);
   if(n != response_size) {
-    fprintf(
-      stderr, "server: failed to write all response bytes. wrote %zu\n", n);
+    LOG("failed to write all response bytes. wrote %zu", n);
     return DEMO_ERROR;
   }
   return DEMO_OK;
@@ -137,7 +135,7 @@ handle_conn(struct conndata *conn)
   struct timeval tv;
   enum exchange_state state = READING_REQUEST;
 
-  fprintf(stderr, "server: accepted conn on fd %d\n", conn->fd);
+  LOG("acccepted conn on fd %d", conn->fd);
 
   for(;;) {
     FD_ZERO(&read_fds);
@@ -151,9 +149,7 @@ handle_conn(struct conndata *conn)
 
     if(!rustls_connection_wants_read(rconn) &&
        !rustls_connection_wants_write(rconn)) {
-      fprintf(
-        stderr,
-        "server: rustls wants neither read nor write. closing connection\n");
+      LOG_SIMPLE("rustls wants neither read nor write. closing connection");
       goto cleanup;
     }
 
@@ -166,7 +162,7 @@ handle_conn(struct conndata *conn)
       goto cleanup;
     }
     if(result == 0) {
-      fprintf(stderr, "server: no fds from select, looping\n");
+      LOG_SIMPLE("no fds from select, looping");
       continue;
     }
 
@@ -186,11 +182,11 @@ handle_conn(struct conndata *conn)
     if(FD_ISSET(sockfd, &write_fds)) {
       int err = write_tls(rconn, conn, &n);
       if(err != 0) {
-        fprintf(stderr, "server: error in write_tls: errno %d\n", err);
+        LOG("error in write_tls: errno %d", err);
         goto cleanup;
       }
       else if(n == 0) {
-        fprintf(stderr, "server: write returned 0 from write_tls\n");
+        LOG_SIMPLE("write returned 0 from write_tls");
         goto cleanup;
       }
     }
@@ -199,17 +195,16 @@ handle_conn(struct conndata *conn)
     size_t negotiated_alpn_len;
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
-      fprintf(stderr, "server: writing response\n");
+      LOG_SIMPLE("writing response");
       rustls_connection_get_alpn_protocol(
         rconn, &negotiated_alpn, &negotiated_alpn_len);
       if(negotiated_alpn != NULL) {
-        fprintf(stderr,
-                "server: negotiated ALPN protocol: '%.*s'\n",
-                (int)negotiated_alpn_len,
-                negotiated_alpn);
+        LOG("negotiated ALPN protocol: '%.*s'",
+            (int)negotiated_alpn_len,
+            negotiated_alpn);
       }
       else {
-        fprintf(stderr, "server: no ALPN protocol was negotiated\n");
+        LOG_SIMPLE("no ALPN protocol was negotiated");
       }
 
       if(send_response(conn) != DEMO_OK) {
@@ -219,7 +214,7 @@ handle_conn(struct conndata *conn)
   }
 
 cleanup:
-  fprintf(stderr, "server: closing socket %d\n", sockfd);
+  LOG("closing socket %d", sockfd);
   if(sockfd > 0) {
     close(sockfd);
   }
@@ -234,7 +229,7 @@ void
 handle_signal(int signo)
 {
   if(signo == SIGTERM) {
-    fprintf(stderr, "server: received SIGTERM, shutting down\n");
+    LOG_SIMPLE("received SIGTERM, shutting down");
     shutting_down = true;
   }
 }
@@ -287,6 +282,7 @@ main(int argc, const char **argv)
     config_builder, &alpn_http11, 1);
 
   char *auth_cert = getenv("AUTH_CERT");
+  char *auth_crl = getenv("AUTH_CRL");
   if(auth_cert) {
     char certbuf[10000];
     size_t certbuf_len;
@@ -303,7 +299,6 @@ main(int argc, const char **argv)
       rustls_allow_any_authenticated_client_builder_new(
         client_cert_root_store);
 
-    char *auth_crl = getenv("AUTH_CRL");
     char crlbuf[10000];
     size_t crlbuf_len;
     if(auth_crl) {
@@ -335,7 +330,7 @@ main(int argc, const char **argv)
 
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0) {
-    fprintf(stderr, "server: making socket: %s", strerror(errno));
+    LOG("making socket: %s", strerror(errno));
   }
 
   int enable = 1;
@@ -361,7 +356,10 @@ main(int argc, const char **argv)
     perror("listen");
     goto cleanup;
   }
-  fprintf(stderr, "server: listening on localhost:8443\n");
+  LOG("listening on localhost:8443. AUTH_CERT=%s, AUTH_CRL=%s, VECTORED_IO=%s",
+      auth_cert,
+      auth_crl,
+      getenv("VECTORED_IO"));
 
   while(!shutting_down) {
     socklen_t peer_addr_size;
