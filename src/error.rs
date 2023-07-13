@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
-use rustls::{CertificateError, Error, InvalidMessage};
+use rustls::{CertRevocationListError, CertificateError, Error, InvalidMessage};
 
 /// A return value for a function that may return either success (0) or a
 /// non-zero value representing an error. The values should match socket
@@ -57,6 +57,7 @@ u32_enum_builder! {
         PlaintextEmpty => 7011,
         AcceptorNotReady => 7012,
         AlreadyUsed => 7013,
+        CertificateRevocationListParseError => 7014,
 
         // From https://docs.rs/rustls/latest/rustls/enum.Error.html
         NoCertificatesPresented => 7101,
@@ -166,7 +167,21 @@ u32_enum_builder! {
         CertSCTInvalidSignature => 7320,
         CertSCTTimestampInFuture => 7321,
         CertSCTUnsupportedVersion => 7322,
-        CertSCTUnknownLog => 7323
+        CertSCTUnknownLog => 7323,
+
+        // From InvalidCertRevocationList, with fields that get flattened.
+        // https://docs.rs/rustls/0.21.6/rustls/enum.Error.html#variant.InvalidCertRevocationList
+        CertRevocationListBadSignature => 7400,
+        CertRevocationListInvalidCrlNumber => 7401,
+        CertRevocationListInvalidRevokedCertSerialNumber => 7402,
+        CertRevocationListIssuerInvalidForCrl => 7403,
+        CertRevocationListOtherError => 7404,
+        CertRevocationListParseError => 7405,
+        CertRevocationListUnsupportedCrlVersion => 7406,
+        CertRevocationListUnsupportedCriticalExtension => 7407,
+        CertRevocationListUnsupportedDeltaCrl => 7408,
+        CertRevocationListUnsupportedIndirectCrl => 7409,
+        CertRevocationListUnsupportedRevocationReason => 7410
     }
 }
 
@@ -394,6 +409,32 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             sct::UnsupportedSctVersion => CertSCTUnsupportedVersion,
             sct::UnknownLog => CertSCTUnknownLog,
         },
+
+        Error::InvalidCertRevocationList(e) => match e {
+            CertRevocationListError::BadSignature => CertRevocationListBadSignature,
+            CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
+            CertRevocationListError::InvalidRevokedCertSerialNumber => {
+                CertRevocationListInvalidRevokedCertSerialNumber
+            }
+            CertRevocationListError::IssuerInvalidForCrl => CertRevocationListIssuerInvalidForCrl,
+            CertRevocationListError::Other(_) => CertRevocationListOtherError,
+            CertRevocationListError::ParseError => CertRevocationListParseError,
+            CertRevocationListError::UnsupportedCrlVersion => {
+                CertRevocationListUnsupportedCrlVersion
+            }
+            CertRevocationListError::UnsupportedCriticalExtension => {
+                CertRevocationListUnsupportedCriticalExtension
+            }
+            CertRevocationListError::UnsupportedDeltaCrl => CertRevocationListUnsupportedDeltaCrl,
+            CertRevocationListError::UnsupportedIndirectCrl => {
+                CertRevocationListUnsupportedIndirectCrl
+            }
+            CertRevocationListError::UnsupportedRevocationReason => {
+                CertRevocationListUnsupportedRevocationReason
+            }
+            _ => CertRevocationListOtherError,
+        },
+
         _ => General,
     }
 }
@@ -435,6 +476,9 @@ impl Display for rustls_result {
                 f,
                 "tried to use a rustls struct after it had been converted to another struct"
             ),
+            CertificateRevocationListParseError => {
+                write!(f, "error parsing certificate revocation list (CRL)",)
+            }
 
             CertEncodingBad => Error::InvalidCertificate(CertificateError::BadEncoding).fmt(f),
             CertExpired => Error::InvalidCertificate(CertificateError::Expired).fmt(f),
@@ -584,6 +628,47 @@ impl Display for rustls_result {
             CertSCTTimestampInFuture => Error::InvalidSct(sct::TimestampInFuture).fmt(f),
             CertSCTUnsupportedVersion => Error::InvalidSct(sct::UnsupportedSctVersion).fmt(f),
             CertSCTUnknownLog => Error::InvalidSct(sct::UnknownLog).fmt(f),
+
+            CertRevocationListBadSignature => {
+                Error::InvalidCertRevocationList(CertRevocationListError::BadSignature).fmt(f)
+            }
+            CertRevocationListInvalidCrlNumber => {
+                Error::InvalidCertRevocationList(CertRevocationListError::InvalidCrlNumber).fmt(f)
+            }
+            CertRevocationListInvalidRevokedCertSerialNumber => Error::InvalidCertRevocationList(
+                CertRevocationListError::InvalidRevokedCertSerialNumber,
+            )
+            .fmt(f),
+            CertRevocationListIssuerInvalidForCrl => {
+                Error::InvalidCertRevocationList(CertRevocationListError::IssuerInvalidForCrl)
+                    .fmt(f)
+            }
+            CertRevocationListOtherError => {
+                write!(f, "unknown certificate revocation list (CRL) error")
+            }
+            CertRevocationListParseError => {
+                Error::InvalidCertRevocationList(CertRevocationListError::ParseError).fmt(f)
+            }
+            CertRevocationListUnsupportedCrlVersion => {
+                Error::InvalidCertRevocationList(CertRevocationListError::UnsupportedCrlVersion)
+                    .fmt(f)
+            }
+            CertRevocationListUnsupportedCriticalExtension => Error::InvalidCertRevocationList(
+                CertRevocationListError::UnsupportedCriticalExtension,
+            )
+            .fmt(f),
+            CertRevocationListUnsupportedDeltaCrl => {
+                Error::InvalidCertRevocationList(CertRevocationListError::UnsupportedDeltaCrl)
+                    .fmt(f)
+            }
+            CertRevocationListUnsupportedIndirectCrl => {
+                Error::InvalidCertRevocationList(CertRevocationListError::UnsupportedIndirectCrl)
+                    .fmt(f)
+            }
+            CertRevocationListUnsupportedRevocationReason => Error::InvalidCertRevocationList(
+                CertRevocationListError::UnsupportedRevocationReason,
+            )
+            .fmt(f),
         }
     }
 }

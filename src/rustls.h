@@ -22,6 +22,7 @@ enum rustls_result {
   RUSTLS_RESULT_PLAINTEXT_EMPTY = 7011,
   RUSTLS_RESULT_ACCEPTOR_NOT_READY = 7012,
   RUSTLS_RESULT_ALREADY_USED = 7013,
+  RUSTLS_RESULT_CERTIFICATE_REVOCATION_LIST_PARSE_ERROR = 7014,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
   RUSTLS_RESULT_FAILED_TO_GET_CURRENT_TIME = 7103,
@@ -109,6 +110,17 @@ enum rustls_result {
   RUSTLS_RESULT_CERT_SCT_TIMESTAMP_IN_FUTURE = 7321,
   RUSTLS_RESULT_CERT_SCT_UNSUPPORTED_VERSION = 7322,
   RUSTLS_RESULT_CERT_SCT_UNKNOWN_LOG = 7323,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_BAD_SIGNATURE = 7400,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_INVALID_CRL_NUMBER = 7401,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_INVALID_REVOKED_CERT_SERIAL_NUMBER = 7402,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_ISSUER_INVALID_FOR_CRL = 7403,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_OTHER_ERROR = 7404,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_PARSE_ERROR = 7405,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_CRL_VERSION = 7406,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_CRITICAL_EXTENSION = 7407,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_DELTA_CRL = 7408,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_INDIRECT_CRL = 7409,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_REVOCATION_REASON = 7410,
 };
 typedef uint32_t rustls_result;
 
@@ -159,6 +171,13 @@ typedef struct rustls_accepted rustls_accepted;
 typedef struct rustls_acceptor rustls_acceptor;
 
 /**
+ * A builder for a `rustls_allow_any_anonymous_or_authenticated_client_verifier`. This builder
+ * object can be used to configure certificate revocation lists, and then turned into a
+ * `rustls_allow_any_anonymous_or_authenticated_client_verifier` once ready.
+ */
+typedef struct rustls_allow_any_anonymous_or_authenticated_client_builder rustls_allow_any_anonymous_or_authenticated_client_builder;
+
+/**
  * Alternative to `rustls_allow_any_authenticated_client_verifier` that allows connections
  * with or without a client certificate. If the client offers a certificate,
  * it will be verified (and rejected if it is not valid). If the client
@@ -168,6 +187,13 @@ typedef struct rustls_acceptor rustls_acceptor;
  * `rustls_connection_get_peer_certificate`.
  */
 typedef struct rustls_allow_any_anonymous_or_authenticated_client_verifier rustls_allow_any_anonymous_or_authenticated_client_verifier;
+
+/**
+ * A builder for a `rustls_allow_any_authenticated_client_verifier`. This builder object can be
+ * used to configure certificate revocation lists, and then turned into a
+ * `rustls_allow_any_authenticated_client_verifier` once ready.
+ */
+typedef struct rustls_allow_any_authenticated_client_builder rustls_allow_any_authenticated_client_builder;
 
 /**
  * A verifier of client certificates that requires all certificates to be
@@ -945,14 +971,48 @@ rustls_result rustls_root_cert_store_add_pem(struct rustls_root_cert_store *stor
 void rustls_root_cert_store_free(struct rustls_root_cert_store *store);
 
 /**
- * Create a new allow any authenticated client certificate verifier for the root
- * store. The verifier can be used in several `rustls_server_config` instances. Must be freed by
+ * Create a new allow any authenticated client certificate verifier builder using the root store.
+ *
+ * This copies the contents of the rustls_root_cert_store. It does not take
+ * ownership of the pointed-to memory.
+ *
+ * This object can then be used to load any CRLs.
+ *
+ * Once that is complete, convert it into a real `rustls_allow_any_authenticated_client_verifier`
+ * by calling `rustls_allow_any_authenticated_client_verifier_new()`.
+ */
+struct rustls_allow_any_authenticated_client_builder *rustls_allow_any_authenticated_client_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the client certificate verifier by
+ * reading the CRL content from the provided buffer of PEM encoded content.
+ *
+ * This function returns an error if the provided buffer is not valid PEM encoded content,
+ * or if the CRL content is invalid or unsupported.
+ */
+rustls_result rustls_allow_any_authenticated_client_builder_add_crl(struct rustls_allow_any_authenticated_client_builder *builder,
+                                                                    const uint8_t *crl_pem,
+                                                                    size_t crl_pem_len);
+
+/**
+ * Free a `rustls_allow_any_authenticated_client_builder` previously returned from
+ * `rustls_allow_any_authenticated_client_builder_new`.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_allow_any_authenticated_client_builder_free(struct rustls_allow_any_authenticated_client_builder *builder);
+
+/**
+ * Create a new allow any authenticated client certificate verifier from a builder.
+ *
+ * The builder is consumed and cannot be used again, but must still be freed.
+ *
+ * The verifier can be used in several `rustls_server_config` instances. Must be freed by
  * the application when no longer needed. See the documentation of
  * `rustls_allow_any_authenticated_client_verifier_free` for details about lifetime.
  * This copies the contents of the `rustls_root_cert_store`. It does not take
  * ownership of the pointed-to memory.
  */
-const struct rustls_allow_any_authenticated_client_verifier *rustls_allow_any_authenticated_client_verifier_new(const struct rustls_root_cert_store *store);
+const struct rustls_allow_any_authenticated_client_verifier *rustls_allow_any_authenticated_client_verifier_new(struct rustls_allow_any_authenticated_client_builder *builder);
 
 /**
  * "Free" a verifier previously returned from
@@ -966,14 +1026,51 @@ const struct rustls_allow_any_authenticated_client_verifier *rustls_allow_any_au
 void rustls_allow_any_authenticated_client_verifier_free(const struct rustls_allow_any_authenticated_client_verifier *verifier);
 
 /**
- * Create a new allow any anonymous or authenticated client certificate verifier for the root
- * store. The verifier can be used in several `rustls_server_config` instances. Must be
+ * Create a new allow any anonymous or authenticated client certificate verifier builder
+ * using the root store.
+ *
+ * This copies the contents of the rustls_root_cert_store. It does not take
+ * ownership of the pointed-to memory.
+ *
+ * This object can then be used to load any CRLs.
+ *
+ * Once that is complete, convert it into a real
+ * `rustls_allow_any_anonymous_or_authenticated_client_verifier`
+ * by calling `rustls_allow_any_anonymous_or_authenticated_client_verifier_new()`.
+ */
+struct rustls_allow_any_anonymous_or_authenticated_client_builder *rustls_client_cert_verifier_optional_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the client certificate verifier by
+ * reading the CRL content from the provided buffer of PEM encoded content.
+ *
+ * This function returns an error if the provided buffer is not valid PEM encoded content,
+ * or if the CRL content is invalid or unsupported.
+ */
+rustls_result rustls_client_cert_verifier_optional_builder_add_crl(struct rustls_allow_any_anonymous_or_authenticated_client_builder *builder,
+                                                                   const uint8_t *crl_pem,
+                                                                   size_t crl_pem_len);
+
+/**
+ * Free a `rustls_allow_any_anonymous_or_authenticated_client_builder` previously returned from
+ * `rustls_client_cert_verifier_optional_builder_new`.
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_client_cert_verifier_optional_builder_free(struct rustls_allow_any_anonymous_or_authenticated_client_builder *builder);
+
+/**
+ * Create a new allow any anonymous or authenticated client certificate verifier builder
+ * from the builder.
+ *
+ * The builder is consumed and cannot be used again, but must still be freed.
+ *
+ * The verifier can be used in several `rustls_server_config` instances. Must be
  * freed by the application when no longer needed. See the documentation of
  * `rustls_allow_any_anonymous_or_authenticated_client_verifier_free` for details about lifetime.
  * This copies the contents of the `rustls_root_cert_store`. It does not take
  * ownership of the pointed-to data.
  */
-const struct rustls_allow_any_anonymous_or_authenticated_client_verifier *rustls_allow_any_anonymous_or_authenticated_client_verifier_new(const struct rustls_root_cert_store *store);
+const struct rustls_allow_any_anonymous_or_authenticated_client_verifier *rustls_allow_any_anonymous_or_authenticated_client_verifier_new(struct rustls_allow_any_anonymous_or_authenticated_client_builder *builder);
 
 /**
  * "Free" a verifier previously returned from
