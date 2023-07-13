@@ -36,12 +36,11 @@ make_conn(const char *hostname, const char *port)
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM; /* looking for TCP */
 
-  fprintf(stderr, "connecting to %s:%s\n", hostname, port);
+  LOG("connecting to %s:%s", hostname, port);
   int getaddrinfo_result =
     getaddrinfo(hostname, port, &hints, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
-    fprintf(
-      stderr, "client: getaddrinfo: %s\n", gai_strerror(getaddrinfo_result));
+    LOG("getaddrinfo: %s", gai_strerror(getaddrinfo_result));
     goto cleanup;
   }
 
@@ -99,19 +98,17 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
 
   if(err == EAGAIN || err == EWOULDBLOCK) {
-    fprintf(stderr,
-            "client: reading from socket: EAGAIN or EWOULDBLOCK: %s\n",
-            strerror(errno));
+    LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
     return DEMO_AGAIN;
   }
   else if(err != 0) {
-    fprintf(stderr, "client: reading from socket: errno %d\n", err);
+    LOG("reading from socket: errno %d", err);
     return DEMO_ERROR;
   }
 
   result = rustls_connection_process_new_packets(rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("server", "in process_new_packets", result);
+    print_error("in process_new_packets", result);
     return DEMO_ERROR;
   }
 
@@ -124,17 +121,11 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
    * verify that the sender then closed the TCP connection. */
   signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
-    fprintf(
-      stderr,
-      "client: error: read returned %zu bytes after receiving close_notify\n",
-      n);
+    LOG("error: read returned %zu bytes after receiving close_notify", n);
     return DEMO_ERROR;
   }
   else if(signed_n < 0 && errno != EWOULDBLOCK) {
-    fprintf(stderr,
-            "client: error: read returned incorrect error after receiving "
-            "close_notify: %s\n",
-            strerror(errno));
+    LOG("wrong error after receiving close_notify: %s", strerror(errno));
     return DEMO_ERROR;
   }
   return DEMO_EOF;
@@ -185,14 +176,11 @@ send_request_and_read_response(struct conndata *conn,
    * us- to the rustls connection. */
   result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
   if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr,
-            "client: error writing plaintext bytes to rustls_connection\n");
+    LOG_SIMPLE("error writing plaintext bytes to rustls_connection");
     goto cleanup;
   }
   if(n != strlen(buf)) {
-    fprintf(
-      stderr,
-      "client: short write writing plaintext bytes to rustls_connection\n");
+    LOG_SIMPLE("short write writing plaintext bytes to rustls_connection");
     goto cleanup;
   }
 
@@ -210,9 +198,8 @@ send_request_and_read_response(struct conndata *conn,
 
     if(!rustls_connection_wants_read(rconn) &&
        !rustls_connection_wants_write(rconn)) {
-      fprintf(stderr,
-              "client: rustls wants neither read nor write. draining "
-              "plaintext and exiting.\n");
+      LOG_SIMPLE(
+        "rustls wants neither read nor write. drain plaintext and exit");
       goto drain_plaintext;
     }
 
@@ -240,26 +227,23 @@ send_request_and_read_response(struct conndata *conn,
           body = body_beginning(&conn->data);
           if(body != NULL) {
             headers_len = body - conn->data.data;
-            fprintf(stderr, "client: body began at %zu\n", headers_len);
+            LOG("body began at %zu", headers_len);
             content_length_str = get_first_header_value(conn->data.data,
                                                         headers_len,
                                                         CONTENT_LENGTH,
                                                         strlen(CONTENT_LENGTH),
                                                         &n);
             if(content_length_str == NULL) {
-              fprintf(stderr, "client: content length header not found\n");
+              LOG_SIMPLE("content length header not found");
               goto cleanup;
             }
             content_length =
               strtoul(content_length_str, (char **)&content_length_end, 10);
             if(content_length_end == content_length_str) {
-              fprintf(stderr,
-                      "client: invalid Content-Length '%.*s'\n",
-                      (int)n,
-                      content_length_str);
+              LOG("invalid Content-Length '%.*s'", (int)n, content_length_str);
               goto cleanup;
             }
-            fprintf(stderr, "client: content length %lu\n", content_length);
+            LOG("content length %lu", content_length);
           }
         }
         if(headers_len != 0 &&
@@ -275,34 +259,30 @@ send_request_and_read_response(struct conndata *conn,
          * encrypted bytes, that we will write to `conn`. */
         err = write_tls(rconn, conn, &n);
         if(err != 0) {
-          fprintf(stderr,
-                  "client: error in rustls_connection_write_tls: errno %d\n",
-                  err);
+          LOG("error in rustls_connection_write_tls: errno %d", err);
           goto cleanup;
         }
         if(result == DEMO_AGAIN) {
           break;
         }
         else if(n == 0) {
-          fprintf(
-            stderr,
-            "client: write returned 0 from rustls_connection_write_tls\n");
+          LOG_SIMPLE("write returned 0 from rustls_connection_write_tls");
           break;
         }
       }
     }
   }
 
-  fprintf(stderr, "client: send_request_and_read_response: loop fell through");
+  LOG_SIMPLE("send_request_and_read_response: loop fell through");
 
 drain_plaintext:
   result = copy_plaintext_to_buffer(conn);
   if(result != DEMO_OK && result != DEMO_EOF) {
     goto cleanup;
   }
-  fprintf(stderr, "client: writing %zu bytes to stdout\n", conn->data.len);
+  LOG("writing %zu bytes to stdout", conn->data.len);
   if(write(STDOUT_FILENO, conn->data.data, conn->data.len) < 0) {
-    fprintf(stderr, "error writing to stderr\n");
+    LOG_SIMPLE("error writing to stderr");
     goto cleanup;
   }
   ret = 0;
@@ -331,7 +311,7 @@ do_request(const struct rustls_client_config *client_config,
   rustls_result result =
     rustls_client_connection_new(client_config, hostname, &rconn);
   if(result != RUSTLS_RESULT_OK) {
-    print_error("server", "client_connection_new", result);
+    print_error("client_connection_new", result);
     goto cleanup;
   }
 
@@ -342,7 +322,6 @@ do_request(const struct rustls_client_config *client_config,
   conn->rconn = rconn;
   conn->fd = sockfd;
   conn->verify_arg = "verify_arg";
-  conn->program_name = "client";
 
   rustls_connection_set_userdata(rconn, conn);
   rustls_connection_set_log_callback(rconn, log_cb);
@@ -378,23 +357,20 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
   struct conndata *conn = (struct conndata *)userdata;
 
-  fprintf(stderr,
-          "client: custom certificate verifier called for %.*s\n",
-          (int)params->server_name.len,
-          params->server_name.data);
-  fprintf(
-    stderr, "client: end entity len: %zu\n", params->end_entity_cert_der.len);
-  fprintf(stderr, "client: intermediates:\n");
+  LOG("custom certificate verifier called for %.*s",
+      (int)params->server_name.len,
+      params->server_name.data);
+  LOG("end entity len: %zu", params->end_entity_cert_der.len);
+  LOG_SIMPLE("intermediates:");
   for(i = 0; i < intermediates_len; i++) {
     bytes = rustls_slice_slice_bytes_get(intermediates, i);
     if(bytes.data != NULL) {
-      fprintf(stderr, "client:   intermediate, len = %zu\n", bytes.len);
+      LOG("   intermediate, len = %zu", bytes.len);
     }
   }
-  fprintf(
-    stderr, "client: ocsp response len: %zu\n", params->ocsp_response.len);
+  LOG("ocsp response len: %zu", params->ocsp_response.len);
   if(0 != strcmp(conn->verify_arg, "verify_arg")) {
-    fprintf(stderr, "client: invalid argument to verify: %p\n", userdata);
+    LOG("invalid argument to verify: %p", userdata);
     return RUSTLS_RESULT_GENERAL;
   }
   return RUSTLS_RESULT_OK;
@@ -405,6 +381,7 @@ main(int argc, const char **argv)
 {
   int ret = 1;
   unsigned result = 1;
+
   if(argc <= 2) {
     fprintf(stderr,
             "usage: %s hostname port path\n\n"
@@ -417,6 +394,9 @@ main(int argc, const char **argv)
   const char *hostname = argv[1];
   const char *port = argv[2];
   const char *path = argv[3];
+
+  /* Set this global variable for logging purposes. */
+  programname = "client";
 
   struct rustls_client_config_builder *config_builder =
     rustls_client_config_builder_new();
@@ -437,7 +417,7 @@ main(int argc, const char **argv)
     result = rustls_client_config_builder_load_roots_from_file(
       config_builder, getenv("CA_FILE"));
     if(result != RUSTLS_RESULT_OK) {
-      print_error("server", "loading trusted certificates", result);
+      print_error("loading trusted certificates", result);
       goto cleanup;
     }
   }
@@ -461,7 +441,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
   else if(auth_cert && auth_key) {
-    certified_key = load_cert_and_key(argv[0], auth_cert, auth_key);
+    certified_key = load_cert_and_key(auth_cert, auth_key);
     if(certified_key == NULL) {
       goto cleanup;
     }

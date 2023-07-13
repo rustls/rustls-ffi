@@ -43,13 +43,21 @@ struct conndata
 {
   int fd;
   const char *verify_arg;
-  const char *program_name;
   struct bytevec data;
   struct rustls_connection *rconn;
 };
 
-void print_error(const char *program_name, const char *prefix,
-                 rustls_result result);
+extern const char *programname;
+
+/* Log a formatted message prefixed with `<programname>[<pid>]: "` */
+#define LOG(f_, ...)                                                          \
+  fprintf(                                                                    \
+    stderr, "%s[%ld]: " f_ "\n", programname, (long)getpid(), __VA_ARGS__)
+/* Since the `...` / __VA_ARGS__ technique requires at least one arg,
+ * we have a special case for when there are no formatting parameters. */
+#define LOG_SIMPLE(s) LOG("%s", s)
+
+void print_error(const char *prefix, rustls_result result);
 
 int write_all(int fd, const char *buf, int n);
 
@@ -119,11 +127,10 @@ const char *get_first_header_value(const char *headers, size_t headers_len,
 
 void log_cb(void *userdata, const struct rustls_log_params *params);
 
-enum demo_result read_file(const char *progname, const char *filename,
-                           char *buf, size_t buflen, size_t *n);
+enum demo_result read_file(const char *filename, char *buf, size_t buflen,
+                           size_t *n);
 
-const struct rustls_certified_key *load_cert_and_key(const char *progname,
-                                                     const char *certfile,
+const struct rustls_certified_key *load_cert_and_key(const char *certfile,
                                                      const char *keyfile);
 
 #endif /* COMMON_H */
