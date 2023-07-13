@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-MAX_TRIES = 24
+MAX_TRIES = 120
 HOST = "localhost"
 PORT = 8443
 
@@ -22,18 +22,20 @@ def port_is_open(host, port):
 
 
 def wait_tcp_port(host, port):
-    for _ in range(MAX_TRIES):
+    for i in range(MAX_TRIES):
         if port_is_open(host, port):
             break
         else:
-            print("{} - still trying to connect to {}:{}"
-                  .format(time.strftime("%c"), host, port))
-            time.sleep(0.5)
+            if i > 0:
+                print("client-server.py: still trying to connect to host{}:{port}")
+            time.sleep(0.1)
     else:
         print("unable to connect")
         sys.exit(1)
-    print("Connected to {}:{}".format(host, port))
+    print("client-server.py: detected server is up on {host}:{port}")
 
+class Failure(Exception):
+    pass
 
 def run_with_maybe_valgrind(args, env, valgrind, expect_error=False):
     if valgrind is not None:
@@ -41,11 +43,12 @@ def run_with_maybe_valgrind(args, env, valgrind, expect_error=False):
     process_env = os.environ.copy()
     process_env.update(env)
     try:
-        subprocess.check_call(args, env=process_env, stdout=subprocess.DEVNULL)
+        subprocess.run(args, env=process_env, capture_output=True).check_returncode()
     except subprocess.CalledProcessError as e:
         if not expect_error:
-            raise e
-
+            print("\nFailed process output:")
+            print(e.stderr.decode())
+            raise Failure({"args": args, "env": env}) from e
 
 def run_client_tests(client, valgrind):
     run_with_maybe_valgrind(
