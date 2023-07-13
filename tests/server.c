@@ -303,6 +303,23 @@ main(int argc, const char **argv)
       rustls_allow_any_authenticated_client_builder_new(
         client_cert_root_store);
 
+    char *auth_crl = getenv("AUTH_CRL");
+    char crlbuf[10000];
+    size_t crlbuf_len;
+    if(auth_crl) {
+      result =
+        read_file(argv[0], auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
+      if(result != DEMO_OK) {
+        goto cleanup;
+      }
+
+      result = rustls_allow_any_authenticated_client_builder_add_crl(
+        client_cert_verifier_builder, (uint8_t *)crlbuf, certbuf_len);
+      if(result != RUSTLS_RESULT_OK) {
+        goto cleanup;
+      }
+    }
+
     client_cert_verifier = rustls_allow_any_authenticated_client_verifier_new(
       client_cert_verifier_builder);
     rustls_server_config_builder_set_client_verifier(config_builder,
