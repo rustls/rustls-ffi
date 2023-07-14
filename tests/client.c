@@ -48,14 +48,14 @@ make_conn(const char *hostname, const char *port)
                   getaddrinfo_output->ai_socktype,
                   getaddrinfo_output->ai_protocol);
   if(sockfd < 0) {
-    perror("making socket");
+    perror("client: making socket");
     goto cleanup;
   }
 
   int connect_result = connect(
     sockfd, getaddrinfo_output->ai_addr, getaddrinfo_output->ai_addrlen);
   if(connect_result < 0) {
-    perror("connecting");
+    perror("client: connecting");
     goto cleanup;
   }
   enum demo_result result = nonblock(sockfd);
@@ -205,7 +205,7 @@ send_request_and_read_response(struct conndata *conn,
 
     int select_result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
     if(select_result == -1) {
-      perror("select");
+      perror("client: select");
       goto cleanup;
     }
 

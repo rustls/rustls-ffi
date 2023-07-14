@@ -151,7 +151,7 @@ handle_conn(struct conndata *conn)
 
     int result = select(sockfd + 1, &read_fds, &write_fds, NULL, &tv);
     if(result == -1) {
-      perror("select");
+      perror("server: select");
       goto cleanup;
     }
     if(result == 0) {
@@ -254,7 +254,7 @@ main(int argc, const char **argv)
   struct sigaction siga = { 0 };
   siga.sa_handler = handle_signal;
   if(sigaction(SIGTERM, &siga, NULL) == -1) {
-    perror("setting a signal handler");
+    perror("server: setting a signal handler");
     return 1;
   }
 #endif /* _WIN32 */
@@ -343,12 +343,12 @@ main(int argc, const char **argv)
 
   if(bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr_in)) ==
      -1) {
-    perror("bind");
+    perror("server: bind");
     goto cleanup;
   }
 
   if(listen(sockfd, 50) == -1) {
-    perror("listen");
+    perror("server: listen");
     goto cleanup;
   }
   LOG("listening on localhost:8443. AUTH_CERT=%s, AUTH_CRL=%s, VECTORED_IO=%s",
@@ -365,7 +365,7 @@ main(int argc, const char **argv)
       break;
     }
     if(clientfd < 0) {
-      perror("accept");
+      perror("server: accept");
       goto cleanup;
     }
 

@@ -30,7 +30,7 @@ def wait_tcp_port(host, port):
                 print("client-server.py: still trying to connect to host{}:{port}")
             time.sleep(0.1)
     else:
-        print("unable to connect")
+        print("client-server.py: unable to connect")
         sys.exit(1)
     print("client-server.py: detected server is up on {host}:{port}")
 
