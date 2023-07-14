@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.11.0 (2023-07-14)
+
+### Added
+
+- Added support for providing certificate revocation lists (CRLs) to client
+  certificate verifiers via the new builder types. (#324).
+- Some new certificate revocation list related error codes starting with
+  RUSTLS_RESULT_CERT_REVOCATION_LIST. (#324).
+
+### Changed
+
+- rustls_client_cert_verifier became
+  rustls_allow_any_authenticated_client_verifier and must be constructed from a
+  rustls_allow_any_authenticated_client_builder.
+- rustls_client_cert_verifier_optional became
+  rustls_allow_any_anonymous_or_authenticated_client_verifier and must be
+  constructed from a rustls_allow_any_anonymous_or_authenticated_client_builder.
+
 ## 0.10.0 (2023-03-29)
 
 ### Added
