@@ -19,7 +19,7 @@ need to find another library to provide the cryptographic primitives.
 
 # Build
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.57
+You'll need to [install the Rust toolchain](https://rustup.rs/) version 1.60
 or above and a C compiler (gcc and clang should both work). To build in optimized mode:
 
     make
