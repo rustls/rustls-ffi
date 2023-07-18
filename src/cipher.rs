@@ -634,7 +634,7 @@ impl rustls_allow_any_authenticated_client_verifier {
                 },
                 Some(x) => x,
             };
-            return Arc::into_raw(client_cert_verifier.boxed()) as *const _;
+            Arc::into_raw(client_cert_verifier.boxed()) as *const _
         }
     }
 
@@ -784,7 +784,7 @@ impl rustls_allow_any_anonymous_or_authenticated_client_verifier {
                 },
                 Some(x) => x,
             };
-            return Arc::into_raw(client_cert_verifier.boxed()) as *const _;
+            Arc::into_raw(client_cert_verifier.boxed()) as *const _
         }
     }
 
