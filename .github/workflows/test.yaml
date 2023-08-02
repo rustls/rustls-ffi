@@ -221,6 +221,25 @@ jobs:
       - name: Clang tidy
         run: clang-tidy tests/*.c -- -I src/
 
+  cargo-c:
+    name: cargo-c
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+      - name: Build and test with cargo-c
+        run: cargo capi test
+
   miri:
     name: Miri
     runs-on: ubuntu-latest
