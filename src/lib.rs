@@ -64,7 +64,7 @@ pub(crate) struct Userdata {
 /// UserdataGuard pops an entry off the USERDATA stack, restoring the
 /// thread-local state to its value previous to the creation of the UserdataGuard.
 /// Invariants: As long as a UserdataGuard is live:
-//// - The stack of userdata items for this thread must have at least one item.
+///  - The stack of userdata items for this thread must have at least one item.
 ///  - The top item on that stack must be the one this guard was built with.
 ///  - The `data` field must not be None.
 /// If any of these invariants fails, try_drop will return an error.
