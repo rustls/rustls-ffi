@@ -22,7 +22,6 @@ use crate::{
     ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
 };
 use rustls_result::{AlreadyUsed, NullParameter};
-use std::ops::Deref;
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
@@ -360,7 +359,7 @@ impl rustls_certified_key {
                 }
             };
             let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
-            let mut new_key = certified_key.deref().clone();
+            let mut new_key = certified_key.clone();
             if !ocsp_response.is_null() {
                 let ocsp_slice = unsafe{ &*ocsp_response };
                 new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
