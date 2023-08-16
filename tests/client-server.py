@@ -32,7 +32,7 @@ def wait_tcp_port(host, port):
     else:
         print("client-server.py: unable to connect")
         sys.exit(1)
-    print("client-server.py: detected server is up on {host}:{port}")
+    print(f"client-server.py: detected server is up on {host}:{port}")
 
 class Failure(Exception):
     pass
