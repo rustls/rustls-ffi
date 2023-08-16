@@ -219,6 +219,7 @@ def main():
     server_popen = run_server(server, valgrind, {
         "AUTH_CERT": "testdata/minica.pem",
     })
+    wait_tcp_port(HOST, PORT)
     run_mtls_client_tests(client, valgrind)
     server_popen.kill()
     server_popen.wait()
@@ -228,6 +229,7 @@ def main():
         "AUTH_CERT": "testdata/minica.pem",
         "AUTH_CRL": "testdata/test.crl.pem",
     })
+    wait_tcp_port(HOST, PORT)
     run_mtls_client_crl_tests(client, valgrind)
 
 
