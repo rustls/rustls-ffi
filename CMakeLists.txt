@@ -11,7 +11,7 @@ ExternalProject_Add(
 	DOWNLOAD_COMMAND ""
 	CONFIGURE_COMMAND ""
 	BUILD_COMMAND cbindgen --lang C --output "${CMAKE_SOURCE_DIR}/src/rustls.h" "${CMAKE_SOURCE_DIR}"
-	COMMAND cargo build "$<IF:$<CONFIG:Release>,--release,-->"
+	COMMAND cargo build --locked "$<IF:$<CONFIG:Release>,--release,-->"
 	# Rely on cargo checking timestamps, rather than tell CMake where every
 	# output is.
 	BUILD_ALWAYS true
@@ -20,5 +20,5 @@ ExternalProject_Add(
 	# of "error" in stdout as an error, and we have some test functions that
 	# end in "_error". Quiet mode suppresses test names, so this is a
 	# sufficient workaround.
-	TEST_COMMAND cargo test "$<IF:$<CONFIG:Release>,--release,-->" --quiet
+	TEST_COMMAND cargo test --locked "$<IF:$<CONFIG:Release>,--release,-->" --quiet
 )

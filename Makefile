@@ -5,6 +5,7 @@ else
 endif
 
 CARGO ?= cargo
+CARGOFLAGS += --locked
 
 CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
@@ -32,7 +33,7 @@ test: all test-rust
 	./tests/client-server.py ./target/client ./target/server
 
 test-rust:
-	${CARGO} test
+	${CARGO} test --locked
 
 target:
 	mkdir -p $@
