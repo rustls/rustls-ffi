@@ -152,7 +152,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo test (debug; all features; -Z minimal-versions)
-        run: cargo -Z minimal-versions test --all-features
+        run: cargo -Z minimal-versions test --all-features --locked
 
   format:
     name: Format
@@ -190,7 +190,7 @@ jobs:
         # (below) will have a new lint that we want to suppress.
         # If we suppress (e.g. #![allow(clippy::arc_with_non_send_sync)]),
         # we would get an unknown-lint error from older clippy versions.
-        run: cargo clippy --workspace -- -D warnings -A unknown-lints
+        run: cargo clippy --locked --workspace -- -D warnings -A unknown-lints
 
   clippy-nightly-optional:
     name: Clippy nightly (optional)
@@ -205,7 +205,7 @@ jobs:
         with:
           components: clippy
       - name: Check clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --locked --workspace -- -D warnings
 
   clang-tidy:
     name: Clang Tidy
