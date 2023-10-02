@@ -200,6 +200,7 @@ def main():
         sys.exit(1)
 
     # Standard client/server tests.
+    print("\n### Standard client/server tests\n")
     server_popen = run_server(server, valgrind, {})
     wait_tcp_port(HOST, PORT)
     run_client_tests(client, valgrind)
@@ -207,6 +208,7 @@ def main():
     server_popen.wait()
 
     # Client/server tests w/ vectored I/O.
+    print("\n### Vectored I/O client/server tests\n")
     server_popen = run_server(server, valgrind, {
         "VECTORED_IO": ""
     })
@@ -216,6 +218,7 @@ def main():
     server_popen.wait()
 
     # Client/server tests w/ mandatory client authentication.
+    print("\n### Mandatory mTLS client/server tests\n")
     server_popen = run_server(server, valgrind, {
         "AUTH_CERT": "testdata/minica.pem",
     })
@@ -225,6 +228,7 @@ def main():
     server_popen.wait()
 
     # Client/server tests w/ mandatory client authentication & CRL.
+    print("\n### Mandatory mTLS w/ CRLs client/server tests\n")
     run_server(server, valgrind, {
         "AUTH_CERT": "testdata/minica.pem",
         "AUTH_CRL": "testdata/test.crl.pem",
