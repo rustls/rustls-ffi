@@ -27,7 +27,7 @@ def wait_tcp_port(host, port):
             break
         else:
             if i > 0:
-                print("client-server.py: still trying to connect to host{}:{port}")
+                print(f"client-server.py: still trying to connect to {host}:{port}")
             time.sleep(0.1)
     else:
         print("client-server.py: unable to connect")
