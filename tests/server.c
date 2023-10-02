@@ -289,8 +289,11 @@ main(int argc, const char **argv)
     }
 
     client_cert_root_store = rustls_root_cert_store_new();
-    rustls_root_cert_store_add_pem(
+    result = rustls_root_cert_store_add_pem(
       client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
+    if(result != RUSTLS_RESULT_OK) {
+      goto cleanup;
+    }
     client_cert_verifier_builder =
       rustls_allow_any_authenticated_client_builder_new(
         client_cert_root_store);
