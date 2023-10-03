@@ -329,7 +329,8 @@ where
 }
 
 // An implementation of BoxCastPtr means that when we give C code a pointer to the relevant type,
-// it is actually a Box.
+// it is actually a Box. At most one of BoxCastPtr or ArcCastPtr should be implemented for a given
+// type.
 pub(crate) trait BoxCastPtr: CastPtr + Sized {
     fn to_box(ptr: *mut Self) -> Option<Box<Self::RustType>> {
         if ptr.is_null() {
@@ -351,7 +352,8 @@ pub(crate) trait BoxCastPtr: CastPtr + Sized {
 }
 
 // An implementation of ArcCastPtr means that when we give C code a pointer to the relevant type,
-// it is actually a Arc.
+// it is actually a Arc. At most one of BoxCastPtr or ArcCastPtr should be implemented for a given
+// // type.
 pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
     /// Sometimes we create an Arc, then call `into_raw` and return the resulting raw pointer
     /// to C. C can then call rustls_server_session_new multiple times using that
