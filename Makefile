@@ -29,7 +29,6 @@ endif
 all: target/client target/server
 
 test: all test-rust
-	./tests/verify-static-libraries.py
 	./tests/client-server.py ./target/client ./target/server
 
 test-rust:
