@@ -28,11 +28,11 @@ endif
 
 all: target/client target/server
 
-test: all test-rust
-	./tests/client-server.py ./target/client ./target/server
-
-test-rust:
+test: all
 	${CARGO} test --locked
+
+integration: all
+	${CARGO} test --locked -- --ignored
 
 target:
 	mkdir -p $@
@@ -75,4 +75,4 @@ format-check:
 		! -wholename './src/rustls.h' | \
 			xargs clang-format --dry-run -Werror -i
 
-.PHONY: all clean test format format-check
+.PHONY: all clean test integration format format-check

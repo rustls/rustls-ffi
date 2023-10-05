@@ -40,6 +40,10 @@ test: all
 	$(call green_msg, Running 'cargo test')
 	cargo test --locked
 
+integration: all
+	$(call green_msg, Running 'cargo test -- --ignored')
+	cargo test --locked -- --ignored
+
 $(RUSTLS_LIB): src/lib.rs Cargo.toml
 	$(call green_msg, Building '$@')
 	RUSTFLAGS="--print native-static-libs" cargo build --release --locked
@@ -63,3 +67,4 @@ define link_EXE
   @echo
 endef
 
+.PHONY: all clean test integration
