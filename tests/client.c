@@ -23,8 +23,8 @@
 
 /*
  * Connect to the given hostname on the given port and return the file
- * descriptor of the socket. On error, print the error and return 1. Caller is
- * responsible for closing socket.
+ * descriptor of the socket. Tries to connect up to 10 times. On error,
+ * print the error and return 1. Caller is responsible for closing socket.
  */
 int
 make_conn(const char *hostname, const char *port)
@@ -44,16 +44,29 @@ make_conn(const char *hostname, const char *port)
     goto cleanup;
   }
 
-  sockfd = socket(getaddrinfo_output->ai_family,
-                  getaddrinfo_output->ai_socktype,
-                  getaddrinfo_output->ai_protocol);
-  if(sockfd < 0) {
-    perror("client: making socket");
-    goto cleanup;
+  int connect_result;
+  for(int attempts = 0; attempts < 10; attempts++) {
+    LOG("connect attempt %d", attempts);
+    sockfd = socket(getaddrinfo_output->ai_family,
+                    getaddrinfo_output->ai_socktype,
+                    getaddrinfo_output->ai_protocol);
+    if(sockfd < 0) {
+      perror("client: making socket");
+      sleep(1);
+      continue;
+    }
+    connect_result = connect(
+      sockfd, getaddrinfo_output->ai_addr, getaddrinfo_output->ai_addrlen);
+    if(connect_result < 0) {
+      if(sockfd > 0) {
+        close(sockfd);
+      }
+      perror("client: connecting");
+      sleep(1);
+      continue;
+    }
+    break;
   }
-
-  int connect_result = connect(
-    sockfd, getaddrinfo_output->ai_addr, getaddrinfo_output->ai_addrlen);
   if(connect_result < 0) {
     perror("client: connecting");
     goto cleanup;
