@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use regex::Regex;
 use std::process::Command;
 
@@ -24,9 +23,7 @@ fn verify_static_libs() {
         .as_str();
 
     // We should find the expected native-static-libs output for the platform in question.
-    // Note that we remove duplicate consecutive entries, but not duplicate entries in general
-    // as these can be intended and have meaning on specific platforms.
-    let actual_linker_parts: Vec<_> = native_libs.split_whitespace().dedup().collect();
+    let actual_linker_parts: Vec<_> = native_libs.split_whitespace().collect();
     assert_eq!(
         actual_linker_parts,
         expected_linker_parts(),
