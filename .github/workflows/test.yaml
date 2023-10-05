@@ -82,8 +82,9 @@ jobs:
         run: cmake -S . -B build
       - name: Build, debug configuration
         run: cmake --build build --config Debug
-      - name: Client-server test, debug
-        run: python tests/client-server.py build/tests/Debug/client.exe build/tests/Debug/server.exe
+        env:
+          CLIENT_BINARY: build/tests/Debug/client.exe
+          SERVER_BINARY: build/tests/Debug/server.exe
 
   test-windows-cmake-release:
     name: Windows CMake, Release configuration
@@ -98,8 +99,9 @@ jobs:
         run: cmake -S . -B build
       - name: Build, release configuration
         run: cmake --build build --config Release
-      - name: Client-server test, release
-        run: python tests/client-server.py build/tests/Release/client.exe build/tests/Release/server.exe
+        env:
+          CLIENT_BINARY: build/tests/Release/client.exe
+          SERVER_BINARY: build/tests/Release/server.exe
 
   ensure-header-updated:
     runs-on: ubuntu-latest
@@ -148,6 +150,9 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
+      - name: Build client/server binaries
+        run: make target/client target/server
 
       - name: cargo test (debug; all features; -Z minimal-versions)
         run: cargo -Z minimal-versions test --all-features --locked
