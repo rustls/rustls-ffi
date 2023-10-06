@@ -8,10 +8,8 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use libc::{c_char, size_t};
-use rustls::client::{
-    HandshakeSignatureValid, ResolvesClientCert, ServerCertVerified, ServerCertVerifier,
-    WebPkiServerVerifier,
-};
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
 use rustls::{
     sign::CertifiedKey, Certificate, CertificateError, ClientConfig, ClientConnection,
     DigitallySignedStruct, Error, ProtocolVersion, RootCertStore, SignatureScheme,
@@ -250,7 +248,7 @@ unsafe impl Send for Verifier {}
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
-impl rustls::client::ServerCertVerifier for Verifier {
+impl rustls::client::danger::ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
         end_entity: &Certificate,
@@ -530,7 +528,7 @@ impl rustls_client_config_builder {
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
             let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
-            let config = builder.base.with_custom_certificate_verifier(builder.verifier);
+            let config = builder.base.dangerous().with_custom_certificate_verifier(builder.verifier);
             let mut config = match builder.cert_resolver {
                 Some(r) => config.with_client_cert_resolver(r),
                 None => config.with_no_client_auth(),

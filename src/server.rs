@@ -5,10 +5,10 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
+use rustls::server::danger::ClientCertVerifier;
 use rustls::server::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientCertVerifier,
-    ClientHello, NoClientAuth, ResolvesServerCert, ServerConfig, ServerConnection,
-    StoresServerSessions,
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
+    ResolvesServerCert, ServerConfig, ServerConnection, StoresServerSessions,
 };
 use rustls::sign::CertifiedKey;
 use rustls::{
