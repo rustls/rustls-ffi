@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
+use rustls::server::ClientCertVerifierBuilderError;
 use rustls::{CertRevocationListError, CertificateError, Error, InvalidMessage};
 
 /// A return value for a function that may return either success (0) or a
@@ -181,7 +182,10 @@ u32_enum_builder! {
         CertRevocationListUnsupportedCriticalExtension => 7407,
         CertRevocationListUnsupportedDeltaCrl => 7408,
         CertRevocationListUnsupportedIndirectCrl => 7409,
-        CertRevocationListUnsupportedRevocationReason => 7410
+        CertRevocationListUnsupportedRevocationReason => 7410,
+
+        // From ClientCertVerifierBuilderError, with fields that get flattened.
+        ClientCertVerifierBuilderNoRootAnchors => 7500
     }
 }
 
@@ -387,32 +391,44 @@ pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
             _ => AlertUnknown,
         },
 
-        Error::InvalidCertRevocationList(e) => match e {
-            CertRevocationListError::BadSignature => CertRevocationListBadSignature,
-            CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
-            CertRevocationListError::InvalidRevokedCertSerialNumber => {
-                CertRevocationListInvalidRevokedCertSerialNumber
-            }
-            CertRevocationListError::IssuerInvalidForCrl => CertRevocationListIssuerInvalidForCrl,
-            CertRevocationListError::Other(_) => CertRevocationListOtherError,
-            CertRevocationListError::ParseError => CertRevocationListParseError,
-            CertRevocationListError::UnsupportedCrlVersion => {
-                CertRevocationListUnsupportedCrlVersion
-            }
-            CertRevocationListError::UnsupportedCriticalExtension => {
-                CertRevocationListUnsupportedCriticalExtension
-            }
-            CertRevocationListError::UnsupportedDeltaCrl => CertRevocationListUnsupportedDeltaCrl,
-            CertRevocationListError::UnsupportedIndirectCrl => {
-                CertRevocationListUnsupportedIndirectCrl
-            }
-            CertRevocationListError::UnsupportedRevocationReason => {
-                CertRevocationListUnsupportedRevocationReason
-            }
-            _ => CertRevocationListOtherError,
-        },
+        Error::InvalidCertRevocationList(e) => map_crl_error(e),
 
         _ => General,
+    }
+}
+
+pub(crate) fn map_crl_error(err: CertRevocationListError) -> rustls_result {
+    use rustls_result::*;
+
+    match err {
+        CertRevocationListError::BadSignature => CertRevocationListBadSignature,
+        CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
+        CertRevocationListError::InvalidRevokedCertSerialNumber => {
+            CertRevocationListInvalidRevokedCertSerialNumber
+        }
+        CertRevocationListError::IssuerInvalidForCrl => CertRevocationListIssuerInvalidForCrl,
+        CertRevocationListError::Other(_) => CertRevocationListOtherError,
+        CertRevocationListError::ParseError => CertRevocationListParseError,
+        CertRevocationListError::UnsupportedCrlVersion => CertRevocationListUnsupportedCrlVersion,
+        CertRevocationListError::UnsupportedCriticalExtension => {
+            CertRevocationListUnsupportedCriticalExtension
+        }
+        CertRevocationListError::UnsupportedDeltaCrl => CertRevocationListUnsupportedDeltaCrl,
+        CertRevocationListError::UnsupportedIndirectCrl => CertRevocationListUnsupportedIndirectCrl,
+        CertRevocationListError::UnsupportedRevocationReason => {
+            CertRevocationListUnsupportedRevocationReason
+        }
+        _ => CertRevocationListOtherError,
+    }
+}
+
+pub(crate) fn map_verifier_builder_error(err: ClientCertVerifierBuilderError) -> rustls_result {
+    match err {
+        ClientCertVerifierBuilderError::NoRootAnchors => {
+            rustls_result::ClientCertVerifierBuilderNoRootAnchors
+        }
+        ClientCertVerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
+        _ => rustls_result::General,
     }
 }
 
@@ -639,6 +655,8 @@ impl Display for rustls_result {
                 CertRevocationListError::UnsupportedRevocationReason,
             )
             .fmt(f),
+
+            ClientCertVerifierBuilderNoRootAnchors => write!(f, "no root trust anchors provided"),
         }
     }
 }

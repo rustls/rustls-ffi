@@ -8,16 +8,14 @@ use libc::size_t;
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::server::danger::ClientCertVerifier;
 use rustls::server::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
-    ResolvesServerCert, ServerConfig, ServerConnection, StoresServerSessions,
+    ClientHello, ResolvesServerCert, ServerConfig, ServerConnection, StoresServerSessions,
+    WebPkiClientVerifier,
 };
 use rustls::sign::CertifiedKey;
 use rustls::{ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier};
 
 use crate::cipher::{
-    rustls_allow_any_anonymous_or_authenticated_client_verifier,
-    rustls_allow_any_authenticated_client_verifier, rustls_certified_key,
-    rustls_supported_ciphersuite,
+    rustls_certified_key, rustls_client_cert_verifier, rustls_supported_ciphersuite,
 };
 use crate::connection::{rustls_connection, Connection};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
@@ -85,7 +83,7 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let builder = ServerConfigBuilder {
                            base: rustls::ServerConfig::builder().with_safe_defaults(),
-                           verifier: NoClientAuth::boxed(),
+                           verifier: WebPkiClientVerifier::no_client_auth(),
                            cert_resolver: None,
                            session_storage: None,
                            alpn_protocols: vec![],
@@ -147,7 +145,7 @@ impl rustls_server_config_builder {
 
             let builder = ServerConfigBuilder {
                 base,
-                verifier: NoClientAuth::boxed(),
+                verifier: WebPkiClientVerifier::no_client_auth(),
                 cert_resolver: None,
                 session_storage: None,
                 alpn_protocols: vec![],
@@ -158,36 +156,17 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Create a rustls_server_config_builder for TLS sessions that require
-    /// valid client certificates. The passed rustls_client_cert_verifier may
-    /// be used in several builders.
-    /// For memory lifetime, see rustls_server_config_builder_new.
+    /// Create a rustls_server_config_builder for TLS sessions that may verify client
+    /// certificates. This increases the refcount of `verifier` and doesn't take ownership.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier(
         builder: *mut rustls_server_config_builder,
-        verifier: *const rustls_allow_any_authenticated_client_verifier,
-    ) {
-        ffi_panic_boundary! {
-        let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-        let verifier: Arc<AllowAnyAuthenticatedClient> = try_clone_arc!(verifier);
-        builder.verifier = verifier;
-        }
-    }
-
-    /// Create a rustls_server_config_builder for TLS sessions that accept
-    /// valid client certificates, but do not require them. The passed
-    /// rustls_client_cert_verifier_optional may be used in several builders.
-    /// For memory lifetime, see rustls_server_config_builder_new.
-    #[no_mangle]
-    pub extern "C" fn rustls_server_config_builder_set_client_verifier_optional(
-        builder: *mut rustls_server_config_builder,
-        verifier: *const rustls_allow_any_anonymous_or_authenticated_client_verifier,
+        verifier: *const rustls_client_cert_verifier,
     ) {
         ffi_panic_boundary! {
             let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-            let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = try_clone_arc!(verifier);
-
-            builder.verifier = verifier;
+            let verifier = try_ref_from_ptr!(verifier);
+            builder.verifier = verifier.clone();
         }
     }
 

@@ -496,6 +496,22 @@ where
     }
 }
 
+/// Converts a [`Castable`]'s underlying [`Castable::RustType`] to a const pointer
+/// to an `Arc` over the rust type and sets the `dst` out pointer to the resulting const `Arc`
+/// pointer. See [`to_arc_const_ptr`] for more information.
+///
+/// ## Unsafety:
+///
+/// `dst` must not be `NULL`.
+pub(crate) fn set_arc_mut_ptr<C>(dst: *mut *const C, src: C::RustType)
+where
+    C: Castable<Ownership = OwnershipArc>,
+{
+    unsafe {
+        *dst = to_arc_const_ptr(src);
+    }
+}
+
 /// Converts a mutable pointer to a [`Castable`] to an optional ref to the underlying
 /// [`Castable::RustType`]. See [`cast_mut_ptr`] for more information.
 ///
@@ -511,12 +527,6 @@ where
 /// If the provided pointer to a [`Castable`] is non-null, convert it to a mutable reference using
 /// [`try_from_mut`]. Otherwise, return [`rustls_result::NullParameter`], or an appropriate default
 /// (`false`, `0`, `NULL`) based on the context. See [`try_from_mut`] for more information.
-///
-/// ## Example:
-///
-/// ```rust,ignore
-/// let config: &mut ClientConfig = try_mut_from_ptr!(builder);
-/// ```
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
         match $crate::try_from_mut($var) {
@@ -546,12 +556,6 @@ where
 /// (`false`, `0`, `NULL`) based on the context;
 ///
 /// See [`try_from`] for more information.
-///
-/// ## Example:
-///
-/// ```rust, ignore
-///   let config: &ClientConfig = try_ref_from_ptr!(builder);
-/// ```
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
         match $crate::try_from($var) {

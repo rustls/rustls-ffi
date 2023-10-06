@@ -240,10 +240,9 @@ main(int argc, const char **argv)
   struct rustls_slice_bytes alpn_http11;
   struct rustls_root_cert_store_builder *client_cert_root_store_builder = NULL;
   const struct rustls_root_cert_store *client_cert_root_store = NULL;
-  struct rustls_allow_any_authenticated_client_builder
+  struct rustls_web_pki_client_cert_verifier_builder
     *client_cert_verifier_builder = NULL;
-  const struct rustls_allow_any_authenticated_client_verifier
-    *client_cert_verifier = NULL;
+  struct rustls_client_cert_verifier *client_cert_verifier = NULL;
 
   /* Set this global variable for logging purposes. */
   programname = "server";
@@ -301,8 +300,7 @@ main(int argc, const char **argv)
       goto cleanup;
     }
     client_cert_verifier_builder =
-      rustls_allow_any_authenticated_client_builder_new(
-        client_cert_root_store);
+      rustls_web_pki_client_cert_verifier_builder_new(client_cert_root_store);
 
     char crlbuf[10000];
     size_t crlbuf_len;
@@ -312,15 +310,18 @@ main(int argc, const char **argv)
         goto cleanup;
       }
 
-      result = rustls_allow_any_authenticated_client_builder_add_crl(
+      result = rustls_web_pki_client_cert_verifier_builder_add_crl(
         client_cert_verifier_builder, (uint8_t *)crlbuf, certbuf_len);
       if(result != RUSTLS_RESULT_OK) {
         goto cleanup;
       }
     }
 
-    client_cert_verifier = rustls_allow_any_authenticated_client_verifier_new(
-      client_cert_verifier_builder);
+    result = rustls_web_pki_client_cert_verifier_builder_build(
+      client_cert_verifier_builder, &client_cert_verifier);
+    if(result != RUSTLS_RESULT_OK) {
+      goto cleanup;
+    }
     rustls_server_config_builder_set_client_verifier(config_builder,
                                                      client_cert_verifier);
   }
@@ -404,9 +405,9 @@ cleanup:
   rustls_certified_key_free(certified_key);
   rustls_root_cert_store_builder_free(client_cert_root_store_builder);
   rustls_root_cert_store_free(client_cert_root_store);
-  rustls_allow_any_authenticated_client_builder_free(
+  rustls_web_pki_client_cert_verifier_builder_free(
     client_cert_verifier_builder);
-  rustls_allow_any_authenticated_client_verifier_free(client_cert_verifier);
+  rustls_client_cert_verifier_free(client_cert_verifier);
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
   if(sockfd > 0) {
