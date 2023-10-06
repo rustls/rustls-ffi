@@ -3,9 +3,8 @@ use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EINVAL, EIO};
-use rustls::{
-    Certificate, ClientConnection, ServerConnection, SupportedCipherSuite, ALL_CIPHER_SUITES,
-};
+use rustls::crypto::ring::ALL_CIPHER_SUITES;
+use rustls::{Certificate, ClientConnection, ServerConnection, SupportedCipherSuite};
 
 use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,

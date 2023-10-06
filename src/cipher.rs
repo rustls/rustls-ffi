@@ -5,14 +5,12 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
+use rustls::crypto::ring::{ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES};
 use rustls::server::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, UnparsedCertRevocationList,
 };
 use rustls::sign::CertifiedKey;
-use rustls::{
-    Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES,
-    DEFAULT_CIPHER_SUITES,
-};
+use rustls::{Certificate, PrivateKey, RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::{map_error, rustls_result};

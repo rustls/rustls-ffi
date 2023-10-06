@@ -10,10 +10,11 @@ use std::time::SystemTime;
 use libc::{c_char, size_t};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
+use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
     sign::CertifiedKey, Certificate, CertificateError, ClientConfig, ClientConnection,
     DigitallySignedStruct, Error, ProtocolVersion, RootCertStore, SignatureScheme,
-    SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
+    SupportedCipherSuite, WantsVerifier,
 };
 
 use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};

@@ -5,15 +5,14 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
+use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::server::danger::ClientCertVerifier;
 use rustls::server::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, ClientHello, NoClientAuth,
     ResolvesServerCert, ServerConfig, ServerConnection, StoresServerSessions,
 };
 use rustls::sign::CertifiedKey;
-use rustls::{
-    ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
-};
+use rustls::{ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier};
 
 use crate::cipher::{
     rustls_allow_any_anonymous_or_authenticated_client_verifier,
