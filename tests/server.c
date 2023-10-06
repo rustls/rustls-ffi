@@ -238,7 +238,8 @@ main(int argc, const char **argv)
   struct rustls_connection *rconn = NULL;
   const struct rustls_certified_key *certified_key = NULL;
   struct rustls_slice_bytes alpn_http11;
-  struct rustls_root_cert_store *client_cert_root_store = NULL;
+  struct rustls_root_cert_store_builder *client_cert_root_store_builder = NULL;
+  const struct rustls_root_cert_store *client_cert_root_store = NULL;
   struct rustls_allow_any_authenticated_client_builder
     *client_cert_verifier_builder = NULL;
   const struct rustls_allow_any_authenticated_client_verifier
@@ -288,9 +289,14 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
-    client_cert_root_store = rustls_root_cert_store_new();
-    result = rustls_root_cert_store_add_pem(
-      client_cert_root_store, (uint8_t *)certbuf, certbuf_len, true);
+    client_cert_root_store_builder = rustls_root_cert_store_builder_new();
+    result = rustls_root_cert_store_builder_add_pem(
+      client_cert_root_store_builder, (uint8_t *)certbuf, certbuf_len, true);
+    if(result != RUSTLS_RESULT_OK) {
+      goto cleanup;
+    }
+    result = rustls_root_cert_store_builder_build(
+      client_cert_root_store_builder, &client_cert_root_store);
     if(result != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
@@ -396,6 +402,7 @@ main(int argc, const char **argv)
 
 cleanup:
   rustls_certified_key_free(certified_key);
+  rustls_root_cert_store_builder_free(client_cert_root_store_builder);
   rustls_root_cert_store_free(client_cert_root_store);
   rustls_allow_any_authenticated_client_builder_free(
     client_cert_verifier_builder);

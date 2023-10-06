@@ -20,7 +20,7 @@ use crate::{
     try_mut_from_ptr, try_ref_from_ptr, try_slice, try_take, Castable, OwnershipArc, OwnershipBox,
     OwnershipRef,
 };
-use rustls_result::NullParameter;
+use rustls_result::{AlreadyUsed, NullParameter};
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `CertificateDer` in the Rust pki-types API.
@@ -430,34 +430,46 @@ impl rustls_certified_key {
     }
 }
 
-/// A root certificate store.
-/// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
-pub struct rustls_root_cert_store {
+/// A `rustls_root_cert_store` being constructed.
+///
+/// A builder can be modified by adding trust anchor root certificates with
+/// `rustls_root_cert_store_builder_add_pem`. Once you're done adding root certificates,
+/// call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
+/// This object is not safe for concurrent mutation.
+pub struct rustls_root_cert_store_builder {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
-impl Castable for rustls_root_cert_store {
-    type Ownership = OwnershipBox;
-    type RustType = RootCertStore;
+pub(crate) struct RootCertStoreBuilder {
+    roots: RootCertStore,
 }
 
-impl rustls_root_cert_store {
-    /// Create a rustls_root_cert_store. Caller owns the memory and must
-    /// eventually call rustls_root_cert_store_free. The store starts out empty.
-    /// Caller must add root certificates with rustls_root_cert_store_add_pem.
-    /// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.empty>
+impl Castable for rustls_root_cert_store_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<RootCertStoreBuilder>;
+}
+
+impl rustls_root_cert_store_builder {
+    /// Create a `rustls_root_cert_store_builder`.
+    ///
+    /// Caller owns the memory and may free it with `rustls_root_cert_store_free`, regardless of
+    /// whether `rustls_root_cert_store_builder_build` was called.
+    ///
+    /// If you wish to abandon the builder without calling `rustls_root_cert_store_builder_build`,
+    /// it must be freed with `rustls_root_cert_store_builder_free`.
     #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
+    pub extern "C" fn rustls_root_cert_store_builder_new() -> *mut rustls_root_cert_store_builder {
         ffi_panic_boundary! {
             let store = rustls::RootCertStore::empty();
             to_boxed_mut_ptr(store)
         }
     }
 
-    /// Add one or more certificates to the root cert store using PEM encoded data.
+    /// Add one or more certificates to the root cert store builder using PEM
+    /// encoded data.
     ///
     /// When `strict` is true an error will return a `CertificateParseError`
     /// result. So will an attempt to parse data that has zero certificates.
@@ -466,15 +478,19 @@ impl rustls_root_cert_store {
     /// This may be useful on systems that have syntactically invalid root
     /// certificates.
     #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_add_pem(
-        store: *mut rustls_root_cert_store,
+    pub extern "C" fn rustls_root_cert_store_builder_add_pem(
+        builder: *mut rustls_root_cert_store_builder,
         pem: *const u8,
         pem_len: size_t,
         strict: bool,
     ) -> rustls_result {
         ffi_panic_boundary! {
             let certs_pem: &[u8] = try_slice!(pem, pem_len);
-            let store: &mut RootCertStore = try_mut_from_ptr!(store);
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                None => return AlreadyUsed,
+                Some(b) => b,
+            };
 
             let certs_der: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
             let certs_der = match certs_der {
@@ -490,18 +506,68 @@ impl rustls_root_cert_store {
                 return rustls_result::CertificateParseError;
             }
 
-            store.roots.append(&mut new_store.roots);
+            builder.roots.roots.append(&mut new_store.roots);
+
             rustls_result::Ok
         }
     }
 
+    /// Create a new `rustls_root_cert_store` from the builder.
+    ///
+    /// The builder is consumed and cannot be used again, but must still be freed.
+    ///
+    /// The root cert store can be used in several `rustls_web_pki_client_cert_verifier_builder_new`
+    /// instances and must be freed by the application when no longer needed. See the documentation of
+    /// `rustls_root_cert_store_free` for details about lifetime.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_build(
+        builder: *mut rustls_root_cert_store_builder,
+        root_cert_store_out: *mut *const rustls_root_cert_store,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = try_take!(builder);
+
+            ArcCastPtr::set_mut_ptr(root_cert_store_out, builder.roots.clone());
+
+            rustls_result::Ok
+        }
+    }
+
+    /// Free a `rustls_root_cert_store_builder` previously returned from
+    /// `rustls_root_cert_store_builder_new`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_free(
+        builder: *mut rustls_root_cert_store_builder,
+    ) {
+        ffi_panic_boundary! {
+            BoxCastPtr::to_box(builder);
+        }
+    }
+}
+
+/// A root certificate store.
+/// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
+pub struct rustls_root_cert_store {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_root_cert_store {
+    type Ownership = OwnershipArc;
+    type RustType = RootCertStore;
+}
+
+impl rustls_root_cert_store {
     /// Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_free(store: *mut rustls_root_cert_store) {
+    pub extern "C" fn rustls_root_cert_store_free(store: *const rustls_root_cert_store) {
         ffi_panic_boundary! {
-            let store = try_box_from_ptr!(store);
-            drop(store)
+            ArcCastPtr::free(store);
         }
     }
 }
