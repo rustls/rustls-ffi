@@ -1,16 +1,16 @@
 use libc::size_t;
 use std::convert::TryFrom;
 use std::io::Cursor;
+use std::marker::PhantomData;
 use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
+use pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer};
 use rustls::crypto::ring::{ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES};
-use rustls::server::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, UnparsedCertRevocationList,
-};
+use rustls::server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient};
 use rustls::sign::CertifiedKey;
-use rustls::{Certificate, PrivateKey, RootCertStore, SupportedCipherSuite};
+use rustls::{RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
 
 use crate::error::{map_error, rustls_result};
@@ -23,21 +23,22 @@ use crate::{
 use rustls_result::NullParameter;
 
 /// An X.509 certificate, as used in rustls.
-/// Corresponds to `Certificate` in the Rust API.
-/// <https://docs.rs/rustls/latest/rustls/struct.Certificate.html>
-pub struct rustls_certificate {
+/// Corresponds to `CertificateDer` in the Rust pki-types API.
+/// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
+pub struct rustls_certificate<'a> {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
+    _marker: PhantomData<&'a ()>,
 }
 
-impl Castable for rustls_certificate {
+impl<'a> Castable for rustls_certificate<'a> {
     type Ownership = OwnershipRef;
-    type RustType = Certificate;
+    type RustType = CertificateDer<'a>;
 }
 
-impl rustls_certificate {
+impl<'a> rustls_certificate<'a> {
     /// Get the DER data of the certificate itself.
     /// The data is owned by the certificate and has the same lifetime.
     #[no_mangle]
@@ -327,14 +328,14 @@ impl rustls_certified_key {
     ///
     /// The returned certificate is valid until the rustls_certified_key is freed.
     #[no_mangle]
-    pub extern "C" fn rustls_certified_key_get_certificate(
+    pub extern "C" fn rustls_certified_key_get_certificate<'a>(
         certified_key: *const rustls_certified_key,
         i: size_t,
-    ) -> *const rustls_certificate {
+    ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
             let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
             match certified_key.cert.get(i) {
-                Some(cert) => cert as *const Certificate as *const _,
+                Some(cert) => cert as *const CertificateDer as *const _,
                 None => null()
             }
         }
@@ -396,37 +397,32 @@ impl rustls_certified_key {
             }
             slice::from_raw_parts(cert_chain, cert_chain_len)
         };
-        let private_key: &[u8] = unsafe {
+        let private_key_der: &[u8] = unsafe {
             if private_key.is_null() {
                 return Err(NullParameter);
             }
             slice::from_raw_parts(private_key, private_key_len)
         };
-        let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key))
-        {
-            Ok(v) => v,
-            Err(_) => return Err(rustls_result::PrivateKeyParseError),
-        };
-        let private_key: PrivateKey = match private_keys.pop() {
-            Some(p) => PrivateKey(p),
-            None => {
-                private_keys = match rsa_private_keys(&mut Cursor::new(private_key)) {
-                    Ok(v) => v,
-                    Err(_) => return Err(rustls_result::PrivateKeyParseError),
-                };
-                let rsa_private_key: PrivateKey = match private_keys.pop() {
-                    Some(p) => PrivateKey(p),
-                    None => return Err(rustls_result::PrivateKeyParseError),
-                };
-                rsa_private_key
-            }
-        };
+        let private_key: PrivateKeyDer =
+            match pkcs8_private_keys(&mut Cursor::new(private_key_der)).next() {
+                Some(Ok(p)) => p.into(),
+                Some(Err(_)) => return Err(rustls_result::PrivateKeyParseError),
+                None => {
+                    let rsa_private_key: PrivateKeyDer =
+                        match rsa_private_keys(&mut Cursor::new(private_key_der)).next() {
+                            Some(Ok(p)) => p.into(),
+                            _ => return Err(rustls_result::PrivateKeyParseError),
+                        };
+                    rsa_private_key
+                }
+            };
         let signing_key = match rustls::sign::any_supported_type(&private_key) {
             Ok(key) => key,
             Err(_) => return Err(rustls_result::PrivateKeyParseError),
         };
-        let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
-            Ok(v) => v.into_iter().map(Certificate).collect(),
+        let parsed_chain: Result<Vec<CertificateDer>, _> = certs(&mut cert_chain).collect();
+        let parsed_chain = match parsed_chain {
+            Ok(v) => v,
             Err(_) => return Err(rustls_result::CertificateParseError),
         };
 
@@ -480,7 +476,8 @@ impl rustls_root_cert_store {
             let certs_pem: &[u8] = try_slice!(pem, pem_len);
             let store: &mut RootCertStore = try_mut_from_ptr!(store);
 
-            let certs_der = match rustls_pemfile::certs(&mut Cursor::new(certs_pem)) {
+            let certs_der: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
+            let certs_der = match certs_der {
                 Ok(vv) => vv,
                 Err(_) => return rustls_result::CertificateParseError,
             };
@@ -488,7 +485,7 @@ impl rustls_root_cert_store {
             // API guideline that there are no partial failures or partial
             // successes.
             let mut new_store = RootCertStore::empty();
-            let (parsed, rejected) = new_store.add_parsable_certificates(&certs_der);
+            let (parsed, rejected) = new_store.add_parsable_certificates(certs_der);
             if strict && (rejected > 0 || parsed == 0) {
                 return rustls_result::CertificateParseError;
             }
@@ -559,8 +556,9 @@ impl rustls_allow_any_authenticated_client_builder {
             let client_cert_verifier_builder: &mut Option<AllowAnyAuthenticatedClient> = try_mut_from_ptr!(builder);
 
             let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Vec<UnparsedCertRevocationList> = match crls(&mut Cursor::new(crl_pem)) {
-                Ok(vv) => vv.into_iter().map(UnparsedCertRevocationList).collect(),
+            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =  crls(&mut Cursor::new(crl_pem)).collect();
+            let crls_der = match crls_der{
+                Ok(vv) => vv,
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
 

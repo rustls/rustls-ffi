@@ -5,16 +5,15 @@ use std::fs::File;
 use std::io::BufReader;
 use std::slice;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use libc::{c_char, size_t};
+use pki_types::{CertificateDer, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
-    sign::CertifiedKey, Certificate, CertificateError, ClientConfig, ClientConnection,
-    DigitallySignedStruct, Error, ProtocolVersion, RootCertStore, SignatureScheme,
-    SupportedCipherSuite, WantsVerifier,
+    sign::CertifiedKey, CertificateError, ClientConfig, ClientConnection, DigitallySignedStruct,
+    Error, ProtocolVersion, RootCertStore, SignatureScheme, SupportedCipherSuite, WantsVerifier,
 };
 
 use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
@@ -76,11 +75,11 @@ struct NoneVerifier;
 impl ServerCertVerifier for NoneVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &Certificate,
-        _intermediates: &[Certificate],
+        _end_entity: &CertificateDer,
+        _intermediates: &[CertificateDer],
         _server_name: &rustls::ServerName,
         _ocsp_response: &[u8],
-        _now: SystemTime,
+        _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         Err(rustls::Error::InvalidCertificate(
             CertificateError::BadSignature,
@@ -90,7 +89,7 @@ impl ServerCertVerifier for NoneVerifier {
     fn verify_tls12_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
         Err(Error::InvalidCertificate(CertificateError::BadSignature))
@@ -99,7 +98,7 @@ impl ServerCertVerifier for NoneVerifier {
     fn verify_tls13_signature(
         &self,
         _message: &[u8],
-        _cert: &Certificate,
+        _cert: &CertificateDer,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
         Err(Error::InvalidCertificate(CertificateError::BadSignature))
@@ -252,11 +251,11 @@ unsafe impl Sync for Verifier {}
 impl rustls::client::danger::ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
-        end_entity: &Certificate,
-        intermediates: &[Certificate],
+        end_entity: &CertificateDer,
+        intermediates: &[CertificateDer],
         server_name: &rustls::ServerName,
         ocsp_response: &[u8],
-        _now: SystemTime,
+        _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let server_name: Cow<'_, str> = match server_name {
@@ -294,7 +293,7 @@ impl rustls::client::danger::ServerCertVerifier for Verifier {
     fn verify_tls12_signature(
         &self,
         message: &[u8],
-        cert: &Certificate,
+        cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
         WebPkiServerVerifier::default_verify_tls12_signature(message, cert, dss)
@@ -303,7 +302,7 @@ impl rustls::client::danger::ServerCertVerifier for Verifier {
     fn verify_tls13_signature(
         &self,
         message: &[u8],
-        cert: &Certificate,
+        cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
         WebPkiServerVerifier::default_verify_tls13_signature(message, cert, dss)
@@ -404,13 +403,14 @@ impl rustls_client_config_builder {
             };
 
             let mut bufreader = BufReader::new(&mut cafile);
-            let certs = match rustls_pemfile::certs(&mut bufreader) {
+            let certs: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut bufreader).collect();
+            let certs = match certs {
                 Ok(certs) => certs,
                 Err(_) => return rustls_result::Io,
             };
 
             let mut roots = RootCertStore::empty();
-            let (_, failed) = roots.add_parsable_certificates(&certs);
+            let (_, failed) = roots.add_parsable_certificates(certs);
             if failed > 0 {
                 return rustls_result::CertificateParseError;
             }

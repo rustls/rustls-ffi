@@ -3,8 +3,9 @@ use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EINVAL, EIO};
+use pki_types::CertificateDer;
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
-use rustls::{Certificate, ClientConnection, ServerConnection, SupportedCipherSuite};
+use rustls::{ClientConnection, ServerConnection, SupportedCipherSuite};
 
 use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
@@ -323,14 +324,14 @@ impl rustls_connection {
     ///  `const struct rustls_connection *`).
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates>
     #[no_mangle]
-    pub extern "C" fn rustls_connection_get_peer_certificate(
+    pub extern "C" fn rustls_connection_get_peer_certificate<'a>(
         conn: *const rustls_connection,
         i: size_t,
-    ) -> *const rustls_certificate {
+    ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
             let conn: &Connection = try_ref_from_ptr!(conn);
             match conn.peer_certificates().and_then(|c| c.get(i)) {
-                Some(cert) => cert as *const Certificate as *const _,
+                Some(cert) => cert as *const CertificateDer as *const _,
                 None => null()
             }
         }

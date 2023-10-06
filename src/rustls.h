@@ -200,8 +200,8 @@ typedef struct rustls_allow_any_authenticated_client_verifier rustls_allow_any_a
 
 /**
  * An X.509 certificate, as used in rustls.
- * Corresponds to `Certificate` in the Rust API.
- * <https://docs.rs/rustls/latest/rustls/struct.Certificate.html>
+ * Corresponds to `CertificateDer` in the Rust pki-types API.
+ * <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
  */
 typedef struct rustls_certificate rustls_certificate;
 
