@@ -18,8 +18,9 @@ use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
 use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
-    ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, free_arc, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr,
+    try_mut_from_ptr, try_ref_from_ptr, try_slice, Castable, OwnershipArc, OwnershipBox,
+    OwnershipRef,
 };
 use rustls_result::{AlreadyUsed, NullParameter};
 
@@ -33,7 +34,8 @@ pub struct rustls_certificate {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_certificate {
+impl Castable for rustls_certificate {
+    type Ownership = OwnershipRef;
     type RustType = Certificate;
 }
 
@@ -66,7 +68,8 @@ pub struct rustls_supported_ciphersuite {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_supported_ciphersuite {
+impl Castable for rustls_supported_ciphersuite {
+    type Ownership = OwnershipRef;
     type RustType = SupportedCipherSuite;
 }
 
@@ -262,11 +265,10 @@ pub struct rustls_certified_key {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_certified_key {
+impl Castable for rustls_certified_key {
+    type Ownership = OwnershipArc;
     type RustType = CertifiedKey;
 }
-
-impl ArcCastPtr for rustls_certified_key {}
 
 impl rustls_certified_key {
     /// Build a `rustls_certified_key` from a certificate chain and a private key.
@@ -366,7 +368,7 @@ impl rustls_certified_key {
             } else {
                 new_key.ocsp = None;
             }
-            *cloned_key_out = ArcCastPtr::to_const_ptr(new_key);
+            *cloned_key_out = to_arc_const_ptr(new_key);
             rustls_result::Ok
         }
     }
@@ -380,7 +382,7 @@ impl rustls_certified_key {
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
         ffi_panic_boundary! {
-            rustls_certified_key::free(key);
+            free_arc(key);
         }
     }
 
@@ -443,11 +445,10 @@ pub struct rustls_root_cert_store {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_root_cert_store {
+impl Castable for rustls_root_cert_store {
+    type Ownership = OwnershipBox;
     type RustType = RootCertStore;
 }
-
-impl BoxCastPtr for rustls_root_cert_store {}
 
 impl rustls_root_cert_store {
     /// Create a rustls_root_cert_store. Caller owns the memory and must
@@ -458,7 +459,7 @@ impl rustls_root_cert_store {
     pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
         ffi_panic_boundary! {
             let store = rustls::RootCertStore::empty();
-            BoxCastPtr::to_mut_ptr(store)
+            to_boxed_mut_ptr(store)
         }
     }
 
@@ -517,13 +518,12 @@ pub struct rustls_allow_any_authenticated_client_builder {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_allow_any_authenticated_client_builder {
-    // NOTE: contained value is consumed even on error, so this can contain None. but the caller
+impl Castable for rustls_allow_any_authenticated_client_builder {
+    type Ownership = OwnershipBox;
+    // NOTE: contained value is consumed even on error, so this can contain None, but the caller
     // still needs to free it
     type RustType = Option<AllowAnyAuthenticatedClient>;
 }
-
-impl BoxCastPtr for rustls_allow_any_authenticated_client_builder {}
 
 impl rustls_allow_any_authenticated_client_builder {
     /// Create a new allow any authenticated client certificate verifier builder using the root store.
@@ -542,7 +542,7 @@ impl rustls_allow_any_authenticated_client_builder {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = Some(AllowAnyAuthenticatedClient::new(store.clone()));
-            BoxCastPtr::to_mut_ptr(client_cert_verifier)
+            to_boxed_mut_ptr(client_cert_verifier)
         }
     }
 
@@ -604,11 +604,10 @@ pub struct rustls_allow_any_authenticated_client_verifier {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_allow_any_authenticated_client_verifier {
+impl Castable for rustls_allow_any_authenticated_client_verifier {
+    type Ownership = OwnershipArc;
     type RustType = AllowAnyAuthenticatedClient;
 }
-
-impl ArcCastPtr for rustls_allow_any_authenticated_client_verifier {}
 
 impl rustls_allow_any_authenticated_client_verifier {
     /// Create a new allow any authenticated client certificate verifier from a builder.
@@ -649,7 +648,7 @@ impl rustls_allow_any_authenticated_client_verifier {
         verifier: *const rustls_allow_any_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
-            rustls_allow_any_authenticated_client_verifier::free(verifier);
+            free_arc(verifier);
         }
     }
 }
@@ -661,13 +660,12 @@ pub struct rustls_allow_any_anonymous_or_authenticated_client_builder {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_allow_any_anonymous_or_authenticated_client_builder {
-    // NOTE: contained value is consumed even on error, so this can contain None. but the caller
+impl Castable for rustls_allow_any_anonymous_or_authenticated_client_builder {
+    type Ownership = OwnershipBox;
+    // NOTE: contained value is consumed even on error, so this can contain None, but the caller
     // still needs to free it
     type RustType = Option<AllowAnyAnonymousOrAuthenticatedClient>;
 }
-
-impl BoxCastPtr for rustls_allow_any_anonymous_or_authenticated_client_builder {}
 
 impl rustls_allow_any_anonymous_or_authenticated_client_builder {
     /// Create a new allow any anonymous or authenticated client certificate verifier builder
@@ -688,7 +686,7 @@ impl rustls_allow_any_anonymous_or_authenticated_client_builder {
         ffi_panic_boundary! {
             let store: &RootCertStore = try_ref_from_ptr!(store);
             let client_cert_verifier = Some(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()));
-            BoxCastPtr::to_mut_ptr(client_cert_verifier)
+            to_boxed_mut_ptr(client_cert_verifier)
         }
     }
 
@@ -753,11 +751,10 @@ pub struct rustls_allow_any_anonymous_or_authenticated_client_verifier {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_allow_any_anonymous_or_authenticated_client_verifier {
+impl Castable for rustls_allow_any_anonymous_or_authenticated_client_verifier {
+    type Ownership = OwnershipArc;
     type RustType = AllowAnyAnonymousOrAuthenticatedClient;
 }
-
-impl ArcCastPtr for rustls_allow_any_anonymous_or_authenticated_client_verifier {}
 
 impl rustls_allow_any_anonymous_or_authenticated_client_verifier {
     /// Create a new allow any anonymous or authenticated client certificate verifier builder
@@ -799,7 +796,7 @@ impl rustls_allow_any_anonymous_or_authenticated_client_verifier {
         verifier: *const rustls_allow_any_anonymous_or_authenticated_client_verifier,
     ) {
         ffi_panic_boundary! {
-            rustls_allow_any_anonymous_or_authenticated_client_verifier::free(verifier);
+            free_arc(verifier);
         }
     }
 }

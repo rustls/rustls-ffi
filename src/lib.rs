@@ -292,113 +292,331 @@ mod tests {
     }
 }
 
-/// CastPtr represents the relationship between a snake case type (like rustls_client_config)
-/// and the corresponding Rust type (like ClientConfig). For each matched pair of types, there
-/// should be an `impl CastPtr for foo_bar { RustTy = FooBar }`.
+/// Used to mark that pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
+/// to C code as a pointer to a `Box<Castable::RustType>`.
+pub(crate) struct OwnershipBox;
+
+/// Used to mark that a pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
+/// to C code as a pointer to an `Arc<Castable::RustType>`.
+pub(crate) struct OwnershipArc;
+
+/// Used to mark that a pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
+/// to C code as a pointer to a reference, `&Castable::RustType`.
+pub(crate) struct OwnershipRef;
+
+/// A trait for marking the type of a pointer to a [`Castable`]'s underlying `Castable::RustType`
+/// that is provided to C code, either a [`OwnershipBox`] when it is a pointer to a `Box<_>`,
+/// a [`OwnershipArc`] when it is a pointer to an `Arc<_>`, or a [`OwnershipRef`] when it is a
+/// pointer to a `&_`.
+trait OwnershipMarker {}
+
+impl OwnershipMarker for OwnershipBox {}
+
+impl OwnershipMarker for OwnershipArc {}
+
+impl OwnershipMarker for OwnershipRef {}
+
+/// `Castable` represents the relationship between a snake case type (like [`client::rustls_client_config`])
+/// and the corresponding Rust type (like [`rustls::ClientConfig`]), specified as the associated type
+/// `RustType`. Each `Castable` also has an associated type `Ownership` specifying one of the
+/// [`OwnershipMarker`] types, [`OwnershipBox`], [`OwnershipArc`] or [`OwnershipRef`].
 ///
-/// This allows us to avoid using `as` in most places, and ensure that when we cast, we're
-/// preserving const-ness, and casting between the correct types.
-/// Implementing this is required in order to use `try_ref_from_ptr!` or
-/// `try_mut_from_ptr!`.
-pub(crate) trait CastPtr {
-    type RustType;
+/// An implementation of `Castable` that uses [`OwnershipBox`] indicates that when we give C code
+/// a pointer to the relevant `RustType` `T`, that it is actually a `Box<T>`. An
+/// implementation of `Castable` that uses [`OwnershipArc`] means that when we give C code a
+/// pointer to the relevant type, that it is actually an `Arc<T>`. Lastly an implementation of
+/// `Castable` that uses [`OwnershipRef`] means that when we give C code a pointer to the relevant
+/// type, that it is actually a `&T`.
+///
+/// By using an associated type on `Castable` to communicate this we can use the type system to
+/// guarantee that a single type can't implement `Castable` for more than one [`OwnershipMarker`],
+/// since this would be a conflicting trait implementation and rejected by the compiler.
+///
+/// This trait allows us to avoid using `as` in most places, and ensures that when we cast, we're
+/// preserving const-ness, and casting between the correct types. Implementing this is required in
+/// order to use `try_ref_from_ptr!` or `try_mut_from_ptr!` and several other helpful cast-related
+/// conversion helpers.
+pub(crate) trait Castable {
+    /// Indicates whether to use `Box` or `Arc` when giving a pointer to C code for the underlying
+    /// `RustType`.
+    type Ownership: OwnershipMarker;
 
-    fn cast_mut_ptr(ptr: *mut Self) -> *mut Self::RustType {
-        ptr as *mut _
-    }
+    /// The underlying Rust type that we are casting to and from.
+    type RustType;
 }
 
-/// CastConstPtr represents a subset of CastPtr, for when we can only treat
-/// something as a const (for instance when dealing with Arc).
-pub(crate) trait CastConstPtr {
-    type RustType;
-
-    fn cast_const_ptr(ptr: *const Self) -> *const Self::RustType {
-        ptr as *const _
-    }
-}
-
-/// Anything that qualifies for CastPtr also automatically qualifies for
-/// CastConstPtr. Splitting out CastPtr vs CastConstPtr allows us to ensure
-/// that Arcs are never cast to a mutable pointer.
-impl<T, R> CastConstPtr for T
+/// Convert a const pointer to a [`Castable`] to a const pointer to its underlying
+/// [`Castable::RustType`].
+///
+/// This can be used regardless of the [`Castable::Ownership`] as we can make const pointers for
+/// `Box`, `Arc` and ref types.
+pub(crate) fn cast_const_ptr<C>(ptr: *const C) -> *const C::RustType
 where
-    T: CastPtr<RustType = R>,
+    C: Castable,
 {
-    type RustType = R;
+    ptr as *const _
 }
 
-// An implementation of BoxCastPtr means that when we give C code a pointer to the relevant type,
-// it is actually a Box. At most one of BoxCastPtr or ArcCastPtr should be implemented for a given
-// type.
-pub(crate) trait BoxCastPtr: CastPtr + Sized {
-    fn to_box(ptr: *mut Self) -> Option<Box<Self::RustType>> {
-        if ptr.is_null() {
-            return None;
-        }
-        let rs_typed = Self::cast_mut_ptr(ptr);
-        unsafe { Some(Box::from_raw(rs_typed)) }
-    }
+/// Convert a [`Castable`]'s underlying [`Castable::RustType`] to a constant pointer
+/// to an `Arc` over the rust type. Can only be used when the `Castable` has specified a cast type
+/// equal to [`OwnershipArc`].
+pub(crate) fn to_arc_const_ptr<C>(src: C::RustType) -> *const C
+where
+    C: Castable<Ownership = OwnershipArc>,
+{
+    Arc::into_raw(Arc::new(src)) as *const _
+}
 
-    fn to_mut_ptr(src: Self::RustType) -> *mut Self {
-        Box::into_raw(Box::new(src)) as *mut _
+/// Convert a const pointer to a [`Castable`] to an optional `Arc` over the underlying rust type.
+///
+/// Sometimes we create an `Arc`, then call `into_raw` and return the resulting raw pointer
+/// to C, e.g. using [`to_arc_const_ptr`]. C can then call a rustls-ffi function multiple times
+/// using that same raw pointer. On each call, we need to reconstruct the Arc, but once we reconstruct
+/// the Arc, its reference count will be decremented on drop. We need to reference count to stay at 1,
+/// because the C code is holding a copy.
+///
+/// This function turns the raw pointer back into an Arc, clones it to increment the reference count
+/// (which will make it 2 in this particular case), and `mem::forget`s the clone. The `mem::forget`
+/// prevents the reference count from being decremented when we exit this function, so it will stay
+/// at 2 as long as we are in Rust code. Once the caller drops its `Arc`, the reference count will
+/// go back down to 1, since the C code's copy remains.
+///
+/// Does nothing, returning `None`, when passed a `NULL` pointer. Can only be used when the
+/// `Castable` has specified a cast type equal to [`OwnershipArc`].
+///
+/// ## Unsafety:
+///
+/// If non-null, `ptr` must be a pointer that resulted from previously calling `Arc::into_raw`,
+/// e.g. from using [`to_arc_const_ptr`].
+pub(crate) fn to_arc<C>(ptr: *const C) -> Option<Arc<C::RustType>>
+where
+    C: Castable<Ownership = OwnershipArc>,
+{
+    if ptr.is_null() {
+        return None;
     }
+    let rs_typed = cast_const_ptr::<C>(ptr);
+    let r = unsafe { Arc::from_raw(rs_typed) };
+    let val = Arc::clone(&r);
+    mem::forget(r);
+    Some(val)
+}
 
-    fn set_mut_ptr(dst: *mut *mut Self, src: Self::RustType) {
-        unsafe {
-            *dst = Self::to_mut_ptr(src);
-        }
+/// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying rust type.
+///
+/// Does nothing, returning `None`, when passed `NULL`. Can only be used when the `Castable` has
+/// specified a cast type equal to [`OwnershipBox`].
+///
+/// ## Unsafety:
+///
+/// If non-null, `ptr` must be a pointer that resulted from previously calling `Box::into_raw`,
+/// e.g. from using [`to_boxed_mut_ptr`].
+pub(crate) fn to_box<C>(ptr: *mut C) -> Option<Box<C::RustType>>
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    if ptr.is_null() {
+        return None;
+    }
+    let rs_typed = cast_mut_ptr(ptr);
+    unsafe { Some(Box::from_raw(rs_typed)) }
+}
+
+/// Free a constant pointer to a [`Castable`]'s underlying [`Castable::RustType`] by
+/// reconstituting an `Arc` from the raw pointer and dropping it.
+///
+/// For types represented with an `Arc` on the Rust side, we offer a `_free()`
+/// method to the C side that decrements the refcount and ultimately drops
+/// the `Arc` if the refcount reaches 0. By contrast with `to_arc`, we call
+/// `Arc::from_raw` on the input pointer, but we _don't_ clone it, because we
+/// want the refcount to be lower by one when we reach the end of the function.
+///
+/// Does nothing, returning `None`, when passed `NULL`. Can only be used when the `Castable` has
+/// specified a cast type equal to [`OwnershipArc`].
+pub(crate) fn free_arc<C>(ptr: *const C)
+where
+    C: Castable<Ownership = OwnershipArc>,
+{
+    if ptr.is_null() {
+        return;
+    }
+    let rs_typed = cast_const_ptr(ptr);
+    drop(unsafe { Arc::from_raw(rs_typed) });
+}
+
+/// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying
+/// [`Castable::RustType`], and immediately let it fall out of scope to be freed.
+///
+/// Can only be used when the `Castable` has specified a cast type equal to [`OwnershipBox`].
+///
+/// ## Unsafety:
+///
+/// If non-null, `ptr` must be a pointer that resulted from previously calling `Box::into_raw`,
+/// e.g. from using [`to_boxed_mut_ptr`].
+pub(crate) fn free_box<C>(ptr: *mut C)
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    to_box(ptr);
+}
+
+/// Convert a mutable pointer to a [`Castable`] to a mutable pointer to its underlying
+/// [`Castable::RustType`].
+///
+/// Can only be used when the `Castable` has specified a cast source equal to `BoxCastPtrMarker`.
+pub(crate) fn cast_mut_ptr<C>(ptr: *mut C) -> *mut C::RustType
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    ptr as *mut _
+}
+
+/// Converts a [`Castable`]'s underlying [`Castable::RustType`] to a mutable pointer
+/// to a `Box` over the rust type.
+///
+/// Can only be used when the `Castable` has specified a cast type equal to [`OwnershipBox`].
+pub(crate) fn to_boxed_mut_ptr<C>(src: C::RustType) -> *mut C
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    Box::into_raw(Box::new(src)) as *mut _
+}
+
+/// Converts a [`Castable`]'s underlying [`Castable::RustType`] to a mutable pointer
+/// to a `Box` over the rust type and sets the `dst` out pointer to the resulting mutable `Box`
+/// pointer. See [`to_boxed_mut_ptr`] for more information.
+///
+/// ## Unsafety:
+///
+/// `dst` must not be `NULL`.
+pub(crate) fn set_boxed_mut_ptr<C>(dst: *mut *mut C, src: C::RustType)
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    unsafe {
+        *dst = to_boxed_mut_ptr(src);
     }
 }
 
-// An implementation of ArcCastPtr means that when we give C code a pointer to the relevant type,
-// it is actually a Arc. At most one of BoxCastPtr or ArcCastPtr should be implemented for a given
-// // type.
-pub(crate) trait ArcCastPtr: CastConstPtr + Sized {
-    /// Sometimes we create an Arc, then call `into_raw` and return the resulting raw pointer
-    /// to C. C can then call rustls_server_session_new multiple times using that
-    /// same raw pointer. On each call, we need to reconstruct the Arc. But once we reconstruct the Arc,
-    /// its reference count will be decremented on drop. We need to reference count to stay at 1,
-    /// because the C code is holding a copy. This function turns the raw pointer back into an Arc,
-    /// clones it to increment the reference count (which will make it 2 in this particular case), and
-    /// mem::forgets the clone. The mem::forget prevents the reference count from being decremented when
-    /// we exit this function, so it will stay at 2 as long as we are in Rust code. Once the caller
-    /// drops its Arc, the reference count will go back down to 1, indicating the C code's copy.
-    ///
-    /// Does nothing when passed null.
-    ///
-    /// Unsafety:
-    ///
-    /// If non-null, ptr must be a pointer that resulted from previously calling `Arc::into_raw`.
-    fn to_arc(ptr: *const Self) -> Option<Arc<Self::RustType>> {
-        if ptr.is_null() {
-            return None;
-        }
-        let rs_typed = Self::cast_const_ptr(ptr);
-        let r = unsafe { Arc::from_raw(rs_typed) };
-        let val = Arc::clone(&r);
-        mem::forget(r);
-        Some(val)
-    }
+/// Converts a mutable pointer to a [`Castable`] to an optional ref to the underlying
+/// [`Castable::RustType`]. See [`cast_mut_ptr`] for more information.
+///
+/// Does nothing, returning `None`, when passed `NULL`. Can only be used when the `Castable` has
+/// specified a cast type equal to [`OwnershipBox`].
+pub(crate) fn try_from_mut<'a, C>(from: *mut C) -> Option<&'a mut C::RustType>
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    unsafe { cast_mut_ptr(from).as_mut() }
+}
 
-    /// For types represented with an Arc on the Rust side, we offer a _free()
-    /// method to the C side that decrements the refcount and ultimately drops
-    /// the Arc if the refcount reaches 0. By contrast with to_arc, we call
-    /// Arc::from_raw on the input pointer, but we _don't_ clone it, because we
-    /// want the refcount to be lower by one when we reach the end of the function.
-    ///
-    /// Does nothing when passed null.
-    fn free(ptr: *const Self) {
-        if ptr.is_null() {
-            return;
+/// If the provided pointer to a [`Castable`] is non-null, convert it to a mutable reference using
+/// [`try_from_mut`]. Otherwise, return [`rustls_result::NullParameter`], or an appropriate default
+/// (`false`, `0`, `NULL`) based on the context. See [`try_from_mut`] for more information.
+///
+/// ## Example:
+///
+/// ```rust,ignore
+/// let config: &mut ClientConfig = try_mut_from_ptr!(builder);
+/// ```
+#[doc(hidden)]
+#[macro_export]
+macro_rules! try_mut_from_ptr {
+    ( $var:ident ) => {
+        match $crate::try_from_mut($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
-        let rs_typed = Self::cast_const_ptr(ptr);
-        drop(unsafe { Arc::from_raw(rs_typed) });
-    }
+    };
+}
 
-    fn to_const_ptr(src: Self::RustType) -> *const Self {
-        Arc::into_raw(Arc::new(src)) as *const _
-    }
+/// Converts a const pointer to a [`Castable`] to an optional ref to the underlying
+/// [`Castable::RustType`]. See [`cast_const_ptr`] for more information.
+///
+/// Does nothing, returning `None` when passed `NULL`. Can be used with `Castable`'s that
+/// specify a cast type of [`OwnershipArc`] as well as `Castable`'s that specify
+/// a cast type of [`OwnershipBox`].
+pub(crate) fn try_from<'a, C, O>(from: *const C) -> Option<&'a C::RustType>
+where
+    C: Castable<Ownership = O>,
+{
+    unsafe { cast_const_ptr(from).as_ref() }
+}
+
+/// If the provided pointer to a [`Castable`] is non-null, convert it to a reference using
+/// [`try_from`]. Otherwise, return [`rustls_result::NullParameter`], or an appropriate default
+/// (`false`, `0`, `NULL`) based on the context;
+///
+/// See [`try_from`] for more information.
+///
+/// ## Example:
+///
+/// ```rust, ignore
+///   let config: &ClientConfig = try_ref_from_ptr!(builder);
+/// ```
+#[doc(hidden)]
+#[macro_export]
+macro_rules! try_ref_from_ptr {
+    ( $var:ident ) => {
+        match $crate::try_from($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+/// Convert a const pointer to a [`Castable`] to an optional `Arc` over the underlying
+/// [`Castable::RustType`]. See [`to_arc`] for more information.
+///
+/// Does nothing, returning `None`, when passed `NULL`. Can only be used with `Castable`'s that
+/// specify an ownership type of [`OwnershipArc`].
+pub(crate) fn try_arc_from<C>(from: *const C) -> Option<Arc<C::RustType>>
+where
+    C: Castable<Ownership = OwnershipArc>,
+{
+    to_arc(from)
+}
+
+/// If the provided pointer to a [`Castable`] is non-null, convert it to a reference to an `Arc` over
+/// the underlying rust type using [`try_arc_from`]. Otherwise, return
+/// [`rustls_result::NullParameter`], or an appropriate default (`false`, `0`, `NULL`) based on the
+/// context. See [`try_arc_from`] for more information.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! try_arc_from_ptr {
+    ( $var:ident ) => {
+        match $crate::try_arc_from($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+/// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying
+/// [`Castable::RustType`].
+///
+/// Does nothing, returning `None`, when passed `NULL`. Can only be used with `Castable`'s that
+/// specify a cast type of [`OwnershipBox`].
+pub(crate) fn try_box_from<C>(from: *mut C) -> Option<Box<C::RustType>>
+where
+    C: Castable<Ownership = OwnershipBox>,
+{
+    to_box(from)
+}
+
+/// If the provided pointer to a [`Castable`] is non-null, convert it to a reference to a `Box`
+/// over the underlying rust type using [`try_box_from`]. Otherwise, return [`rustls_result::NullParameter`],
+/// or an appropriate default (`false`, `0`, `NULL`) based on the context. See [`try_box_from`] for
+/// more information.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! try_box_from_ptr {
+    ( $var:ident ) => {
+        match $crate::try_box_from($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
+        }
+    };
 }
 
 #[doc(hidden)]
@@ -421,88 +639,6 @@ macro_rules! try_mut_slice {
             return $crate::panic::NullParameterOrDefault::value();
         } else {
             unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
-        }
-    };
-}
-
-/// Turn a raw const pointer into a reference. This is a generic function
-/// rather than part of the CastPtr trait because (a) const pointers can't act
-/// as "self" for trait methods, and (b) we want to rely on type inference
-/// against T (the cast-to type) rather than across F (the from type).
-pub(crate) fn try_from<'a, F, T>(from: *const F) -> Option<&'a T>
-where
-    F: CastConstPtr<RustType = T>,
-{
-    unsafe { F::cast_const_ptr(from).as_ref() }
-}
-
-/// Turn a raw mut pointer into a mutable reference.
-pub(crate) fn try_from_mut<'a, F, T>(from: *mut F) -> Option<&'a mut T>
-where
-    F: CastPtr<RustType = T>,
-{
-    unsafe { F::cast_mut_ptr(from).as_mut() }
-}
-
-pub(crate) fn try_box_from<F, T>(from: *mut F) -> Option<Box<T>>
-where
-    F: BoxCastPtr<RustType = T>,
-{
-    F::to_box(from)
-}
-
-pub(crate) fn try_arc_from<F, T>(from: *const F) -> Option<Arc<T>>
-where
-    F: ArcCastPtr<RustType = T>,
-{
-    F::to_arc(from)
-}
-
-/// If the provided pointer is non-null, convert it to a reference.
-/// Otherwise, return NullParameter, or an appropriate default (false, 0, NULL)
-/// based on the context;
-/// Example:
-///   let config: &mut ClientConfig = try_ref_from_ptr!(builder);
-#[doc(hidden)]
-#[macro_export]
-macro_rules! try_ref_from_ptr {
-    ( $var:ident ) => {
-        match $crate::try_from($var) {
-            Some(c) => c,
-            None => return $crate::panic::NullParameterOrDefault::value(),
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! try_mut_from_ptr {
-    ( $var:ident ) => {
-        match $crate::try_from_mut($var) {
-            Some(c) => c,
-            None => return $crate::panic::NullParameterOrDefault::value(),
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! try_box_from_ptr {
-    ( $var:ident ) => {
-        match $crate::try_box_from($var) {
-            Some(c) => c,
-            None => return $crate::panic::NullParameterOrDefault::value(),
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! try_arc_from_ptr {
-    ( $var:ident ) => {
-        match $crate::try_arc_from($var) {
-            Some(c) => c,
-            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
