@@ -29,8 +29,9 @@ use crate::session::{
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
-    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
+    try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
+    userdata_get, Castable, OwnershipArc, OwnershipBox, OwnershipRef,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -55,11 +56,10 @@ pub(crate) struct ServerConfigBuilder {
     ignore_client_order: Option<bool>,
 }
 
-impl CastPtr for rustls_server_config_builder {
+impl Castable for rustls_server_config_builder {
+    type Ownership = OwnershipBox;
     type RustType = ServerConfigBuilder;
 }
-
-impl BoxCastPtr for rustls_server_config_builder {}
 
 /// A server config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
@@ -71,11 +71,10 @@ pub struct rustls_server_config {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_server_config {
+impl Castable for rustls_server_config {
+    type Ownership = OwnershipArc;
     type RustType = ServerConfig;
 }
-
-impl ArcCastPtr for rustls_server_config {}
 
 impl rustls_server_config_builder {
     /// Create a rustls_server_config_builder. Caller owns the memory and must
@@ -93,7 +92,7 @@ impl rustls_server_config_builder {
                            alpn_protocols: vec![],
                            ignore_client_order: None,
                        };
-                BoxCastPtr::to_mut_ptr(builder)
+            to_boxed_mut_ptr(builder)
         }
     }
 
@@ -155,7 +154,7 @@ impl rustls_server_config_builder {
                 alpn_protocols: vec![],
                 ignore_client_order: None,
             };
-            BoxCastPtr::set_mut_ptr(builder_out, builder);
+            set_boxed_mut_ptr(builder_out, builder);
             rustls_result::Ok
         }
     }
@@ -201,7 +200,7 @@ impl rustls_server_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
         ffi_panic_boundary! {
-            BoxCastPtr::to_box(config);
+            free_box(config);
         }
     }
 
@@ -303,7 +302,7 @@ impl rustls_server_config_builder {
             if let Some(ignore_client_order) = builder.ignore_client_order {
                 config.ignore_client_order = ignore_client_order;
             }
-            ArcCastPtr::to_const_ptr(config)
+            to_arc_const_ptr(config)
         }
     }
 }
@@ -318,7 +317,7 @@ impl rustls_server_config {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
         ffi_panic_boundary! {
-            rustls_server_config::free(config);
+            free_arc(config);
         }
     }
 
@@ -344,7 +343,7 @@ impl rustls_server_config {
             // to the caller. After this point, we must return rustls_result::Ok so the
             // caller knows it is responsible for this memory.
             let c = Connection::from_server(server_connection);
-            BoxCastPtr::set_mut_ptr(conn_out, c);
+            set_boxed_mut_ptr(conn_out, c);
             rustls_result::Ok
         }
     }
@@ -453,7 +452,8 @@ pub struct rustls_client_hello<'a> {
     alpn: *const rustls_slice_slice_bytes<'a>,
 }
 
-impl<'a> CastPtr for rustls_client_hello<'a> {
+impl<'a> Castable for rustls_client_hello<'a> {
+    type Ownership = OwnershipRef;
     type RustType = rustls_client_hello<'a>;
 }
 

@@ -11,8 +11,8 @@ use crate::io::{rustls_read_callback, CallbackReader, ReadCallback};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
-    ffi_panic_boundary, rustls_result, try_arc_from_ptr, try_callback, try_mut_from_ptr,
-    try_ref_from_ptr, BoxCastPtr, CastPtr,
+    ffi_panic_boundary, free_box, rustls_result, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr,
+    try_arc_from_ptr, try_callback, try_mut_from_ptr, try_ref_from_ptr, Castable, OwnershipBox,
 };
 use rustls_result::NullParameter;
 
@@ -42,11 +42,10 @@ pub struct rustls_acceptor {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_acceptor {
+impl Castable for rustls_acceptor {
+    type Ownership = OwnershipBox;
     type RustType = Acceptor;
 }
-
-impl BoxCastPtr for rustls_acceptor {}
 
 /// A parsed ClientHello produced by a rustls_acceptor. It is used to check
 /// server name indication (SNI), ALPN protocols, signature schemes, and
@@ -56,11 +55,10 @@ pub struct rustls_accepted {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_accepted {
+impl Castable for rustls_accepted {
+    type Ownership = OwnershipBox;
     type RustType = Option<Accepted>;
 }
-
-impl BoxCastPtr for rustls_accepted {}
 
 impl rustls_acceptor {
     /// Create and return a new rustls_acceptor.
@@ -70,7 +68,7 @@ impl rustls_acceptor {
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_new() -> *mut rustls_acceptor {
         ffi_panic_boundary! {
-            BoxCastPtr::to_mut_ptr(Acceptor::default())
+            to_boxed_mut_ptr(Acceptor::default())
         }
     }
 
@@ -84,7 +82,7 @@ impl rustls_acceptor {
     #[no_mangle]
     pub extern "C" fn rustls_acceptor_free(acceptor: *mut rustls_acceptor) {
         ffi_panic_boundary! {
-            BoxCastPtr::to_box(acceptor);
+            to_box(acceptor);
         }
     }
 
@@ -185,7 +183,7 @@ impl rustls_acceptor {
                 Ok(None) => rustls_result::AcceptorNotReady,
                 Err(e) => map_error(e),
                 Ok(Some(accepted)) => {
-                    BoxCastPtr::set_mut_ptr(out_accepted, Some(accepted));
+                    set_boxed_mut_ptr(out_accepted, Some(accepted));
                     rustls_result::Ok
                 }
             }
@@ -408,7 +406,7 @@ impl rustls_accepted {
             match accepted.into_connection(config) {
                 Ok(built) => {
                     let wrapped = crate::connection::Connection::from_server(built);
-                    BoxCastPtr::set_mut_ptr(out_conn, wrapped);
+                    set_boxed_mut_ptr(out_conn, wrapped);
                     rustls_result::Ok
                 },
                 Err(e) => map_error(e),
@@ -426,7 +424,7 @@ impl rustls_accepted {
     #[no_mangle]
     pub extern "C" fn rustls_accepted_free(accepted: *mut rustls_accepted) {
         ffi_panic_boundary! {
-            BoxCastPtr::to_box(accepted);
+            free_box(accepted);
         }
     }
 }

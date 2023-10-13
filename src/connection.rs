@@ -13,15 +13,15 @@ use crate::io::{
 };
 use crate::log::{ensure_log_registered, rustls_log_callback};
 
-use crate::BoxCastPtr;
 use crate::{
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
+    ffi_panic_boundary, free_box,
     io::{rustls_read_callback, rustls_write_callback},
-    try_callback,
+    try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_push, Castable,
+    OwnershipBox,
 };
-use crate::{ffi_panic_boundary, try_ref_from_ptr};
-use crate::{try_mut_from_ptr, try_slice, userdata_push, CastPtr};
+
 use rustls_result::NullParameter;
 
 pub(crate) struct Connection {
@@ -97,11 +97,10 @@ pub struct rustls_connection {
     _private: [u8; 0],
 }
 
-impl CastPtr for rustls_connection {
+impl Castable for rustls_connection {
+    type Ownership = OwnershipBox;
     type RustType = Connection;
 }
-
-impl BoxCastPtr for rustls_connection {}
 
 impl rustls_connection {
     /// Set the userdata pointer associated with this connection. This will be passed
@@ -545,9 +544,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_free(conn: *mut rustls_connection) {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
-            // Convert the pointer to a Box and drop it.
-            drop(unsafe { Box::from_raw(conn) });
+            free_box(conn);
         }
     }
 }

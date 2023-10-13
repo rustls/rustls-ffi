@@ -21,8 +21,9 @@ use crate::error::{self, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
-    try_slice, userdata_get, ArcCastPtr, BoxCastPtr, CastConstPtr, CastPtr,
+    ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
+    try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
+    userdata_get, Castable, OwnershipArc, OwnershipBox,
 };
 
 /// A client config being constructed. A builder can be modified by,
@@ -47,11 +48,10 @@ pub(crate) struct ClientConfigBuilder {
     cert_resolver: Option<Arc<dyn rustls::client::ResolvesClientCert>>,
 }
 
-impl CastPtr for rustls_client_config_builder {
+impl Castable for rustls_client_config_builder {
+    type Ownership = OwnershipBox;
     type RustType = ClientConfigBuilder;
 }
-
-impl BoxCastPtr for rustls_client_config_builder {}
 
 /// A client config that is done being constructed and is now read-only.
 /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
@@ -63,11 +63,10 @@ pub struct rustls_client_config {
     _private: [u8; 0],
 }
 
-impl CastConstPtr for rustls_client_config {
+impl Castable for rustls_client_config {
+    type Ownership = OwnershipArc;
     type RustType = ClientConfig;
 }
-
-impl ArcCastPtr for rustls_client_config {}
 
 struct NoneVerifier;
 
@@ -106,7 +105,7 @@ impl rustls_client_config_builder {
                 alpn_protocols: vec![],
                 enable_sni: true,
             };
-            BoxCastPtr::to_mut_ptr(builder)
+            to_boxed_mut_ptr(builder)
         }
     }
 
@@ -169,7 +168,7 @@ impl rustls_client_config_builder {
                 enable_sni: true,
             };
 
-            BoxCastPtr::set_mut_ptr(builder_out, config_builder);
+            set_boxed_mut_ptr(builder_out, config_builder);
             rustls_result::Ok
         }
     }
@@ -492,7 +491,7 @@ impl rustls_client_config_builder {
             };
             config.alpn_protocols = builder.alpn_protocols;
             config.enable_sni = builder.enable_sni;
-            ArcCastPtr::to_const_ptr(config)
+            to_arc_const_ptr(config)
         }
     }
 
@@ -504,7 +503,7 @@ impl rustls_client_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_free(config: *mut rustls_client_config_builder) {
         ffi_panic_boundary! {
-            BoxCastPtr::to_box(config);
+            free_box(config);
         }
     }
 }
@@ -519,7 +518,7 @@ impl rustls_client_config {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
         ffi_panic_boundary! {
-            rustls_client_config::free(config);
+            free_arc(config);
         }
     }
 
@@ -561,7 +560,7 @@ impl rustls_client_config {
         // to the caller. After this point, we must return rustls_result::Ok so the
         // caller knows it is responsible for this memory.
         let c = Connection::from_client(client);
-        BoxCastPtr::set_mut_ptr(conn_out, c);
+        set_boxed_mut_ptr(conn_out, c);
         rustls_result::Ok
         }
     }
