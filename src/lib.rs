@@ -519,8 +519,6 @@ where
 /// ```rust,ignore
 /// let config: &mut ClientConfig = try_mut_from_ptr!(builder);
 /// ```
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
         match $crate::try_from_mut($var) {
@@ -529,6 +527,8 @@ macro_rules! try_mut_from_ptr {
         }
     };
 }
+
+pub(crate) use try_mut_from_ptr;
 
 /// Converts a const pointer to a [`Castable`] to an optional ref to the underlying
 /// [`Castable::RustType`]. See [`cast_const_ptr`] for more information.
@@ -554,8 +554,6 @@ where
 /// ```rust, ignore
 ///   let config: &ClientConfig = try_ref_from_ptr!(builder);
 /// ```
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
         match $crate::try_from($var) {
@@ -564,6 +562,8 @@ macro_rules! try_ref_from_ptr {
         }
     };
 }
+
+pub(crate) use try_ref_from_ptr;
 
 /// Convert a const pointer to a [`Castable`] to an optional `Arc` over the underlying
 /// [`Castable::RustType`]. See [`to_arc`] for more information.
@@ -581,8 +581,6 @@ where
 /// the underlying rust type using [`try_arc_from`]. Otherwise, return
 /// [`rustls_result::NullParameter`], or an appropriate default (`false`, `0`, `NULL`) based on the
 /// context. See [`try_arc_from`] for more information.
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_arc_from_ptr {
     ( $var:ident ) => {
         match $crate::try_arc_from($var) {
@@ -591,6 +589,8 @@ macro_rules! try_arc_from_ptr {
         }
     };
 }
+
+pub(crate) use try_arc_from_ptr;
 
 /// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying
 /// [`Castable::RustType`].
@@ -608,8 +608,6 @@ where
 /// over the underlying rust type using [`try_box_from`]. Otherwise, return [`rustls_result::NullParameter`],
 /// or an appropriate default (`false`, `0`, `NULL`) based on the context. See [`try_box_from`] for
 /// more information.
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_box_from_ptr {
     ( $var:ident ) => {
         match $crate::try_box_from($var) {
@@ -619,8 +617,8 @@ macro_rules! try_box_from_ptr {
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
+pub(crate) use try_box_from_ptr;
+
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
         if $ptr.is_null() {
@@ -631,20 +629,8 @@ macro_rules! try_slice {
     };
 }
 
-#[doc(hidden)]
-#[macro_export]
-macro_rules! try_mut_slice {
-    ( $ptr:expr, $count:expr ) => {
-        if $ptr.is_null() {
-            return $crate::panic::NullParameterOrDefault::value();
-        } else {
-            unsafe { slice::from_raw_parts_mut($ptr, $count as usize) }
-        }
-    };
-}
+pub(crate) use try_slice;
 
-#[doc(hidden)]
-#[macro_export]
 macro_rules! try_callback {
     ( $var:ident ) => {
         match $var {
@@ -653,6 +639,9 @@ macro_rules! try_callback {
         }
     };
 }
+
+pub(crate) use try_callback;
+
 /// Returns a static string containing the rustls-ffi version as well as the
 /// rustls version. The string is alive for the lifetime of the program and does
 /// not need to be freed.
