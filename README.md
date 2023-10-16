@@ -96,7 +96,7 @@ mutating.
 Input parameters will always be either a const pointer or a primitive type
 (`int`, `size_t`, etc). Output parameters will always be a non-const pointer.
 
-The caller is responsible for ensuring that the memory pointed to be output
+The caller is responsible for ensuring that the memory pointed to by output
 parameters is not being concurrently accessed by other threads. For primitive
 types and pointers-to-pointers this is most commonly accomplished by passing
 the address of a local variable on the stack that has no references elsewhere.
