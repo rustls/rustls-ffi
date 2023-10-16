@@ -209,7 +209,7 @@ fail by default. You are responsible for loading certificates using one of the
 following methods:
 
 - `rustls_root_cert_store_add_pem`, which adds a single certificate to a root
-  store
+  store.
 
 - `rustls_client_config_builder_load_roots_from_file`, which loads certificates
   from a file.
