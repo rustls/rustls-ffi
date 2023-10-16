@@ -14,8 +14,8 @@ memory unsafe languages.
 If you are using rustls-ffi to replace OpenSSL, note that OpenSSL provides
 [cryptographic primitives](https://www.openssl.org/docs/man3.0/man7/crypto.html)
 in addition to a TLS library. Rustls-ffi only provides the TLS library. If you
-use the cryptographic primitives from OpenSSL you may need to
-need to find another library to provide the cryptographic primitives.
+use the cryptographic primitives from OpenSSL you may need to find another library
+to provide the cryptographic primitives.
 
 # Build
 
