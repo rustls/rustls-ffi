@@ -198,7 +198,7 @@ create the one with the correct setting for the domain chosen.
 
 For this to work, your connection needs to buffer the initial data from the
 client, so these bytes can be replayed to the second connection you use. Do not
-write any data back to the client while your are in the initial connection. The
+write any data back to the client while you are in the initial connection. The
 client hellos are usually only a few hundred bytes.
 
 #### Verifying TLS certificates
