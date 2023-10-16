@@ -20,11 +20,11 @@ to provide the cryptographic primitives.
 # Build
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.61
-or above) and a C compiler (gcc and clang should both work). To build in optimized mode:
+or above) and a C compiler (`gcc` and `clang` should both work). To build in optimized mode:
 
     make
 
-To install in /usr/local/:
+To install in `/usr/local/`:
 
     sudo make install
 
@@ -56,8 +56,8 @@ supports.
 
 # Conventions
 
-This library defines an enum, rustls_result, to indicate success or failure of
-a function call. All fallible functions return a rustls_result. If a function
+This library defines an `enum`, `rustls_result`, to indicate success or failure of
+a function call. All fallible functions return a `rustls_result`. If a function
 has other outputs, it provides them using output parameters (pointers to
 caller-provided objects). For instance:
 
@@ -94,7 +94,7 @@ mutating.
 ## Input and Output Parameters
 
 Input parameters will always be either a const pointer or a primitive type
-(int, size_t, etc). Output parameters will always be a non-const pointer.
+(`int`, `size_t`, etc). Output parameters will always be a non-const pointer.
 
 The caller is responsible for ensuring that the memory pointed to be output
 parameters is not being concurrently accessed by other threads. For primitive
@@ -116,7 +116,7 @@ operated on. Next will come some number of input parameters, then some number
 of output parameters.
 
 As a minor exception to the above: When an output parameter is a byte buffer
-(*uint8_t), the next parameter will always be a size_t denoting the size of
+(`*uint8_t`), the next parameter will always be a `size_t` denoting the size of
 the buffer. This is considered part of the output parameters even though it is
 not directly modified.
 
@@ -133,31 +133,31 @@ pointed to by output arguments.
 Rustls supports various types of user customization via callbacks. All callbacks
 take a `void *userdata` parameter as their first parameter. Unless otherwise
 specified, this will receive a value that was associated with a
-rustls_connection via `rustls_connection_set_userdata`. If no such value was
-set, they will receive NULL. The read and write callbacks are a particular
+`rustls_connection` via `rustls_connection_set_userdata`. If no such value was
+set, they will receive `NULL`. The read and write callbacks are a particular
 exception to this rule - they receive a userdata value passed through from the
-current call to rustls_connection_{read,write}_tls.
+current call to `rustls_connection_{read,write}_tls`.
 
 ## NULL
 
-The library checks all pointers in arguments for NULL and will return an error
-rather than dereferencing a NULL pointer. For some methods that are infallible
-except for the possibility of NULL (for instance
+The library checks all pointers in arguments for `NULL` and will return an error
+rather than dereferencing a `NULL` pointer. For some methods that are infallible
+except for the possibility of `NULL` (for instance
 `rustls_connection_is_handshaking`), the library returns a convenient
-type (e.g. `bool`) and uses a suitable fallback value if an input is NULL.
+type (e.g. `bool`) and uses a suitable fallback value if an input is `NULL`.
 
 ## Panics
 
 In case of a bug (e.g. exceeding the bounds of an array), Rust code may
 emit a panic. Panics are treated like exceptions in C++, unwinding the stack.
 Unwinding past the FFI boundary is undefined behavior, so this library catches
-all unwinds and turns them into RUSTLS_RESULT_PANIC (when the function is
+all unwinds and turns them into `RUSTLS_RESULT_PANIC` (when the function is
 fallible).
 
-Functions that are theoretically infallible don't return rustls_result, so we
-can't return RUSTLS_RESULT_PANIC. In those cases, if there's a panic, we'll
-return a default value suitable to the return type: NULL for pointer types,
-false for bool types, and 0 for integer types.
+Functions that are theoretically infallible don't return `rustls_result`, so we
+can't return `RUSTLS_RESULT_PANIC`. In those cases, if there's a panic, we'll
+return a default value suitable to the return type: `NULL` for pointer types,
+`false` for bool types, and `0` for integer types.
 
 # Experimentals
 
