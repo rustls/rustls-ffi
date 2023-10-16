@@ -203,9 +203,10 @@ client hellos are usually only a few hundred bytes.
 
 #### Verifying TLS certificates
 
-By default, rustls does not load any TLS certificates, not even the system
-store, which means that TLS certificate verification will fail by default. You
-are responsible for loading certificates using one of the following methods:
+By default, rustls does not load any trust anchors (root certificates), not even 
+the system trust anchor store, which means that TLS certificate verification will 
+fail by default. You are responsible for loading certificates using one of the 
+following methods:
 
 - `rustls_root_cert_store_add_pem`, which adds a single certificate to a root
   store
