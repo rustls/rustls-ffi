@@ -108,7 +108,7 @@ the caller will need to take additional steps to prevent concurrent access
 When an output parameter is a pointer to a pointer (e.g.
 `rustls_connection **conn_out`, the function will set its argument
 to point to an appropriate object on success. The caller is considered to take
-ownership of that object and be responsible for the requirements above:
+ownership of that object and must be responsible for the requirements above:
 preventing concurrent mutation, and freeing it exactly once.
 
 For a method, the first parameter will always be a pointer to the struct being
