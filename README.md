@@ -169,7 +169,7 @@ need further evaluation and will most likely change significantly in the future.
 The `rustls_server_config_builder_set_hello_callback` and its provided information
 in `rustls_client_hello` will change. The current design is a snapshot of the
 implementation efforts in [mod_tls](https://github.com/icing/mod_tls) to provide
-`rustls` base TLS as module for the Apache webserver.
+`rustls`-based TLS as module for the Apache webserver.
 
 For a webserver hosting multiple domains on the same endpoint, it is highly desirable
 to have individual TLS settings, depending on the domain the client wants to talk to.
