@@ -35,4 +35,4 @@ name = "rustls_ffi"
 crate-type = ["lib", "staticlib"]
 
 [dev-dependencies]
-regex = "1.9.6"
+regex = "1.10.1"
