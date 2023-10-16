@@ -8,7 +8,7 @@ It also contains demo C programs that use those bindings to run an HTTPS server,
 make an HTTPS request.
 
 Rustls is a modern TLS library written in Rust, meaning it is less likely to
-have memory safety vulnerabilities that equivalent TLS libraries written in
+have memory safety vulnerabilities than equivalent TLS libraries written in
 memory unsafe languages.
 
 If you are using rustls-ffi to replace OpenSSL, note that OpenSSL provides
