@@ -30,8 +30,8 @@ use crate::session::{
 };
 use crate::{
     ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_arc_from_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_slice,
-    userdata_get, Castable, OwnershipArc, OwnershipBox, OwnershipRef,
+    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_get,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -170,7 +170,7 @@ impl rustls_server_config_builder {
     ) {
         ffi_panic_boundary! {
         let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-        let verifier: Arc<AllowAnyAuthenticatedClient> = try_arc_from_ptr!(verifier);
+        let verifier: Arc<AllowAnyAuthenticatedClient> = try_clone_arc!(verifier);
         builder.verifier = verifier;
         }
     }
@@ -186,7 +186,7 @@ impl rustls_server_config_builder {
     ) {
         ffi_panic_boundary! {
             let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-            let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = try_arc_from_ptr!(verifier);
+            let verifier: Arc<AllowAnyAnonymousOrAuthenticatedClient> = try_clone_arc!(verifier);
 
             builder.verifier = verifier;
         }
@@ -273,7 +273,7 @@ impl rustls_server_config_builder {
         let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
         let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
         for &key_ptr in keys_ptrs {
-            let certified_key: Arc<CertifiedKey> = try_arc_from_ptr!(key_ptr);
+            let certified_key: Arc<CertifiedKey> = try_clone_arc!(key_ptr);
             keys.push(certified_key);
         }
             builder.cert_resolver = Some(Arc::new(ResolvesServerCertFromChoices::new(&keys)));
@@ -333,7 +333,7 @@ impl rustls_server_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config: Arc<ServerConfig> = try_arc_from_ptr!(config);
+            let config: Arc<ServerConfig> = try_clone_arc!(config);
 
             let server_connection = match ServerConnection::new(config) {
                 Ok(sc) => sc,

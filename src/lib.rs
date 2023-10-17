@@ -368,19 +368,16 @@ where
     Arc::into_raw(Arc::new(src)) as *const _
 }
 
-/// Convert a const pointer to a [`Castable`] to an optional `Arc` over the underlying rust type.
+/// Given a const pointer to a [`Castable`] representing an `Arc`, clone the `Arc` and return
+/// the corresponding Rust type.
 ///
-/// Sometimes we create an `Arc`, then call `into_raw` and return the resulting raw pointer
-/// to C, e.g. using [`to_arc_const_ptr`]. C can then call a rustls-ffi function multiple times
-/// using that same raw pointer. On each call, we need to reconstruct the Arc, but once we reconstruct
-/// the Arc, its reference count will be decremented on drop. We need to reference count to stay at 1,
-/// because the C code is holding a copy.
+/// The caller still owns its copy of the `Arc`. In other words, the reference count of the
+/// `Arc` will be incremented by 1 by the end of this function.
 ///
-/// This function turns the raw pointer back into an Arc, clones it to increment the reference count
-/// (which will make it 2 in this particular case), and `mem::forget`s the clone. The `mem::forget`
-/// prevents the reference count from being decremented when we exit this function, so it will stay
-/// at 2 as long as we are in Rust code. Once the caller drops its `Arc`, the reference count will
-/// go back down to 1, since the C code's copy remains.
+/// To achieve that, we need to `mem::forget` the `Arc` we get back from `into_raw`, because
+/// `into_raw` _does_ take back ownership. If we called `into_raw` without `mem::forget`, at the
+/// end of the function that Arc would be dropped and the reference count would be decremented,
+/// potentially to 0, causing memory to be freed.
 ///
 /// Does nothing, returning `None`, when passed a `NULL` pointer. Can only be used when the
 /// `Castable` has specified a cast type equal to [`OwnershipArc`].
@@ -389,7 +386,7 @@ where
 ///
 /// If non-null, `ptr` must be a pointer that resulted from previously calling `Arc::into_raw`,
 /// e.g. from using [`to_arc_const_ptr`].
-pub(crate) fn to_arc<C>(ptr: *const C) -> Option<Arc<C::RustType>>
+pub(crate) fn clone_arc<C>(ptr: *const C) -> Option<Arc<C::RustType>>
 where
     C: Castable<Ownership = OwnershipArc>,
 {
@@ -566,32 +563,20 @@ macro_rules! try_ref_from_ptr {
 
 pub(crate) use try_ref_from_ptr;
 
-/// Convert a const pointer to a [`Castable`] to an optional `Arc` over the underlying
-/// [`Castable::RustType`]. See [`to_arc`] for more information.
-///
-/// Does nothing, returning `None`, when passed `NULL`. Can only be used with `Castable`'s that
-/// specify an ownership type of [`OwnershipArc`].
-pub(crate) fn try_arc_from<C>(from: *const C) -> Option<Arc<C::RustType>>
-where
-    C: Castable<Ownership = OwnershipArc>,
-{
-    to_arc(from)
-}
-
 /// If the provided pointer to a [`Castable`] is non-null, convert it to a reference to an `Arc` over
 /// the underlying rust type using [`try_arc_from`]. Otherwise, return
 /// [`rustls_result::NullParameter`], or an appropriate default (`false`, `0`, `NULL`) based on the
 /// context. See [`try_arc_from`] for more information.
-macro_rules! try_arc_from_ptr {
+macro_rules! try_clone_arc {
     ( $var:ident ) => {
-        match $crate::try_arc_from($var) {
+        match $crate::clone_arc($var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
 
-pub(crate) use try_arc_from_ptr;
+pub(crate) use try_clone_arc;
 
 /// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying
 /// [`Castable::RustType`].
