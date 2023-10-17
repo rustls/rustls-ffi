@@ -20,7 +20,21 @@ to provide the cryptographic primitives.
 # Build
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.61
-or above) and a C compiler (`gcc` and `clang` should both work). To build in optimized mode:
+or above) and a C compiler (`gcc` and `clang` should both work). 
+
+## Static Library
+
+In its current for rustls-ffi's `Makefile` infrastructure will generate a static
+system library (e.g. `--crate-type=staticlib`), producing a `.a` or `.lib` file
+(depending on the OS).
+
+We recommend using rustls-ffi as a static library as we  make no guarantees of
+[ABI](https://en.wikipedia.org/wiki/Application_binary_interface) stability across
+versions at this time, and dynamic library support is considered **experimental**.
+
+### Building a Static Library
+
+To build a static library in optimized mode:
 
     make
 
@@ -28,15 +42,15 @@ To install in `/usr/local/`:
 
     sudo make install
 
-To build in debug mode:
+To build a static library in debug mode:
 
     make PROFILE=debug
 
-To link against the resulting library, on **Linux**:
+To link against the resulting static library, on **Linux**:
 
     -lrustls -lgcc_s -lutil -lrt -lpthread -lm -ldl -lc
 
-To link against the resulting library, on **macOS**:
+To link against the resulting static library, on **macOS**:
 
     -lrustls -framework Security -liconv -lSystem -lc -l
 
@@ -44,6 +58,60 @@ If the linking instructions above go out of date, [you can get an up-to-date lis
 via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-compiler-information):
 
     RUSTFLAGS="--print native-static-libs" cargo build
+
+## Dynamic Library
+
+Using rustls-ffi as a static library has some downsides. Notably each application
+that links the static library will need to be rebuilt for each update to rustls-ffi,
+and duplicated copies of rustls-ffi will be included in each application.
+
+Building rustls-ffi as a dynamic library (`--crate-type=cdylib`) can resolve these
+issues, however this approach comes with its own trade-offs. We currently consider
+this option **experimental**.
+
+### ABI Stability
+
+At this time rustls-ffi makes **no** guarantees about
+[ABI](https://en.wikipedia.org/wiki/Application_binary_interface)  stability.
+Each release of rustls-ffi may introduce breaking changes to the ABI and so
+the built library should use the exact rustls-ffi version as the dynamic library
+[SONAME](https://en.wikipedia.org/wiki/Soname).
+
+### Building a Dynamic Library
+
+Since building a useful dynamic library is more complex than building a static
+library, rustls-ffi uses [cargo-ci](https://github.com/lu-zero/cargo-c) in place
+of the `Makefile` system used for the static library.
+
+This takes care of:
+* Generating the `rustls.h` header file.
+* Building a `.so` or `.dylib` file (depending on the OS).
+* Generating a [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) `.pc` file.
+* Installing the library and header files in the appropriate location.
+
+If your operating system doesn't package `cargo-c` natively
+(see [package availability](https://github.com/lu-zero/cargo-c#availability)),
+you can install it with:
+
+    cargo install cargo-c
+
+To build a dynamic library in optimized mode:
+
+    cargo capi build --release
+
+To install in `/usr/local/`:
+
+    sudo cargo capi install
+
+To build a static library in debug mode:
+
+    cargo capi build
+
+To link against the resulting dynamic library, use `pkg-config` to populate your
+`LDLIBS` and `CFLAGS` as appropriate:
+
+    pkg-config --libs rustls
+    pkg-config --cflags rustls
 
 # Overview
 
