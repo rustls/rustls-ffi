@@ -12,7 +12,7 @@ use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
     ffi_panic_boundary, free_box, rustls_result, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr,
-    try_arc_from_ptr, try_callback, try_mut_from_ptr, try_ref_from_ptr, try_take, Castable,
+    try_callback, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_take, Castable,
     OwnershipBox,
 };
 use rustls_result::NullParameter;
@@ -400,7 +400,7 @@ impl rustls_accepted {
         ffi_panic_boundary! {
             let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
             let accepted = try_take!(accepted);
-            let config: Arc<ServerConfig> = try_arc_from_ptr!(config);
+            let config: Arc<ServerConfig> = try_clone_arc!(config);
             match accepted.into_connection(config) {
                 Ok(built) => {
                     let wrapped = crate::connection::Connection::from_server(built);
