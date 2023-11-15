@@ -421,7 +421,7 @@ impl rustls_certified_key {
                     rsa_private_key
                 }
             };
-        let signing_key = match rustls::sign::any_supported_type(&private_key) {
+        let signing_key = match rustls::crypto::ring::sign::any_supported_type(&private_key) {
             Ok(key) => key,
             Err(_) => return Err(rustls_result::PrivateKeyParseError),
         };
