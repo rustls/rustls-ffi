@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::ffi::{CStr, OsStr};
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::BufReader;
 use std::slice;
@@ -70,6 +71,7 @@ impl Castable for rustls_client_config {
     type RustType = ClientConfig;
 }
 
+#[derive(Debug)]
 struct NoneVerifier;
 
 impl ServerCertVerifier for NoneVerifier {
@@ -248,7 +250,7 @@ unsafe impl Send for Verifier {}
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
-impl rustls::client::danger::ServerCertVerifier for Verifier {
+impl ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
         end_entity: &CertificateDer,
@@ -310,6 +312,12 @@ impl rustls::client::danger::ServerCertVerifier for Verifier {
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
         WebPkiServerVerifier::default_supported_verify_schemes()
+    }
+}
+
+impl Debug for Verifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Verifier").finish()
     }
 }
 
@@ -497,6 +505,7 @@ impl rustls_client_config_builder {
 }
 
 /// Always send the same client certificate.
+#[derive(Debug)]
 struct ResolvesClientCertFromChoices {
     keys: Vec<Arc<CertifiedKey>>,
 }

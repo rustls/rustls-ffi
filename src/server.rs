@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::ffi::c_void;
+use std::fmt::{Debug, Formatter};
 use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
@@ -380,6 +381,7 @@ pub extern "C" fn rustls_server_connection_get_server_name(
 /// Choose the server certificate to be used for a connection based on certificate
 /// type. Will pick the first CertfiedKey available that is suitable for
 /// the SignatureSchemes supported by the client.
+#[derive(Debug)]
 struct ResolvesServerCertFromChoices {
     choices: Vec<Arc<CertifiedKey>>,
 }
@@ -527,6 +529,12 @@ impl ResolvesServerCert for ClientHelloResolver {
 /// documented as a requirement in the API.
 unsafe impl Sync for ClientHelloResolver {}
 unsafe impl Send for ClientHelloResolver {}
+
+impl Debug for ClientHelloResolver {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClientHelloResolver").finish()
+    }
+}
 
 impl rustls_server_config_builder {
     /// Register a callback to be invoked when a connection created from this config
