@@ -643,6 +643,19 @@ macro_rules! try_callback {
 
 pub(crate) use try_callback;
 
+macro_rules! try_take {
+    ( $var:ident ) => {
+        match $var.take() {
+            None => {
+                return $crate::rustls_result::AlreadyUsed;
+            }
+            Some(x) => x,
+        }
+    };
+}
+
+pub(crate) use try_take;
+
 /// Returns a static string containing the rustls-ffi version as well as the
 /// rustls version. The string is alive for the lifetime of the program and does
 /// not need to be freed.
