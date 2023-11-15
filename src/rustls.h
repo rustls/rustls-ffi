@@ -1071,6 +1071,28 @@ rustls_result rustls_web_pki_client_cert_verifier_allow_unknown_revocation_statu
 rustls_result rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated(struct rustls_web_pki_client_cert_verifier_builder *builder);
 
 /**
+ * Clear the list of trust anchor hint subjects.
+ *
+ * By default, the client cert verifier will use the subjects provided by the root cert
+ * store configured for client authentication. Calling this function will remove these
+ * hint subjects, indicating the client should make a free choice of which certificate
+ * to send.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_clear_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Add additional distinguished names to the list of trust anchor hint subjects.
+ *
+ * By default, the client cert verifier will use the subjects provided by the root cert
+ * store configured for client authentication. Calling this function will add to these
+ * existing hint subjects. Calling this function with an empty `store` will have no
+ * effect, use `rustls_web_pki_client_cert_verifier_clear_root_hint_subjects` to clear
+ * the subject hints.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_add_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder,
+                                                                         const struct rustls_root_cert_store *store);
+
+/**
  * Create a new client certificate verifier from the builder.
  *
  * The builder is consumed and cannot be used again, but must still be freed.

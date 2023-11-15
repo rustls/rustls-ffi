@@ -15,7 +15,7 @@ use rustls::crypto::ring::{ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES};
 use rustls::server::danger::ClientCertVerifier;
 use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
-use rustls::{RootCertStore, SupportedCipherSuite};
+use rustls::{DistinguishedName, RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
 use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
 
@@ -685,6 +685,7 @@ pub struct rustls_web_pki_client_cert_verifier_builder {
 
 pub(crate) struct ClientCertVerifierBuilder {
     roots: Arc<RootCertStore>,
+    root_hint_subjects: Vec<DistinguishedName>,
     crls: Vec<CertificateRevocationListDer<'static>>,
     revocation_depth: RevocationCheckDepth,
     revocation_policy: UnknownStatusPolicy,
@@ -726,6 +727,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let store = try_clone_arc!(store);
              let builder = ClientCertVerifierBuilder {
+                root_hint_subjects: store.subjects(),
                 roots: store,
                 crls: Vec::default(),
                 revocation_depth: RevocationCheckDepth::Chain,
@@ -831,6 +833,52 @@ impl rustls_web_pki_client_cert_verifier_builder {
         }
     }
 
+    /// Clear the list of trust anchor hint subjects.
+    ///
+    /// By default, the client cert verifier will use the subjects provided by the root cert
+    /// store configured for client authentication. Calling this function will remove these
+    /// hint subjects, indicating the client should make a free choice of which certificate
+    /// to send.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_clear_root_hint_subjects(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.root_hint_subjects.clear();
+            rustls_result::Ok
+        }
+    }
+
+    /// Add additional distinguished names to the list of trust anchor hint subjects.
+    ///
+    /// By default, the client cert verifier will use the subjects provided by the root cert
+    /// store configured for client authentication. Calling this function will add to these
+    /// existing hint subjects. Calling this function with an empty `store` will have no
+    /// effect, use `rustls_web_pki_client_cert_verifier_clear_root_hint_subjects` to clear
+    /// the subject hints.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_add_root_hint_subjects(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+        store: *const rustls_root_cert_store,
+    ) -> rustls_result {
+        let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            try_mut_from_ptr!(builder);
+        let client_verifier_builder = match client_verifier_builder {
+            None => return AlreadyUsed,
+            Some(v) => v,
+        };
+
+        let store = try_clone_arc!(store);
+        client_verifier_builder.root_hint_subjects = store.subjects();
+        rustls_result::Ok
+    }
+
     /// Create a new client certificate verifier from the builder.
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
@@ -859,6 +907,11 @@ impl rustls_web_pki_client_cert_verifier_builder {
             }
             if client_verifier_builder.allow_unauthenticated {
                 builder = builder.allow_unauthenticated();
+            }
+            if client_verifier_builder.root_hint_subjects.is_empty() {
+                builder = builder.clear_root_hint_subjects();
+            } else {
+                builder = builder.add_root_hint_subjects(client_verifier_builder.root_hint_subjects);
             }
 
             let verifier = match builder.build() {
