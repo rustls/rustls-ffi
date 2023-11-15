@@ -19,10 +19,10 @@ use crate::error::{map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, free_arc, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr,
-    try_mut_from_ptr, try_ref_from_ptr, try_slice, Castable, OwnershipArc, OwnershipBox,
+    try_mut_from_ptr, try_ref_from_ptr, try_slice, try_take, Castable, OwnershipArc, OwnershipBox,
     OwnershipRef,
 };
-use rustls_result::{AlreadyUsed, NullParameter};
+use rustls_result::NullParameter;
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `Certificate` in the Rust API.
@@ -566,13 +566,7 @@ impl rustls_allow_any_authenticated_client_builder {
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
 
-            let client_cert_verifier = match client_cert_verifier_builder.take() {
-                None => {
-                    return AlreadyUsed;
-                },
-                Some(x) => x,
-            };
-
+            let client_cert_verifier = try_take!(client_cert_verifier_builder);
             match client_cert_verifier.with_crls(crls_der) {
                 Ok(v) => client_cert_verifier_builder.replace(v),
                 Err(e) => return map_error(rustls::Error::InvalidCertRevocationList(e)),
@@ -710,13 +704,7 @@ impl rustls_allow_any_anonymous_or_authenticated_client_builder {
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
 
-            let client_cert_verifier = match client_cert_verifier_builder.take() {
-                None => {
-                    return AlreadyUsed;
-                },
-                Some(x) => x,
-            };
-
+            let client_cert_verifier = try_take!(client_cert_verifier_builder);
             match client_cert_verifier.with_crls(crls_der) {
                 Ok(v) => client_cert_verifier_builder.replace(v),
                 Err(e) => return map_error(rustls::Error::InvalidCertRevocationList(e)),
