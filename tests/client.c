@@ -413,7 +413,12 @@ main(int argc, const char **argv)
 
   struct rustls_client_config_builder *config_builder =
     rustls_client_config_builder_new();
+  struct rustls_root_cert_store_builder *server_cert_root_store_builder = NULL;
+  const struct rustls_root_cert_store *server_cert_root_store = NULL;
   const struct rustls_client_config *client_config = NULL;
+  struct rustls_web_pki_server_cert_verifier_builder
+    *server_cert_verifier_builder = NULL;
+  struct rustls_server_cert_verifier *server_cert_verifier = NULL;
   struct rustls_slice_bytes alpn_http11;
   const struct rustls_certified_key *certified_key = NULL;
 
@@ -427,12 +432,29 @@ main(int argc, const char **argv)
 #endif
 
   if(getenv("CA_FILE")) {
+    server_cert_root_store_builder = rustls_root_cert_store_builder_new();
     result = rustls_client_config_builder_load_roots_from_file(
-      config_builder, getenv("CA_FILE"));
+      server_cert_root_store_builder, getenv("CA_FILE"), true);
     if(result != RUSTLS_RESULT_OK) {
       print_error("loading trusted certificates", result);
       goto cleanup;
     }
+    result = rustls_root_cert_store_builder_build(
+      server_cert_root_store_builder, &server_cert_root_store);
+    if(result != RUSTLS_RESULT_OK) {
+      goto cleanup;
+    }
+
+    server_cert_verifier_builder =
+      rustls_web_pki_server_cert_verifier_builder_new(server_cert_root_store);
+
+    result = rustls_web_pki_server_cert_verifier_builder_build(
+      server_cert_verifier_builder, &server_cert_verifier);
+    if(result != RUSTLS_RESULT_OK) {
+      goto cleanup;
+    }
+    rustls_client_config_builder_set_server_verifier(config_builder,
+                                                     server_cert_verifier);
   }
   else if(getenv("NO_CHECK_CERTIFICATE")) {
     rustls_client_config_builder_dangerous_set_certificate_verifier(
@@ -479,6 +501,11 @@ main(int argc, const char **argv)
   ret = 0;
 
 cleanup:
+  rustls_root_cert_store_builder_free(server_cert_root_store_builder);
+  rustls_root_cert_store_free(server_cert_root_store);
+  rustls_web_pki_server_cert_verifier_builder_free(
+    server_cert_verifier_builder);
+  rustls_server_cert_verifier_free(server_cert_verifier);
   rustls_certified_key_free(certified_key);
   rustls_client_config_free(client_config);
 
