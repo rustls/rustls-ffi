@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
-use rustls::server::ClientCertVerifierBuilderError;
+use rustls::server::VerifierBuilderError;
 use rustls::{CertRevocationListError, CertificateError, Error, InvalidMessage};
 
 /// A return value for a function that may return either success (0) or a
@@ -422,12 +422,12 @@ pub(crate) fn map_crl_error(err: CertRevocationListError) -> rustls_result {
     }
 }
 
-pub(crate) fn map_verifier_builder_error(err: ClientCertVerifierBuilderError) -> rustls_result {
+pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_result {
     match err {
-        ClientCertVerifierBuilderError::NoRootAnchors => {
+        VerifierBuilderError::NoRootAnchors => {
             rustls_result::ClientCertVerifierBuilderNoRootAnchors
         }
-        ClientCertVerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
+        VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
         _ => rustls_result::General,
     }
 }
