@@ -1,9 +1,7 @@
 use std::borrow::Cow;
 use std::convert::TryInto;
-use std::ffi::{CStr, OsStr};
+use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
-use std::fs::File;
-use std::io::BufReader;
 use std::slice;
 use std::sync::Arc;
 
@@ -14,10 +12,12 @@ use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
     sign::CertifiedKey, CertificateError, ClientConfig, ClientConnection, DigitallySignedStruct,
-    Error, ProtocolVersion, RootCertStore, SignatureScheme, SupportedCipherSuite, WantsVerifier,
+    Error, ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier,
 };
 
-use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
+use crate::cipher::{
+    rustls_certified_key, rustls_server_cert_verifier, rustls_supported_ciphersuite,
+};
 use crate::connection::{rustls_connection, Connection};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, rustls_result};
@@ -364,67 +364,18 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Use the trusted root certificates from the provided store.
+    /// Configure the server certificate verifier.
     ///
-    /// This replaces any trusted roots already configured with copies
-    /// from `roots`. This adds 1 to the refcount for `roots`. When you
-    /// call rustls_client_config_free or rustls_client_config_builder_free,
-    /// those will subtract 1 from the refcount for `roots`.
+    /// This increases the reference count of `verifier` and does not take ownership.
     #[no_mangle]
-    pub extern "C" fn rustls_client_config_builder_use_roots(
-        config_builder: *mut rustls_client_config_builder,
-        roots: *const rustls_root_cert_store,
-    ) -> rustls_result {
+    pub extern "C" fn rustls_client_config_builder_set_server_verifier(
+        builder: *mut rustls_client_config_builder,
+        verifier: *const rustls_server_cert_verifier,
+    ) {
         ffi_panic_boundary! {
-            let builder = try_mut_from_ptr!(config_builder);
-            let root_store: &RootCertStore = try_ref_from_ptr!(roots);
-            builder.verifier = Arc::new(rustls::client::WebPkiServerVerifier::new(root_store.clone()));
-            rustls_result::Ok
-        }
-    }
-
-    /// Add trusted root certificates from the named file, which should contain
-    /// PEM-formatted certificates.
-    #[no_mangle]
-    pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
-        config_builder: *mut rustls_client_config_builder,
-        filename: *const c_char,
-    ) -> rustls_result {
-        ffi_panic_boundary! {
-            let config_builder = try_mut_from_ptr!(config_builder);
-            let filename: &CStr = unsafe {
-                if filename.is_null() {
-                    return rustls_result::NullParameter;
-                }
-                CStr::from_ptr(filename)
-            };
-
-            let filename: &[u8] = filename.to_bytes();
-            let filename: &str = match std::str::from_utf8(filename) {
-                Ok(s) => s,
-                Err(_) => return rustls_result::Io,
-            };
-            let filename: &OsStr = OsStr::new(filename);
-            let mut cafile = match File::open(filename) {
-                Ok(f) => f,
-                Err(_) => return rustls_result::Io,
-            };
-
-            let mut bufreader = BufReader::new(&mut cafile);
-            let certs: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut bufreader).collect();
-            let certs = match certs {
-                Ok(certs) => certs,
-                Err(_) => return rustls_result::Io,
-            };
-
-            let mut roots = RootCertStore::empty();
-            let (_, failed) = roots.add_parsable_certificates(certs);
-            if failed > 0 {
-                return rustls_result::CertificateParseError;
-            }
-
-            config_builder.verifier = Arc::new(rustls::client::WebPkiServerVerifier::new(roots));
-            rustls_result::Ok
+            let builder: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
+            let verifier = try_ref_from_ptr!(verifier);
+            builder.verifier = verifier.clone();
         }
     }
 
