@@ -17,6 +17,7 @@ use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
 use rustls::{RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
+use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::error::{self, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
@@ -685,6 +686,8 @@ pub struct rustls_web_pki_client_cert_verifier_builder {
 pub(crate) struct ClientCertVerifierBuilder {
     roots: Arc<RootCertStore>,
     crls: Vec<CertificateRevocationListDer<'static>>,
+    revocation_depth: RevocationCheckDepth,
+    revocation_policy: UnknownStatusPolicy,
     allow_unauthenticated: bool,
 }
 
@@ -704,7 +707,12 @@ impl rustls_web_pki_client_cert_verifier_builder {
     ///
     /// Revocation checking will not be performed unless
     /// `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
-    /// lists (CRLs) to the builder.
+    /// lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+    /// for the entire certificate chain unless
+    /// `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+    /// revocation status for certificates considered for revocation status will be treated as
+    /// an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+    /// used.
     ///
     /// Unauthenticated clients will not be permitted unless
     /// `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
@@ -720,6 +728,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
              let builder = ClientCertVerifierBuilder {
                 roots: store,
                 crls: Vec::default(),
+                revocation_depth: RevocationCheckDepth::Chain,
+                revocation_policy: UnknownStatusPolicy::Deny,
                 allow_unauthenticated: false,
             };
             to_boxed_mut_ptr(Some(builder))
@@ -728,6 +738,10 @@ impl rustls_web_pki_client_cert_verifier_builder {
 
     /// Add one or more certificate revocation lists (CRLs) to the client certificate verifier
     /// builder by reading the CRL content from the provided buffer of PEM encoded content.
+    ///
+    /// By default revocation checking will be performed on the entire certificate chain. To only
+    /// check the revocation status of the end entity certificate, use
+    /// `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
     ///
     /// This function returns an error if the provided buffer is not valid PEM encoded content.
     #[no_mangle]
@@ -755,6 +769,46 @@ impl rustls_web_pki_client_cert_verifier_builder {
 
 
             client_verifier_builder.crls.extend(crls_der);
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, only
+    /// check the revocation status of end entity certificates, ignoring any intermediate certificates
+    /// in the chain.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.revocation_depth = RevocationCheckDepth::EndEntity;
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, and it
+    /// isn't possible to determine the revocation status of a considered certificate, do not treat
+    /// it as an error condition.
+    ///
+    /// Overrides the default behavior where unknown revocation status is considered an error.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.revocation_policy = UnknownStatusPolicy::Allow;
             rustls_result::Ok
         }
     }
@@ -795,6 +849,14 @@ impl rustls_web_pki_client_cert_verifier_builder {
 
             let mut builder = WebPkiClientVerifier::builder(client_verifier_builder.roots)
                 .with_crls(client_verifier_builder.crls);
+            match client_verifier_builder.revocation_depth {
+                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
+                RevocationCheckDepth::Chain => {},
+            }
+            match client_verifier_builder.revocation_policy {
+                UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
+                UnknownStatusPolicy::Deny => {},
+            }
             if client_verifier_builder.allow_unauthenticated {
                 builder = builder.allow_unauthenticated();
             }
@@ -839,9 +901,8 @@ pub struct rustls_web_pki_server_cert_verifier_builder {
 pub(crate) struct ServerCertVerifierBuilder {
     roots: Arc<RootCertStore>,
     crls: Vec<CertificateRevocationListDer<'static>>,
-    // TODO(@cpu): revocation checking depth
-    // TODO(@cpu): unknown revocation status policy
-    // TODO(@cpu): supported algs?
+    revocation_depth: RevocationCheckDepth,
+    revocation_policy: UnknownStatusPolicy,
 }
 
 impl Castable for rustls_web_pki_server_cert_verifier_builder {
@@ -860,7 +921,12 @@ impl ServerCertVerifierBuilder {
     ///
     /// Revocation checking will not be performed unless
     /// `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
-    /// lists (CRLs) to the builder.
+    /// lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+    /// for the entire certificate chain unless
+    /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+    /// revocation status for certificates considered for revocation status will be treated as
+    /// an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+    /// used.
     ///
     /// This copies the contents of the `rustls_root_cert_store`. It does not take
     /// ownership of the pointed-to data.
@@ -873,6 +939,8 @@ impl ServerCertVerifierBuilder {
             let builder = ServerCertVerifierBuilder {
                 roots: store,
                 crls: Vec::default(),
+                revocation_depth: RevocationCheckDepth::Chain,
+                revocation_policy: UnknownStatusPolicy::Deny
             };
             to_boxed_mut_ptr(Some(builder))
         }
@@ -880,6 +948,10 @@ impl ServerCertVerifierBuilder {
 
     /// Add one or more certificate revocation lists (CRLs) to the server certificate verifier
     /// builder by reading the CRL content from the provided buffer of PEM encoded content.
+    ///
+    /// By default revocation checking will be performed on the entire certificate chain. To only
+    /// check the revocation status of the end entity certificate, use
+    /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
     ///
     /// This function returns an error if the provided buffer is not valid PEM encoded content.
     #[no_mangle]
@@ -911,6 +983,46 @@ impl ServerCertVerifierBuilder {
         }
     }
 
+    /// When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, only
+    /// check the revocation status of end entity certificates, ignoring any intermediate certificates
+    /// in the chain.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = match server_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            server_verifier_builder.revocation_depth = RevocationCheckDepth::EndEntity;
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and it
+    /// isn't possible to determine the revocation status of a considered certificate, do not treat
+    /// it as an error condition.
+    ///
+    /// Overrides the default behavior where unknown revocation status is considered an error.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = match server_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            server_verifier_builder.revocation_policy = UnknownStatusPolicy::Allow;
+            rustls_result::Ok
+        }
+    }
+
     /// Create a new server certificate verifier from the builder.
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
@@ -927,8 +1039,16 @@ impl ServerCertVerifierBuilder {
             let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
 
-            let builder = WebPkiServerVerifier::builder(server_verifier_builder.roots)
+            let mut builder = WebPkiServerVerifier::builder(server_verifier_builder.roots)
                 .with_crls(server_verifier_builder.crls);
+            match server_verifier_builder.revocation_depth {
+                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
+                RevocationCheckDepth::Chain => {},
+            }
+            match server_verifier_builder.revocation_policy {
+                UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
+                UnknownStatusPolicy::Deny => {},
+            }
 
             let verifier = match builder.build() {
                 Ok(v) => v,

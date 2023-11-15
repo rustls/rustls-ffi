@@ -1019,7 +1019,12 @@ void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifi
  *
  * Revocation checking will not be performed unless
  * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder.
+ * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+ * used.
  *
  * Unauthenticated clients will not be permitted unless
  * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
@@ -1033,11 +1038,31 @@ struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_v
  * Add one or more certificate revocation lists (CRLs) to the client certificate verifier
  * builder by reading the CRL content from the provided buffer of PEM encoded content.
  *
+ * By default revocation checking will be performed on the entire certificate chain. To only
+ * check the revocation status of the end entity certificate, use
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
+ *
  * This function returns an error if the provided buffer is not valid PEM encoded content.
  */
 rustls_result rustls_web_pki_client_cert_verifier_builder_add_crl(struct rustls_web_pki_client_cert_verifier_builder *builder,
                                                                   const uint8_t *crl_pem,
                                                                   size_t crl_pem_len);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, only
+ * check the revocation status of end entity certificates, ignoring any intermediate certificates
+ * in the chain.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, and it
+ * isn't possible to determine the revocation status of a considered certificate, do not treat
+ * it as an error condition.
+ *
+ * Overrides the default behavior where unknown revocation status is considered an error.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_client_cert_verifier_builder *builder);
 
 /**
  * Allow unauthenticated anonymous clients in addition to those that present a client
@@ -1075,7 +1100,12 @@ void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_clie
  *
  * Revocation checking will not be performed unless
  * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder.
+ * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+ * used.
  *
  * This copies the contents of the `rustls_root_cert_store`. It does not take
  * ownership of the pointed-to data.
@@ -1086,11 +1116,31 @@ struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_v
  * Add one or more certificate revocation lists (CRLs) to the server certificate verifier
  * builder by reading the CRL content from the provided buffer of PEM encoded content.
  *
+ * By default revocation checking will be performed on the entire certificate chain. To only
+ * check the revocation status of the end entity certificate, use
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
+ *
  * This function returns an error if the provided buffer is not valid PEM encoded content.
  */
 rustls_result rustls_web_pki_server_cert_verifier_builder_add_crl(struct rustls_web_pki_server_cert_verifier_builder *builder,
                                                                   const uint8_t *crl_pem,
                                                                   size_t crl_pem_len);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, only
+ * check the revocation status of end entity certificates, ignoring any intermediate certificates
+ * in the chain.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and it
+ * isn't possible to determine the revocation status of a considered certificate, do not treat
+ * it as an error condition.
+ *
+ * Overrides the default behavior where unknown revocation status is considered an error.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_server_cert_verifier_builder *builder);
 
 /**
  * Create a new server certificate verifier from the builder.
