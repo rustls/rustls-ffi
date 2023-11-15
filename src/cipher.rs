@@ -153,21 +153,23 @@ pub extern "C" fn rustls_default_ciphersuites_get_entry(
 /// releases.
 #[no_mangle]
 pub static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
-    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
 ];
 
@@ -181,21 +183,23 @@ pub static RUSTLS_ALL_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_ALL_CIPHER_SUIT
 /// between releases.
 #[no_mangle]
 pub static mut RUSTLS_DEFAULT_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
-    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
 ];
 
