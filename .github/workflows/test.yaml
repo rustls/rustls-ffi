@@ -1,3 +1,9 @@
+# Note: This test file temporarily pins nightly-2023-11-01 instead of the latest nightly,
+# because the requirements for an unstable feature changed recently, which causes this
+# error on latest nightly:
+#
+# error[E0658]: use of unstable library feature 'core_io_borrowed_buf'
+#
 name: rustls-ffi
 
 permissions:
@@ -78,6 +84,8 @@ jobs:
           persist-credentials: false
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2023-11-01
       - name: Configure CMake
         run: cmake -S . -B build
       - name: Build, debug configuration
@@ -95,6 +103,8 @@ jobs:
           persist-credentials: false
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2023-11-01
       - name: Configure CMake
         run: cmake -S . -B build
       - name: Build, release configuration
@@ -109,8 +119,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install nightly rust toolchain
+      - name: Install stable rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2023-11-01
       - name: Install cbindgen
         # Pin the installed version of cbindgen so that local usage can be
         # reliably matched to CI. There can be non-semantic differences in
@@ -133,6 +145,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2023-11-01
 
       - name: cargo doc (all features)
         run: cargo doc --all-features --no-deps --workspace
@@ -150,6 +164,8 @@ jobs:
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+        with:
+          toolchain: nightly-2023-11-01
 
       - name: Build client/server binaries
         run: make target/client target/server
