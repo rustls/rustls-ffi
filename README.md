@@ -20,7 +20,13 @@ to provide the cryptographic primitives.
 # Build
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.61
-or above) and a C compiler (`gcc` and `clang` should both work). To build in optimized mode:
+or above) and a C compiler (`gcc` and `clang` should both work).
+
+If you're using the Rust nightly toolchain, note that toolchains after about
+2023-11-01 will error due to [the core_io_borrowed_buf feature](https://github.com/rust-lang/rust/issues/117693).
+Use a stable toolchain for now, as we work on updating compatibility.
+
+To build in optimized mode:
 
     make
 
