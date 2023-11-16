@@ -4,6 +4,7 @@
 // TODO(#333): Fix this clippy warning.
 #![allow(clippy::arc_with_non_send_sync)]
 #![cfg_attr(feature = "read_buf", feature(read_buf))]
+#![cfg_attr(feature = "read_buf", feature(core_io_borrowed_buf))]
 
 //! This package contains bindings for using rustls via a C API. If
 //! you're looking at this on docs.rs, [you may want the rustls docs
