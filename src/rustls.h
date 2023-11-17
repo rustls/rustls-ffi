@@ -231,6 +231,12 @@ typedef struct rustls_root_cert_store rustls_root_cert_store;
 typedef struct rustls_root_cert_store_builder rustls_root_cert_store_builder;
 
 /**
+ * A built server certificate verifier that can be provided to a `rustls_client_config_builder`
+ * with `rustls_client_config_builder_set_server_verifier`.
+ */
+typedef struct rustls_server_cert_verifier rustls_server_cert_verifier;
+
+/**
  * A server config that is done being constructed and is now read-only.
  * Under the hood, this object corresponds to an `Arc<ServerConfig>`.
  * <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
@@ -296,6 +302,15 @@ typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
  * for concurrent mutation.
  */
 typedef struct rustls_web_pki_client_cert_verifier_builder rustls_web_pki_client_cert_verifier_builder;
+
+/**
+ * A server certificate verifier being constructed. A builder can be modified by,
+ * e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`. Once you're
+ * done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
+ * to turn it into a `rustls_server_cert_verifier`. This object is not safe
+ * for concurrent mutation.
+ */
+typedef struct rustls_web_pki_server_cert_verifier_builder rustls_web_pki_server_cert_verifier_builder;
 
 /**
  * A read-only view on a Rust `&str`. The contents are guaranteed to be valid
@@ -947,6 +962,21 @@ rustls_result rustls_root_cert_store_builder_add_pem(struct rustls_root_cert_sto
                                                      bool strict);
 
 /**
+ * Add one or more certificates to the root cert store builder using PEM
+ * encoded data read from the named file.
+ *
+ * When `strict` is true an error will return a `CertificateParseError`
+ * result. So will an attempt to parse data that has zero certificates.
+ *
+ * When `strict` is false, unparseable root certificates will be ignored.
+ * This may be useful on systems that have syntactically invalid root
+ * certificates.
+ */
+rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_root_cert_store_builder *builder,
+                                                                const char *filename,
+                                                                bool strict);
+
+/**
  * Create a new `rustls_root_cert_store` from the builder.
  *
  * The builder is consumed and cannot be used again, but must still be freed.
@@ -979,9 +1009,9 @@ void rustls_root_cert_store_free(const struct rustls_root_cert_store *store);
 void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
 
 /**
- * Create a `rustls_web_pki_client_cert_verifier_builder`. Caller owns the memory and must
- * eventually call `rustls_web_pki_client_cert_verifier_builder_build`, then free the
- * resulting `rustls_client_cert_verifier`.
+ * Create a `rustls_web_pki_client_cert_verifier_builder`. Caller owns the memory and may
+ * eventually call `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
+ * not `rustls_web_pki_client_cert_verifier_builder_build` was called.
  *
  * Without further modification the builder will produce a client certificate verifier that
  * will require a client present a client certificate that chains to one of the trust anchors
@@ -1033,6 +1063,60 @@ rustls_result rustls_web_pki_client_cert_verifier_builder_build(struct rustls_we
  * called twice with the same value.
  */
 void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Create a `rustls_web_pki_server_cert_verifier_builder`. Caller owns the memory and may
+ * free it with `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
+ * `rustls_web_pki_server_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a server certificate verifier that
+ * will require a server present a certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the server certificate verifier
+ * builder by reading the CRL content from the provided buffer of PEM encoded content.
+ *
+ * This function returns an error if the provided buffer is not valid PEM encoded content.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_builder_add_crl(struct rustls_web_pki_server_cert_verifier_builder *builder,
+                                                                  const uint8_t *crl_pem,
+                                                                  size_t crl_pem_len);
+
+/**
+ * Create a new server certificate verifier from the builder.
+ *
+ * The builder is consumed and cannot be used again, but must still be freed.
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be
+ * freed by the application when no longer needed. See the documentation of
+ * `rustls_web_pki_server_cert_verifier_builder_free` for details about lifetime.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_builder_build(struct rustls_web_pki_server_cert_verifier_builder *builder,
+                                                                struct rustls_server_cert_verifier **verifier_out);
+
+/**
+ * Free a `rustls_server_cert_verifier_builder` previously returned from
+ * `rustls_server_cert_verifier_builder_new`. Calling with NULL is fine. Must not be
+ * called twice with the same value.
+ */
+void rustls_web_pki_server_cert_verifier_builder_free(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * Free a `rustls_server_cert_verifier` previously returned from
+ * `rustls_server_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
+ * called twice with the same value.
+ */
+void rustls_server_cert_verifier_free(struct rustls_server_cert_verifier *verifier);
 
 /**
  * Create a rustls_client_config_builder. Caller owns the memory and must
@@ -1100,22 +1184,12 @@ rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(st
                                                                               rustls_verify_server_cert_callback callback);
 
 /**
- * Use the trusted root certificates from the provided store.
+ * Configure the server certificate verifier.
  *
- * This replaces any trusted roots already configured with copies
- * from `roots`. This adds 1 to the refcount for `roots`. When you
- * call rustls_client_config_free or rustls_client_config_builder_free,
- * those will subtract 1 from the refcount for `roots`.
+ * This increases the reference count of `verifier` and does not take ownership.
  */
-rustls_result rustls_client_config_builder_use_roots(struct rustls_client_config_builder *config_builder,
-                                                     const struct rustls_root_cert_store *roots);
-
-/**
- * Add trusted root certificates from the named file, which should contain
- * PEM-formatted certificates.
- */
-rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_client_config_builder *config_builder,
-                                                                const char *filename);
+void rustls_client_config_builder_set_server_verifier(struct rustls_client_config_builder *builder,
+                                                      const struct rustls_server_cert_verifier *verifier);
 
 /**
  * Set the ALPN protocol list to the given protocols. `protocols` must point
@@ -1485,7 +1559,7 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_suppor
 
 /**
  * Create a rustls_server_config_builder for TLS sessions that may verify client
- * certificates.
+ * certificates. This increases the refcount of `verifier` and doesn't take ownership.
  */
 void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
