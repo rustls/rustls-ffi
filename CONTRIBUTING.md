@@ -74,3 +74,22 @@ and forth across the FFI boundary.
 
 [Dynamically Sized Types]: https://doc.rust-lang.org/beta/reference/dynamically-sized-types.html
 [trait objects]: https://doc.rust-lang.org/beta/reference/types/trait-object.html
+
+# Helper macros
+
+We have an API guideline that we always check input pointers for `NULL`, and
+return an error or default value rather than dereferencing a `NULL` pointer.
+To help with that, we have a number of helper macros that early-return if a
+pointer is `NULL`:
+
+ - `try_ref_from_ptr!`
+ - `try_mut_from_ptr!`
+ - `try_box_from_ptr!`
+ - `try_clone_arc!`
+ - `try_callback!`
+ - `try_slice!`
+ - `try_take!`
+
+These are defined in [src/lib.rs](src/lib.rs). The `Castable` trait determines which
+C pointers can be cast to which Rust pointer types. These macros rely
+on that trait to ensure correct typing of conversions.
