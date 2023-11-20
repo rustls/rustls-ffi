@@ -1,45 +1,50 @@
-use libc::size_t;
+use libc::{c_char, size_t};
 use std::convert::TryFrom;
-use std::io::Cursor;
+use std::ffi::{CStr, OsStr};
+use std::fs::File;
+use std::io::{BufReader, Cursor};
+use std::marker::PhantomData;
 use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use rustls::server::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, UnparsedCertRevocationList,
-};
+use pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer};
+use rustls::client::danger::ServerCertVerifier;
+use rustls::client::WebPkiServerVerifier;
+use rustls::crypto::ring::{ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES};
+use rustls::server::danger::ClientCertVerifier;
+use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
-use rustls::{
-    Certificate, PrivateKey, RootCertStore, SupportedCipherSuite, ALL_CIPHER_SUITES,
-    DEFAULT_CIPHER_SUITES,
-};
+use rustls::{DistinguishedName, RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
+use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
 
-use crate::error::{map_error, rustls_result};
+use crate::error::{self, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, free_arc, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr,
-    try_mut_from_ptr, try_ref_from_ptr, try_slice, try_take, Castable, OwnershipArc, OwnershipBox,
-    OwnershipRef,
+    ffi_panic_boundary, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr, to_arc_const_ptr,
+    to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_slice, try_take,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef,
 };
-use rustls_result::NullParameter;
+use rustls_result::{AlreadyUsed, NullParameter};
 
 /// An X.509 certificate, as used in rustls.
-/// Corresponds to `Certificate` in the Rust API.
-/// <https://docs.rs/rustls/latest/rustls/struct.Certificate.html>
-pub struct rustls_certificate {
+/// Corresponds to `CertificateDer` in the Rust pki-types API.
+/// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
+pub struct rustls_certificate<'a> {
     // We use the opaque struct pattern to tell C about our types without
     // telling them what's inside.
     // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
+    _marker: PhantomData<&'a ()>,
 }
 
-impl Castable for rustls_certificate {
+impl<'a> Castable for rustls_certificate<'a> {
     type Ownership = OwnershipRef;
-    type RustType = Certificate;
+    type RustType = CertificateDer<'a>;
 }
 
-impl rustls_certificate {
+impl<'a> rustls_certificate<'a> {
     /// Get the DER data of the certificate itself.
     /// The data is owned by the certificate and has the same lifetime.
     #[no_mangle]
@@ -153,21 +158,23 @@ pub extern "C" fn rustls_default_ciphersuites_get_entry(
 /// releases.
 #[no_mangle]
 pub static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
-    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
 ];
 
@@ -181,21 +188,23 @@ pub static RUSTLS_ALL_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_ALL_CIPHER_SUIT
 /// between releases.
 #[no_mangle]
 pub static mut RUSTLS_DEFAULT_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
-    &rustls::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
+    &rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256 as *const SupportedCipherSuite
         as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS13_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 as *const SupportedCipherSuite
-        as *const _,
-    &rustls::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        as *const SupportedCipherSuite as *const _,
+    &rustls::crypto::ring::cipher_suite::TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
         as *const SupportedCipherSuite as *const _,
 ];
 
@@ -329,14 +338,14 @@ impl rustls_certified_key {
     ///
     /// The returned certificate is valid until the rustls_certified_key is freed.
     #[no_mangle]
-    pub extern "C" fn rustls_certified_key_get_certificate(
+    pub extern "C" fn rustls_certified_key_get_certificate<'a>(
         certified_key: *const rustls_certified_key,
         i: size_t,
-    ) -> *const rustls_certificate {
+    ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
             let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
             match certified_key.cert.get(i) {
-                Some(cert) => cert as *const Certificate as *const _,
+                Some(cert) => cert as *const CertificateDer as *const _,
                 None => null()
             }
         }
@@ -398,41 +407,214 @@ impl rustls_certified_key {
             }
             slice::from_raw_parts(cert_chain, cert_chain_len)
         };
-        let private_key: &[u8] = unsafe {
+        let private_key_der: &[u8] = unsafe {
             if private_key.is_null() {
                 return Err(NullParameter);
             }
             slice::from_raw_parts(private_key, private_key_len)
         };
-        let mut private_keys: Vec<Vec<u8>> = match pkcs8_private_keys(&mut Cursor::new(private_key))
-        {
-            Ok(v) => v,
-            Err(_) => return Err(rustls_result::PrivateKeyParseError),
-        };
-        let private_key: PrivateKey = match private_keys.pop() {
-            Some(p) => PrivateKey(p),
-            None => {
-                private_keys = match rsa_private_keys(&mut Cursor::new(private_key)) {
-                    Ok(v) => v,
-                    Err(_) => return Err(rustls_result::PrivateKeyParseError),
-                };
-                let rsa_private_key: PrivateKey = match private_keys.pop() {
-                    Some(p) => PrivateKey(p),
-                    None => return Err(rustls_result::PrivateKeyParseError),
-                };
-                rsa_private_key
-            }
-        };
-        let signing_key = match rustls::sign::any_supported_type(&private_key) {
+        let private_key: PrivateKeyDer =
+            match pkcs8_private_keys(&mut Cursor::new(private_key_der)).next() {
+                Some(Ok(p)) => p.into(),
+                Some(Err(_)) => return Err(rustls_result::PrivateKeyParseError),
+                None => {
+                    let rsa_private_key: PrivateKeyDer =
+                        match rsa_private_keys(&mut Cursor::new(private_key_der)).next() {
+                            Some(Ok(p)) => p.into(),
+                            _ => return Err(rustls_result::PrivateKeyParseError),
+                        };
+                    rsa_private_key
+                }
+            };
+        let signing_key = match rustls::crypto::ring::sign::any_supported_type(&private_key) {
             Ok(key) => key,
             Err(_) => return Err(rustls_result::PrivateKeyParseError),
         };
-        let parsed_chain: Vec<Certificate> = match certs(&mut cert_chain) {
-            Ok(v) => v.into_iter().map(Certificate).collect(),
+        let parsed_chain: Result<Vec<CertificateDer>, _> = certs(&mut cert_chain).collect();
+        let parsed_chain = match parsed_chain {
+            Ok(v) => v,
             Err(_) => return Err(rustls_result::CertificateParseError),
         };
 
         Ok(rustls::sign::CertifiedKey::new(parsed_chain, signing_key))
+    }
+}
+
+/// A `rustls_root_cert_store` being constructed.
+///
+/// A builder can be modified by adding trust anchor root certificates with
+/// `rustls_root_cert_store_builder_add_pem`. Once you're done adding root certificates,
+/// call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
+/// This object is not safe for concurrent mutation.
+pub struct rustls_root_cert_store_builder {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+}
+
+pub(crate) struct RootCertStoreBuilder {
+    roots: RootCertStore,
+}
+
+impl Castable for rustls_root_cert_store_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<RootCertStoreBuilder>;
+}
+
+impl rustls_root_cert_store_builder {
+    /// Create a `rustls_root_cert_store_builder`.
+    ///
+    /// Caller owns the memory and may free it with `rustls_root_cert_store_free`, regardless of
+    /// whether `rustls_root_cert_store_builder_build` was called.
+    ///
+    /// If you wish to abandon the builder without calling `rustls_root_cert_store_builder_build`,
+    /// it must be freed with `rustls_root_cert_store_builder_free`.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_new() -> *mut rustls_root_cert_store_builder {
+        ffi_panic_boundary! {
+            let store = rustls::RootCertStore::empty();
+            to_boxed_mut_ptr(Some(RootCertStoreBuilder { roots: store }))
+        }
+    }
+
+    /// Add one or more certificates to the root cert store builder using PEM
+    /// encoded data.
+    ///
+    /// When `strict` is true an error will return a `CertificateParseError`
+    /// result. So will an attempt to parse data that has zero certificates.
+    ///
+    /// When `strict` is false, unparseable root certificates will be ignored.
+    /// This may be useful on systems that have syntactically invalid root
+    /// certificates.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_add_pem(
+        builder: *mut rustls_root_cert_store_builder,
+        pem: *const u8,
+        pem_len: size_t,
+        strict: bool,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let certs_pem: &[u8] = try_slice!(pem, pem_len);
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                None => return AlreadyUsed,
+                Some(b) => b,
+            };
+
+            let certs_der: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
+            let certs_der = match certs_der {
+                Ok(vv) => vv,
+                Err(_) => return rustls_result::CertificateParseError,
+            };
+            // We first copy into a temporary root store so we can uphold our
+            // API guideline that there are no partial failures or partial
+            // successes.
+            let mut new_store = RootCertStore::empty();
+            let (parsed, rejected) = new_store.add_parsable_certificates(certs_der);
+            if strict && (rejected > 0 || parsed == 0) {
+                return rustls_result::CertificateParseError;
+            }
+
+            builder.roots.roots.append(&mut new_store.roots);
+
+            rustls_result::Ok
+        }
+    }
+
+    /// Add one or more certificates to the root cert store builder using PEM
+    /// encoded data read from the named file.
+    ///
+    /// When `strict` is true an error will return a `CertificateParseError`
+    /// result. So will an attempt to parse data that has zero certificates.
+    ///
+    /// When `strict` is false, unparseable root certificates will be ignored.
+    /// This may be useful on systems that have syntactically invalid root
+    /// certificates.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
+        builder: *mut rustls_root_cert_store_builder,
+        filename: *const c_char,
+        strict: bool,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                None => return AlreadyUsed,
+                Some(b) => b,
+            };
+
+            let filename: &CStr = unsafe {
+                if filename.is_null() {
+                    return rustls_result::NullParameter;
+                }
+                CStr::from_ptr(filename)
+            };
+
+            let filename: &[u8] = filename.to_bytes();
+            let filename: &str = match std::str::from_utf8(filename) {
+                Ok(s) => s,
+                Err(_) => return rustls_result::Io,
+            };
+            let filename: &OsStr = OsStr::new(filename);
+            let mut cafile = match File::open(filename) {
+                Ok(f) => f,
+                Err(_) => return rustls_result::Io,
+            };
+
+            let mut bufreader = BufReader::new(&mut cafile);
+            let certs: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut bufreader).collect();
+            let certs = match certs {
+                Ok(certs) => certs,
+                Err(_) => return rustls_result::Io,
+            };
+
+            // We first copy into a temporary root store so we can uphold our
+            // API guideline that there are no partial failures or partial
+            // successes.
+            let mut roots = RootCertStore::empty();
+            let (parsed, rejected) = roots.add_parsable_certificates(certs);
+            if strict && (rejected > 0 || parsed == 0) {
+                return rustls_result::CertificateParseError;
+            }
+
+            builder.roots.roots.append(&mut roots.roots);
+            rustls_result::Ok
+        }
+    }
+
+    /// Create a new `rustls_root_cert_store` from the builder.
+    ///
+    /// The builder is consumed and cannot be used again, but must still be freed.
+    ///
+    /// The root cert store can be used in several `rustls_web_pki_client_cert_verifier_builder_new`
+    /// instances and must be freed by the application when no longer needed. See the documentation of
+    /// `rustls_root_cert_store_free` for details about lifetime.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_build(
+        builder: *mut rustls_root_cert_store_builder,
+        root_cert_store_out: *mut *const rustls_root_cert_store,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = try_take!(builder);
+
+            set_arc_mut_ptr(root_cert_store_out, builder.roots);
+
+            rustls_result::Ok
+        }
+    }
+
+    /// Free a `rustls_root_cert_store_builder` previously returned from
+    /// `rustls_root_cert_store_builder_new`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_free(
+        builder: *mut rustls_root_cert_store_builder,
+    ) {
+        ffi_panic_boundary! {
+            free_box(builder);
+        }
     }
 }
 
@@ -446,345 +628,528 @@ pub struct rustls_root_cert_store {
 }
 
 impl Castable for rustls_root_cert_store {
-    type Ownership = OwnershipBox;
+    type Ownership = OwnershipArc;
     type RustType = RootCertStore;
 }
 
 impl rustls_root_cert_store {
-    /// Create a rustls_root_cert_store. Caller owns the memory and must
-    /// eventually call rustls_root_cert_store_free. The store starts out empty.
-    /// Caller must add root certificates with rustls_root_cert_store_add_pem.
-    /// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.empty>
-    #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_new() -> *mut rustls_root_cert_store {
-        ffi_panic_boundary! {
-            let store = rustls::RootCertStore::empty();
-            to_boxed_mut_ptr(store)
-        }
-    }
-
-    /// Add one or more certificates to the root cert store using PEM encoded data.
-    ///
-    /// When `strict` is true an error will return a `CertificateParseError`
-    /// result. So will an attempt to parse data that has zero certificates.
-    ///
-    /// When `strict` is false, unparseable root certificates will be ignored.
-    /// This may be useful on systems that have syntactically invalid root
-    /// certificates.
-    #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_add_pem(
-        store: *mut rustls_root_cert_store,
-        pem: *const u8,
-        pem_len: size_t,
-        strict: bool,
-    ) -> rustls_result {
-        ffi_panic_boundary! {
-            let certs_pem: &[u8] = try_slice!(pem, pem_len);
-            let store: &mut RootCertStore = try_mut_from_ptr!(store);
-
-            let certs_der = match rustls_pemfile::certs(&mut Cursor::new(certs_pem)) {
-                Ok(vv) => vv,
-                Err(_) => return rustls_result::CertificateParseError,
-            };
-            // We first copy into a temporary root store so we can uphold our
-            // API guideline that there are no partial failures or partial
-            // successes.
-            let mut new_store = RootCertStore::empty();
-            let (parsed, rejected) = new_store.add_parsable_certificates(&certs_der);
-            if strict && (rejected > 0 || parsed == 0) {
-                return rustls_result::CertificateParseError;
-            }
-
-            store.roots.append(&mut new_store.roots);
-            rustls_result::Ok
-        }
-    }
-
     /// Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_root_cert_store_free(store: *mut rustls_root_cert_store) {
+    pub extern "C" fn rustls_root_cert_store_free(store: *const rustls_root_cert_store) {
         ffi_panic_boundary! {
-            let store = try_box_from_ptr!(store);
-            drop(store)
+            free_arc(store);
         }
     }
 }
 
-/// A builder for a `rustls_allow_any_authenticated_client_verifier`. This builder object can be
-/// used to configure certificate revocation lists, and then turned into a
-/// `rustls_allow_any_authenticated_client_verifier` once ready.
-pub struct rustls_allow_any_authenticated_client_builder {
+/// A built client certificate verifier that can be provided to a `rustls_server_config_builder`
+/// with `rustls_server_config_builder_set_client_verifier`.
+pub struct rustls_client_cert_verifier {
     _private: [u8; 0],
 }
 
-impl Castable for rustls_allow_any_authenticated_client_builder {
+/// Rustls' ConfigBuilder requires an `Arc<dyn ClientCertVerifier>` here, meaning we
+/// must follow the pattern described in CONTRIBUTING.md[0] for handling dynamically sized
+/// types (DSTs) across the FFI boundary.
+/// [0] <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+impl Castable for rustls_client_cert_verifier {
     type Ownership = OwnershipBox;
-    // NOTE: contained value is consumed even on error, so this can contain None, but the caller
-    // still needs to free it
-    type RustType = Option<AllowAnyAuthenticatedClient>;
+    type RustType = Arc<dyn ClientCertVerifier>;
 }
 
-impl rustls_allow_any_authenticated_client_builder {
-    /// Create a new allow any authenticated client certificate verifier builder using the root store.
-    ///
-    /// This copies the contents of the rustls_root_cert_store. It does not take
-    /// ownership of the pointed-to memory.
-    ///
-    /// This object can then be used to load any CRLs.
-    ///
-    /// Once that is complete, convert it into a real `rustls_allow_any_authenticated_client_verifier`
-    /// by calling `rustls_allow_any_authenticated_client_verifier_new()`.
+impl rustls_client_cert_verifier {
+    /// Free a `rustls_client_cert_verifier` previously returned from
+    /// `rustls_client_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
     #[no_mangle]
-    pub extern "C" fn rustls_allow_any_authenticated_client_builder_new(
-        store: *const rustls_root_cert_store,
-    ) -> *mut rustls_allow_any_authenticated_client_builder {
+    pub extern "C" fn rustls_client_cert_verifier_free(verifier: *mut rustls_client_cert_verifier) {
         ffi_panic_boundary! {
-            let store: &RootCertStore = try_ref_from_ptr!(store);
-            let client_cert_verifier = Some(AllowAnyAuthenticatedClient::new(store.clone()));
-            to_boxed_mut_ptr(client_cert_verifier)
-        }
-    }
-
-    /// Add one or more certificate revocation lists (CRLs) to the client certificate verifier by
-    /// reading the CRL content from the provided buffer of PEM encoded content.
-    ///
-    /// This function returns an error if the provided buffer is not valid PEM encoded content,
-    /// or if the CRL content is invalid or unsupported.
-    #[no_mangle]
-    pub extern "C" fn rustls_allow_any_authenticated_client_builder_add_crl(
-        builder: *mut rustls_allow_any_authenticated_client_builder,
-        crl_pem: *const u8,
-        crl_pem_len: size_t,
-    ) -> rustls_result {
-        ffi_panic_boundary! {
-            let client_cert_verifier_builder: &mut Option<AllowAnyAuthenticatedClient> = try_mut_from_ptr!(builder);
-
-            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Vec<UnparsedCertRevocationList> = match crls(&mut Cursor::new(crl_pem)) {
-                Ok(vv) => vv.into_iter().map(UnparsedCertRevocationList).collect(),
-                Err(_) => return rustls_result::CertificateRevocationListParseError,
-            };
-
-            let client_cert_verifier = try_take!(client_cert_verifier_builder);
-            match client_cert_verifier.with_crls(crls_der) {
-                Ok(v) => client_cert_verifier_builder.replace(v),
-                Err(e) => return map_error(rustls::Error::InvalidCertRevocationList(e)),
-            };
-
-            rustls_result::Ok
-        }
-    }
-
-    /// Free a `rustls_allow_any_authenticated_client_builder` previously returned from
-    /// `rustls_allow_any_authenticated_client_builder_new`.
-    /// Calling with NULL is fine. Must not be called twice with the same value.
-    #[no_mangle]
-    pub extern "C" fn rustls_allow_any_authenticated_client_builder_free(
-        builder: *mut rustls_allow_any_authenticated_client_builder,
-    ) {
-        ffi_panic_boundary! {
-            let store = try_box_from_ptr!(builder);
-            drop(store)
+            free_box(verifier);
         }
     }
 }
 
-/// A verifier of client certificates that requires all certificates to be
-/// trusted based on a given `rustls_root_cert_store`. Usable in building server
-/// configurations. Connections without such a client certificate will not
-/// be accepted.
-pub struct rustls_allow_any_authenticated_client_verifier {
+/// A client certificate verifier being constructed. A builder can be modified by,
+/// e.g. `rustls_web_pki_client_cert_verifier_builder_add_crl`. Once you're
+/// done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
+/// to turn it into a `rustls_client_cert_verifier`. This object is not safe
+/// for concurrent mutation.
+// TODO(@cpu): Add rustdoc link once available.
+pub struct rustls_web_pki_client_cert_verifier_builder {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
-impl Castable for rustls_allow_any_authenticated_client_verifier {
-    type Ownership = OwnershipArc;
-    type RustType = AllowAnyAuthenticatedClient;
+pub(crate) struct ClientCertVerifierBuilder {
+    roots: Arc<RootCertStore>,
+    root_hint_subjects: Vec<DistinguishedName>,
+    crls: Vec<CertificateRevocationListDer<'static>>,
+    revocation_depth: RevocationCheckDepth,
+    revocation_policy: UnknownStatusPolicy,
+    allow_unauthenticated: bool,
 }
 
-impl rustls_allow_any_authenticated_client_verifier {
-    /// Create a new allow any authenticated client certificate verifier from a builder.
-    ///
-    /// The builder is consumed and cannot be used again, but must still be freed.
-    ///
-    /// The verifier can be used in several `rustls_server_config` instances. Must be freed by
-    /// the application when no longer needed. See the documentation of
-    /// `rustls_allow_any_authenticated_client_verifier_free` for details about lifetime.
-    /// This copies the contents of the `rustls_root_cert_store`. It does not take
-    /// ownership of the pointed-to memory.
-    #[no_mangle]
-    pub extern "C" fn rustls_allow_any_authenticated_client_verifier_new(
-        builder: *mut rustls_allow_any_authenticated_client_builder,
-    ) -> *const rustls_allow_any_authenticated_client_verifier {
-        ffi_panic_boundary! {
-            let client_cert_verifier_builder: &mut Option<AllowAnyAuthenticatedClient> = try_mut_from_ptr!(builder);
-
-            let client_cert_verifier = match client_cert_verifier_builder.take() {
-                None => {
-                    return null() as *const _;
-                },
-                Some(x) => x,
-            };
-            Arc::into_raw(client_cert_verifier.boxed()) as *const _
-        }
-    }
-
-    /// "Free" a verifier previously returned from
-    /// `rustls_allow_any_authenticated_client_verifier_new`. Since
-    /// `rustls_allow_any_authenticated_client_verifier` is actually an
-    /// atomically reference-counted pointer, extant server_configs may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
-    /// Calling with NULL is fine. Must not be called twice with the same value.
-    #[no_mangle]
-    pub extern "C" fn rustls_allow_any_authenticated_client_verifier_free(
-        verifier: *const rustls_allow_any_authenticated_client_verifier,
-    ) {
-        ffi_panic_boundary! {
-            free_arc(verifier);
-        }
-    }
-}
-
-/// A builder for a `rustls_allow_any_anonymous_or_authenticated_client_verifier`. This builder
-/// object can be used to configure certificate revocation lists, and then turned into a
-/// `rustls_allow_any_anonymous_or_authenticated_client_verifier` once ready.
-pub struct rustls_allow_any_anonymous_or_authenticated_client_builder {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_allow_any_anonymous_or_authenticated_client_builder {
+impl Castable for rustls_web_pki_client_cert_verifier_builder {
     type Ownership = OwnershipBox;
-    // NOTE: contained value is consumed even on error, so this can contain None, but the caller
-    // still needs to free it
-    type RustType = Option<AllowAnyAnonymousOrAuthenticatedClient>;
+    type RustType = Option<ClientCertVerifierBuilder>;
 }
 
-impl rustls_allow_any_anonymous_or_authenticated_client_builder {
-    /// Create a new allow any anonymous or authenticated client certificate verifier builder
-    /// using the root store.
+impl rustls_web_pki_client_cert_verifier_builder {
+    /// Create a `rustls_web_pki_client_cert_verifier_builder`. Caller owns the memory and may
+    /// eventually call `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
+    /// not `rustls_web_pki_client_cert_verifier_builder_build` was called.
     ///
-    /// This copies the contents of the rustls_root_cert_store. It does not take
-    /// ownership of the pointed-to memory.
+    /// Without further modification the builder will produce a client certificate verifier that
+    /// will require a client present a client certificate that chains to one of the trust anchors
+    /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
     ///
-    /// This object can then be used to load any CRLs.
+    /// Revocation checking will not be performed unless
+    /// `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
+    /// lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+    /// for the entire certificate chain unless
+    /// `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+    /// revocation status for certificates considered for revocation status will be treated as
+    /// an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+    /// used.
     ///
-    /// Once that is complete, convert it into a real
-    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier`
-    /// by calling `rustls_allow_any_anonymous_or_authenticated_client_verifier_new()`.
-    #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_optional_builder_new(
-        store: *const rustls_root_cert_store,
-    ) -> *mut rustls_allow_any_anonymous_or_authenticated_client_builder {
-        ffi_panic_boundary! {
-            let store: &RootCertStore = try_ref_from_ptr!(store);
-            let client_cert_verifier = Some(AllowAnyAnonymousOrAuthenticatedClient::new(store.clone()));
-            to_boxed_mut_ptr(client_cert_verifier)
-        }
-    }
-
-    /// Add one or more certificate revocation lists (CRLs) to the client certificate verifier by
-    /// reading the CRL content from the provided buffer of PEM encoded content.
+    /// Unauthenticated clients will not be permitted unless
+    /// `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
     ///
-    /// This function returns an error if the provided buffer is not valid PEM encoded content,
-    /// or if the CRL content is invalid or unsupported.
-    #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_optional_builder_add_crl(
-        builder: *mut rustls_allow_any_anonymous_or_authenticated_client_builder,
-        crl_pem: *const u8,
-        crl_pem_len: size_t,
-    ) -> rustls_result {
-        ffi_panic_boundary! {
-            let client_cert_verifier_builder: &mut Option<AllowAnyAnonymousOrAuthenticatedClient> = try_mut_from_ptr!(builder);
-
-            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Vec<UnparsedCertRevocationList> = match crls(&mut Cursor::new(crl_pem)) {
-                Ok(vv) => vv.into_iter().map(UnparsedCertRevocationList).collect(),
-                Err(_) => return rustls_result::CertificateRevocationListParseError,
-            };
-
-            let client_cert_verifier = try_take!(client_cert_verifier_builder);
-            match client_cert_verifier.with_crls(crls_der) {
-                Ok(v) => client_cert_verifier_builder.replace(v),
-                Err(e) => return map_error(rustls::Error::InvalidCertRevocationList(e)),
-            };
-
-            rustls_result::Ok
-        }
-    }
-
-    /// Free a `rustls_allow_any_anonymous_or_authenticated_client_builder` previously returned from
-    /// `rustls_client_cert_verifier_optional_builder_new`.
-    /// Calling with NULL is fine. Must not be called twice with the same value.
-    #[no_mangle]
-    pub extern "C" fn rustls_client_cert_verifier_optional_builder_free(
-        builder: *mut rustls_allow_any_anonymous_or_authenticated_client_builder,
-    ) {
-        ffi_panic_boundary! {
-            let store = try_box_from_ptr!(builder);
-            drop(store)
-        }
-    }
-}
-
-/// Alternative to `rustls_allow_any_authenticated_client_verifier` that allows connections
-/// with or without a client certificate. If the client offers a certificate,
-/// it will be verified (and rejected if it is not valid). If the client
-/// does not offer a certificate, the connection will succeed.
-///
-/// The application can retrieve the certificate, if any, with
-/// `rustls_connection_get_peer_certificate`.
-pub struct rustls_allow_any_anonymous_or_authenticated_client_verifier {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_allow_any_anonymous_or_authenticated_client_verifier {
-    type Ownership = OwnershipArc;
-    type RustType = AllowAnyAnonymousOrAuthenticatedClient;
-}
-
-impl rustls_allow_any_anonymous_or_authenticated_client_verifier {
-    /// Create a new allow any anonymous or authenticated client certificate verifier builder
-    /// from the builder.
-    ///
-    /// The builder is consumed and cannot be used again, but must still be freed.
-    ///
-    /// The verifier can be used in several `rustls_server_config` instances. Must be
-    /// freed by the application when no longer needed. See the documentation of
-    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier_free` for details about lifetime.
     /// This copies the contents of the `rustls_root_cert_store`. It does not take
     /// ownership of the pointed-to data.
     #[no_mangle]
-    pub extern "C" fn rustls_allow_any_anonymous_or_authenticated_client_verifier_new(
-        builder: *mut rustls_allow_any_anonymous_or_authenticated_client_builder,
-    ) -> *const rustls_allow_any_anonymous_or_authenticated_client_verifier {
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_new(
+        store: *const rustls_root_cert_store,
+    ) -> *mut rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
-            let client_cert_verifier_builder: &mut Option<AllowAnyAnonymousOrAuthenticatedClient> = try_mut_from_ptr!(builder);
-
-            let client_cert_verifier = match client_cert_verifier_builder.take() {
-                None => {
-                    return null() as *const _;
-                },
-                Some(x) => x,
+            let store = try_clone_arc!(store);
+             let builder = ClientCertVerifierBuilder {
+                root_hint_subjects: store.subjects(),
+                roots: store,
+                crls: Vec::default(),
+                revocation_depth: RevocationCheckDepth::Chain,
+                revocation_policy: UnknownStatusPolicy::Deny,
+                allow_unauthenticated: false,
             };
-            Arc::into_raw(client_cert_verifier.boxed()) as *const _
+            to_boxed_mut_ptr(Some(builder))
         }
     }
 
-    /// "Free" a verifier previously returned from
-    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier_new`. Since
-    /// `rustls_allow_any_anonymous_or_authenticated_client_verifier`
-    /// is actually an atomically reference-counted pointer, extant `server_configs` may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
-    /// Calling with NULL is fine. Must not be called twice with the same value.
+    /// Add one or more certificate revocation lists (CRLs) to the client certificate verifier
+    /// builder by reading the CRL content from the provided buffer of PEM encoded content.
+    ///
+    /// By default revocation checking will be performed on the entire certificate chain. To only
+    /// check the revocation status of the end entity certificate, use
+    /// `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
+    ///
+    /// This function returns an error if the provided buffer is not valid PEM encoded content.
     #[no_mangle]
-    pub extern "C" fn rustls_allow_any_anonymous_or_authenticated_client_verifier_free(
-        verifier: *const rustls_allow_any_anonymous_or_authenticated_client_verifier,
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_add_crl(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+        crl_pem: *const u8,
+        crl_pem_len: size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
+            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =  crls(&mut Cursor::new(crl_pem)).collect();
+            let crls_der = match crls_der{
+                Ok(vv) => vv,
+                Err(_) => return rustls_result::CertificateRevocationListParseError,
+            };
+            if crls_der.is_empty() {
+                return rustls_result::CertificateRevocationListParseError;
+            }
+
+
+            client_verifier_builder.crls.extend(crls_der);
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, only
+    /// check the revocation status of end entity certificates, ignoring any intermediate certificates
+    /// in the chain.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.revocation_depth = RevocationCheckDepth::EndEntity;
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, and it
+    /// isn't possible to determine the revocation status of a considered certificate, do not treat
+    /// it as an error condition.
+    ///
+    /// Overrides the default behavior where unknown revocation status is considered an error.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.revocation_policy = UnknownStatusPolicy::Allow;
+            rustls_result::Ok
+        }
+    }
+
+    /// Allow unauthenticated anonymous clients in addition to those that present a client
+    /// certificate that chains to one of the verifier's configured trust anchors.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.allow_unauthenticated = true;
+            rustls_result::Ok
+        }
+    }
+
+    /// Clear the list of trust anchor hint subjects.
+    ///
+    /// By default, the client cert verifier will use the subjects provided by the root cert
+    /// store configured for client authentication. Calling this function will remove these
+    /// hint subjects, indicating the client should make a free choice of which certificate
+    /// to send.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_clear_root_hint_subjects(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = match client_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            client_verifier_builder.root_hint_subjects.clear();
+            rustls_result::Ok
+        }
+    }
+
+    /// Add additional distinguished names to the list of trust anchor hint subjects.
+    ///
+    /// By default, the client cert verifier will use the subjects provided by the root cert
+    /// store configured for client authentication. Calling this function will add to these
+    /// existing hint subjects. Calling this function with an empty `store` will have no
+    /// effect, use `rustls_web_pki_client_cert_verifier_clear_root_hint_subjects` to clear
+    /// the subject hints.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_add_root_hint_subjects(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+        store: *const rustls_root_cert_store,
+    ) -> rustls_result {
+        let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            try_mut_from_ptr!(builder);
+        let client_verifier_builder = match client_verifier_builder {
+            None => return AlreadyUsed,
+            Some(v) => v,
+        };
+
+        let store = try_clone_arc!(store);
+        client_verifier_builder.root_hint_subjects = store.subjects();
+        rustls_result::Ok
+    }
+
+    /// Create a new client certificate verifier from the builder.
+    ///
+    /// The builder is consumed and cannot be used again, but must still be freed.
+    ///
+    /// The verifier can be used in several `rustls_server_config` instances and must be
+    /// freed by the application when no longer needed. See the documentation of
+    /// `rustls_web_pki_client_cert_verifier_builder_free` for details about lifetime.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_build(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
+        verifier_out: *mut *mut rustls_client_cert_verifier,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_take!(client_verifier_builder);
+
+            let mut builder = WebPkiClientVerifier::builder(client_verifier_builder.roots)
+                .with_crls(client_verifier_builder.crls);
+            match client_verifier_builder.revocation_depth {
+                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
+                RevocationCheckDepth::Chain => {},
+            }
+            match client_verifier_builder.revocation_policy {
+                UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
+                UnknownStatusPolicy::Deny => {},
+            }
+            if client_verifier_builder.allow_unauthenticated {
+                builder = builder.allow_unauthenticated();
+            }
+            if client_verifier_builder.root_hint_subjects.is_empty() {
+                builder = builder.clear_root_hint_subjects();
+            } else {
+                builder = builder.add_root_hint_subjects(client_verifier_builder.root_hint_subjects);
+            }
+
+            let verifier = match builder.build() {
+                Ok(v) => v,
+                Err(e) => return error::map_verifier_builder_error(e),
+            };
+
+            set_boxed_mut_ptr(verifier_out, verifier);
+
+            rustls_result::Ok
+        }
+    }
+
+    /// Free a `rustls_client_cert_verifier_builder` previously returned from
+    /// `rustls_client_cert_verifier_builder_new`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_free(
+        builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) {
         ffi_panic_boundary! {
-            free_arc(verifier);
+            free_box(builder);
+        }
+    }
+}
+
+/// A server certificate verifier being constructed. A builder can be modified by,
+/// e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`. Once you're
+/// done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
+/// to turn it into a `rustls_server_cert_verifier`. This object is not safe
+/// for concurrent mutation.
+// TODO(@cpu): Add rustdoc link once available.
+pub struct rustls_web_pki_server_cert_verifier_builder {
+    // We use the opaque struct pattern to tell C about our types without
+    // telling them what's inside.
+    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
+    _private: [u8; 0],
+}
+
+pub(crate) struct ServerCertVerifierBuilder {
+    roots: Arc<RootCertStore>,
+    crls: Vec<CertificateRevocationListDer<'static>>,
+    revocation_depth: RevocationCheckDepth,
+    revocation_policy: UnknownStatusPolicy,
+}
+
+impl Castable for rustls_web_pki_server_cert_verifier_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<ServerCertVerifierBuilder>;
+}
+
+impl ServerCertVerifierBuilder {
+    /// Create a `rustls_web_pki_server_cert_verifier_builder`. Caller owns the memory and may
+    /// free it with `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
+    /// `rustls_web_pki_server_cert_verifier_builder_build` was called.
+    ///
+    /// Without further modification the builder will produce a server certificate verifier that
+    /// will require a server present a certificate that chains to one of the trust anchors
+    /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+    ///
+    /// Revocation checking will not be performed unless
+    /// `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
+    /// lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+    /// for the entire certificate chain unless
+    /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+    /// revocation status for certificates considered for revocation status will be treated as
+    /// an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+    /// used.
+    ///
+    /// This copies the contents of the `rustls_root_cert_store`. It does not take
+    /// ownership of the pointed-to data.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_new(
+        store: *const rustls_root_cert_store,
+    ) -> *mut rustls_web_pki_server_cert_verifier_builder {
+        ffi_panic_boundary! {
+            let store = try_clone_arc!(store);
+            let builder = ServerCertVerifierBuilder {
+                roots: store,
+                crls: Vec::default(),
+                revocation_depth: RevocationCheckDepth::Chain,
+                revocation_policy: UnknownStatusPolicy::Deny
+            };
+            to_boxed_mut_ptr(Some(builder))
+        }
+    }
+
+    /// Add one or more certificate revocation lists (CRLs) to the server certificate verifier
+    /// builder by reading the CRL content from the provided buffer of PEM encoded content.
+    ///
+    /// By default revocation checking will be performed on the entire certificate chain. To only
+    /// check the revocation status of the end entity certificate, use
+    /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
+    ///
+    /// This function returns an error if the provided buffer is not valid PEM encoded content.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_add_crl(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+        crl_pem: *const u8,
+        crl_pem_len: size_t,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = match server_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
+            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =  crls(&mut Cursor::new(crl_pem)).collect();
+            let crls_der = match crls_der{
+                Ok(vv) => vv,
+                Err(_) => return rustls_result::CertificateRevocationListParseError,
+            };
+            if crls_der.is_empty() {
+                return rustls_result::CertificateRevocationListParseError;
+            }
+
+            server_verifier_builder.crls.extend(crls_der);
+
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, only
+    /// check the revocation status of end entity certificates, ignoring any intermediate certificates
+    /// in the chain.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = match server_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            server_verifier_builder.revocation_depth = RevocationCheckDepth::EndEntity;
+            rustls_result::Ok
+        }
+    }
+
+    /// When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and it
+    /// isn't possible to determine the revocation status of a considered certificate, do not treat
+    /// it as an error condition.
+    ///
+    /// Overrides the default behavior where unknown revocation status is considered an error.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = match server_verifier_builder {
+                None => return AlreadyUsed,
+                Some(v) => v,
+            };
+
+            server_verifier_builder.revocation_policy = UnknownStatusPolicy::Allow;
+            rustls_result::Ok
+        }
+    }
+
+    /// Create a new server certificate verifier from the builder.
+    ///
+    /// The builder is consumed and cannot be used again, but must still be freed.
+    ///
+    /// The verifier can be used in several `rustls_client_config` instances and must be
+    /// freed by the application when no longer needed. See the documentation of
+    /// `rustls_web_pki_server_cert_verifier_builder_free` for details about lifetime.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_build(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+        verifier_out: *mut *mut rustls_server_cert_verifier,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder = try_take!(server_verifier_builder);
+
+            let mut builder = WebPkiServerVerifier::builder(server_verifier_builder.roots)
+                .with_crls(server_verifier_builder.crls);
+            match server_verifier_builder.revocation_depth {
+                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
+                RevocationCheckDepth::Chain => {},
+            }
+            match server_verifier_builder.revocation_policy {
+                UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
+                UnknownStatusPolicy::Deny => {},
+            }
+
+            let verifier = match builder.build() {
+                Ok(v) => v,
+                Err(e) => return error::map_verifier_builder_error(e),
+            };
+
+            set_boxed_mut_ptr(verifier_out, verifier);
+
+            rustls_result::Ok
+        }
+    }
+
+    /// Free a `rustls_server_cert_verifier_builder` previously returned from
+    /// `rustls_server_cert_verifier_builder_new`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_free(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) {
+        ffi_panic_boundary! {
+            free_box(builder);
+        }
+    }
+}
+
+/// A built server certificate verifier that can be provided to a `rustls_client_config_builder`
+/// with `rustls_client_config_builder_set_server_verifier`.
+pub struct rustls_server_cert_verifier {
+    _private: [u8; 0],
+}
+
+/// Rustls' ConfigBuilder requires an `Arc<dyn ServerCertVerifier>` here, meaning we
+/// must follow the pattern described in CONTRIBUTING.md[0] for handling dynamically sized
+/// types (DSTs) across the FFI boundary.
+/// [0] <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+impl Castable for rustls_server_cert_verifier {
+    type Ownership = OwnershipBox;
+    type RustType = Arc<dyn ServerCertVerifier>;
+}
+
+impl rustls_server_cert_verifier {
+    /// Free a `rustls_server_cert_verifier` previously returned from
+    /// `rustls_server_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
+    /// called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_server_cert_verifier_free(verifier: *mut rustls_server_cert_verifier) {
+        ffi_panic_boundary! {
+            free_box(verifier);
         }
     }
 }

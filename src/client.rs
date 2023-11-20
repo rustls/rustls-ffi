@@ -1,20 +1,23 @@
 use std::borrow::Cow;
 use std::convert::TryInto;
-use std::ffi::{CStr, OsStr};
-use std::fs::File;
-use std::io::BufReader;
+use std::ffi::CStr;
+use std::fmt::{Debug, Formatter};
 use std::slice;
 use std::sync::Arc;
-use std::time::SystemTime;
 
 use libc::{c_char, size_t};
-use rustls::client::{ResolvesClientCert, ServerCertVerified, ServerCertVerifier};
+use pki_types::{CertificateDer, UnixTime};
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
+use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
-    sign::CertifiedKey, Certificate, CertificateError, ClientConfig, ClientConnection,
-    ProtocolVersion, RootCertStore, SupportedCipherSuite, WantsVerifier, ALL_CIPHER_SUITES,
+    sign::CertifiedKey, CertificateError, ClientConfig, ClientConnection, DigitallySignedStruct,
+    Error, ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier,
 };
 
-use crate::cipher::{rustls_certified_key, rustls_root_cert_store, rustls_supported_ciphersuite};
+use crate::cipher::{
+    rustls_certified_key, rustls_server_cert_verifier, rustls_supported_ciphersuite,
+};
 use crate::connection::{rustls_connection, Connection};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, rustls_result};
@@ -68,21 +71,43 @@ impl Castable for rustls_client_config {
     type RustType = ClientConfig;
 }
 
+#[derive(Debug)]
 struct NoneVerifier;
 
 impl ServerCertVerifier for NoneVerifier {
     fn verify_server_cert(
         &self,
-        _end_entity: &Certificate,
-        _intermediates: &[Certificate],
+        _end_entity: &CertificateDer,
+        _intermediates: &[CertificateDer],
         _server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
         _ocsp_response: &[u8],
-        _now: SystemTime,
+        _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         Err(rustls::Error::InvalidCertificate(
             CertificateError::BadSignature,
         ))
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        Err(Error::InvalidCertificate(CertificateError::BadSignature))
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer,
+        _dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        Err(Error::InvalidCertificate(CertificateError::BadSignature))
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        WebPkiServerVerifier::default_supported_verify_schemes()
     }
 }
 
@@ -225,15 +250,14 @@ unsafe impl Send for Verifier {}
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
 unsafe impl Sync for Verifier {}
 
-impl rustls::client::ServerCertVerifier for Verifier {
+impl ServerCertVerifier for Verifier {
     fn verify_server_cert(
         &self,
-        end_entity: &Certificate,
-        intermediates: &[Certificate],
+        end_entity: &CertificateDer,
+        intermediates: &[CertificateDer],
         server_name: &rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
         ocsp_response: &[u8],
-        _now: SystemTime,
+        _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let server_name: Cow<'_, str> = match server_name {
@@ -266,6 +290,34 @@ impl rustls::client::ServerCertVerifier for Verifier {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => Err(error::cert_result_to_error(r)),
         }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        WebPkiServerVerifier::default_verify_tls12_signature(message, cert, dss)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        WebPkiServerVerifier::default_verify_tls13_signature(message, cert, dss)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        WebPkiServerVerifier::default_supported_verify_schemes()
+    }
+}
+
+impl Debug for Verifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Verifier").finish()
     }
 }
 
@@ -312,66 +364,18 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Use the trusted root certificates from the provided store.
+    /// Configure the server certificate verifier.
     ///
-    /// This replaces any trusted roots already configured with copies
-    /// from `roots`. This adds 1 to the refcount for `roots`. When you
-    /// call rustls_client_config_free or rustls_client_config_builder_free,
-    /// those will subtract 1 from the refcount for `roots`.
+    /// This increases the reference count of `verifier` and does not take ownership.
     #[no_mangle]
-    pub extern "C" fn rustls_client_config_builder_use_roots(
-        config_builder: *mut rustls_client_config_builder,
-        roots: *const rustls_root_cert_store,
-    ) -> rustls_result {
+    pub extern "C" fn rustls_client_config_builder_set_server_verifier(
+        builder: *mut rustls_client_config_builder,
+        verifier: *const rustls_server_cert_verifier,
+    ) {
         ffi_panic_boundary! {
-            let builder = try_mut_from_ptr!(config_builder);
-            let root_store: &RootCertStore = try_ref_from_ptr!(roots);
-            builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(root_store.clone(), None));
-            rustls_result::Ok
-        }
-    }
-
-    /// Add trusted root certificates from the named file, which should contain
-    /// PEM-formatted certificates.
-    #[no_mangle]
-    pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
-        config_builder: *mut rustls_client_config_builder,
-        filename: *const c_char,
-    ) -> rustls_result {
-        ffi_panic_boundary! {
-            let config_builder = try_mut_from_ptr!(config_builder);
-            let filename: &CStr = unsafe {
-                if filename.is_null() {
-                    return rustls_result::NullParameter;
-                }
-                CStr::from_ptr(filename)
-            };
-
-            let filename: &[u8] = filename.to_bytes();
-            let filename: &str = match std::str::from_utf8(filename) {
-                Ok(s) => s,
-                Err(_) => return rustls_result::Io,
-            };
-            let filename: &OsStr = OsStr::new(filename);
-            let mut cafile = match File::open(filename) {
-                Ok(f) => f,
-                Err(_) => return rustls_result::Io,
-            };
-
-            let mut bufreader = BufReader::new(&mut cafile);
-            let certs = match rustls_pemfile::certs(&mut bufreader) {
-                Ok(certs) => certs,
-                Err(_) => return rustls_result::Io,
-            };
-
-            let mut roots = RootCertStore::empty();
-            let (_, failed) = roots.add_parsable_certificates(&certs);
-            if failed > 0 {
-                return rustls_result::CertificateParseError;
-            }
-
-            config_builder.verifier = Arc::new(rustls::client::WebPkiVerifier::new(roots, None));
-            rustls_result::Ok
+            let builder: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
+            let verifier = try_ref_from_ptr!(verifier);
+            builder.verifier = verifier.clone();
         }
     }
 
@@ -452,6 +456,7 @@ impl rustls_client_config_builder {
 }
 
 /// Always send the same client certificate.
+#[derive(Debug)]
 struct ResolvesClientCertFromChoices {
     keys: Vec<Arc<CertifiedKey>>,
 }
@@ -484,7 +489,7 @@ impl rustls_client_config_builder {
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
             let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
-            let config = builder.base.with_custom_certificate_verifier(builder.verifier);
+            let config = builder.base.dangerous().with_custom_certificate_verifier(builder.verifier);
             let mut config = match builder.cert_resolver {
                 Some(r) => config.with_client_cert_resolver(r),
                 None => config.with_no_client_auth(),
