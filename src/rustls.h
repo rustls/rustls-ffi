@@ -222,11 +222,12 @@ typedef struct rustls_iovec rustls_iovec;
 typedef struct rustls_root_cert_store rustls_root_cert_store;
 
 /**
- * A `rustls_root_cert_store` being constructed. A builder can be modified by
- * adding trust anchor root certificates with `rustls_root_cert_store_builder_add_pem`.
- * Once you're done adding root certificates, call `rustls_root_cert_store_builder_build`
- * to turn it into a `rustls_root_cert_store`. This object is not safe
- * for concurrent mutation.
+ * A `rustls_root_cert_store` being constructed.
+ *
+ * A builder can be modified by adding trust anchor root certificates with
+ * `rustls_root_cert_store_builder_add_pem`. Once you're done adding root certificates,
+ * call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
+ * This object is not safe for concurrent mutation.
  */
 typedef struct rustls_root_cert_store_builder rustls_root_cert_store_builder;
 
@@ -936,9 +937,10 @@ rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified
 void rustls_certified_key_free(const struct rustls_certified_key *key);
 
 /**
- * Create a `rustls_root_cert_store_builder`. Caller owns the memory and may
- * free it with `rustls_root_cert_store_free`, regardless of whether
- * `rustls_root_cert_store_builder_build` was called.
+ * Create a `rustls_root_cert_store_builder`.
+ *
+ * Caller owns the memory and may free it with `rustls_root_cert_store_free`, regardless of
+ * whether `rustls_root_cert_store_builder_build` was called.
  *
  * If you wish to abandon the builder without calling `rustls_root_cert_store_builder_build`,
  * it must be freed with `rustls_root_cert_store_builder_free`.
