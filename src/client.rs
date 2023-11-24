@@ -6,7 +6,7 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
-use pki_types::{CertificateDer, UnixTime};
+use pki_types::{CertificateDer, IpAddr, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
@@ -79,7 +79,7 @@ impl ServerCertVerifier for NoneVerifier {
         &self,
         _end_entity: &CertificateDer,
         _intermediates: &[CertificateDer],
-        _server_name: &rustls::ServerName,
+        _server_name: &pki_types::ServerName<'_>,
         _ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
@@ -255,14 +255,22 @@ impl ServerCertVerifier for Verifier {
         &self,
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
-        server_name: &rustls::ServerName,
+        server_name: &pki_types::ServerName<'_>,
         ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let server_name: Cow<'_, str> = match server_name {
-            rustls::ServerName::DnsName(n) => n.as_ref().into(),
-            rustls::ServerName::IpAddress(ip) => ip.to_string().into(),
+            pki_types::ServerName::DnsName(n) => n.as_ref().into(),
+            // TODO(@cpu): HACK
+            pki_types::ServerName::IpAddress(ip) => match ip {
+                IpAddr::V4(v4_addr) => std::net::Ipv4Addr::from(*v4_addr.as_ref())
+                    .to_string()
+                    .into(),
+                IpAddr::V6(v6_addr) => std::net::Ipv6Addr::from(*v6_addr.as_ref())
+                    .to_string()
+                    .into(),
+            },
             _ => return Err(rustls::Error::General("unknown name type".to_string())),
         };
         let server_name: rustls_str = match server_name.as_ref().try_into() {
@@ -555,7 +563,7 @@ impl rustls_client_config {
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let server_name: rustls::ServerName = match server_name.try_into() {
+        let server_name: pki_types::ServerName = match server_name.try_into() {
             Ok(sn) => sn,
             Err(_) => return rustls_result::InvalidDnsNameError,
         };

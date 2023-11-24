@@ -106,9 +106,8 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c23376606de66c7b9249d091b59ee55b52df72063e1cae7bb44e0691c9e5150"
+version = "0.22.0-alpha.5"
+source = "git+https://github.com/rustls/rustls?rev=a6233dcc46e7cf8df6887b18ae2918b65298160a#a6233dcc46e7cf8df6887b18ae2918b65298160a"
 dependencies = [
  "log",
  "ring",
@@ -135,9 +134,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pemfile"
-version = "2.0.0-alpha.1"
+version = "2.0.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aaa4fe93b39faddb6a8f99568c3e5880680156da0d46818e884a071381f67fe"
+checksum = "4e9975e1f0807681e097d288d545dc40c98a4d3a6ef95a40b18d00e5e4daa9a4"
 dependencies = [
  "base64",
  "rustls-pki-types",
@@ -145,15 +144,15 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47003264dea418db67060fa420ad16d0d2f8f0a0360d825c00e177ac52cb5d8"
+checksum = "cdf0cbc2bc68777eb846b2b7fedf03807bb763adc585bf006ac2fa2884daa9d1"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.102.0-alpha.6"
+version = "0.102.0-alpha.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34d9ed3a8267782ba32d257ff5b197b63eef19a467dbd1be011caaae35ee416e"
+checksum = "39c0e946e5f395d68bfc4a43e9b584d2169c2685e2c584a268b6d7ef8117bcfa"
 dependencies = [
  "ring",
  "rustls-pki-types",
