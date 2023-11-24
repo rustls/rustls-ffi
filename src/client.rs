@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
@@ -6,7 +5,7 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
-use pki_types::{CertificateDer, IpAddr, UnixTime};
+use pki_types::{CertificateDer, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
@@ -260,19 +259,7 @@ impl ServerCertVerifier for Verifier {
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
-        let server_name: Cow<'_, str> = match server_name {
-            pki_types::ServerName::DnsName(n) => n.as_ref().into(),
-            // TODO(@cpu): HACK
-            pki_types::ServerName::IpAddress(ip) => match ip {
-                IpAddr::V4(v4_addr) => std::net::Ipv4Addr::from(*v4_addr.as_ref())
-                    .to_string()
-                    .into(),
-                IpAddr::V6(v6_addr) => std::net::Ipv6Addr::from(*v6_addr.as_ref())
-                    .to_string()
-                    .into(),
-            },
-            _ => return Err(rustls::Error::General("unknown name type".to_string())),
-        };
+        let server_name = server_name.to_str();
         let server_name: rustls_str = match server_name.as_ref().try_into() {
             Ok(r) => r,
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
