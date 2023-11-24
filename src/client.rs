@@ -123,7 +123,7 @@ impl rustls_client_config_builder {
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder = ClientConfigBuilder {
-                base: rustls::ClientConfig::builder().with_safe_defaults(),
+                base: rustls::ClientConfig::builder().with_safe_default_protocol_versions().unwrap(),
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],
@@ -179,7 +179,10 @@ impl rustls_client_config_builder {
                 }
             }
 
-            let result = rustls::ClientConfig::builder().with_cipher_suites(&cs_vec).with_safe_default_kx_groups().with_protocol_versions(&versions);
+            let result = rustls::ClientConfig::builder_with_provider(rustls::crypto::CryptoProvider{
+                cipher_suites: cs_vec,
+                ..rustls::crypto::ring::provider()
+            }.into()).with_protocol_versions(&versions);
             let base = match result {
                 Ok(new) => new,
                 Err(_) => return rustls_result::InvalidParameter,

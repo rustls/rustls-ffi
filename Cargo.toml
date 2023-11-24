@@ -39,7 +39,7 @@ crate-type = ["lib", "staticlib"]
 regex = "1.9.6"
 
 [patch.crates-io]
-# TODO(@cpu): remove once alpha.5 is published.
-rustls = { git = "https://github.com/rustls/rustls", rev = "a6233dcc46e7cf8df6887b18ae2918b65298160a" }
+# TODO(@cpu): remove once #1628 lands
+rustls = { git = "https://github.com/cpu/rustls", rev = "d56bb375919d38cf4666ed342ae13bf1950101cf" }
 # TODO(@cpu): remove once pki-types#14 lands.
 pki-types = { package = "rustls-pki-types", git = "https://github.com/cpu/pki-types", rev = "11fec0730ff18d9658300f6d9b14d2d4a0c14bb7" }
