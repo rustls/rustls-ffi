@@ -135,9 +135,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pemfile"
-version = "2.0.0-alpha.1"
+version = "2.0.0-alpha.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aaa4fe93b39faddb6a8f99568c3e5880680156da0d46818e884a071381f67fe"
+checksum = "4e9975e1f0807681e097d288d545dc40c98a4d3a6ef95a40b18d00e5e4daa9a4"
 dependencies = [
  "base64",
  "rustls-pki-types",

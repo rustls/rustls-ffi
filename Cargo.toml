@@ -28,7 +28,7 @@ rustls-webpki = "0.102.0-alpha.6"
 pki-types = { package = "rustls-pki-types", version = "0.2.1", features = ["std"] }
 libc = "0.2"
 sct = "0.7"
-rustls-pemfile = { version = "2.0.0-alpha.1" }
+rustls-pemfile = { version = "2.0.0-alpha.2" }
 log = "0.4.17"
 
 [lib]
