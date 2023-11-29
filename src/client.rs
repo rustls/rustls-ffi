@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::convert::TryInto;
 use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
@@ -79,7 +78,7 @@ impl ServerCertVerifier for NoneVerifier {
         &self,
         _end_entity: &CertificateDer,
         _intermediates: &[CertificateDer],
-        _server_name: &rustls::ServerName,
+        _server_name: &pki_types::ServerName<'_>,
         _ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
@@ -255,16 +254,12 @@ impl ServerCertVerifier for Verifier {
         &self,
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
-        server_name: &rustls::ServerName,
+        server_name: &pki_types::ServerName<'_>,
         ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
-        let server_name: Cow<'_, str> = match server_name {
-            rustls::ServerName::DnsName(n) => n.as_ref().into(),
-            rustls::ServerName::IpAddress(ip) => ip.to_string().into(),
-            _ => return Err(rustls::Error::General("unknown name type".to_string())),
-        };
+        let server_name = server_name.to_str();
         let server_name: rustls_str = match server_name.as_ref().try_into() {
             Ok(r) => r,
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
@@ -555,7 +550,7 @@ impl rustls_client_config {
             Ok(s) => s,
             Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
         };
-        let server_name: rustls::ServerName = match server_name.try_into() {
+        let server_name: pki_types::ServerName = match server_name.try_into() {
             Ok(sn) => sn,
             Err(_) => return rustls_result::InvalidDnsNameError,
         };
