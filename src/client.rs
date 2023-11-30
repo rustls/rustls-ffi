@@ -7,7 +7,7 @@ use std::sync::Arc;
 use libc::{c_char, size_t};
 use pki_types::{CertificateDer, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::{ResolvesClientCert, WebPkiServerVerifier};
+use rustls::client::ResolvesClientCert;
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
     sign::CertifiedKey, CertificateError, ClientConfig, ClientConnection, DigitallySignedStruct,
@@ -106,7 +106,9 @@ impl ServerCertVerifier for NoneVerifier {
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        WebPkiServerVerifier::default_supported_verify_schemes()
+        rustls::crypto::ring::default_provider()
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 
@@ -123,7 +125,7 @@ impl rustls_client_config_builder {
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder = ClientConfigBuilder {
-                base: rustls::ClientConfig::builder().with_safe_defaults(),
+                base: rustls::ClientConfig::builder(),
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],
@@ -179,7 +181,12 @@ impl rustls_client_config_builder {
                 }
             }
 
-            let result = rustls::ClientConfig::builder().with_cipher_suites(&cs_vec).with_safe_default_kx_groups().with_protocol_versions(&versions);
+            let provider = rustls::crypto::CryptoProvider{
+                cipher_suites: cs_vec,
+                ..rustls::crypto::ring::default_provider()
+            };
+            let result = rustls::ClientConfig::builder_with_provider(provider.into())
+                .with_protocol_versions(&versions);
             let base = match result {
                 Ok(new) => new,
                 Err(_) => return rustls_result::InvalidParameter,
@@ -293,7 +300,12 @@ impl ServerCertVerifier for Verifier {
         cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
-        WebPkiServerVerifier::default_verify_tls12_signature(message, cert, dss)
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
     }
 
     fn verify_tls13_signature(
@@ -302,11 +314,18 @@ impl ServerCertVerifier for Verifier {
         cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
-        WebPkiServerVerifier::default_verify_tls13_signature(message, cert, dss)
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+        )
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        WebPkiServerVerifier::default_supported_verify_schemes()
+        rustls::crypto::ring::default_provider()
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 

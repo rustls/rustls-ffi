@@ -241,6 +241,7 @@ impl rustls_result {
 /// inputs, including Ok, return rustls::Error::General.
 pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
     use rustls::Error::*;
+    use rustls::OtherError;
     use rustls_result::*;
     match result {
         CertEncodingBad => InvalidCertificate(CertificateError::BadEncoding),
@@ -257,7 +258,9 @@ pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
         CertApplicationVerificationFailure => {
             InvalidCertificate(CertificateError::ApplicationVerificationFailure)
         }
-        CertOtherError => InvalidCertificate(CertificateError::Other(Arc::from(Box::from("")))),
+        CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
+            Box::from(""),
+        )))),
         _ => rustls::Error::General("".into()),
     }
 }
