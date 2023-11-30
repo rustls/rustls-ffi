@@ -83,7 +83,7 @@ impl rustls_server_config_builder {
     pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
         ffi_panic_boundary! {
             let builder = ServerConfigBuilder {
-                           base: rustls::ServerConfig::builder().with_safe_defaults(),
+                           base: rustls::ServerConfig::builder(),
                            verifier: WebPkiClientVerifier::no_client_auth(),
                            cert_resolver: None,
                            session_storage: None,
@@ -138,7 +138,12 @@ impl rustls_server_config_builder {
                 }
             }
 
-            let result = rustls::ServerConfig::builder().with_cipher_suites(&cs_vec).with_safe_default_kx_groups().with_protocol_versions(&versions);
+            let provider = rustls::crypto::CryptoProvider{
+                cipher_suites: cs_vec,
+                ..rustls::crypto::ring::default_provider()
+            };
+            let result = rustls::ServerConfig::builder_with_provider(provider.into())
+                .with_protocol_versions(&versions);
             let base = match result {
                 Ok(new) => new,
                 Err(_) => return rustls_result::InvalidParameter,

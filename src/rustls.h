@@ -301,6 +301,9 @@ typedef struct rustls_supported_ciphersuite rustls_supported_ciphersuite;
  * done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
  * to turn it into a `rustls_client_cert_verifier`. This object is not safe
  * for concurrent mutation.
+ *
+ * See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>
+ * for more information.
  */
 typedef struct rustls_web_pki_client_cert_verifier_builder rustls_web_pki_client_cert_verifier_builder;
 
@@ -310,6 +313,9 @@ typedef struct rustls_web_pki_client_cert_verifier_builder rustls_web_pki_client
  * done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
  * to turn it into a `rustls_server_cert_verifier`. This object is not safe
  * for concurrent mutation.
+ *
+ * See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>
+ * for more information.
  */
 typedef struct rustls_web_pki_server_cert_verifier_builder rustls_web_pki_server_cert_verifier_builder;
 
