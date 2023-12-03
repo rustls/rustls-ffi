@@ -93,3 +93,18 @@ pointer is `NULL`:
 These are defined in [src/lib.rs](src/lib.rs). The `Castable` trait determines which
 C pointers can be cast to which Rust pointer types. These macros rely
 on that trait to ensure correct typing of conversions.
+
+## Opaque Struct Pattern
+
+The `struct` types rustls-ffi uses are often meant to be opaque to C code, meaning that 
+C code should know the types exist, but not what they contain. To achieve this we rely on 
+the opaque struct pattern described in [the Nomicon FFI guide](https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs).
+
+For example:
+```rust
+/// A cipher suite supported by rustls.
+pub struct rustls_supported_ciphersuite {
+    // Makes this type opaque to C code.
+    _private: [u8; 0],
+}
+```

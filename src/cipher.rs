@@ -32,9 +32,6 @@ use rustls_result::{AlreadyUsed, NullParameter};
 /// Corresponds to `CertificateDer` in the Rust pki-types API.
 /// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
 pub struct rustls_certificate<'a> {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
     _marker: PhantomData<&'a ()>,
 }
@@ -268,9 +265,6 @@ mod tests {
 /// Corresponds to `CertifiedKey` in the Rust API.
 /// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
 pub struct rustls_certified_key {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
@@ -447,9 +441,6 @@ impl rustls_certified_key {
 /// call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
 /// This object is not safe for concurrent mutation.
 pub struct rustls_root_cert_store_builder {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
@@ -621,9 +612,6 @@ impl rustls_root_cert_store_builder {
 /// A root certificate store.
 /// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
 pub struct rustls_root_cert_store {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
@@ -679,9 +667,6 @@ impl rustls_client_cert_verifier {
 /// See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>
 /// for more information.
 pub struct rustls_web_pki_client_cert_verifier_builder {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
@@ -949,9 +934,6 @@ impl rustls_web_pki_client_cert_verifier_builder {
 /// See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>
 /// for more information.
 pub struct rustls_web_pki_server_cert_verifier_builder {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
