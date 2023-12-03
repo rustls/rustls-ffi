@@ -36,7 +36,7 @@ all: $(RUSTLS_LIB) target/client.exe target/server.exe
 
 test: all
 	$(call green_msg, getting 'https://httpbin.org/headers' ...)
-	target/client.exe httpbin.org 443 /headers
+	NO_CHECK_CERTIFICATE=1 target/client.exe httpbin.org 443 /headers
 	$(call green_msg, Running 'cargo test')
 	cargo test --locked
 

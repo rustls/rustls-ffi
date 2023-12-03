@@ -41,7 +41,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - env:
           CARGO_UNSTABLE_HTTP_REGISTRY: true
-        run: make CC=${{ matrix.cc }} PROFILE=release test
+        run: make CC=${{ matrix.cc }} PROFILE=release test integration
 
   valgrind:
     name: Valgrind
@@ -53,7 +53,7 @@ jobs:
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: export VALGRIND="valgrind -q"
-      - run: make test
+      - run: make test integration
 
   test-windows:
     name: Windows
@@ -67,7 +67,7 @@ jobs:
       # Remove link.exe from non-MSVC packages that interferes with MSVC link
       - run: rm "C:\Program Files\Git\usr\bin\link.exe"
       - run: rm "C:\msys64\usr\bin\link.exe"
-      - run: make -f Makefile.Windows
+      - run: make -f Makefile.Windows test integration
 
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
@@ -82,9 +82,11 @@ jobs:
         run: cmake -S . -B build
       - name: Build, debug configuration
         run: cmake --build build --config Debug
+      - name: Integration test, debug configuration
+        run: cargo test --locked --test client_server client_server_integration -- --ignored --exact
         env:
-          CLIENT_BINARY: build/tests/Debug/client.exe
-          SERVER_BINARY: build/tests/Debug/server.exe
+          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\client.exe
+          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\server.exe
 
   test-windows-cmake-release:
     name: Windows CMake, Release configuration
@@ -99,9 +101,11 @@ jobs:
         run: cmake -S . -B build
       - name: Build, release configuration
         run: cmake --build build --config Release
+      - name: Integration test, release configuration
+        run: cargo test --locked --test client_server client_server_integration -- --ignored --exact
         env:
-          CLIENT_BINARY: build/tests/Release/client.exe
-          SERVER_BINARY: build/tests/Release/server.exe
+          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
+          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
 
   ensure-header-updated:
     runs-on: ubuntu-latest
