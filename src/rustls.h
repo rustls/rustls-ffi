@@ -980,9 +980,9 @@ rustls_result rustls_root_cert_store_builder_add_pem(struct rustls_root_cert_sto
  * This may be useful on systems that have syntactically invalid root
  * certificates.
  */
-rustls_result rustls_client_config_builder_load_roots_from_file(struct rustls_root_cert_store_builder *builder,
-                                                                const char *filename,
-                                                                bool strict);
+rustls_result rustls_root_cert_store_builder_load_roots_from_file(struct rustls_root_cert_store_builder *builder,
+                                                                  const char *filename,
+                                                                  bool strict);
 
 /**
  * Create a new `rustls_root_cert_store` from the builder.

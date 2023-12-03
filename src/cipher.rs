@@ -532,7 +532,7 @@ impl rustls_root_cert_store_builder {
     /// This may be useful on systems that have syntactically invalid root
     /// certificates.
     #[no_mangle]
-    pub extern "C" fn rustls_client_config_builder_load_roots_from_file(
+    pub extern "C" fn rustls_root_cert_store_builder_load_roots_from_file(
         builder: *mut rustls_root_cert_store_builder,
         filename: *const c_char,
         strict: bool,

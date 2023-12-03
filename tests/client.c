@@ -433,7 +433,7 @@ main(int argc, const char **argv)
 
   if(getenv("CA_FILE")) {
     server_cert_root_store_builder = rustls_root_cert_store_builder_new();
-    result = rustls_client_config_builder_load_roots_from_file(
+    result = rustls_root_cert_store_builder_load_roots_from_file(
       server_cert_root_store_builder, getenv("CA_FILE"), true);
     if(result != RUSTLS_RESULT_OK) {
       print_error("loading trusted certificates", result);
