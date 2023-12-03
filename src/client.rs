@@ -36,9 +36,6 @@ use crate::{
 /// `Box<ClientConfig>`.
 /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
 pub struct rustls_client_config_builder {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
@@ -59,9 +56,6 @@ impl Castable for rustls_client_config_builder {
 /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
 /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
 pub struct rustls_client_config {
-    // We use the opaque struct pattern to tell C about our types without
-    // telling them what's inside.
-    // https://doc.rust-lang.org/nomicon/ffi.html#representing-opaque-structs
     _private: [u8; 0],
 }
 
