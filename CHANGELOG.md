@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.12.0 (2023-12-03)
+
+This release updates to [Rustls 0.22], but does not yet expose support for
+customizing the cryptographic provider. This will be added in a future release,
+and 0.12.0 continues to use `*ring*` as the only cryptographic provider.
+
+[Rustls 0.22]: https://github.com/rustls/rustls/releases/tag/v%2F0.22.0
+
+### Added
+
+* `RUSTLS_RESULT_CLIENT_CERT_VERIFIER_BUILDER_NO_ROOT_ANCHORS` error code,
+  returned when a client cert verifier is being built that hasn't provided any
+  root trust anchors.
+* The server certificate verifier now supports CRL revocation checking through
+  policy and CRLs provided to the server certificate verifier builder.
+* Client certificate verifier builder now supports controlling CRL revocation
+  status check depth and unknown revocation policy.
+
+### Changed
+
+* The root certificate store constructor (`rustls_root_cert_store_new`) and the
+  function to add PEM content (`rustls_root_cert_store_add_pem`) have been
+  replaced with a new `rustls_root_cert_store_builder` type, constructed with
+  `rustls_root_cert_store_builder_new`. PEM content can be added with
+  `rustls_root_cert_store_builder_add_pem` and
+  `rustls_root_cert_store_builder_load_roots_from_file`.
+* The client verifier builders (
+  `rustls_allow_any_anonymous_or_authenticated_client_builder`, and 
+  `rustls_allow_any_authenticated_client_builder`) as well as the client
+  verifier types (`rustls_allow_any_anonymous_or_authenticated_client_verifier`, 
+  `rustls_allow_any_authenticated_client_verifier`) have been replaced with
+  `rustls_web_pki_client_cert_verifier_builder` and `rustls_client_cert_verifier`.
+* The server config client verifier setters 
+  (`rustls_server_config_builder_set_client_verifier` and
+  `rustls_server_config_builder_set_client_verifier_optional`) have been
+  replaced with `rustls_server_config_builder_set_client_verifier`.
+* The client config builder functions for specifying root trust anchors 
+  (`rustls_client_config_builder_use_roots` and
+  `rustls_client_config_builder_load_roots_from_file`) have been replaced
+  with a server certificate verifier builder 
+  (`rustls_web_pki_server_cert_verifier_builder`) constructed with
+  `rustls_web_pki_server_cert_verifier_builder_new` and
+  a `rustls_root_cert_store`. The built `rustls_web_pki_server_cert_verifier`
+  can be provided to a client config builder with
+  `rustls_client_config_builder_set_server_verifier`.
+* CRL validation defaults to checking the full certificate chain, and treating
+  unknown revocation status as an error condition.
+
+### Removed
+
+* `RUSTLS_RESULT_CERT_SCT_*` error codes have been removed.
+
 ## 0.11.0 (2023-07-14)
 
 ### Added
