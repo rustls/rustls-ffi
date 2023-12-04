@@ -837,6 +837,14 @@ rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
 void rustls_accepted_free(struct rustls_accepted *accepted);
 
 /**
+ * Get the DER data of the certificate itself.
+ * The data is owned by the certificate and has the same lifetime.
+ */
+rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
+                                         const uint8_t **out_der_data,
+                                         size_t *out_der_len);
+
+/**
  * Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
  * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
  * The bytes from the assignment are interpreted in network order.
