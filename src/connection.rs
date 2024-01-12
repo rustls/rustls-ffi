@@ -9,8 +9,13 @@ use rustls::{ClientConnection, ServerConnection, SupportedCipherSuite};
 
 use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
-    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
+    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback
 };
+#[cfg(all(unix))]
+use crate::io::{
+    FDReader, FDWriter
+};
+
 use crate::log::{ensure_log_registered, rustls_log_callback};
 
 use crate::{
@@ -128,6 +133,34 @@ impl rustls_connection {
         conn.log_callback = cb;
     }
 
+    /// Read some TLS bytes from the provided file descriptor into internal buffers. 
+    /// Returns 0 for success, or an errno value on error.
+    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
+    #[cfg(all(unix))]
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_read_tls_from_fd(
+        conn: *mut rustls_connection,
+        fd: i32,
+        out_n: *mut size_t,
+    ) -> rustls_io_result {
+        ffi_panic_boundary! {
+            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
+            let mut reader = FDReader { fd };
+            let n_read: usize = match conn.read_tls(&mut reader) {
+                Ok(n) => n,
+                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+            };
+            unsafe {
+                *out_n = n_read;
+            }
+
+            rustls_io_result(0)
+        }
+    }
+
     /// Read some TLS bytes from the network into internal buffers. The actual network
     /// I/O is performed by `callback`, which you provide. Rustls will invoke your
     /// callback with a suitable buffer to store the read bytes into. You don't have
@@ -159,6 +192,35 @@ impl rustls_connection {
             };
             unsafe {
                 *out_n = n_read;
+            }
+
+            rustls_io_result(0)
+        }
+    }
+
+    /// Write some TLS bytes to provided file descriptor. 
+    /// Returns 0 for success, or an errno value on error.
+    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
+    #[cfg(all(unix))]
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_write_tls_to_fd(
+        conn: *mut rustls_connection,
+        fd: i32,
+        out_n: *mut size_t,
+    ) -> rustls_io_result {
+        ffi_panic_boundary! {
+            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL)
+            }
+
+            let mut writer = FDWriter { fd };
+            let n_written: usize = match conn.write_tls(&mut writer) {
+                Ok(n) => n,
+                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+            };
+            unsafe {
+                *out_n = n_written;
             }
 
             rustls_io_result(0)
