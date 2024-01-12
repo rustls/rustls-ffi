@@ -54,6 +54,7 @@ include!(concat!(env!("OUT_DIR"), "/version.rs"));
 // Rust code, we model these thread locals as a stack, so we can always
 // restore the previous version.
 thread_local! {
+    #[allow(clippy::thread_local_initializer_can_be_made_const)]
     pub(crate) static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
 }
 
