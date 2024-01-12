@@ -512,6 +512,55 @@ impl rustls_root_cert_store_builder {
     }
 
     /// Add one or more certificates to the root cert store builder using PEM
+    /// encoded data read from a provided buffer
+    ///
+    /// When `strict` is true an error will return a `CertificateParseError`
+    /// result. So will an attempt to parse data that has zero certificates.
+    ///
+    /// When `strict` is false, unparseable root certificates will be ignored.
+    /// This may be useful on systems that have syntactically invalid root
+    /// certificates.
+    #[no_mangle]
+    pub extern "C" fn rustls_root_cert_store_builder_load_roots_from_bytes(
+        builder: *mut rustls_root_cert_store_builder,
+        buf: *mut u8,
+        count: size_t,
+        strict: bool,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = match builder {
+                None => return AlreadyUsed,
+                Some(b) => b,
+            };
+            // Safety: the memory pointed at by buf must be initialized
+            // (required by documentation of this function).
+            let read_buf: &[u8] = unsafe {
+                slice::from_raw_parts_mut(buf, count)
+            };
+            let mut bufreader = BufReader::with_capacity(count, read_buf);
+            let certs: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut bufreader).collect();
+            let certs = match certs {
+                Ok(certs) => certs,
+                Err(_) => return rustls_result::Io,
+            };
+
+            // We first copy into a temporary root store so we can uphold our
+            // API guideline that there are no partial failures or partial
+            // successes.
+            let mut roots = RootCertStore::empty();
+            let (parsed, rejected) = roots.add_parsable_certificates(certs);
+            if strict && (rejected > 0 || parsed == 0) {
+                return rustls_result::CertificateParseError;
+            }
+
+            builder.roots.roots.append(&mut roots.roots);
+            rustls_result::Ok
+        }
+    }
+
+
+    /// Add one or more certificates to the root cert store builder using PEM
     /// encoded data read from the named file.
     ///
     /// When `strict` is true an error will return a `CertificateParseError`
