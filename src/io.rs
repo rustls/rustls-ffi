@@ -1,6 +1,6 @@
 use std::io::{Error, IoSlice, Read, Result, Write};
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 use std::os::unix::io::{FromRawFd, RawFd};
 
 use libc::{c_void, size_t};
@@ -101,19 +101,19 @@ impl Write for CallbackWriter {
     }
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 pub(crate) struct FDReader {
     pub fd: i32,
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 impl FromRawFd for FDReader {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self { fd }
     }
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 impl Read for FDReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         assert!(buf.len() <= isize::max_value() as usize);
@@ -124,19 +124,19 @@ impl Read for FDReader {
     }
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 pub(crate) struct FDWriter {
     pub fd: i32,
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 impl FromRawFd for FDWriter {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self { fd }
     }
 }
 
-#[cfg(all(unix))]
+#[cfg(unix)]
 impl Write for FDWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         assert!(buf.len() <= isize::max_value() as usize);

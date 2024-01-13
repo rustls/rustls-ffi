@@ -11,7 +11,7 @@ use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
     VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
 };
-#[cfg(all(unix))]
+#[cfg(unix)]
 use crate::io::{FDReader, FDWriter};
 
 use crate::log::{ensure_log_registered, rustls_log_callback};
@@ -134,7 +134,7 @@ impl rustls_connection {
     /// Read some TLS bytes from the provided file descriptor into internal buffers.
     /// Returns 0 for success, or an errno value on error.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
-    #[cfg(all(unix))]
+    #[cfg(unix)]
     #[no_mangle]
     pub extern "C" fn rustls_connection_read_tls_from_fd(
         conn: *mut rustls_connection,
@@ -199,7 +199,7 @@ impl rustls_connection {
     /// Write some TLS bytes to provided file descriptor.
     /// Returns 0 for success, or an errno value on error.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
-    #[cfg(all(unix))]
+    #[cfg(unix)]
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls_to_fd(
         conn: *mut rustls_connection,
