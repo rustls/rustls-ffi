@@ -64,6 +64,8 @@ fn expected_linker_parts() -> &'static [&'static str] {
             "kernel32.lib",
             "ws2_32.lib",
             "kernel32.lib",
+            "ntdll.lib",
+            "kernel32.lib",
             "msvcrt.lib",
         ]
     }
