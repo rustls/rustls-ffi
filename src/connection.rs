@@ -9,12 +9,10 @@ use rustls::{ClientConnection, ServerConnection, SupportedCipherSuite};
 
 use crate::io::{
     rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
-    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback
+    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
 };
 #[cfg(all(unix))]
-use crate::io::{
-    FDReader, FDWriter
-};
+use crate::io::{FDReader, FDWriter};
 
 use crate::log::{ensure_log_registered, rustls_log_callback};
 
@@ -133,7 +131,7 @@ impl rustls_connection {
         conn.log_callback = cb;
     }
 
-    /// Read some TLS bytes from the provided file descriptor into internal buffers. 
+    /// Read some TLS bytes from the provided file descriptor into internal buffers.
     /// Returns 0 for success, or an errno value on error.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
     #[cfg(all(unix))]
@@ -198,7 +196,7 @@ impl rustls_connection {
         }
     }
 
-    /// Write some TLS bytes to provided file descriptor. 
+    /// Write some TLS bytes to provided file descriptor.
     /// Returns 0 for success, or an errno value on error.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
     #[cfg(all(unix))]

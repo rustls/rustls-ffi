@@ -101,7 +101,6 @@ impl Write for CallbackWriter {
     }
 }
 
-
 #[cfg(all(unix))]
 pub(crate) struct FDReader {
     pub fd: i32,
@@ -111,18 +110,18 @@ pub(crate) struct FDReader {
 impl FromRawFd for FDReader {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self { fd }
-    }   
+    }
 }
 
 #[cfg(all(unix))]
 impl Read for FDReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         assert!(buf.len() <= isize::max_value() as usize);
-        match unsafe { libc::read(self.fd, buf.as_mut_ptr() as _, buf.len()) } { 
+        match unsafe { libc::read(self.fd, buf.as_mut_ptr() as _, buf.len()) } {
             x if x < 0 => Err(Error::last_os_error()),
             x => Ok(x as usize),
         }
-    }   
+    }
 }
 
 #[cfg(all(unix))]
@@ -134,14 +133,14 @@ pub(crate) struct FDWriter {
 impl FromRawFd for FDWriter {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self { fd }
-    }   
+    }
 }
 
 #[cfg(all(unix))]
 impl Write for FDWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         assert!(buf.len() <= isize::max_value() as usize);
-        match unsafe { libc::write(self.fd, buf.as_ptr() as _, buf.len()) } { 
+        match unsafe { libc::write(self.fd, buf.as_ptr() as _, buf.len()) } {
             x if x < 0 => Err(Error::last_os_error()),
             x => Ok(x as usize),
         }

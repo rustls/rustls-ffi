@@ -559,7 +559,6 @@ impl rustls_root_cert_store_builder {
         }
     }
 
-
     /// Add one or more certificates to the root cert store builder using PEM
     /// encoded data read from the named file.
     ///
