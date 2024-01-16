@@ -23,7 +23,7 @@ jobs:
           - beta
           - nightly
           - 1.61.0 # MSRV - keep in sync with what rustls considers MSRV
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
         # but only stable on macos/windows (slower platforms)
         include:
           - os: macos-latest
@@ -128,7 +128,7 @@ jobs:
 
   docs:
     name: Check for documentation errors
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -145,7 +145,7 @@ jobs:
 
   minver:
     name: Check minimum versions
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -188,9 +188,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.70.0
           components: clippy
       - name: Check clippy
         # We allow unknown lints here because sometimes the nightly job
