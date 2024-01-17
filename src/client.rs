@@ -154,7 +154,8 @@ impl rustls_client_config_builder {
         builder_out: *mut *mut rustls_client_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
+            let cipher_suites: &[*const rustls_supported_ciphersuite] =
+                try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
             for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
@@ -175,7 +176,7 @@ impl rustls_client_config_builder {
                 }
             }
 
-            let provider = rustls::crypto::CryptoProvider{
+            let provider = rustls::crypto::CryptoProvider {
                 cipher_suites: cs_vec,
                 ..rustls::crypto::ring::default_provider()
             };
@@ -366,7 +367,7 @@ impl rustls_client_config_builder {
                 None => return rustls_result::InvalidParameter,
             };
 
-            let verifier: Verifier = Verifier{callback};
+            let verifier: Verifier = Verifier { callback };
             config_builder.verifier = Arc::new(verifier);
             rustls_result::Ok
         }
@@ -451,7 +452,8 @@ impl rustls_client_config_builder {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let config: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
-            let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+            let keys_ptrs: &[*const rustls_certified_key] =
+                try_slice!(certified_keys, certified_keys_len);
             let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
             for &key_ptr in keys_ptrs {
                 let certified_key: Arc<CertifiedKey> = try_clone_arc!(key_ptr);
@@ -497,7 +499,10 @@ impl rustls_client_config_builder {
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
             let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
-            let config = builder.base.dangerous().with_custom_certificate_verifier(builder.verifier);
+            let config = builder
+                .base
+                .dangerous()
+                .with_custom_certificate_verifier(builder.verifier);
             let mut config = match builder.cert_resolver {
                 Some(r) => config.with_client_cert_resolver(r),
                 None => config.with_no_client_auth(),
@@ -552,29 +557,29 @@ impl rustls_client_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-        let server_name: &CStr = unsafe {
-            if server_name.is_null() {
-                return NullParameter;
-            }
-            CStr::from_ptr(server_name)
-        };
-        let config: Arc<ClientConfig> = try_clone_arc!(config);
-        let server_name: &str = match server_name.to_str() {
-            Ok(s) => s,
-            Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
-        };
-        let server_name: pki_types::ServerName = match server_name.try_into() {
-            Ok(sn) => sn,
-            Err(_) => return rustls_result::InvalidDnsNameError,
-        };
-        let client = ClientConnection::new(config, server_name).unwrap();
+            let server_name: &CStr = unsafe {
+                if server_name.is_null() {
+                    return NullParameter;
+                }
+                CStr::from_ptr(server_name)
+            };
+            let config: Arc<ClientConfig> = try_clone_arc!(config);
+            let server_name: &str = match server_name.to_str() {
+                Ok(s) => s,
+                Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
+            };
+            let server_name: pki_types::ServerName = match server_name.try_into() {
+                Ok(sn) => sn,
+                Err(_) => return rustls_result::InvalidDnsNameError,
+            };
+            let client = ClientConnection::new(config, server_name).unwrap();
 
-        // We've succeeded. Put the client on the heap, and transfer ownership
-        // to the caller. After this point, we must return rustls_result::Ok so the
-        // caller knows it is responsible for this memory.
-        let c = Connection::from_client(client);
-        set_boxed_mut_ptr(conn_out, c);
-        rustls_result::Ok
+            // We've succeeded. Put the client on the heap, and transfer ownership
+            // to the caller. After this point, we must return rustls_result::Ok so the
+            // caller knows it is responsible for this memory.
+            let c = Connection::from_client(client);
+            set_boxed_mut_ptr(conn_out, c);
+            rustls_result::Ok
         }
     }
 }

@@ -77,13 +77,13 @@ impl rustls_server_config_builder {
     pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
         ffi_panic_boundary! {
             let builder = ServerConfigBuilder {
-                           base: rustls::ServerConfig::builder(),
-                           verifier: WebPkiClientVerifier::no_client_auth(),
-                           cert_resolver: None,
-                           session_storage: None,
-                           alpn_protocols: vec![],
-                           ignore_client_order: None,
-                       };
+                base: rustls::ServerConfig::builder(),
+                verifier: WebPkiClientVerifier::no_client_auth(),
+                cert_resolver: None,
+                session_storage: None,
+                alpn_protocols: vec![],
+                ignore_client_order: None,
+            };
             to_boxed_mut_ptr(builder)
         }
     }
@@ -111,7 +111,8 @@ impl rustls_server_config_builder {
         builder_out: *mut *mut rustls_server_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cipher_suites: &[*const rustls_supported_ciphersuite] = try_slice!(cipher_suites, cipher_suites_len);
+            let cipher_suites: &[*const rustls_supported_ciphersuite] =
+                try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
             for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
@@ -132,7 +133,7 @@ impl rustls_server_config_builder {
                 }
             }
 
-            let provider = rustls::crypto::CryptoProvider{
+            let provider = rustls::crypto::CryptoProvider {
                 cipher_suites: cs_vec,
                 ..rustls::crypto::ring::default_provider()
             };
@@ -247,13 +248,14 @@ impl rustls_server_config_builder {
         certified_keys_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-        let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
-        let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
-        for &key_ptr in keys_ptrs {
-            let certified_key: Arc<CertifiedKey> = try_clone_arc!(key_ptr);
-            keys.push(certified_key);
-        }
+            let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
+            let keys_ptrs: &[*const rustls_certified_key] =
+                try_slice!(certified_keys, certified_keys_len);
+            let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+            for &key_ptr in keys_ptrs {
+                let certified_key: Arc<CertifiedKey> = try_clone_arc!(key_ptr);
+                keys.push(certified_key);
+            }
             builder.cert_resolver = Some(Arc::new(ResolvesServerCertFromChoices::new(&keys)));
             rustls_result::Ok
         }
@@ -344,10 +346,10 @@ pub extern "C" fn rustls_server_connection_get_server_name(
     ffi_panic_boundary! {
         let conn: &Connection = try_ref_from_ptr!(conn);
         if buf.is_null() {
-            return NullParameter
+            return NullParameter;
         }
         if out_n.is_null() {
-            return NullParameter
+            return NullParameter;
         }
         let server_connection = match conn.as_server() {
             Some(s) => s,
@@ -359,14 +361,12 @@ pub extern "C" fn rustls_server_connection_get_server_name(
                 unsafe {
                     *out_n = 0;
                 }
-                return rustls_result::Ok
-            },
+                return rustls_result::Ok;
+            }
         };
         let len: usize = sni_hostname.len();
         if len > count {
-            unsafe {
-                *out_n = 0
-            }
+            unsafe { *out_n = 0 }
             return rustls_result::InsufficientSize;
         }
         unsafe {
@@ -561,9 +561,7 @@ impl rustls_server_config_builder {
                 None => return rustls_result::NullParameter,
             };
             let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-            builder.cert_resolver = Some(Arc::new(ClientHelloResolver::new(
-                callback
-            )));
+            builder.cert_resolver = Some(Arc::new(ClientHelloResolver::new(callback)));
             rustls_result::Ok
         }
     }
@@ -597,11 +595,15 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let hello = try_ref_from_ptr!(hello);
-        let schemes: Vec<SignatureScheme> = sigschemes(try_slice!(hello.signature_schemes.data, hello.signature_schemes.len));
+        let schemes: Vec<SignatureScheme> = sigschemes(try_slice!(
+            hello.signature_schemes.data,
+            hello.signature_schemes.len
+        ));
         if out_key.is_null() {
-            return NullParameter
+            return NullParameter;
         }
-        let keys_ptrs: &[*const rustls_certified_key] = try_slice!(certified_keys, certified_keys_len);
+        let keys_ptrs: &[*const rustls_certified_key] =
+            try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
             let key_ref: &CertifiedKey = try_ref_from_ptr!(key_ptr);
             if key_ref.key.choose_scheme(&schemes).is_some() {
@@ -639,9 +641,7 @@ impl rustls_server_config_builder {
                 None => return rustls_result::NullParameter,
             };
             let builder: &mut ServerConfigBuilder = try_mut_from_ptr!(builder);
-            builder.session_storage = Some(Arc::new(SessionStoreBroker::new(
-                get_cb, put_cb
-            )));
+            builder.session_storage = Some(Arc::new(SessionStoreBroker::new(get_cb, put_cb)));
             rustls_result::Ok
         }
     }

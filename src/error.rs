@@ -203,12 +203,12 @@ impl rustls_result {
     ) {
         ffi_panic_boundary! {
             if buf.is_null() {
-                return
+                return;
             }
             if out_n.is_null() {
-                return
+                return;
             }
-            let error_str =  rustls_result::from(result).to_string();
+            let error_str = rustls_result::from(result).to_string();
             let out_len: usize = min(len - 1, error_str.len());
             unsafe {
                 std::ptr::copy_nonoverlapping(error_str.as_ptr() as *mut c_char, buf, out_len);

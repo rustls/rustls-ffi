@@ -178,7 +178,7 @@ impl rustls_acceptor {
         ffi_panic_boundary! {
             let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
             if out_accepted.is_null() {
-                return NullParameter
+                return NullParameter;
             }
             match acceptor.accept() {
                 Ok(None) => rustls_result::AcceptorNotReady,
@@ -406,7 +406,7 @@ impl rustls_accepted {
                     let wrapped = crate::connection::Connection::from_server(built);
                     set_boxed_mut_ptr(out_conn, wrapped);
                     rustls_result::Ok
-                },
+                }
                 Err(e) => map_error(e),
             }
         }
