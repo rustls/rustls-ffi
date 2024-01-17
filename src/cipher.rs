@@ -52,7 +52,7 @@ pub extern "C" fn rustls_certificate_get_der(
     ffi_panic_boundary! {
         let cert = try_ref_from_ptr!(cert);
         if out_der_data.is_null() || out_der_len.is_null() {
-            return NullParameter
+            return NullParameter;
         }
         let der = cert.as_ref();
         unsafe {
@@ -314,7 +314,11 @@ impl rustls_certified_key {
                 }
             };
             let certified_key = match rustls_certified_key::certified_key_build(
-                cert_chain, cert_chain_len, private_key, private_key_len) {
+                cert_chain,
+                cert_chain_len,
+                private_key,
+                private_key_len,
+            ) {
                 Ok(key) => Box::new(key),
                 Err(rr) => return rr,
             };
@@ -338,7 +342,7 @@ impl rustls_certified_key {
             let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
             match certified_key.cert.get(i) {
                 Some(cert) => cert as *const CertificateDer as *const _,
-                None => null()
+                None => null(),
             }
         }
     }
@@ -364,7 +368,7 @@ impl rustls_certified_key {
             let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
             let mut new_key = certified_key.clone();
             if !ocsp_response.is_null() {
-                let ocsp_slice = unsafe{ &*ocsp_response };
+                let ocsp_slice = unsafe { &*ocsp_response };
                 new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
             } else {
                 new_key.ocsp = None;
@@ -491,7 +495,8 @@ impl rustls_root_cert_store_builder {
                 Some(b) => b,
             };
 
-            let certs_der: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
+            let certs_der: Result<Vec<CertificateDer>, _> =
+                rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
             let certs_der = match certs_der {
                 Ok(vv) => vv,
                 Err(_) => return rustls_result::CertificateParseError,
@@ -552,7 +557,8 @@ impl rustls_root_cert_store_builder {
             };
 
             let mut bufreader = BufReader::new(&mut cafile);
-            let certs: Result<Vec<CertificateDer>, _> = rustls_pemfile::certs(&mut bufreader).collect();
+            let certs: Result<Vec<CertificateDer>, _> =
+                rustls_pemfile::certs(&mut bufreader).collect();
             let certs = match certs {
                 Ok(certs) => certs,
                 Err(_) => return rustls_result::Io,
@@ -711,7 +717,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
     ) -> *mut rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let store = try_clone_arc!(store);
-             let builder = ClientCertVerifierBuilder {
+            let builder = ClientCertVerifierBuilder {
                 root_hint_subjects: store.subjects(),
                 roots: store,
                 crls: Vec::default(),
@@ -738,22 +744,23 @@ impl rustls_web_pki_client_cert_verifier_builder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
             };
 
             let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =  crls(&mut Cursor::new(crl_pem)).collect();
-            let crls_der = match crls_der{
+            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
+                crls(&mut Cursor::new(crl_pem)).collect();
+            let crls_der = match crls_der {
                 Ok(vv) => vv,
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
             if crls_der.is_empty() {
                 return rustls_result::CertificateRevocationListParseError;
             }
-
 
             client_verifier_builder.crls.extend(crls_der);
             rustls_result::Ok
@@ -768,7 +775,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -789,7 +797,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -807,7 +816,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -829,7 +839,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -877,18 +888,21 @@ impl rustls_web_pki_client_cert_verifier_builder {
         verifier_out: *mut *mut rustls_client_cert_verifier,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
 
             let mut builder = WebPkiClientVerifier::builder(client_verifier_builder.roots)
                 .with_crls(client_verifier_builder.crls);
             match client_verifier_builder.revocation_depth {
-                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
-                RevocationCheckDepth::Chain => {},
+                RevocationCheckDepth::EndEntity => {
+                    builder = builder.only_check_end_entity_revocation()
+                }
+                RevocationCheckDepth::Chain => {}
             }
             match client_verifier_builder.revocation_policy {
                 UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
-                UnknownStatusPolicy::Deny => {},
+                UnknownStatusPolicy::Deny => {}
             }
             if client_verifier_builder.allow_unauthenticated {
                 builder = builder.allow_unauthenticated();
@@ -896,7 +910,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
             if client_verifier_builder.root_hint_subjects.is_empty() {
                 builder = builder.clear_root_hint_subjects();
             } else {
-                builder = builder.add_root_hint_subjects(client_verifier_builder.root_hint_subjects);
+                builder =
+                    builder.add_root_hint_subjects(client_verifier_builder.root_hint_subjects);
             }
 
             let verifier = match builder.build() {
@@ -977,7 +992,7 @@ impl ServerCertVerifierBuilder {
                 roots: store,
                 crls: Vec::default(),
                 revocation_depth: RevocationCheckDepth::Chain,
-                revocation_policy: UnknownStatusPolicy::Deny
+                revocation_policy: UnknownStatusPolicy::Deny,
             };
             to_boxed_mut_ptr(Some(builder))
         }
@@ -998,15 +1013,17 @@ impl ServerCertVerifierBuilder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
             };
 
             let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =  crls(&mut Cursor::new(crl_pem)).collect();
-            let crls_der = match crls_der{
+            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
+                crls(&mut Cursor::new(crl_pem)).collect();
+            let crls_der = match crls_der {
                 Ok(vv) => vv,
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
@@ -1028,7 +1045,8 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -1049,7 +1067,8 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -1073,18 +1092,21 @@ impl ServerCertVerifierBuilder {
         verifier_out: *mut *mut rustls_server_cert_verifier,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> = try_mut_from_ptr!(builder);
+            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+                try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
 
             let mut builder = WebPkiServerVerifier::builder(server_verifier_builder.roots)
                 .with_crls(server_verifier_builder.crls);
             match server_verifier_builder.revocation_depth {
-                RevocationCheckDepth::EndEntity => builder = builder.only_check_end_entity_revocation(),
-                RevocationCheckDepth::Chain => {},
+                RevocationCheckDepth::EndEntity => {
+                    builder = builder.only_check_end_entity_revocation()
+                }
+                RevocationCheckDepth::Chain => {}
             }
             match server_verifier_builder.revocation_policy {
                 UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
-                UnknownStatusPolicy::Deny => {},
+                UnknownStatusPolicy::Deny => {}
             }
 
             let verifier = match builder.build() {

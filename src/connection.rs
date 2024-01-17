@@ -148,7 +148,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             if out_n.is_null() {
-                return rustls_io_result(EINVAL)
+                return rustls_io_result(EINVAL);
             }
             let callback: ReadCallback = try_callback!(callback);
 
@@ -185,7 +185,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             if out_n.is_null() {
-                return rustls_io_result(EINVAL)
+                return rustls_io_result(EINVAL);
             }
             let callback: WriteCallback = try_callback!(callback);
 
@@ -222,7 +222,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             if out_n.is_null() {
-                return rustls_io_result(EINVAL)
+                return rustls_io_result(EINVAL);
             }
             let callback: VectoredWriteCallback = try_callback!(callback);
 
@@ -332,7 +332,7 @@ impl rustls_connection {
             let conn: &Connection = try_ref_from_ptr!(conn);
             match conn.peer_certificates().and_then(|c| c.get(i)) {
                 Some(cert) => cert as *const CertificateDer as *const _,
-                None => null()
+                None => null(),
             }
         }
     }
@@ -357,7 +357,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &Connection = try_ref_from_ptr!(conn);
             if protocol_out.is_null() || protocol_out_len.is_null() {
-                return
+                return;
             }
             match conn.alpn_protocol() {
                 Some(p) => unsafe {
@@ -367,7 +367,7 @@ impl rustls_connection {
                 None => unsafe {
                     *protocol_out = null();
                     *protocol_out_len = 0;
-                }
+                },
             }
         }
     }
@@ -434,7 +434,7 @@ impl rustls_connection {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             let write_buf: &[u8] = try_slice!(buf, count);
             if out_n.is_null() {
-                return NullParameter
+                return NullParameter;
             }
             let n_written: usize = match conn.writer().write(write_buf) {
                 Ok(n) => n,
@@ -469,22 +469,24 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             if buf.is_null() {
-                return NullParameter
+                return NullParameter;
             }
             if out_n.is_null() {
-                return NullParameter
+                return NullParameter;
             }
 
             // Safety: the memory pointed at by buf must be initialized
             // (required by documentation of this function).
-            let read_buf: &mut [u8] = unsafe {
-                slice::from_raw_parts_mut(buf, count)
-            };
+            let read_buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buf, count) };
 
             let n_read: usize = match conn.reader().read(read_buf) {
                 Ok(n) => n,
-                Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
-                Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    return rustls_result::UnexpectedEof
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    return rustls_result::PlaintextEmpty
+                }
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
@@ -518,18 +520,21 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &mut Connection = try_mut_from_ptr!(conn);
             if buf.is_null() || out_n.is_null() {
-                return NullParameter
+                return NullParameter;
             }
-            let read_buf: &mut [std::mem::MaybeUninit<u8>] = unsafe {
-                slice::from_raw_parts_mut(buf, count)
-            };
+            let read_buf: &mut [std::mem::MaybeUninit<u8>] =
+                unsafe { slice::from_raw_parts_mut(buf, count) };
 
             let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
 
             let n_read: usize = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
-                Err(e) if e.kind() == ErrorKind::UnexpectedEof => return rustls_result::UnexpectedEof,
-                Err(e) if e.kind() == ErrorKind::WouldBlock => return rustls_result::PlaintextEmpty,
+                Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    return rustls_result::UnexpectedEof
+                }
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    return rustls_result::PlaintextEmpty
+                }
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
