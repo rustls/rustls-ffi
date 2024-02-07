@@ -44,7 +44,7 @@ make_conn(const char *hostname, const char *port)
     goto cleanup;
   }
 
-  int connect_result;
+  int connect_result = -1;
   for(int attempts = 0; attempts < 10; attempts++) {
     LOG("connect attempt %d", attempts);
     sockfd = socket(getaddrinfo_output->ai_family,
