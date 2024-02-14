@@ -310,6 +310,7 @@ pub(crate) struct OwnershipRef;
 /// that is provided to C code, either a [`OwnershipBox`] when it is a pointer to a `Box<_>`,
 /// a [`OwnershipArc`] when it is a pointer to an `Arc<_>`, or a [`OwnershipRef`] when it is a
 /// pointer to a `&_`.
+#[allow(dead_code)] // This trait is only used as a marker.
 trait OwnershipMarker {}
 
 impl OwnershipMarker for OwnershipBox {}
