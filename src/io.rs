@@ -49,7 +49,7 @@ impl Read for CallbackReader {
     }
 }
 
-/// A callback for rustls_connection_write_tls.
+/// A callback for rustls_connection_write_tls or rustls_accepted_alert_write_tls.
 /// An implementation of this callback should attempt to write the `n` bytes in buf
 /// to the network. If any bytes were written, the implementation should
 /// set out_n to the number of bytes stored and return 0. If there was an error,

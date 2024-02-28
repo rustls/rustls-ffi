@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use libc::{c_void, size_t, EINVAL, EIO};
-use rustls::server::{Accepted, Acceptor};
+use rustls::server::{Accepted, AcceptedAlert, Acceptor};
 use rustls::ServerConfig;
 
 use crate::connection::rustls_connection;
 use crate::error::{map_error, rustls_io_result};
-use crate::io::{rustls_read_callback, CallbackReader, ReadCallback};
+use crate::io::{
+    rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter, ReadCallback,
+};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
@@ -148,7 +150,15 @@ impl rustls_acceptor {
     /// out_accepted: An output parameter. The pointed-to pointer will be set
     ///   to a new rustls_accepted only when the function returns
     ///   RUSTLS_RESULT_OK. The memory is owned by the caller and must eventually
-    ///   be freed.
+    ///   be freed
+    /// out_alert: An output parameter. The pointed-to pointer will be set
+    ///   to a new rustls_accepted_alert only when the function returns
+    ///   a non-OK result. The memory is owned by the caller and must eventually
+    ///   be freed with rustls_accepted_alert_free. The caller should call
+    ///   rustls_accepted_alert_write_tls to write the alert bytes to the TLS
+    ///   connection before freeing the rustls_accepted_alert.
+    ///
+    /// At most one of out_accepted or out_alert will be set.
     ///
     /// Returns:
     ///
@@ -173,19 +183,26 @@ impl rustls_acceptor {
     pub extern "C" fn rustls_acceptor_accept(
         acceptor: *mut rustls_acceptor,
         out_accepted: *mut *mut rustls_accepted,
+        out_alert: *mut *mut rustls_accepted_alert,
     ) -> rustls_result {
         ffi_panic_boundary! {
             let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
             if out_accepted.is_null() {
                 return NullParameter;
             }
+            if out_alert.is_null() {
+                return NullParameter;
+            }
             match acceptor.accept() {
                 Ok(None) => rustls_result::AcceptorNotReady,
-                Err(e) => map_error(e),
                 Ok(Some(accepted)) => {
                     set_boxed_mut_ptr(out_accepted, Some(accepted));
                     rustls_result::Ok
                 }
+                Err((e, accepted_alert)) => {
+                    set_boxed_mut_ptr(out_alert, accepted_alert);
+                    map_error(e)
+                },
             }
         }
     }
@@ -266,7 +283,7 @@ impl rustls_accepted {
             let hello = accepted.client_hello();
             let signature_schemes = hello.signature_schemes();
             match signature_schemes.get(i) {
-                Some(s) => s.get_u16(),
+                Some(s) => u16::from(*s),
                 None => 0,
             }
         }
@@ -304,7 +321,7 @@ impl rustls_accepted {
             let hello = accepted.client_hello();
             let cipher_suites = hello.cipher_suites();
             match cipher_suites.get(i) {
-                Some(cs) => cs.get_u16(),
+                Some(cs) => u16::from(*cs),
                 None => 0,
             }
         }
@@ -365,6 +382,14 @@ impl rustls_accepted {
     /// out_conn: An output parameter. The pointed-to pointer will be set
     ///   to a new rustls_connection only when the function returns
     ///   RUSTLS_RESULT_OK.
+    /// out_alert: An output parameter. The pointed-to pointer will be set
+    ///   to a new rustls_accepted_alert when, and only when, the function returns
+    ///   a non-OK result. The memory is owned by the caller and must eventually
+    ///   be freed with rustls_accepted_alert_free. The caller should call
+    ///   rustls_accepted_alert_write_tls to write the alert bytes to
+    ///   the TLS connection before freeing the rustls_accepted_alert.
+    ///
+    /// At most one of out_conn or out_alert will be set.
     ///
     /// Returns:
     ///
@@ -395,18 +420,25 @@ impl rustls_accepted {
         accepted: *mut rustls_accepted,
         config: *const rustls_server_config,
         out_conn: *mut *mut rustls_connection,
+        out_alert: *mut *mut rustls_accepted_alert,
     ) -> rustls_result {
         ffi_panic_boundary! {
             let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
             let accepted = try_take!(accepted);
             let config: Arc<ServerConfig> = try_clone_arc!(config);
+            if out_alert.is_null() {
+                return NullParameter;
+            }
             match accepted.into_connection(config) {
                 Ok(built) => {
                     let wrapped = crate::connection::Connection::from_server(built);
                     set_boxed_mut_ptr(out_conn, wrapped);
                     rustls_result::Ok
                 }
-                Err(e) => map_error(e),
+                Err((e, accepted_alert)) => {
+                    set_boxed_mut_ptr(out_alert, accepted_alert);
+                    map_error(e)
+                },
             }
         }
     }
@@ -426,6 +458,66 @@ impl rustls_accepted {
     }
 }
 
+/// Represents a TLS alert resulting from accepting a client.
+pub struct rustls_accepted_alert {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_accepted_alert {
+    type Ownership = OwnershipBox;
+    type RustType = AcceptedAlert;
+}
+
+impl rustls_accepted_alert {
+    /// Write some TLS bytes (an alert) to the network. The actual network I/O is
+    /// performed by `callback`, which you provide. Rustls will invoke your callback with a
+    /// suitable buffer containing TLS bytes to send. You don't have to write them
+    /// all, just as many as you can in one syscall.
+    /// The `userdata` parameter is passed through directly to `callback`. Note that
+    /// this is distinct from the `userdata` parameter set with
+    /// `rustls_connection_set_userdata`.
+    /// Returns 0 for success, or an errno value on error. Passes through return values
+    /// from callback. See [`rustls_write_callback`] or [`AcceptedAlert`] for
+    /// more details.
+    #[no_mangle]
+    pub extern "C" fn rustls_accepted_alert_write_tls(
+        accepted_alert: *mut rustls_accepted_alert,
+        callback: rustls_write_callback,
+        userdata: *mut c_void,
+        out_n: *mut size_t,
+    ) -> rustls_io_result {
+        ffi_panic_boundary! {
+            if out_n.is_null() {
+                return rustls_io_result(EINVAL);
+            }
+            let accepted_alert: &mut AcceptedAlert = try_mut_from_ptr!(accepted_alert);
+            let mut writer = CallbackWriter { callback: try_callback!(callback), userdata };
+            let n_written: usize = match accepted_alert.write(&mut writer) {
+                Ok(n) => n,
+                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+            };
+            unsafe {
+                *out_n = n_written;
+            }
+            rustls_io_result(0)
+        }
+    }
+
+    /// Free a rustls_accepted_alert.
+    ///
+    /// Parameters:
+    ///
+    /// accepted_alert: The rustls_accepted_alert to free.
+    ///
+    /// Calling with NULL is fine. Must not be called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_accepted_alert_free(accepted_alert: *mut rustls_accepted_alert) {
+        ffi_panic_boundary! {
+            free_box(accepted_alert);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::min;
@@ -434,6 +526,9 @@ mod tests {
     use std::slice;
 
     use libc::c_char;
+    use rustls::internal::msgs::codec::Codec;
+    use rustls::internal::msgs::enums::AlertLevel;
+    use rustls::{AlertDescription, ContentType, ProtocolVersion};
 
     use crate::cipher::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
@@ -487,6 +582,7 @@ mod tests {
         let acceptor = make_acceptor();
 
         let mut accepted: *mut rustls_accepted = null_mut();
+        let mut accepted_alert: *mut rustls_accepted_alert = null_mut();
         let mut n: usize = 0;
         let mut data = VecDeque::new();
         for _ in 0..1024 {
@@ -502,9 +598,40 @@ mod tests {
         assert_eq!(data.len(), 0);
         assert_eq!(n, 1024);
 
-        let result = rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted);
+        let result =
+            rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted, &mut accepted_alert);
         assert_eq!(result, rustls_result::MessageInvalidContentType);
         assert_eq!(accepted, null_mut());
+        assert_ne!(accepted_alert, null_mut());
+
+        unsafe extern "C" fn expected_alert_callback(
+            _userdata: *mut c_void,
+            buf: *const u8,
+            n: size_t,
+            _out_n: *mut size_t,
+        ) -> rustls_io_result {
+            let mut expected = vec![ContentType::Alert.into()];
+            ProtocolVersion::TLSv1_2.encode(&mut expected);
+            (2_u16).encode(&mut expected);
+            AlertLevel::Fatal.encode(&mut expected);
+            AlertDescription::DecodeError.encode(&mut expected);
+
+            let alert_bytes = slice::from_raw_parts(buf, n);
+            assert_eq!(alert_bytes, &expected);
+            rustls_io_result(0)
+        }
+
+        // We expect that an accepted alert was generated, and that its bytes match a fatal level
+        // TLS alert indicating a decode error.
+        let res = rustls_accepted_alert::rustls_accepted_alert_write_tls(
+            accepted_alert,
+            Some(expected_alert_callback),
+            null_mut(),
+            &mut n,
+        );
+        assert_eq!(res, rustls_io_result(0));
+
+        rustls_accepted_alert::rustls_accepted_alert_free(accepted_alert);
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
 
@@ -582,6 +709,7 @@ mod tests {
         let acceptor = make_acceptor();
 
         let mut accepted: *mut rustls_accepted = null_mut();
+        let mut accepted_alert: *mut rustls_accepted_alert = null_mut();
         let mut n: usize = 0;
         let mut data = client_hello_bytes();
         let data_len = data.len();
@@ -596,9 +724,11 @@ mod tests {
         assert_eq!(data.len(), 0);
         assert_eq!(n, data_len);
 
-        let result = rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted);
+        let result =
+            rustls_acceptor::rustls_acceptor_accept(acceptor, &mut accepted, &mut accepted_alert);
         assert_eq!(result, rustls_result::Ok);
         assert_ne!(accepted, null_mut());
+        assert_eq!(accepted_alert, null_mut());
 
         let sni = rustls_accepted::rustls_accepted_server_name(accepted);
         let sni_as_slice = unsafe { std::slice::from_raw_parts(sni.data as *const u8, sni.len) };
@@ -638,13 +768,19 @@ mod tests {
 
         let server_config = make_server_config();
         let mut conn: *mut rustls_connection = null_mut();
-        let result =
-            rustls_accepted::rustls_accepted_into_connection(accepted, server_config, &mut conn);
+        let result = rustls_accepted::rustls_accepted_into_connection(
+            accepted,
+            server_config,
+            &mut conn,
+            &mut accepted_alert,
+        );
         assert_eq!(result, rustls_result::Ok);
+        assert_eq!(accepted_alert, null_mut());
         assert!(!rustls_connection::rustls_connection_wants_read(conn));
         assert!(rustls_connection::rustls_connection_wants_write(conn));
         assert!(rustls_connection::rustls_connection_is_handshaking(conn));
 
+        rustls_accepted_alert::rustls_accepted_alert_free(accepted_alert);
         rustls_acceptor::rustls_acceptor_free(acceptor);
         rustls_accepted::rustls_accepted_free(accepted);
         rustls_connection::rustls_connection_free(conn);

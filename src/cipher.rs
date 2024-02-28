@@ -81,12 +81,13 @@ impl rustls_supported_ciphersuite {
         supported_ciphersuite: *const rustls_supported_ciphersuite,
     ) -> u16 {
         let supported_ciphersuite = try_ref_from_ptr!(supported_ciphersuite);
-        match supported_ciphersuite {
-            rustls::SupportedCipherSuite::Tls12(sc) => &sc.common,
-            rustls::SupportedCipherSuite::Tls13(sc) => &sc.common,
-        }
-        .suite
-        .get_u16()
+        u16::from(
+            match supported_ciphersuite {
+                rustls::SupportedCipherSuite::Tls12(sc) => &sc.common,
+                rustls::SupportedCipherSuite::Tls13(sc) => &sc.common,
+            }
+            .suite,
+        )
     }
 }
 
@@ -890,7 +891,10 @@ impl rustls_web_pki_client_cert_verifier_builder {
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
 
-            let mut builder = WebPkiClientVerifier::builder(client_verifier_builder.roots)
+            let mut builder = WebPkiClientVerifier::builder_with_provider(
+                    client_verifier_builder.roots,
+                    rustls::crypto::ring::default_provider().into(),
+                )
                 .with_crls(client_verifier_builder.crls);
             match client_verifier_builder.revocation_depth {
                 RevocationCheckDepth::EndEntity => {
@@ -1094,7 +1098,10 @@ impl ServerCertVerifierBuilder {
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
 
-            let mut builder = WebPkiServerVerifier::builder(server_verifier_builder.roots)
+            let mut builder = WebPkiServerVerifier::builder_with_provider(
+                    server_verifier_builder.roots,
+                    rustls::crypto::ring::default_provider().into(),
+                )
                 .with_crls(server_verifier_builder.crls);
             match server_verifier_builder.revocation_depth {
                 RevocationCheckDepth::EndEntity => {

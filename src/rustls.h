@@ -141,6 +141,11 @@ typedef enum rustls_tls_version {
 typedef struct rustls_accepted rustls_accepted;
 
 /**
+ * Represents a TLS alert resulting from accepting a client.
+ */
+typedef struct rustls_accepted_alert rustls_accepted_alert;
+
+/**
  * A buffer and parser for ClientHello bytes. This allows reading ClientHello
  * before choosing a rustls_server_config. It's useful when the server
  * config will be based on parameters in the ClientHello: server name
@@ -383,6 +388,25 @@ typedef struct rustls_slice_bytes {
 } rustls_slice_bytes;
 
 /**
+ * A callback for rustls_connection_write_tls or rustls_accepted_alert_write_tls.
+ * An implementation of this callback should attempt to write the `n` bytes in buf
+ * to the network. If any bytes were written, the implementation should
+ * set out_n to the number of bytes stored and return 0. If there was an error,
+ * the implementation should return a nonzero rustls_io_result, which will be
+ * passed through to the caller. On POSIX systems, returning `errno` is convenient.
+ * On other systems, any appropriate error code works.
+ * It's best to make one write attempt to the network per call. Additional writes will
+ * be triggered by subsequent calls to rustls_connection_write_tls.
+ * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
+ * cases that should be a struct that contains, at a minimum, a file descriptor.
+ * The buf and out_n pointers are borrowed and should not be retained across calls.
+ */
+typedef rustls_io_result (*rustls_write_callback)(void *userdata,
+                                                  const uint8_t *buf,
+                                                  size_t n,
+                                                  size_t *out_n);
+
+/**
  * User-provided input to a custom certificate verifier callback. See
  * rustls_client_config_builder_dangerous_set_certificate_verifier().
  */
@@ -413,25 +437,6 @@ typedef struct rustls_log_params {
 } rustls_log_params;
 
 typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_params *params);
-
-/**
- * A callback for rustls_connection_write_tls.
- * An implementation of this callback should attempt to write the `n` bytes in buf
- * to the network. If any bytes were written, the implementation should
- * set out_n to the number of bytes stored and return 0. If there was an error,
- * the implementation should return a nonzero rustls_io_result, which will be
- * passed through to the caller. On POSIX systems, returning `errno` is convenient.
- * On other systems, any appropriate error code works.
- * It's best to make one write attempt to the network per call. Additional writes will
- * be triggered by subsequent calls to rustls_connection_write_tls.
- * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
- * cases that should be a struct that contains, at a minimum, a file descriptor.
- * The buf and out_n pointers are borrowed and should not be retained across calls.
- */
-typedef rustls_io_result (*rustls_write_callback)(void *userdata,
-                                                  const uint8_t *buf,
-                                                  size_t n,
-                                                  size_t *out_n);
 
 /**
  * A callback for rustls_connection_write_tls_vectored.
@@ -662,7 +667,15 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * out_accepted: An output parameter. The pointed-to pointer will be set
  *   to a new rustls_accepted only when the function returns
  *   RUSTLS_RESULT_OK. The memory is owned by the caller and must eventually
- *   be freed.
+ *   be freed
+ * out_alert: An output parameter. The pointed-to pointer will be set
+ *   to a new rustls_accepted_alert only when the function returns
+ *   a non-OK result. The memory is owned by the caller and must eventually
+ *   be freed with rustls_accepted_alert_free. The caller should call
+ *   rustls_accepted_alert_write_tls to write the alert bytes to the TLS
+ *   connection before freeing the rustls_accepted_alert.
+ *
+ * At most one of out_accepted or out_alert will be set.
  *
  * Returns:
  *
@@ -685,7 +698,8 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
  * from a protocol perspective.
  */
 rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
-                                     struct rustls_accepted **out_accepted);
+                                     struct rustls_accepted **out_accepted,
+                                     struct rustls_accepted_alert **out_alert);
 
 /**
  * Get the server name indication (SNI) from the ClientHello.
@@ -795,6 +809,14 @@ struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *acc
  * out_conn: An output parameter. The pointed-to pointer will be set
  *   to a new rustls_connection only when the function returns
  *   RUSTLS_RESULT_OK.
+ * out_alert: An output parameter. The pointed-to pointer will be set
+ *   to a new rustls_accepted_alert when, and only when, the function returns
+ *   a non-OK result. The memory is owned by the caller and must eventually
+ *   be freed with rustls_accepted_alert_free. The caller should call
+ *   rustls_accepted_alert_write_tls to write the alert bytes to
+ *   the TLS connection before freeing the rustls_accepted_alert.
+ *
+ * At most one of out_conn or out_alert will be set.
  *
  * Returns:
  *
@@ -823,7 +845,8 @@ struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *acc
  */
 rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
                                               const struct rustls_server_config *config,
-                                              struct rustls_connection **out_conn);
+                                              struct rustls_connection **out_conn,
+                                              struct rustls_accepted_alert **out_alert);
 
 /**
  * Free a rustls_accepted.
@@ -835,6 +858,34 @@ rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
 void rustls_accepted_free(struct rustls_accepted *accepted);
+
+/**
+ * Write some TLS bytes (an alert) to the network. The actual network I/O is
+ * performed by `callback`, which you provide. Rustls will invoke your callback with a
+ * suitable buffer containing TLS bytes to send. You don't have to write them
+ * all, just as many as you can in one syscall.
+ * The `userdata` parameter is passed through directly to `callback`. Note that
+ * this is distinct from the `userdata` parameter set with
+ * `rustls_connection_set_userdata`.
+ * Returns 0 for success, or an errno value on error. Passes through return values
+ * from callback. See [`rustls_write_callback`] or [`AcceptedAlert`] for
+ * more details.
+ */
+rustls_io_result rustls_accepted_alert_write_tls(struct rustls_accepted_alert *accepted_alert,
+                                                 rustls_write_callback callback,
+                                                 void *userdata,
+                                                 size_t *out_n);
+
+/**
+ * Free a rustls_accepted_alert.
+ *
+ * Parameters:
+ *
+ * accepted_alert: The rustls_accepted_alert to free.
+ *
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_accepted_alert_free(struct rustls_accepted_alert *accepted_alert);
 
 /**
  * Get the DER data of the certificate itself.

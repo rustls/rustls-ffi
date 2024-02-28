@@ -117,8 +117,14 @@ impl rustls_client_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
+            // Unwrap safety: *ring* default provider always has ciphersuites compatible with the
+            // default protocol versions.
+            let base =
+                ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                    .with_safe_default_protocol_versions()
+                    .unwrap();
             let builder = ClientConfigBuilder {
-                base: rustls::ClientConfig::builder(),
+                base,
                 verifier: Arc::new(NoneVerifier),
                 cert_resolver: None,
                 alpn_protocols: vec![],

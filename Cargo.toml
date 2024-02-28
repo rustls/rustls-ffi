@@ -24,9 +24,9 @@ capi = []
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "0.22", features = [ "ring" ]}
+rustls = { version = "0.23.1", default-features = false, features = [ "ring", "std", "tls12" ]}
 pki-types = { package = "rustls-pki-types", version = "1", features = ["std"] }
-webpki = { package = "rustls-webpki", version = "0.102.0", features = ["std"] }
+webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = [ "ring", "std" ] }
 libc = "0.2"
 rustls-pemfile = "2"
 log = "0.4.17"
