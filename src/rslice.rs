@@ -1,12 +1,9 @@
 use libc::{c_char, size_t};
 use std::fmt;
 use std::marker::PhantomData;
+use std::ptr::null;
 use std::slice;
 use std::str;
-use std::{
-    convert::{TryFrom, TryInto},
-    ptr::null,
-};
 
 /// A read-only view on a Rust byte slice.
 ///
@@ -249,7 +246,6 @@ fn test_rustls_str() {
 #[cfg(test)]
 mod tests {
     use crate::rslice::*;
-    use std::convert::TryInto;
 
     #[test]
     fn test_rustls_str_debug() {

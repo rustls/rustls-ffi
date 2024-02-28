@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::sync::Arc;
 
 use libc::{c_void, size_t, EINVAL, EIO};
@@ -438,7 +437,6 @@ mod tests {
 
     use crate::cipher::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
-    use crate::connection::rustls_connection;
     use crate::server::rustls_server_config_builder;
 
     use super::*;
