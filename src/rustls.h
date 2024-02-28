@@ -7,7 +7,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-enum rustls_result {
+enum rustls_result
+#ifdef __cplusplus
+  : uint32_t
+#endif // __cplusplus
+ {
   RUSTLS_RESULT_OK = 7000,
   RUSTLS_RESULT_IO = 7001,
   RUSTLS_RESULT_NULL_PARAMETER = 7002,
@@ -118,7 +122,9 @@ enum rustls_result {
   RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_REVOCATION_REASON = 7410,
   RUSTLS_RESULT_CLIENT_CERT_VERIFIER_BUILDER_NO_ROOT_ANCHORS = 7500,
 };
+#ifndef __cplusplus
 typedef uint32_t rustls_result;
+#endif // __cplusplus
 
 /**
  * Definitions of known TLS protocol versions.
@@ -578,6 +584,10 @@ typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userd
                                                       const struct rustls_slice_bytes *key,
                                                       const struct rustls_slice_bytes *val);
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
 
 extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
@@ -979,6 +989,22 @@ rustls_result rustls_root_cert_store_builder_add_pem(struct rustls_root_cert_sto
 
 /**
  * Add one or more certificates to the root cert store builder using PEM
+ * encoded data read from a provided buffer
+ *
+ * When `strict` is true an error will return a `CertificateParseError`
+ * result. So will an attempt to parse data that has zero certificates.
+ *
+ * When `strict` is false, unparseable root certificates will be ignored.
+ * This may be useful on systems that have syntactically invalid root
+ * certificates.
+ */
+rustls_result rustls_root_cert_store_builder_load_roots_from_bytes(struct rustls_root_cert_store_builder *builder,
+                                                                   uint8_t *buf,
+                                                                   size_t count,
+                                                                   bool strict);
+
+/**
+ * Add one or more certificates to the root cert store builder using PEM
  * encoded data read from the named file.
  *
  * When `strict` is true an error will return a `CertificateParseError`
@@ -1377,6 +1403,15 @@ void rustls_connection_set_userdata(struct rustls_connection *conn, void *userda
 void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_log_callback cb);
 
 /**
+ * Read some TLS bytes from the provided file descriptor into internal buffers.
+ * Returns 0 for success, or an errno value on error.
+ * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
+ */
+rustls_io_result rustls_connection_read_tls_from_fd(struct rustls_connection *conn,
+                                                    int32_t fd,
+                                                    size_t *out_n);
+
+/**
  * Read some TLS bytes from the network into internal buffers. The actual network
  * I/O is performed by `callback`, which you provide. Rustls will invoke your
  * callback with a suitable buffer to store the read bytes into. You don't have
@@ -1392,6 +1427,15 @@ rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
                                             rustls_read_callback callback,
                                             void *userdata,
                                             size_t *out_n);
+
+/**
+ * Write some TLS bytes to provided file descriptor.
+ * Returns 0 for success, or an errno value on error.
+ * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
+ */
+rustls_io_result rustls_connection_write_tls_to_fd(struct rustls_connection *conn,
+                                                   int32_t fd,
+                                                   size_t *out_n);
 
 /**
  * Write some TLS bytes to the network. The actual network I/O is performed by
@@ -1797,5 +1841,9 @@ rustls_result rustls_client_hello_select_certified_key(const struct rustls_clien
 rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
                                                            rustls_session_store_get_callback get_cb,
                                                            rustls_session_store_put_callback put_cb);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus
 
 #endif /* RUSTLS_H */
