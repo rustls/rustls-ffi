@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
 use std::slice;

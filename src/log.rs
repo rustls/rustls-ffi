@@ -1,5 +1,3 @@
-use std::convert::TryInto;
-
 use libc::c_void;
 use log::Level;
 

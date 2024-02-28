@@ -1,5 +1,4 @@
 use libc::{c_char, size_t};
-use std::convert::TryFrom;
 use std::ffi::{CStr, OsStr};
 use std::fs::File;
 use std::io::{BufReader, Cursor};
@@ -210,7 +209,6 @@ pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIP
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::slice;
     use std::str;
 
     #[test]
