@@ -75,8 +75,14 @@ impl rustls_server_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
         ffi_panic_boundary! {
+            // Unwrap safety: *ring* default provider always has ciphersuites compatible with the
+            // default protocol versions.
+            let base =
+                ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                    .with_safe_default_protocol_versions()
+                    .unwrap();
             let builder = ServerConfigBuilder {
-                base: rustls::ServerConfig::builder(),
+                base,
                 verifier: WebPkiClientVerifier::no_client_auth(),
                 cert_resolver: None,
                 session_storage: None,
@@ -495,7 +501,7 @@ impl ResolvesServerCert for ClientHelloResolver {
         let mapped_sigs: Vec<u16> = client_hello
             .signature_schemes()
             .iter()
-            .map(|s| s.get_u16())
+            .map(|s| u16::from(*s))
             .collect();
         // Unwrap the Option. None becomes an empty slice.
         let alpn = match client_hello.alpn() {

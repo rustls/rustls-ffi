@@ -384,7 +384,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn: &Connection = try_ref_from_ptr!(conn);
             match conn.protocol_version() {
-                Some(p) => p.get_u16(),
+                Some(p) => u16::from(p),
                 _ => 0,
             }
         }
