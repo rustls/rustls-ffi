@@ -24,7 +24,7 @@ or above) and a C compiler (`gcc` and `clang` should both work).
 
 ## Static Library
 
-In its current for rustls-ffi's `Makefile` infrastructure will generate a static
+In its current form rustls-ffi's `Makefile` infrastructure will generate a static
 system library (e.g. `--crate-type=staticlib`), producing a `.a` or `.lib` file
 (depending on the OS).
 
@@ -110,8 +110,8 @@ To build a static library in debug mode:
 To link against the resulting dynamic library, use `pkg-config` to populate your
 `LDLIBS` and `CFLAGS` as appropriate:
 
-    pkg-config --libs rustls
-    pkg-config --cflags rustls
+    LDLIBS="$(pkg-config --libs rustls)"
+    CFLAGS="$(pkg-config --cflags rustls)"
 
 # Overview
 
