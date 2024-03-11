@@ -55,20 +55,6 @@ jobs:
       - run: export VALGRIND="valgrind -q"
       - run: make test integration
 
-  test-windows:
-    name: Windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Setup PATH for CL.EXE
-        uses: ilammy/msvc-dev-cmd@v1
-      # Remove link.exe from non-MSVC packages that interferes with MSVC link
-      - run: rm "C:\Program Files\Git\usr\bin\link.exe"
-      - run: rm "C:\msys64\usr\bin\link.exe"
-      - run: make -f Makefile.Windows test integration
-
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
     runs-on: windows-latest
