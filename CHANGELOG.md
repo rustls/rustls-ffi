@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.1 (2024-03-21)
+
+### Added
+
+* Initial support for building with [cargo-c].
+* Experimental support for building `rustls-ffi` as a dynamic library (`cdylib`).
+
+[cargo-c]: https://github.com/lu-zero/cargo-c
+
 ## 0.12.0 (2023-12-03)
 
 This release updates to [Rustls 0.22], but does not yet expose support for
