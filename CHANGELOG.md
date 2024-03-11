@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.13.0 (XXXX-XX-XX)
+
+This release updates to [Rustls 0.23.1] and continues to use `*ring*` as the
+only cryptographic provider.
+
+[Rustls 0.23.1]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.1
+
+### Added
+
+* A new `rustls_accepted_alert` type is added. Calling
+  `rustls_accepted_alert_bytes` on this type produces TLS data to write
+  in the case where a server acceptor encountered an error accepting a client.
+  The returned TLS data should be written to the connection before freeing 
+  the `rustls_accepted_alert` by calling `rustls_accepted_alert_write_tls` with
+  a `rustls_write_callback` implementation.
+
+## Changed
+
+* The `rustls_acceptor_accept` and `rustls_accepted_into_connection` API
+  functions now require an extra `rustls_accepted_alert` out parameter. This
+  parameter will only be set when an error occurs accepting a client connection
+  and can be used to write any generated alerts to the connection to signal
+  the accept error to the peer.
+
 ## 0.12.1 (2024-03-21)
 
 ### Added

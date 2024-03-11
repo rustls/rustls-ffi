@@ -1,6 +1,6 @@
 [package]
 name = "rustls-ffi"
-version = "0.12.1"
+version = "0.13.0"
 authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 license = "Apache-2.0/ISC/MIT"
 readme = "README-crates.io.md"
