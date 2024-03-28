@@ -426,6 +426,9 @@ impl rustls_accepted {
             let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
             let accepted = try_take!(accepted);
             let config: Arc<ServerConfig> = try_clone_arc!(config);
+            if out_conn.is_null() {
+                return NullParameter;
+            }
             if out_alert.is_null() {
                 return NullParameter;
             }

@@ -159,6 +159,9 @@ impl rustls_client_config_builder {
         builder_out: *mut *mut rustls_client_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if builder_out.is_null() {
+                return NullParameter;
+            }
             let cipher_suites: &[*const rustls_supported_ciphersuite] =
                 try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
@@ -562,6 +565,9 @@ impl rustls_client_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if conn_out.is_null() {
+                return NullParameter;
+            }
             let server_name: &CStr = unsafe {
                 if server_name.is_null() {
                     return NullParameter;
