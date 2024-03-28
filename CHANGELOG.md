@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.13.0 (XXXX-XX-XX)
+## 0.13.0 (2024-03-28)
 
-This release updates to [Rustls 0.23.1] and continues to use `*ring*` as the
+This release updates to [Rustls 0.23.4] and continues to use `*ring*` as the
 only cryptographic provider.
 
-[Rustls 0.23.1]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.1
+[Rustls 0.23.4]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.4
 
 ### Added
 
@@ -16,13 +16,17 @@ only cryptographic provider.
   the `rustls_accepted_alert` by calling `rustls_accepted_alert_write_tls` with
   a `rustls_write_callback` implementation.
 
-## Changed
+### Changed
 
 * The `rustls_acceptor_accept` and `rustls_accepted_into_connection` API
   functions now require an extra `rustls_accepted_alert` out parameter. This
   parameter will only be set when an error occurs accepting a client connection
   and can be used to write any generated alerts to the connection to signal
   the accept error to the peer.
+
+* The experimental cargo-c build support has been updated to use a vendored
+  header file. This avoids the need for nightly rust or `cbindgen` when using
+  this build method.
 
 ## 0.12.1 (2024-03-21)
 
