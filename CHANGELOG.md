@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.2 (2024-03-28)
+
+### Changed
+
+* The experimental cargo-c build support has been updated to use a vendored
+  header file. This avoids the need for nightly rust or `cbindgen` when using
+  this build method.
+
 ## 0.12.1 (2024-03-21)
 
 ### Added
