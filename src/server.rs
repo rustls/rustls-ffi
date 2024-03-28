@@ -482,12 +482,7 @@ impl ClientHelloResolver {
 
 impl ResolvesServerCert for ClientHelloResolver {
     fn resolve(&self, client_hello: ClientHello) -> Option<Arc<CertifiedKey>> {
-        let server_name: &str = {
-            match client_hello.server_name() {
-                Some(c) => c,
-                None => "",
-            }
-        };
+        let server_name = client_hello.server_name().unwrap_or_default();
         let server_name: rustls_str = match server_name.try_into() {
             Ok(r) => r,
             Err(_) => return None,
