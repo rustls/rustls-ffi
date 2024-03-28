@@ -41,6 +41,7 @@ regex = "1.9.6"
 [package.metadata.capi.header]
 name = "rustls"
 subdirectory = false
+generation = false # Prefer a vendored .h
 
 [package.metadata.capi.library]
 name = "rustls"
@@ -50,3 +51,6 @@ rustflags = "-Cmetadata=rustls-ffi"
 [package.metadata.capi.pkg_config]
 name = "rustls"
 filename = "rustls"
+
+[package.metadata.capi.install.include]
+asset = [{from = "src/rustls.h", to = "" }]
