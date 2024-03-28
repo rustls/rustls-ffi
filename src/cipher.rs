@@ -887,6 +887,9 @@ impl rustls_web_pki_client_cert_verifier_builder {
         verifier_out: *mut *mut rustls_client_cert_verifier,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if verifier_out.is_null() {
+                return NullParameter;
+            }
             let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
@@ -1094,6 +1097,9 @@ impl ServerCertVerifierBuilder {
         verifier_out: *mut *mut rustls_server_cert_verifier,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if verifier_out.is_null() {
+                return NullParameter;
+            }
             let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);

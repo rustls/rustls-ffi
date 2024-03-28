@@ -116,6 +116,9 @@ impl rustls_server_config_builder {
         builder_out: *mut *mut rustls_server_config_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if builder_out.is_null() {
+                return NullParameter;
+            }
             let cipher_suites: &[*const rustls_supported_ciphersuite] =
                 try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
@@ -318,6 +321,9 @@ impl rustls_server_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
+            if conn_out.is_null() {
+                return NullParameter;
+            }
             let config: Arc<ServerConfig> = try_clone_arc!(config);
 
             let server_connection = match ServerConnection::new(config) {
