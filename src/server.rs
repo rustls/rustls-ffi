@@ -27,8 +27,8 @@ use crate::session::{
 };
 use crate::{
     ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_get,
-    Castable, OwnershipArc, OwnershipBox, OwnershipRef,
+    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, Castable, OwnershipArc, OwnershipBox, OwnershipRef,
 };
 
 /// A server config being constructed. A builder can be modified by,
@@ -140,6 +140,8 @@ impl rustls_server_config_builder {
                     versions.push(&rustls::version::TLS13);
                 }
             }
+
+            let builder_out = try_mut_from_ptr_ptr!(builder_out);
 
             let provider = rustls::crypto::CryptoProvider {
                 cipher_suites: cs_vec,
@@ -325,6 +327,7 @@ impl rustls_server_config {
                 return NullParameter;
             }
             let config: Arc<ServerConfig> = try_clone_arc!(config);
+            let conn_out = try_mut_from_ptr_ptr!(conn_out);
 
             let server_connection = match ServerConnection::new(config) {
                 Ok(sc) => sc,

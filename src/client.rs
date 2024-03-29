@@ -23,8 +23,8 @@ use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_get,
-    Castable, OwnershipArc, OwnershipBox,
+    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
+    try_slice, userdata_get, Castable, OwnershipArc, OwnershipBox,
 };
 
 /// A client config being constructed. A builder can be modified by,
@@ -183,6 +183,8 @@ impl rustls_client_config_builder {
                     versions.push(&rustls::version::TLS13);
                 }
             }
+
+            let builder_out = try_mut_from_ptr_ptr!(builder_out);
 
             let provider = rustls::crypto::CryptoProvider {
                 cipher_suites: cs_vec,
@@ -575,6 +577,7 @@ impl rustls_client_config {
                 CStr::from_ptr(server_name)
             };
             let config: Arc<ClientConfig> = try_clone_arc!(config);
+            let conn_out = try_mut_from_ptr_ptr!(conn_out);
             let server_name: &str = match server_name.to_str() {
                 Ok(s) => s,
                 Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,

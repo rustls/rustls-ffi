@@ -22,8 +22,8 @@ use crate::error::{self, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
     ffi_panic_boundary, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr, to_arc_const_ptr,
-    to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_slice, try_take,
-    Castable, OwnershipArc, OwnershipBox, OwnershipRef,
+    to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
+    try_ref_from_ptr_ptr, try_slice, try_take, Castable, OwnershipArc, OwnershipBox, OwnershipRef,
 };
 use rustls_result::{AlreadyUsed, NullParameter};
 
@@ -592,7 +592,7 @@ impl rustls_root_cert_store_builder {
         ffi_panic_boundary! {
             let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
             let builder = try_take!(builder);
-
+            let root_cert_store_out = try_ref_from_ptr_ptr!(root_cert_store_out);
             set_arc_mut_ptr(root_cert_store_out, builder.roots);
 
             rustls_result::Ok
@@ -893,6 +893,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
             let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
+            let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
 
             let mut builder = WebPkiClientVerifier::builder_with_provider(
                     client_verifier_builder.roots,
@@ -925,7 +926,6 @@ impl rustls_web_pki_client_cert_verifier_builder {
             };
 
             set_boxed_mut_ptr(verifier_out, verifier);
-
             rustls_result::Ok
         }
     }
@@ -1103,6 +1103,7 @@ impl ServerCertVerifierBuilder {
             let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
+            let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
 
             let mut builder = WebPkiServerVerifier::builder_with_provider(
                     server_verifier_builder.roots,
