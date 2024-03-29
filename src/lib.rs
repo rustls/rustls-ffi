@@ -485,17 +485,11 @@ where
 /// Converts a [`Castable`]'s underlying [`Castable::RustType`] to a mutable pointer
 /// to a `Box` over the rust type and sets the `dst` out pointer to the resulting mutable `Box`
 /// pointer. See [`to_boxed_mut_ptr`] for more information.
-///
-/// ## Unsafety:
-///
-/// `dst` must not be `NULL`.
-pub(crate) fn set_boxed_mut_ptr<C>(dst: *mut *mut C, src: C::RustType)
+pub(crate) fn set_boxed_mut_ptr<C>(dst: &mut *mut C, src: C::RustType)
 where
     C: Castable<Ownership = OwnershipBox>,
 {
-    unsafe {
-        *dst = to_boxed_mut_ptr(src);
-    }
+    *dst = to_boxed_mut_ptr(src);
 }
 
 /// Converts a [`Castable`]'s underlying [`Castable::RustType`] to a const pointer
@@ -505,13 +499,11 @@ where
 /// ## Unsafety:
 ///
 /// `dst` must not be `NULL`.
-pub(crate) fn set_arc_mut_ptr<C>(dst: *mut *const C, src: C::RustType)
+pub(crate) fn set_arc_mut_ptr<C>(dst: &mut *const C, src: C::RustType)
 where
     C: Castable<Ownership = OwnershipArc>,
 {
-    unsafe {
-        *dst = to_arc_const_ptr(src);
-    }
+    *dst = to_arc_const_ptr(src);
 }
 
 /// Converts a mutable pointer to a [`Castable`] to an optional ref to the underlying
@@ -539,6 +531,32 @@ macro_rules! try_mut_from_ptr {
 }
 
 pub(crate) use try_mut_from_ptr;
+
+/// Converts a mutable pointer to a mutable pointer to a [`Castable`] to an optional mutable ref to
+/// the mutable pointer to the  [`Castable::RustType`].
+///
+/// Does nothing, returning `None`, when passed `NULL`.
+pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a mut *mut C> {
+    match from.is_null() {
+        true => None,
+        false => unsafe { Some(&mut *from) },
+    }
+}
+
+/// If the provided pointer to a pointer to a [`Castable`] is non-null, convert it to a mutable
+/// reference to a pointer using [`try_from_mut_mut`]. Otherwise, return
+/// [`rustls_result::NullParameter`], or an appropriate default (`false`, `0`, `NULL`) based on the
+/// context. See [`try_from_mut_mut`] for more information.
+macro_rules! try_mut_from_ptr_ptr {
+    ( $var:ident ) => {
+        match $crate::try_from_mut_mut($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+pub(crate) use try_mut_from_ptr_ptr;
 
 /// Converts a const pointer to a [`Castable`] to an optional ref to the underlying
 /// [`Castable::RustType`]. See [`cast_const_ptr`] for more information.
@@ -568,6 +586,37 @@ macro_rules! try_ref_from_ptr {
 }
 
 pub(crate) use try_ref_from_ptr;
+
+/// Converts a mut pointer to a const pointer to a [`Castable`] to an optional mut ref to the
+/// const pointer to the underlying [`Castable::RustType`].
+///
+/// Does nothing, returning `None` when passed `NULL`.
+pub(crate) fn try_from_ptr<'a, C>(from: *mut *const C) -> Option<&'a mut *const C>
+where
+    C: Castable,
+{
+    match from.is_null() {
+        true => None,
+        false => unsafe { Some(&mut *from) },
+    }
+}
+
+/// If the provided pointer to pointer to a [`Castable`] is non-null, convert it to a mutable
+/// reference to a pointer to the [`Castable`] using
+/// [`try_from_ptr`]. Otherwise, return [`rustls_result::NullParameter`], or an appropriate default
+/// (`false`, `0`, `NULL`) based on the context;
+///
+/// See [`try_from_ptr`] for more information.
+macro_rules! try_ref_from_ptr_ptr {
+    ( $var:ident ) => {
+        match $crate::try_from_ptr($var) {
+            Some(c) => c,
+            None => return $crate::panic::NullParameterOrDefault::value(),
+        }
+    };
+}
+
+pub(crate) use try_ref_from_ptr_ptr;
 
 /// If the provided pointer to a [`Castable`] is non-null, convert it to a reference to an `Arc` over
 /// the underlying rust type using [`try_arc_from`]. Otherwise, return

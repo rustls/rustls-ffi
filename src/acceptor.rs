@@ -13,10 +13,9 @@ use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
     ffi_panic_boundary, free_box, rustls_result, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr,
-    try_callback, try_clone_arc, try_mut_from_ptr, try_ref_from_ptr, try_take, Castable,
-    OwnershipBox,
+    try_callback, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
+    try_take, Castable, OwnershipBox,
 };
-use rustls_result::NullParameter;
 
 /// A buffer and parser for ClientHello bytes. This allows reading ClientHello
 /// before choosing a rustls_server_config. It's useful when the server
@@ -187,12 +186,8 @@ impl rustls_acceptor {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
-            if out_accepted.is_null() {
-                return NullParameter;
-            }
-            if out_alert.is_null() {
-                return NullParameter;
-            }
+            let out_accepted = try_mut_from_ptr_ptr!(out_accepted);
+            let out_alert = try_mut_from_ptr_ptr!(out_alert);
             match acceptor.accept() {
                 Ok(None) => rustls_result::AcceptorNotReady,
                 Ok(Some(accepted)) => {
@@ -426,12 +421,8 @@ impl rustls_accepted {
             let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
             let accepted = try_take!(accepted);
             let config: Arc<ServerConfig> = try_clone_arc!(config);
-            if out_conn.is_null() {
-                return NullParameter;
-            }
-            if out_alert.is_null() {
-                return NullParameter;
-            }
+            let out_conn = try_mut_from_ptr_ptr!(out_conn);
+            let out_alert = try_mut_from_ptr_ptr!(out_alert);
             match accepted.into_connection(config) {
                 Ok(built) => {
                     let wrapped = crate::connection::Connection::from_server(built);
