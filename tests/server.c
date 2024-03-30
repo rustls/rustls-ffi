@@ -339,7 +339,9 @@ main(int argc, const char **argv)
   }
 
   int enable = 1;
-  if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0) {
+  if(setsockopt(
+       sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&enable, sizeof(int)) <
+     0) {
     print_error("setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
