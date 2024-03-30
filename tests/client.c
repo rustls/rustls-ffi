@@ -360,7 +360,7 @@ cleanup:
   return ret;
 }
 
-enum rustls_result
+uint32_t
 verify(void *userdata, const rustls_verify_server_cert_params *params)
 {
   size_t i = 0;
