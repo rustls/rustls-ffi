@@ -12,53 +12,43 @@ use crate::io::{
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
-    ffi_panic_boundary, free_box, rustls_result, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr,
-    try_callback, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
-    try_take, Castable, OwnershipBox,
+    box_castable, ffi_panic_boundary, free_box, rustls_result, set_boxed_mut_ptr, to_box,
+    to_boxed_mut_ptr, try_callback, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
+    try_ref_from_ptr, try_take,
 };
 
-/// A buffer and parser for ClientHello bytes. This allows reading ClientHello
-/// before choosing a rustls_server_config. It's useful when the server
-/// config will be based on parameters in the ClientHello: server name
-/// indication (SNI), ALPN protocols, signature schemes, and cipher suites. In
-/// particular, if a server wants to do some potentially expensive work to load a
-/// certificate for a given hostname, rustls_acceptor allows doing that asynchronously,
-/// as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
-/// work well for asynchronous I/O.
-///
-/// The general flow is:
-///  - rustls_acceptor_new()
-///  - Loop:
-///    - Read bytes from the network it with rustls_acceptor_read_tls().
-///    - If successful, parse those bytes with rustls_acceptor_accept().
-///    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
-///    - Otherwise, break.
-///  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
-///    - Examine the resulting rustls_accepted.
-///    - Create or select a rustls_server_config.
-///    - Call rustls_accepted_into_connection().
-///  - Otherwise, there was a problem with the ClientHello data and the
-///    connection should be rejected.
-pub struct rustls_acceptor {
-    _private: [u8; 0],
+box_castable! {
+    /// A buffer and parser for ClientHello bytes. This allows reading ClientHello
+    /// before choosing a rustls_server_config. It's useful when the server
+    /// config will be based on parameters in the ClientHello: server name
+    /// indication (SNI), ALPN protocols, signature schemes, and cipher suites. In
+    /// particular, if a server wants to do some potentially expensive work to load a
+    /// certificate for a given hostname, rustls_acceptor allows doing that asynchronously,
+    /// as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
+    /// work well for asynchronous I/O.
+    ///
+    /// The general flow is:
+    ///  - rustls_acceptor_new()
+    ///  - Loop:
+    ///    - Read bytes from the network it with rustls_acceptor_read_tls().
+    ///    - If successful, parse those bytes with rustls_acceptor_accept().
+    ///    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
+    ///    - Otherwise, break.
+    ///  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
+    ///    - Examine the resulting rustls_accepted.
+    ///    - Create or select a rustls_server_config.
+    ///    - Call rustls_accepted_into_connection().
+    ///  - Otherwise, there was a problem with the ClientHello data and the
+    ///    connection should be rejected.
+    pub struct rustls_acceptor(Acceptor);
 }
 
-impl Castable for rustls_acceptor {
-    type Ownership = OwnershipBox;
-    type RustType = Acceptor;
-}
-
-/// A parsed ClientHello produced by a rustls_acceptor. It is used to check
-/// server name indication (SNI), ALPN protocols, signature schemes, and
-/// cipher suites. It can be combined with a rustls_server_config to build a
-/// rustls_connection.
-pub struct rustls_accepted {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_accepted {
-    type Ownership = OwnershipBox;
-    type RustType = Option<Accepted>;
+box_castable! {
+    /// A parsed ClientHello produced by a rustls_acceptor. It is used to check
+    /// server name indication (SNI), ALPN protocols, signature schemes, and
+    /// cipher suites. It can be combined with a rustls_server_config to build a
+    /// rustls_connection.
+    pub struct rustls_accepted(Option<Accepted>);
 }
 
 impl rustls_acceptor {
@@ -452,14 +442,9 @@ impl rustls_accepted {
     }
 }
 
-/// Represents a TLS alert resulting from accepting a client.
-pub struct rustls_accepted_alert {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_accepted_alert {
-    type Ownership = OwnershipBox;
-    type RustType = AcceptedAlert;
+box_castable! {
+    /// Represents a TLS alert resulting from accepting a client.
+    pub struct rustls_accepted_alert(AcceptedAlert);
 }
 
 impl rustls_accepted_alert {

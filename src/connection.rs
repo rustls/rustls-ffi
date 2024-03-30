@@ -14,12 +14,12 @@ use crate::io::{
 use crate::log::{ensure_log_registered, rustls_log_callback};
 
 use crate::{
+    box_castable,
     cipher::{rustls_certificate, rustls_supported_ciphersuite},
     error::{map_error, rustls_io_result, rustls_result},
     ffi_panic_boundary, free_box,
     io::{rustls_read_callback, rustls_write_callback},
-    try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_push, Castable,
-    OwnershipBox,
+    try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice, userdata_push,
 };
 
 use rustls_result::NullParameter;
@@ -93,13 +93,8 @@ impl std::ops::DerefMut for Connection {
     }
 }
 
-pub struct rustls_connection {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_connection {
-    type Ownership = OwnershipBox;
-    type RustType = Connection;
+box_castable! {
+    pub struct rustls_connection(Connection);
 }
 
 impl rustls_connection {

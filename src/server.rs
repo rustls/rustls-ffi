@@ -26,19 +26,19 @@ use crate::session::{
     SessionStoreGetCallback, SessionStorePutCallback,
 };
 use crate::{
-    ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
-    try_slice, userdata_get, Castable, OwnershipArc, OwnershipBox, OwnershipRef,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr,
+    to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_slice, userdata_get, Castable, OwnershipRef,
 };
 
-/// A server config being constructed. A builder can be modified by,
-/// e.g. rustls_server_config_builder_load_native_roots. Once you're
-/// done configuring settings, call rustls_server_config_builder_build
-/// to turn it into a *const rustls_server_config. This object is not safe
-/// for concurrent mutation.
-/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
-pub struct rustls_server_config_builder {
-    _private: [u8; 0],
+box_castable! {
+    /// A server config being constructed. A builder can be modified by,
+    /// e.g. rustls_server_config_builder_load_native_roots. Once you're
+    /// done configuring settings, call rustls_server_config_builder_build
+    /// to turn it into a *const rustls_server_config. This object is not safe
+    /// for concurrent mutation.
+    /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
+    pub struct rustls_server_config_builder(ServerConfigBuilder);
 }
 
 pub(crate) struct ServerConfigBuilder {
@@ -50,21 +50,11 @@ pub(crate) struct ServerConfigBuilder {
     ignore_client_order: Option<bool>,
 }
 
-impl Castable for rustls_server_config_builder {
-    type Ownership = OwnershipBox;
-    type RustType = ServerConfigBuilder;
-}
-
-/// A server config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
-pub struct rustls_server_config {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_server_config {
-    type Ownership = OwnershipArc;
-    type RustType = ServerConfig;
+arc_castable! {
+    /// A server config that is done being constructed and is now read-only.
+    /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
+    /// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
+    pub struct rustls_server_config(ServerConfig);
 }
 
 impl rustls_server_config_builder {

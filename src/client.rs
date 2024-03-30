@@ -22,20 +22,20 @@ use crate::error::{self, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
-    try_slice, userdata_get, Castable, OwnershipArc, OwnershipBox,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr,
+    to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_slice, userdata_get,
 };
 
-/// A client config being constructed. A builder can be modified by,
-/// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
-/// done configuring settings, call rustls_client_config_builder_build
-/// to turn it into a *rustls_client_config. This object is not safe
-/// for concurrent mutation. Under the hood, it corresponds to a
-/// `Box<ClientConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
-pub struct rustls_client_config_builder {
-    _private: [u8; 0],
+box_castable! {
+    /// A client config being constructed. A builder can be modified by,
+    /// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
+    /// done configuring settings, call rustls_client_config_builder_build
+    /// to turn it into a *rustls_client_config. This object is not safe
+    /// for concurrent mutation. Under the hood, it corresponds to a
+    /// `Box<ClientConfig>`.
+    /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
+    pub struct rustls_client_config_builder(ClientConfigBuilder);
 }
 
 pub(crate) struct ClientConfigBuilder {
@@ -46,21 +46,11 @@ pub(crate) struct ClientConfigBuilder {
     cert_resolver: Option<Arc<dyn rustls::client::ResolvesClientCert>>,
 }
 
-impl Castable for rustls_client_config_builder {
-    type Ownership = OwnershipBox;
-    type RustType = ClientConfigBuilder;
-}
-
-/// A client config that is done being constructed and is now read-only.
-/// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
-pub struct rustls_client_config {
-    _private: [u8; 0],
-}
-
-impl Castable for rustls_client_config {
-    type Ownership = OwnershipArc;
-    type RustType = ClientConfig;
+arc_castable! {
+    /// A client config that is done being constructed and is now read-only.
+    /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
+    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
+    pub struct rustls_client_config(ClientConfig);
 }
 
 #[derive(Debug)]
