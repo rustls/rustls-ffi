@@ -10,7 +10,7 @@ ExternalProject_Add(
 	rustls-ffi
 	DOWNLOAD_COMMAND ""
 	CONFIGURE_COMMAND ""
-	BUILD_COMMAND cbindgen --lang C --output "${CMAKE_SOURCE_DIR}/src/rustls.h" "${CMAKE_SOURCE_DIR}"
+	BUILD_COMMAND ""
 	COMMAND cargo build --locked "$<IF:$<CONFIG:Release>,--release,-->"
 	# Rely on cargo checking timestamps, rather than tell CMake where every
 	# output is.
