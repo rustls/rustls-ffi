@@ -17,6 +17,8 @@ in addition to a TLS library. Rustls-ffi only provides the TLS library. If you
 use the cryptographic primitives from OpenSSL you may need to find another library
 to provide the cryptographic primitives.
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/rustls-ffi.svg)](https://repology.org/project/rustls-ffi/versions)
+
 # Build
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.61
