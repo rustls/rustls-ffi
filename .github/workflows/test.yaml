@@ -52,8 +52,7 @@ jobs:
           persist-credentials: false
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
-      - run: export VALGRIND="valgrind -q"
-      - run: make test integration
+      - run: VALGRIND=valgrind make test integration
 
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
