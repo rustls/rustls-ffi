@@ -1,0 +1,51 @@
+# Makefile for building & testing the client/server examples using pkg-config
+# and dynamically linking. For static linking see the default 'Makefile'.
+# This Makefile is for testing only. For install instructions, see the README.
+#
+# Example usage:
+#   PREFIX=/tmp/librustls
+#   make --file Makefile.pkg-config install PREFIX=$PREFIX
+#   PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig/ make --file Makefile.pkg-config
+#   LD_LIBRARY_PATH=$PREFIX/lib make --file Makefile.pkg-config integration
+
+CARGO ?= cargo
+CARGOFLAGS += --locked
+
+CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
+PROFILE := release
+PREFIX=/usr/local
+
+ifeq ($(CC), clang)
+	CFLAGS += -fsanitize=address -fsanitize=undefined
+	LDFLAGS += -fsanitize=address
+endif
+
+ifeq ($(PROFILE), release)
+	CFLAGS += -O3
+	CARGOFLAGS += --release
+endif
+
+all: target/client target/server
+
+integration: all
+	${CARGO} test --locked --test client_server -- --ignored
+
+target:
+	mkdir -p $@
+
+install:
+	cargo cinstall $(CARGOFLAGS) --prefix=$(PREFIX)
+
+target/%.o: tests/%.c tests/common.h | target
+	$(CC) -o $@ -c $< $(CFLAGS) $(shell pkg-config --cflags rustls)
+
+target/client: target/client.o target/common.o
+	$(CC) -o $@ $^ $(LDFLAGS) $(shell pkg-config --libs rustls)
+
+target/server: target/server.o target/common.o
+	$(CC) -o $@ $^ $(LDFLAGS) $(shell pkg-config --libs rustls)
+
+clean:
+	rm -rf target
+
+.PHONY: all install clean integration
