@@ -62,17 +62,15 @@ clean:
 	rm -rf target
 
 format:
-	find . \
+	find src tests \
 		-name '*.[c|h]' \
-		! -path "./target/*" \
-		! -wholename './src/rustls.h' | \
+		! -wholename 'src/rustls.h' | \
 			xargs clang-format -i
 
 format-check:
-	find . \
+	find src tests \
 		-name '*.[c|h]' \
-		! -path "./target/*" \
-		! -wholename './src/rustls.h' | \
+		! -wholename 'src/rustls.h' | \
 			xargs clang-format --dry-run -Werror -i
 
 .PHONY: all clean test integration format format-check
