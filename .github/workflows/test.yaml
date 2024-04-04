@@ -220,14 +220,7 @@ jobs:
           persist-credentials: false
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-      - name: Install cargo-c
-        env:
-          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
-          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
-        run: |
-          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
-      - name: Build and test with cargo-c
-        run: cargo capi test
+
 
   miri:
     name: Miri

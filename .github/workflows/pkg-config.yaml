@@ -1,0 +1,51 @@
+name: pkg-config
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+  merge_group:
+  schedule:
+    - cron: '15 12 * * 3'
+
+jobs:
+  build:
+    name: Build+test
+    runs-on: ubuntu-latest
+    env:
+      PREFIX: /tmp/librustls
+    strategy:
+      matrix:
+        cc: [clang, gcc]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Install the library
+        run: make --file=Makefile.pkg-config PREFIX=${PREFIX} install
+
+      - name: Build the client/server examples
+        run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config
+
+      - name: Verify client is dynamically linked
+        run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/client | grep "rustls"
+
+      - name: Verify server is dynamically linked
+        run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/server | grep "rustls"
+
+      - name: Run the integration tests
+        run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config integration
