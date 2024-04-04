@@ -311,7 +311,7 @@ main(int argc, const char **argv)
       }
 
       result = rustls_web_pki_client_cert_verifier_builder_add_crl(
-        client_cert_verifier_builder, (uint8_t *)crlbuf, certbuf_len);
+        client_cert_verifier_builder, (uint8_t *)crlbuf, crlbuf_len);
       if(result != RUSTLS_RESULT_OK) {
         goto cleanup;
       }
