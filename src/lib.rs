@@ -203,7 +203,7 @@ mod tests {
         let mut guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_pop().unwrap();
-        assert!(matches!(guard.try_pop(), Err(_)));
+        assert!(guard.try_pop().is_err())
     }
 
     #[test]
@@ -213,7 +213,7 @@ mod tests {
         let guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_drop().unwrap();
-        assert!(matches!(userdata_get(), Err(_)));
+        assert!(userdata_get().is_err())
     }
 
     #[test]
@@ -224,7 +224,7 @@ mod tests {
             let _guard = userdata_push(data_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), data_ptr);
         }
-        assert!(matches!(userdata_get(), Err(_)));
+        assert!(userdata_get().is_err())
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
             assert_eq!(userdata_get().unwrap(), hello_ptr);
             guard.try_drop().unwrap();
         }
-        assert!(matches!(userdata_get(), Err(_)));
+        assert!(userdata_get().is_err())
     }
 
     #[test]
