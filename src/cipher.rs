@@ -207,56 +207,6 @@ pub static mut RUSTLS_DEFAULT_CIPHER_SUITES: [*const rustls_supported_ciphersuit
 #[no_mangle]
 pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIPHER_SUITES.len() };
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::str;
-
-    #[test]
-    fn all_cipher_suites_arrays() {
-        assert_eq!(RUSTLS_ALL_CIPHER_SUITES_LEN, ALL_CIPHER_SUITES.len());
-        for (original, ffi) in ALL_CIPHER_SUITES
-            .iter()
-            .zip(unsafe { RUSTLS_ALL_CIPHER_SUITES }.iter().copied())
-        {
-            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
-            assert_eq!(original, ffi_cipher_suite);
-        }
-    }
-
-    #[test]
-    fn default_cipher_suites_arrays() {
-        assert_eq!(
-            RUSTLS_DEFAULT_CIPHER_SUITES_LEN,
-            DEFAULT_CIPHER_SUITES.len()
-        );
-        for (original, ffi) in DEFAULT_CIPHER_SUITES
-            .iter()
-            .zip(unsafe { RUSTLS_DEFAULT_CIPHER_SUITES }.iter().copied())
-        {
-            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
-            assert_eq!(original, ffi_cipher_suite);
-        }
-    }
-
-    #[test]
-    fn ciphersuite_get_name() {
-        let suite = rustls_all_ciphersuites_get_entry(0);
-        let s = rustls_supported_ciphersuite_get_name(suite);
-        let want = "TLS13_AES_256_GCM_SHA384";
-        unsafe {
-            let got = str::from_utf8(slice::from_raw_parts(s.data as *const u8, s.len)).unwrap();
-            assert_eq!(want, got)
-        }
-    }
-
-    #[test]
-    fn test_all_ciphersuites_len() {
-        let len = rustls_all_ciphersuites_len();
-        assert!(len > 2);
-    }
-}
-
 /// The complete chain of certificates to send during a TLS handshake,
 /// plus a private key that matches the end-entity (leaf) certificate.
 /// Corresponds to `CertifiedKey` in the Rust API.
@@ -1169,5 +1119,55 @@ impl rustls_server_cert_verifier {
         ffi_panic_boundary! {
             free_box(verifier);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str;
+
+    #[test]
+    fn all_cipher_suites_arrays() {
+        assert_eq!(RUSTLS_ALL_CIPHER_SUITES_LEN, ALL_CIPHER_SUITES.len());
+        for (original, ffi) in ALL_CIPHER_SUITES
+            .iter()
+            .zip(unsafe { RUSTLS_ALL_CIPHER_SUITES }.iter().copied())
+        {
+            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
+            assert_eq!(original, ffi_cipher_suite);
+        }
+    }
+
+    #[test]
+    fn default_cipher_suites_arrays() {
+        assert_eq!(
+            RUSTLS_DEFAULT_CIPHER_SUITES_LEN,
+            DEFAULT_CIPHER_SUITES.len()
+        );
+        for (original, ffi) in DEFAULT_CIPHER_SUITES
+            .iter()
+            .zip(unsafe { RUSTLS_DEFAULT_CIPHER_SUITES }.iter().copied())
+        {
+            let ffi_cipher_suite = try_ref_from_ptr!(ffi);
+            assert_eq!(original, ffi_cipher_suite);
+        }
+    }
+
+    #[test]
+    fn ciphersuite_get_name() {
+        let suite = rustls_all_ciphersuites_get_entry(0);
+        let s = rustls_supported_ciphersuite_get_name(suite);
+        let want = "TLS13_AES_256_GCM_SHA384";
+        unsafe {
+            let got = str::from_utf8(slice::from_raw_parts(s.data as *const u8, s.len)).unwrap();
+            assert_eq!(want, got)
+        }
+    }
+
+    #[test]
+    fn test_all_ciphersuites_len() {
+        let len = rustls_all_ciphersuites_len();
+        assert!(len > 2);
     }
 }
