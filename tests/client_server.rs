@@ -156,7 +156,7 @@ impl ClientTest {
             .args(args)
             .envs(self.env.clone())
             .output()
-            .expect(&format!("failed to run client binary {client_binary}"));
+            .unwrap_or_else(|_| panic!("failed to run client binary {client_binary}"));
 
         let passed = result.status.success() == !self.expect_error;
         if !passed {
@@ -189,7 +189,7 @@ impl ServerOptions {
             .args(args)
             .envs(self.env.clone())
             .spawn()
-            .expect(&format!("failed to run server binary {server_binary}"))
+            .unwrap_or_else(|_| panic!("failed to run server binary {server_binary}"))
     }
 }
 
