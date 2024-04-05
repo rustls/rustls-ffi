@@ -158,7 +158,7 @@ impl ClientTest {
             .output()
             .unwrap_or_else(|_| panic!("failed to run client binary {client_binary}"));
 
-        let passed = result.status.success() == !self.expect_error;
+        let passed = result.status.success() != self.expect_error;
         if !passed {
             println!(
                 "client test failed. Failed process output:\n {}",
