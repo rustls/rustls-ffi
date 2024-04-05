@@ -29,10 +29,10 @@ endif
 all: target/client target/server
 
 test: all
-	${CARGO} test --locked
+	${CARGO} test ${CARGOFLAGS}
 
 integration: all
-	${CARGO} test --locked -- --ignored
+	${CARGO} test ${CARGOFLAGS} -- --ignored
 
 target:
 	mkdir -p $@
