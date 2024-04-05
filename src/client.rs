@@ -620,7 +620,7 @@ mod tests {
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
         {
             let config2 = try_ref_from_ptr!(config);
-            assert_eq!(config2.enable_sni, false);
+            assert!(!config2.enable_sni);
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
         }
         rustls_client_config::rustls_client_config_free(config)
@@ -642,12 +642,9 @@ mod tests {
         if !matches!(result, rustls_result::Ok) {
             panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
         }
-        assert_eq!(rustls_connection::rustls_connection_wants_read(conn), false);
-        assert_eq!(rustls_connection::rustls_connection_wants_write(conn), true);
-        assert_eq!(
-            rustls_connection::rustls_connection_is_handshaking(conn),
-            true
-        );
+        assert!(!rustls_connection::rustls_connection_wants_read(conn));
+        assert!(rustls_connection::rustls_connection_wants_write(conn));
+        assert!(rustls_connection::rustls_connection_is_handshaking(conn));
 
         let some_byte = 42u8;
         let mut alpn_protocol: *const u8 = &some_byte;
