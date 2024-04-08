@@ -431,7 +431,15 @@ main(int argc, const char **argv)
   setmode(STDOUT_FILENO, O_BINARY);
 #endif
 
-  if(getenv("CA_FILE")) {
+  if(getenv("RUSTLS_PLATFORM_VERIFIER")) {
+    server_cert_verifier = rustls_platform_server_cert_verifier();
+    if(server_cert_verifier == NULL) {
+      goto cleanup;
+    }
+    rustls_client_config_builder_set_server_verifier(config_builder,
+                                                     server_cert_verifier);
+  }
+  else if(getenv("CA_FILE")) {
     server_cert_root_store_builder = rustls_root_cert_store_builder_new();
     result = rustls_root_cert_store_builder_load_roots_from_file(
       server_cert_root_store_builder, getenv("CA_FILE"), true);
@@ -444,7 +452,6 @@ main(int argc, const char **argv)
     if(result != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
-
     server_cert_verifier_builder =
       rustls_web_pki_server_cert_verifier_builder_new(server_cert_root_store);
 
@@ -461,9 +468,9 @@ main(int argc, const char **argv)
       config_builder, verify);
   }
   else {
-    fprintf(
-      stderr,
-      "client: must set either CA_FILE or NO_CHECK_CERTIFICATE env var\n");
+    fprintf(stderr,
+            "client: must set either RUSTLS_PLATFORM_VERIFIER or CA_FILE or "
+            "NO_CHECK_CERTIFICATE env var\n");
     goto cleanup;
   }
 

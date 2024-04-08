@@ -104,6 +104,12 @@ fn client_server_integration() {
 fn standard_client_tests(valgrind: Option<String>) -> Vec<ClientTest> {
     vec![
         ClientTest {
+            name: "rustls-platform-verifier",
+            valgrind: valgrind.clone(),
+            env: vec![("RUSTLS_PLATFORM_VERIFIER", "1")],
+            expect_error: true,
+        },
+        ClientTest {
             name: "With CA_FILE",
             valgrind: valgrind.clone(),
             env: vec![("CA_FILE", "testdata/minica.pem")],
