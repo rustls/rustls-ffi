@@ -46,7 +46,16 @@ fn expected_linker_parts() -> &'static [&'static str] {
     }
     #[cfg(target_os = "macos")]
     {
-        &["-liconv", "-lSystem", "-lc", "-lm"]
+        &[
+            "-framework",
+            "Security",
+            "-framework",
+            "CoreFoundation",
+            "-liconv",
+            "-lSystem",
+            "-lc",
+            "-lm",
+        ]
     }
     #[cfg(target_os = "windows")]
     {
