@@ -10,7 +10,7 @@ repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
 edition = "2021"
 links = "rustls_ffi"
-rust-version = "1.61"
+rust-version = "1.64"
 
 [features]
 # Enable this feature when building as Rust dependency. It inhibits the
