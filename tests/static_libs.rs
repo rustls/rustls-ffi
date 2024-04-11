@@ -60,20 +60,24 @@ fn expected_linker_parts() -> &'static [&'static str] {
     #[cfg(target_os = "windows")]
     {
         &[
+            "advapi32.lib",
+            "bcrypt.lib",
+            "crypt32.lib",
+            "cryptnet.lib",
+            "kernel32.lib",
+            "ncrypt.lib",
             "bcrypt.lib",
             "advapi32.lib",
             "legacy_stdio_definitions.lib",
             "kernel32.lib",
             "advapi32.lib",
-            "bcrypt.lib",
             "kernel32.lib",
             "ntdll.lib",
             "userenv.lib",
             "ws2_32.lib",
+            "synchronization.lib",
             "kernel32.lib",
             "ws2_32.lib",
-            "kernel32.lib",
-            "ntdll.lib",
             "kernel32.lib",
             "msvcrt.lib",
         ]

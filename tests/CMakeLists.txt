@@ -15,7 +15,7 @@ IF(WIN32)
         client
         debug "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
         optimized "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib credui.lib kernel32.lib secur32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib legacy_stdio_definitions.lib userenv.lib kernel32.lib msvcrt.lib ntdll.lib Synchronization.lib
+        advapi32.lib bcrypt.lib crypt32.lib cryptnet.lib kernel32.lib ncrypt.lib bcrypt.lib advapi32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib kernel32.lib ntdll.lib userenv.lib ws2_32.lib synchronization.lib kernel32.lib  ws2_32.lib kernel32.lib msvcrt.lib
     )
     set_property(TARGET client PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 ENDIF(WIN32)
@@ -34,7 +34,7 @@ IF(WIN32)
         server
         debug "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
         optimized "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib credui.lib kernel32.lib secur32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib userenv.lib kernel32.lib kernel32.lib ws2_32.lib bcrypt.lib msvcrt.lib legacy_stdio_definitions.lib userenv.lib kernel32.lib msvcrt.lib ntdll.lib Synchronization.lib
+        advapi32.lib bcrypt.lib crypt32.lib cryptnet.lib kernel32.lib ncrypt.lib bcrypt.lib advapi32.lib legacy_stdio_definitions.lib kernel32.lib advapi32.lib kernel32.lib ntdll.lib userenv.lib ws2_32.lib synchronization.lib kernel32.lib  ws2_32.lib kernel32.lib msvcrt.lib
     )
     set_property(TARGET server PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 ENDIF(WIN32)
