@@ -34,6 +34,9 @@ test: all
 integration: all
 	${CARGO} test --locked -- --ignored
 
+connect-test: target/client
+	RUSTLS_PLATFORM_VERIFIER=1 target/client example.com 443 /
+
 target:
 	mkdir -p $@
 

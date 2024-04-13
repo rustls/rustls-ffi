@@ -44,6 +44,8 @@ jobs:
       - env:
           CARGO_UNSTABLE_HTTP_REGISTRY: true
         run: make CC=${{ matrix.cc }} PROFILE=release test integration
+      - name: Platform verifier connect test
+        run: make connect-test
 
   valgrind:
     name: Valgrind
