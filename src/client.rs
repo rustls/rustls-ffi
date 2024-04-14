@@ -76,7 +76,7 @@ impl ServerCertVerifier for NoneVerifier {
         _now: UnixTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
         Err(rustls::Error::InvalidCertificate(
-            CertificateError::BadSignature,
+            CertificateError::UnknownIssuer,
         ))
     }
 
