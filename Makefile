@@ -11,9 +11,11 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
 DESTDIR=/usr/local
 
+ifeq ($(PROFILE), debug)
 ifeq ($(CC), clang)
 	CFLAGS += -fsanitize=address -fsanitize=undefined
 	LDFLAGS += -fsanitize=address
+endif
 endif
 
 ifeq ($(PROFILE), release)

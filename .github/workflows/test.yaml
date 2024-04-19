@@ -43,9 +43,9 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - env:
           CARGO_UNSTABLE_HTTP_REGISTRY: true
-        run: make CC=${{ matrix.cc }} PROFILE=release test integration
+        run: make CC=${{ matrix.cc }} PROFILE=debug test integration
       - name: Platform verifier connect test
-        run: make connect-test
+        run: make PROFILE=debug connect-test
 
   valgrind:
     name: Valgrind
@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
-      - run: VALGRIND=valgrind make test integration
+      - run: VALGRIND=valgrind make PROFILE=release test integration
 
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
