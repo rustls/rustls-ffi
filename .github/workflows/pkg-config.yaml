@@ -39,7 +39,7 @@ jobs:
         run: make --file=Makefile.pkg-config PREFIX=${PREFIX} install
 
       - name: Build the client/server examples
-        run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config
+        run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config PROFILE=debug
 
       - name: Verify client is dynamically linked
         run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/client | grep "rustls"
@@ -48,4 +48,4 @@ jobs:
         run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/server | grep "rustls"
 
       - name: Run the integration tests
-        run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config integration
+        run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config PROFILE=debug integration
