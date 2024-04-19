@@ -12,10 +12,8 @@ PROFILE := release
 DESTDIR=/usr/local
 
 ifeq ($(PROFILE), debug)
-ifeq ($(CC), clang)
 	CFLAGS += -fsanitize=address -fsanitize=undefined
-	LDFLAGS += -fsanitize=address
-endif
+	LDFLAGS += -fsanitize=address -fsanitize=undefined
 endif
 
 ifeq ($(PROFILE), release)
