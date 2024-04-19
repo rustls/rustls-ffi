@@ -46,6 +46,20 @@ jobs:
         run: make CC=${{ matrix.cc }} PROFILE=debug test integration
       - name: Platform verifier connect test
         run: make PROFILE=debug connect-test
+      - name: Verify debug builds were using ASAN
+        if: runner.os == 'Linux' # For 'nm'
+        run: |
+          nm target/client | grep '__asan_init'
+          nm target/server | grep '__asan_init'
+      - name: Build release binaries
+        run: |
+          make clean
+          make CC=${{ matrix.cc }} PROFILE=release
+      - name: Verify release builds were not using ASAN
+        if: runner.os == 'Linux' # For 'nm'
+        run: |
+          nm target/client | grep -v '__asan_init'
+          nm target/server | grep -v '__asan_init'
 
   valgrind:
     name: Valgrind
