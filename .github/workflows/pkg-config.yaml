@@ -13,12 +13,13 @@ on:
 jobs:
   build:
     name: Build+test
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       PREFIX: /tmp/librustls
     strategy:
       matrix:
-        cc: [clang, gcc]
+        cc: [ clang, gcc ]
+        os: [ ubuntu-latest, macos-latest ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -28,12 +29,26 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-c
+      - name: Install pkg-config (macOS)
+        if: runner.os == 'macos-latest'
+        run: brew install pkg-config
+
+      - name: Install cargo-c (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
         run: |
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Install cargo-c (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
 
       - name: Install the library
         run: make --file=Makefile.pkg-config PREFIX=${PREFIX} install
@@ -41,11 +56,21 @@ jobs:
       - name: Build the client/server examples
         run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config PROFILE=debug
 
-      - name: Verify client is dynamically linked
+      - name: Verify client is dynamically linked (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/client | grep "rustls"
 
-      - name: Verify server is dynamically linked
+      - name: Verify server is dynamically linked (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: LD_LIBRARY_PATH=$PREFIX/lib ldd target/server | grep "rustls"
+
+      - name: Verify client is dynamically linked (macOS)
+        if: matrix.os == 'macos-latest'
+        run: LD_LIBRARY_PATH=$PREFIX/lib otool -L target/client | grep "rustls"
+
+      - name: Verify server is dynamically linked (macOS)
+        if: matrix.os == 'macos-latest'
+        run: LD_LIBRARY_PATH=$PREFIX/lib otool -L target/server | grep "rustls"
 
       - name: Run the integration tests
         run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config PROFILE=debug integration
