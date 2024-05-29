@@ -1508,6 +1508,13 @@ bool rustls_connection_wants_read(const struct rustls_connection *conn);
 bool rustls_connection_wants_write(const struct rustls_connection *conn);
 
 /**
+ * Returns true if the connection is currently performing the TLS handshake.
+ *
+ * Note: This may return `false` while there are still handshake packets waiting
+ * to be extracted and transmitted with `rustls_connection_write_tls()`.
+ *
+ * See the rustls documentation for more information.
+ *
  * <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking>
  */
 bool rustls_connection_is_handshaking(const struct rustls_connection *conn);

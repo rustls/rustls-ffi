@@ -277,6 +277,13 @@ impl rustls_connection {
         }
     }
 
+    /// Returns true if the connection is currently performing the TLS handshake.
+    ///
+    /// Note: This may return `false` while there are still handshake packets waiting
+    /// to be extracted and transmitted with `rustls_connection_write_tls()`.
+    ///
+    /// See the rustls documentation for more information.
+    ///
     /// <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking>
     #[no_mangle]
     pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
