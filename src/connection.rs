@@ -409,7 +409,6 @@ impl rustls_connection {
                 // This type annotation is here to enforce the lifetime stated
                 // in the doccomment - that the returned pointer lives as long
                 // as the program.
-                let cs = cs;
                 if negotiated == *cs {
                     return cs as *const SupportedCipherSuite as *const _;
                 }
