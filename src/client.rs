@@ -10,7 +10,7 @@ use rustls::client::ResolvesClientCert;
 use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{
     sign::CertifiedKey, CertificateError, ClientConfig, ClientConnection, DigitallySignedStruct,
-    Error, ProtocolVersion, SignatureScheme, SupportedCipherSuite, WantsVerifier,
+    Error, ProtocolVersion, SignatureScheme, WantsVerifier,
 };
 
 use crate::cipher::{
@@ -152,9 +152,9 @@ impl rustls_client_config_builder {
             if builder_out.is_null() {
                 return NullParameter;
             }
-            let cipher_suites: &[*const rustls_supported_ciphersuite] =
+            let cipher_suites =
                 try_slice!(cipher_suites, cipher_suites_len);
-            let mut cs_vec: Vec<SupportedCipherSuite> = Vec::new();
+            let mut cs_vec = Vec::new();
             for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
                 match ALL_CIPHER_SUITES.iter().find(|&acs| cs.eq(acs)) {
@@ -163,7 +163,7 @@ impl rustls_client_config_builder {
                 }
             }
 
-            let tls_versions: &[u16] = try_slice!(tls_versions, tls_versions_len);
+            let tls_versions = try_slice!(tls_versions, tls_versions_len);
             let mut versions = vec![];
             for version_number in tls_versions {
                 let proto = ProtocolVersion::from(*version_number);
@@ -262,7 +262,7 @@ impl ServerCertVerifier for Verifier {
     ) -> Result<ServerCertVerified, rustls::Error> {
         let cb = self.callback;
         let server_name = server_name.to_str();
-        let server_name: rustls_str = match server_name.as_ref().try_into() {
+        let server_name = match server_name.as_ref().try_into() {
             Ok(r) => r,
             Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
         };
@@ -282,7 +282,7 @@ impl ServerCertVerifier for Verifier {
         let userdata = userdata_get().map_err(|_| {
             rustls::Error::General("internal error with thread-local storage".to_string())
         })?;
-        let result: u32 = unsafe { cb(userdata, &params) };
+        let result = unsafe { cb(userdata, &params) };
         match rustls_result::from(result) {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
             r => Err(error::cert_result_to_error(r)),
@@ -362,12 +362,12 @@ impl rustls_client_config_builder {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let config_builder = try_mut_from_ptr!(config_builder);
-            let callback: VerifyCallback = match callback {
+            let callback = match callback {
                 Some(cb) => cb,
                 None => return rustls_result::InvalidParameter,
             };
 
-            let verifier: Verifier = Verifier { callback };
+            let verifier = Verifier { callback };
             config_builder.verifier = Arc::new(verifier);
             rustls_result::Ok
         }
@@ -382,7 +382,7 @@ impl rustls_client_config_builder {
         verifier: *const rustls_server_cert_verifier,
     ) {
         ffi_panic_boundary! {
-            let builder: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
+            let builder = try_mut_from_ptr!(builder);
             let verifier = try_ref_from_ptr!(verifier);
             builder.verifier = verifier.clone();
         }
@@ -406,12 +406,12 @@ impl rustls_client_config_builder {
         len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
-            let protocols: &[rustls_slice_bytes] = try_slice!(protocols, len);
+            let config = try_mut_from_ptr!(builder);
+            let protocols = try_slice!(protocols, len);
 
-            let mut vv: Vec<Vec<u8>> = Vec::with_capacity(protocols.len());
+            let mut vv = Vec::with_capacity(protocols.len());
             for p in protocols {
-                let v: &[u8] = try_slice!(p.data, p.len);
+                let v = try_slice!(p.data, p.len);
                 vv.push(v.to_vec());
             }
             config.alpn_protocols = vv;
@@ -427,7 +427,7 @@ impl rustls_client_config_builder {
         enable: bool,
     ) {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(config);
+            let config = try_mut_from_ptr!(config);
             config.enable_sni = enable;
         }
     }
@@ -451,12 +451,12 @@ impl rustls_client_config_builder {
         certified_keys_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config: &mut ClientConfigBuilder = try_mut_from_ptr!(builder);
-            let keys_ptrs: &[*const rustls_certified_key] =
+            let config= try_mut_from_ptr!(builder);
+            let keys_ptrs =
                 try_slice!(certified_keys, certified_keys_len);
-            let mut keys: Vec<Arc<CertifiedKey>> = Vec::new();
+            let mut keys = Vec::new();
             for &key_ptr in keys_ptrs {
-                let certified_key: Arc<CertifiedKey> = try_clone_arc!(key_ptr);
+                let certified_key = try_clone_arc!(key_ptr);
                 keys.push(certified_key);
             }
             config.cert_resolver = Some(Arc::new(ResolvesClientCertFromChoices { keys }));
@@ -498,7 +498,7 @@ impl rustls_client_config_builder {
         builder: *mut rustls_client_config_builder,
     ) -> *const rustls_client_config {
         ffi_panic_boundary! {
-            let builder: Box<ClientConfigBuilder> = try_box_from_ptr!(builder);
+            let builder = try_box_from_ptr!(builder);
             let config = builder
                 .base
                 .dangerous()
@@ -560,19 +560,19 @@ impl rustls_client_config {
             if conn_out.is_null() {
                 return NullParameter;
             }
-            let server_name: &CStr = unsafe {
+            let server_name = unsafe {
                 if server_name.is_null() {
                     return NullParameter;
                 }
                 CStr::from_ptr(server_name)
             };
-            let config: Arc<ClientConfig> = try_clone_arc!(config);
+            let config = try_clone_arc!(config);
             let conn_out = try_mut_from_ptr_ptr!(conn_out);
-            let server_name: &str = match server_name.to_str() {
+            let server_name = match server_name.to_str() {
                 Ok(s) => s,
                 Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
             };
-            let server_name: pki_types::ServerName = match server_name.try_into() {
+            let server_name = match server_name.try_into() {
                 Ok(sn) => sn,
                 Err(_) => return rustls_result::InvalidDnsNameError,
             };
@@ -596,11 +596,10 @@ mod tests {
 
     #[test]
     fn test_config_builder() {
-        let builder: *mut rustls_client_config_builder =
-            rustls_client_config_builder::rustls_client_config_builder_new();
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
         let h1 = "http/1.1".as_bytes();
         let h2 = "h2".as_bytes();
-        let alpn: Vec<rustls_slice_bytes> = vec![h1.into(), h2.into()];
+        let alpn = vec![h1.into(), h2.into()];
         rustls_client_config_builder::rustls_client_config_builder_set_alpn_protocols(
             builder,
             alpn.as_ptr(),
@@ -620,10 +619,9 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new() {
-        let builder: *mut rustls_client_config_builder =
-            rustls_client_config_builder::rustls_client_config_builder_new();
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
-        let mut conn: *mut rustls_connection = null_mut();
+        let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
             "example.com\0".as_ptr() as *const c_char,
@@ -638,7 +636,7 @@ mod tests {
 
         let some_byte = 42u8;
         let mut alpn_protocol: *const u8 = &some_byte;
-        let mut alpn_protocol_len: usize = 1;
+        let mut alpn_protocol_len = 1;
         rustls_connection::rustls_connection_get_alpn_protocol(
             conn,
             &mut alpn_protocol,
@@ -666,10 +664,9 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new_ipaddress() {
-        let builder: *mut rustls_client_config_builder =
-            rustls_client_config_builder::rustls_client_config_builder_new();
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
         let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
-        let mut conn: *mut rustls_connection = null_mut();
+        let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
             "198.51.100.198\0".as_ptr() as *const c_char,
