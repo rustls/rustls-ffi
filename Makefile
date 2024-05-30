@@ -69,11 +69,17 @@ format:
 		-name '*.[c|h]' \
 		! -wholename 'src/rustls.h' | \
 			xargs clang-format -i
+	sed -i -e 's/ffi_panic_boundary! {/if true {/g' src/*.rs
+	cargo fmt
+	sed -i -e 's/if true {/ffi_panic_boundary! {/g' src/*.rs
 
 format-check:
 	find src tests \
 		-name '*.[c|h]' \
 		! -wholename 'src/rustls.h' | \
 			xargs clang-format --dry-run -Werror -i
+	sed -i -e 's/ffi_panic_boundary! {/if true {/g' src/*.rs
+	cargo fmt --check
+	sed -i -e 's/if true {/ffi_panic_boundary! {/g' src/*.rs
 
 .PHONY: all clean test integration format format-check
