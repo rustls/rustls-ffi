@@ -7,7 +7,7 @@ use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer};
+use pki_types::{CertificateDer, CertificateRevocationListDer};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::client::WebPkiServerVerifier;
 use rustls::crypto::ring::{ALL_CIPHER_SUITES, DEFAULT_CIPHER_SUITES};
@@ -241,7 +241,7 @@ impl rustls_certified_key {
         certified_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let certified_key_out: &mut *const rustls_certified_key = unsafe {
+            let certified_key_out = unsafe {
                 match certified_key_out.as_mut() {
                     Some(c) => c,
                     None => return NullParameter,
@@ -273,7 +273,7 @@ impl rustls_certified_key {
         i: size_t,
     ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
-            let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
+            let certified_key = try_ref_from_ptr!(certified_key);
             match certified_key.cert.get(i) {
                 Some(cert) => cert as *const CertificateDer as *const _,
                 None => null(),
@@ -293,13 +293,13 @@ impl rustls_certified_key {
         cloned_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cloned_key_out: &mut *const rustls_certified_key = unsafe {
+            let cloned_key_out= unsafe {
                 match cloned_key_out.as_mut() {
                     Some(c) => c,
                     None => return NullParameter,
                 }
             };
-            let certified_key: &CertifiedKey = try_ref_from_ptr!(certified_key);
+            let certified_key= try_ref_from_ptr!(certified_key);
             let mut new_key = certified_key.clone();
             if !ocsp_response.is_null() {
                 let ocsp_slice = unsafe { &*ocsp_response };
@@ -331,31 +331,30 @@ impl rustls_certified_key {
         private_key: *const u8,
         private_key_len: size_t,
     ) -> Result<CertifiedKey, rustls_result> {
-        let mut cert_chain: &[u8] = unsafe {
+        let mut cert_chain = unsafe {
             if cert_chain.is_null() {
                 return Err(NullParameter);
             }
             slice::from_raw_parts(cert_chain, cert_chain_len)
         };
-        let private_key_der: &[u8] = unsafe {
+        let private_key_der = unsafe {
             if private_key.is_null() {
                 return Err(NullParameter);
             }
             slice::from_raw_parts(private_key, private_key_len)
         };
-        let private_key: PrivateKeyDer =
-            match pkcs8_private_keys(&mut Cursor::new(private_key_der)).next() {
-                Some(Ok(p)) => p.into(),
-                Some(Err(_)) => return Err(rustls_result::PrivateKeyParseError),
-                None => {
-                    let rsa_private_key: PrivateKeyDer =
-                        match rsa_private_keys(&mut Cursor::new(private_key_der)).next() {
-                            Some(Ok(p)) => p.into(),
-                            _ => return Err(rustls_result::PrivateKeyParseError),
-                        };
-                    rsa_private_key
-                }
-            };
+        let private_key = match pkcs8_private_keys(&mut Cursor::new(private_key_der)).next() {
+            Some(Ok(p)) => p.into(),
+            Some(Err(_)) => return Err(rustls_result::PrivateKeyParseError),
+            None => {
+                let rsa_private_key =
+                    match rsa_private_keys(&mut Cursor::new(private_key_der)).next() {
+                        Some(Ok(p)) => p.into(),
+                        _ => return Err(rustls_result::PrivateKeyParseError),
+                    };
+                rsa_private_key
+            }
+        };
         let signing_key = match rustls::crypto::ring::sign::any_supported_type(&private_key) {
             Ok(key) => key,
             Err(_) => return Err(rustls_result::PrivateKeyParseError),
@@ -417,8 +416,8 @@ impl rustls_root_cert_store_builder {
         strict: bool,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let certs_pem: &[u8] = try_slice!(pem, pem_len);
-            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let certs_pem = try_slice!(pem, pem_len);
+            let builder = try_mut_from_ptr!(builder);
             let builder = match builder {
                 None => return AlreadyUsed,
                 Some(b) => b,
@@ -461,25 +460,25 @@ impl rustls_root_cert_store_builder {
         strict: bool,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = try_mut_from_ptr!(builder);
             let builder = match builder {
                 None => return AlreadyUsed,
                 Some(b) => b,
             };
 
-            let filename: &CStr = unsafe {
+            let filename = unsafe {
                 if filename.is_null() {
                     return rustls_result::NullParameter;
                 }
                 CStr::from_ptr(filename)
             };
 
-            let filename: &[u8] = filename.to_bytes();
-            let filename: &str = match std::str::from_utf8(filename) {
+            let filename = filename.to_bytes();
+            let filename = match std::str::from_utf8(filename) {
                 Ok(s) => s,
                 Err(_) => return rustls_result::Io,
             };
-            let filename: &OsStr = OsStr::new(filename);
+            let filename = OsStr::new(filename);
             let mut cafile = match File::open(filename) {
                 Ok(f) => f,
                 Err(_) => return rustls_result::Io,
@@ -520,7 +519,7 @@ impl rustls_root_cert_store_builder {
         root_cert_store_out: *mut *const rustls_root_cert_store,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let builder: &mut Option<RootCertStoreBuilder> = try_mut_from_ptr!(builder);
+            let builder = try_mut_from_ptr!(builder);
             let builder = try_take!(builder);
             let root_cert_store_out = try_ref_from_ptr_ptr!(root_cert_store_out);
             set_arc_mut_ptr(root_cert_store_out, builder.roots);
@@ -659,14 +658,14 @@ impl rustls_web_pki_client_cert_verifier_builder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
             };
 
-            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
+            let crl_pem = try_slice!(crl_pem, crl_pem_len);
             let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
                 crls(&mut Cursor::new(crl_pem)).collect();
             let crls_der = match crls_der {
@@ -690,7 +689,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
@@ -712,7 +711,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
@@ -731,7 +730,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
@@ -754,7 +753,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
@@ -778,8 +777,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
         store: *const rustls_root_cert_store,
     ) -> rustls_result {
-        let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
-            try_mut_from_ptr!(builder);
+        let client_verifier_builder = try_mut_from_ptr!(builder);
         let client_verifier_builder = match client_verifier_builder {
             None => return AlreadyUsed,
             Some(v) => v,
@@ -806,7 +804,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
             if verifier_out.is_null() {
                 return NullParameter;
             }
-            let client_verifier_builder: &mut Option<ClientCertVerifierBuilder> =
+            let client_verifier_builder =
                 try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
             let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
@@ -929,14 +927,14 @@ impl ServerCertVerifierBuilder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+            let server_verifier_builder =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
             };
 
-            let crl_pem: &[u8] = try_slice!(crl_pem, crl_pem_len);
+            let crl_pem = try_slice!(crl_pem, crl_pem_len);
             let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
                 crls(&mut Cursor::new(crl_pem)).collect();
             let crls_der = match crls_der {
@@ -961,7 +959,7 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+            let server_verifier_builder =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
@@ -983,7 +981,7 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+            let server_verifier_builder =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
@@ -1011,7 +1009,7 @@ impl ServerCertVerifierBuilder {
             if verifier_out.is_null() {
                 return NullParameter;
             }
-            let server_verifier_builder: &mut Option<ServerCertVerifierBuilder> =
+            let server_verifier_builder =
                 try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
             let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
