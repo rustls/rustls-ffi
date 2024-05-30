@@ -209,7 +209,7 @@ impl rustls_result {
                 return;
             }
             let error_str = rustls_result::from(result).to_string();
-            let out_len: usize = min(len - 1, error_str.len());
+            let out_len = min(len - 1, error_str.len());
             unsafe {
                 std::ptr::copy_nonoverlapping(error_str.as_ptr() as *mut c_char, buf, out_len);
                 *out_n = out_len;
@@ -270,15 +270,15 @@ fn test_rustls_error() {
     let mut buf = [0 as c_char; 512];
     let mut n = 0;
     rustls_result::rustls_error(0, &mut buf as *mut _, buf.len(), &mut n);
-    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    let output = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
     assert_eq!(&output, "a parameter had an invalid value");
 
     rustls_result::rustls_error(7000, &mut buf as *mut _, buf.len(), &mut n);
-    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    let output = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
     assert_eq!(&output, "OK");
 
     rustls_result::rustls_error(7101, &mut buf as *mut _, buf.len(), &mut n);
-    let output: String = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
+    let output = String::from_utf8(buf[0..n].iter().map(|b| *b as u8).collect()).unwrap();
     assert_eq!(&output, "peer sent no certificates");
 }
 
