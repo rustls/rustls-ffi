@@ -595,7 +595,7 @@ mod tests {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
         let h1 = "http/1.1".as_bytes();
         let h2 = "h2".as_bytes();
-        let alpn = vec![h1.into(), h2.into()];
+        let alpn = [h1.into(), h2.into()];
         rustls_client_config_builder::rustls_client_config_builder_set_alpn_protocols(
             builder,
             alpn.as_ptr(),
