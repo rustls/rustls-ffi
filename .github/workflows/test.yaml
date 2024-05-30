@@ -194,7 +194,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Check clippy
+      - name: Check clippy (default features)
         # We allow unknown lints here because sometimes the nightly job
         # (below) will have a new lint that we want to suppress.
         # If we suppress (e.g. #![allow(clippy::arc_with_non_send_sync)]),
@@ -213,8 +213,12 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
-      - name: Check clippy
+      - name: Check clippy (default features)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Check clippy (all features)
+        # We only test --all-features on nightly, because two of the features
+        # (read_buf, core_io_borrowed_buf) require nightly.
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
   clang-tidy:
     name: Clang Tidy
