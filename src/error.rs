@@ -239,7 +239,7 @@ impl rustls_result {
 
 /// For cert-related rustls_results, turn them into a rustls::Error. For other
 /// inputs, including Ok, return rustls::Error::General.
-pub(crate) fn cert_result_to_error(result: rustls_result) -> rustls::Error {
+pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
     use rustls::Error::*;
     use rustls::OtherError;
     use rustls_result::*;
@@ -293,7 +293,7 @@ fn test_rustls_result_is_cert_error() {
     }
 }
 
-pub(crate) fn map_error(input: rustls::Error) -> rustls_result {
+pub(crate) fn map_error(input: Error) -> rustls_result {
     use rustls::AlertDescription as alert;
     use rustls_result::*;
 
