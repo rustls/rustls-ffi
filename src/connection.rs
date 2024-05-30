@@ -8,8 +8,7 @@ use rustls::crypto::ring::ALL_CIPHER_SUITES;
 use rustls::{ClientConnection, ServerConnection, SupportedCipherSuite};
 
 use crate::io::{
-    rustls_write_vectored_callback, CallbackReader, CallbackWriter, ReadCallback,
-    VectoredCallbackWriter, VectoredWriteCallback, WriteCallback,
+    rustls_write_vectored_callback, CallbackReader, CallbackWriter, VectoredCallbackWriter,
 };
 use crate::log::{ensure_log_registered, rustls_log_callback};
 
@@ -106,7 +105,7 @@ impl rustls_connection {
         conn: *mut rustls_connection,
         userdata: *mut c_void,
     ) {
-        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let conn = try_mut_from_ptr!(conn);
         conn.userdata = userdata;
     }
 
@@ -118,7 +117,7 @@ impl rustls_connection {
         conn: *mut rustls_connection,
         cb: rustls_log_callback,
     ) {
-        let conn: &mut Connection = try_mut_from_ptr!(conn);
+        let conn = try_mut_from_ptr!(conn);
         ensure_log_registered();
         conn.log_callback = cb;
     }
@@ -141,14 +140,14 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
                 return rustls_io_result(EINVAL);
             }
-            let callback: ReadCallback = try_callback!(callback);
+            let callback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
-            let n_read: usize = match conn.read_tls(&mut reader) {
+            let n_read = match conn.read_tls(&mut reader) {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
@@ -178,14 +177,14 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
                 return rustls_io_result(EINVAL);
             }
-            let callback: WriteCallback = try_callback!(callback);
+            let callback = try_callback!(callback);
 
             let mut writer = CallbackWriter { callback, userdata };
-            let n_written: usize = match conn.write_tls(&mut writer) {
+            let n_written = match conn.write_tls(&mut writer) {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
@@ -215,14 +214,14 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
                 return rustls_io_result(EINVAL);
             }
-            let callback: VectoredWriteCallback = try_callback!(callback);
+            let callback = try_callback!(callback);
 
             let mut writer = VectoredCallbackWriter { callback, userdata };
-            let n_written: usize = match conn.write_tls(&mut writer) {
+            let n_written = match conn.write_tls(&mut writer) {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
@@ -243,7 +242,7 @@ impl rustls_connection {
         conn: *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn= try_mut_from_ptr!(conn);
             let guard = match userdata_push(conn.userdata, conn.log_callback) {
                 Ok(g) => g,
                 Err(_) => return rustls_result::Panic,
@@ -263,7 +262,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             conn.wants_read()
         }
     }
@@ -272,7 +271,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             conn.wants_write()
         }
     }
@@ -288,7 +287,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             conn.is_handshaking()
         }
     }
@@ -301,7 +300,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             conn.set_buffer_limit(Some(n));
         }
     }
@@ -311,7 +310,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             conn.send_close_notify();
         }
     }
@@ -331,7 +330,7 @@ impl rustls_connection {
         i: size_t,
     ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             match conn.peer_certificates().and_then(|c| c.get(i)) {
                 Some(cert) => cert as *const CertificateDer as *const _,
                 None => null(),
@@ -357,7 +356,7 @@ impl rustls_connection {
         protocol_out_len: *mut usize,
     ) {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn= try_ref_from_ptr!(conn);
             if protocol_out.is_null() || protocol_out_len.is_null() {
                 return;
             }
@@ -384,7 +383,7 @@ impl rustls_connection {
         conn: *const rustls_connection,
     ) -> u16 {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             match conn.protocol_version() {
                 Some(p) => u16::from(p),
                 _ => 0,
@@ -401,7 +400,7 @@ impl rustls_connection {
         conn: *const rustls_connection,
     ) -> *const rustls_supported_ciphersuite {
         ffi_panic_boundary! {
-            let conn: &Connection = try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             let negotiated = match conn.negotiated_cipher_suite() {
                 Some(cs) => cs,
                 None => return null(),
@@ -410,7 +409,7 @@ impl rustls_connection {
                 // This type annotation is here to enforce the lifetime stated
                 // in the doccomment - that the returned pointer lives as long
                 // as the program.
-                let cs: &'static SupportedCipherSuite = cs;
+                let cs = cs;
                 if negotiated == *cs {
                     return cs as *const SupportedCipherSuite as *const _;
                 }
@@ -433,12 +432,12 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
-            let write_buf: &[u8] = try_slice!(buf, count);
+            let conn = try_mut_from_ptr!(conn);
+            let write_buf = try_slice!(buf, count);
             if out_n.is_null() {
                 return NullParameter;
             }
-            let n_written: usize = match conn.writer().write(write_buf) {
+            let n_written = match conn.writer().write(write_buf) {
                 Ok(n) => n,
                 Err(_) => return rustls_result::Io,
             };
@@ -469,7 +468,7 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             if buf.is_null() {
                 return NullParameter;
             }
@@ -479,9 +478,9 @@ impl rustls_connection {
 
             // Safety: the memory pointed at by buf must be initialized
             // (required by documentation of this function).
-            let read_buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buf, count) };
+            let read_buf = unsafe { slice::from_raw_parts_mut(buf, count) };
 
-            let n_read: usize = match conn.reader().read(read_buf) {
+            let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
                     return rustls_result::UnexpectedEof
@@ -520,16 +519,16 @@ impl rustls_connection {
         out_n: *mut size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let conn: &mut Connection = try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             if buf.is_null() || out_n.is_null() {
                 return NullParameter;
             }
-            let read_buf: &mut [std::mem::MaybeUninit<u8>] =
+            let read_buf =
                 unsafe { slice::from_raw_parts_mut(buf, count) };
 
             let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
 
-            let n_read: usize = match conn.reader().read_buf(read_buf.unfilled()) {
+            let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
                     return rustls_result::UnexpectedEof
