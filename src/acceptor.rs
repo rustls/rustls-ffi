@@ -707,7 +707,7 @@ mod tests {
         assert_eq!(accepted_alert, null_mut());
 
         let sni = rustls_accepted::rustls_accepted_server_name(accepted);
-        let sni_as_slice = unsafe { std::slice::from_raw_parts(sni.data as *const u8, sni.len) };
+        let sni_as_slice = unsafe { slice::from_raw_parts(sni.data as *const u8, sni.len) };
         let sni_as_str = std::str::from_utf8(sni_as_slice).unwrap_or("%!(ERROR)");
         assert_eq!(sni_as_str, "example.com");
 
@@ -737,8 +737,8 @@ mod tests {
 
         assert_eq!(alpn.len(), 2);
         // No need to sort ALPN because order is determine by what the client sent.
-        let alpn0 = unsafe { std::slice::from_raw_parts(alpn[0].data, alpn[0].len) };
-        let alpn1 = unsafe { std::slice::from_raw_parts(alpn[1].data, alpn[1].len) };
+        let alpn0 = unsafe { slice::from_raw_parts(alpn[0].data, alpn[0].len) };
+        let alpn1 = unsafe { slice::from_raw_parts(alpn[1].data, alpn[1].len) };
         assert_eq!(alpn0, "zarp".as_bytes());
         assert_eq!(alpn1, "yuun".as_bytes());
 
