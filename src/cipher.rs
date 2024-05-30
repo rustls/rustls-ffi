@@ -365,7 +365,7 @@ impl rustls_certified_key {
             Err(_) => return Err(rustls_result::CertificateParseError),
         };
 
-        Ok(rustls::sign::CertifiedKey::new(parsed_chain, signing_key))
+        Ok(CertifiedKey::new(parsed_chain, signing_key))
     }
 }
 
@@ -468,7 +468,7 @@ impl rustls_root_cert_store_builder {
 
             let filename = unsafe {
                 if filename.is_null() {
-                    return rustls_result::NullParameter;
+                    return NullParameter;
                 }
                 CStr::from_ptr(filename)
             };
@@ -485,8 +485,7 @@ impl rustls_root_cert_store_builder {
             };
 
             let mut bufreader = BufReader::new(&mut cafile);
-            let certs: Result<Vec<CertificateDer>, _> =
-                rustls_pemfile::certs(&mut bufreader).collect();
+            let certs: Result<Vec<CertificateDer>, _> = certs(&mut bufreader).collect();
             let certs = match certs {
                 Ok(certs) => certs,
                 Err(_) => return rustls_result::Io,
