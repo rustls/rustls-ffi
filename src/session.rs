@@ -95,8 +95,8 @@ impl SessionStoreBroker {
         // This is excessive in size, but the returned data in rustls is
         // only read once and then dropped.
         // See <https://github.com/rustls/rustls-ffi/pull/64#issuecomment-800766940>
-        let mut data: Vec<u8> = vec![0; 65 * 1024];
-        let mut out_n: size_t = 0;
+        let mut data = vec![0; 65 * 1024];
+        let mut out_n = 0;
 
         let cb = self.get_cb;
         let result = unsafe {
@@ -119,8 +119,8 @@ impl SessionStoreBroker {
     }
 
     fn store(&self, key: Vec<u8>, value: Vec<u8>) -> bool {
-        let key: rustls_slice_bytes = key.as_slice().into();
-        let value: rustls_slice_bytes = value.as_slice().into();
+        let key = key.as_slice().into();
+        let value = value.as_slice().into();
         let cb = self.put_cb;
         let userdata = match userdata_get() {
             Ok(u) => u,
