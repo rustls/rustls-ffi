@@ -556,7 +556,7 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let callback = match callback {
                 Some(cb) => cb,
-                None => return rustls_result::NullParameter,
+                None => return NullParameter,
             };
             let builder = try_mut_from_ptr!(builder);
             builder.cert_resolver = Some(Arc::new(ClientHelloResolver::new(callback)));
@@ -632,11 +632,11 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let get_cb = match get_cb {
                 Some(cb) => cb,
-                None => return rustls_result::NullParameter,
+                None => return NullParameter,
             };
             let put_cb = match put_cb {
                 Some(cb) => cb,
-                None => return rustls_result::NullParameter,
+                None => return NullParameter,
             };
             let builder = try_mut_from_ptr!(builder);
             builder.session_storage = Some(Arc::new(SessionStoreBroker::new(get_cb, put_cb)));
