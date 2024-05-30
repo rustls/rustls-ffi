@@ -1,13 +1,10 @@
-use std::sync::Arc;
-
 use libc::{c_void, size_t, EINVAL, EIO};
 use rustls::server::{Accepted, AcceptedAlert, Acceptor};
-use rustls::ServerConfig;
 
 use crate::connection::rustls_connection;
 use crate::error::{map_error, rustls_io_result};
 use crate::io::{
-    rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter, ReadCallback,
+    rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter,
 };
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
@@ -110,11 +107,11 @@ impl rustls_acceptor {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         ffi_panic_boundary! {
-            let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
+            let acceptor = try_mut_from_ptr!(acceptor);
             if out_n.is_null() {
                 return rustls_io_result(EINVAL);
             }
-            let callback: ReadCallback = try_callback!(callback);
+            let callback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
 
@@ -175,7 +172,7 @@ impl rustls_acceptor {
         out_alert: *mut *mut rustls_accepted_alert,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let acceptor: &mut Acceptor = try_mut_from_ptr!(acceptor);
+            let acceptor = try_mut_from_ptr!(acceptor);
             let out_accepted = try_mut_from_ptr_ptr!(out_accepted);
             let out_alert = try_mut_from_ptr_ptr!(out_alert);
             match acceptor.accept() {
@@ -219,7 +216,7 @@ impl rustls_accepted {
         accepted: *const rustls_accepted,
     ) -> rustls_str<'static> {
         ffi_panic_boundary! {
-            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
                 None => return Default::default(),
@@ -260,7 +257,7 @@ impl rustls_accepted {
         i: usize,
     ) -> u16 {
         ffi_panic_boundary! {
-            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
                 None => return 0,
@@ -298,7 +295,7 @@ impl rustls_accepted {
         i: usize,
     ) -> u16 {
         ffi_panic_boundary! {
-            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted = try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
                 None => return 0,
@@ -341,7 +338,7 @@ impl rustls_accepted {
         i: usize,
     ) -> rustls_slice_bytes<'static> {
         ffi_panic_boundary! {
-            let accepted: &Option<Accepted> = try_ref_from_ptr!(accepted);
+            let accepted= try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
                 None => return Default::default(),
@@ -408,9 +405,9 @@ impl rustls_accepted {
         out_alert: *mut *mut rustls_accepted_alert,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let accepted: &mut Option<Accepted> = try_mut_from_ptr!(accepted);
+            let accepted = try_mut_from_ptr!(accepted);
             let accepted = try_take!(accepted);
-            let config: Arc<ServerConfig> = try_clone_arc!(config);
+            let config = try_clone_arc!(config);
             let out_conn = try_mut_from_ptr_ptr!(out_conn);
             let out_alert = try_mut_from_ptr_ptr!(out_alert);
             match accepted.into_connection(config) {
@@ -469,9 +466,9 @@ impl rustls_accepted_alert {
             if out_n.is_null() {
                 return rustls_io_result(EINVAL);
             }
-            let accepted_alert: &mut AcceptedAlert = try_mut_from_ptr!(accepted_alert);
+            let accepted_alert = try_mut_from_ptr!(accepted_alert);
             let mut writer = CallbackWriter { callback: try_callback!(callback), userdata };
-            let n_written: usize = match accepted_alert.write(&mut writer) {
+            let n_written= match accepted_alert.write(&mut writer) {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
@@ -517,7 +514,7 @@ mod tests {
 
     #[test]
     fn test_acceptor_new_and_free() {
-        let acceptor: *mut rustls_acceptor = rustls_acceptor::rustls_acceptor_new();
+        let acceptor = rustls_acceptor::rustls_acceptor_new();
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
 
@@ -533,7 +530,7 @@ mod tests {
     ) -> rustls_io_result {
         let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
         (*vecdeq).make_contiguous();
-        let first: &[u8] = (*vecdeq).as_slices().0;
+        let first = (*vecdeq).as_slices().0;
         let n = min(n, first.len());
         std::ptr::copy_nonoverlapping(first.as_ptr(), buf, n);
         (*vecdeq).drain(0..n).count();
@@ -560,9 +557,9 @@ mod tests {
     fn test_acceptor_corrupt_message() {
         let acceptor = make_acceptor();
 
-        let mut accepted: *mut rustls_accepted = null_mut();
-        let mut accepted_alert: *mut rustls_accepted_alert = null_mut();
-        let mut n: usize = 0;
+        let mut accepted = null_mut();
+        let mut accepted_alert = null_mut();
+        let mut n = 0_usize;
         let mut data = VecDeque::new();
         for _ in 0..1024 {
             data.push_back(0u8);
@@ -620,7 +617,7 @@ mod tests {
         type conn = rustls_connection;
         let builder = ccb::rustls_client_config_builder_new();
         let protocols: Vec<Vec<u8>> = vec!["zarp".into(), "yuun".into()];
-        let mut protocols_slices: Vec<rustls_slice_bytes> = vec![];
+        let mut protocols_slices = vec![];
         for p in &protocols {
             protocols_slices.push(p.as_slice().into());
         }
@@ -631,7 +628,7 @@ mod tests {
         );
 
         let config = ccb::rustls_client_config_builder_build(builder);
-        let mut client_conn: *mut conn = null_mut();
+        let mut client_conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
             "example.com\0".as_ptr() as *const c_char,
@@ -641,7 +638,7 @@ mod tests {
         assert_ne!(client_conn, null_mut());
 
         let mut buf = VecDeque::<u8>::new();
-        let mut n: usize = 0;
+        let mut n = 0_usize;
         conn::rustls_connection_write_tls(
             client_conn,
             Some(vecdeque_write),
@@ -655,11 +652,11 @@ mod tests {
     }
 
     fn make_server_config() -> *const rustls_server_config {
-        let builder: *mut rustls_server_config_builder =
+        let builder =
             rustls_server_config_builder::rustls_server_config_builder_new();
         let cert_pem = include_str!("../testdata/example.com/cert.pem").as_bytes();
         let key_pem = include_str!("../testdata/example.com/key.pem").as_bytes();
-        let mut certified_key: *const rustls_certified_key = null();
+        let mut certified_key = null();
         let result = rustls_certified_key::rustls_certified_key_build(
             cert_pem.as_ptr(),
             cert_pem.len(),
@@ -687,9 +684,9 @@ mod tests {
     fn test_acceptor_success() {
         let acceptor = make_acceptor();
 
-        let mut accepted: *mut rustls_accepted = null_mut();
-        let mut accepted_alert: *mut rustls_accepted_alert = null_mut();
-        let mut n: usize = 0;
+        let mut accepted = null_mut();
+        let mut accepted_alert = null_mut();
+        let mut n = 0;
         let mut data = client_hello_bytes();
         let data_len = data.len();
 
@@ -714,7 +711,7 @@ mod tests {
         let sni_as_str = std::str::from_utf8(sni_as_slice).unwrap_or("%!(ERROR)");
         assert_eq!(sni_as_str, "example.com");
 
-        let mut signature_schemes: Vec<u16> = vec![];
+        let mut signature_schemes = vec![];
         for i in 0.. {
             let s = rustls_accepted::rustls_accepted_signature_scheme(accepted, i);
             if s == 0 {
@@ -729,7 +726,7 @@ mod tests {
             &[1025, 1027, 1281, 1283, 1537, 2052, 2053, 2054, 2055]
         );
 
-        let mut alpn: Vec<rustls_slice_bytes> = vec![];
+        let mut alpn = vec![];
         for i in 0.. {
             let a = rustls_accepted::rustls_accepted_alpn(accepted, i);
             if a.len == 0 {
@@ -746,7 +743,7 @@ mod tests {
         assert_eq!(alpn1, "yuun".as_bytes());
 
         let server_config = make_server_config();
-        let mut conn: *mut rustls_connection = null_mut();
+        let mut conn = null_mut();
         let result = rustls_accepted::rustls_accepted_into_connection(
             accepted,
             server_config,
