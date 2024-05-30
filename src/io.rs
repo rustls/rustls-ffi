@@ -39,7 +39,7 @@ pub(crate) struct CallbackReader {
 
 impl Read for CallbackReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let mut out_n: usize = 0;
+        let mut out_n = 0;
         let cb = self.callback;
         let result = unsafe { cb(self.userdata, buf.as_mut_ptr(), buf.len(), &mut out_n) };
         match result.0 {
@@ -84,7 +84,7 @@ pub(crate) struct CallbackWriter {
 
 impl Write for CallbackWriter {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        let mut out_n: usize = 0;
+        let mut out_n = 0;
         let cb = self.callback;
         let result = unsafe { cb(self.userdata, buf.as_ptr(), buf.len(), &mut out_n) };
         match result.0 {
@@ -149,7 +149,7 @@ impl Write for VectoredCallbackWriter {
     }
 
     fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> Result<usize> {
-        let mut out_n: usize = 0;
+        let mut out_n = 0;
         let cb = self.callback;
         let result = unsafe {
             cb(
