@@ -43,7 +43,7 @@ pub(crate) struct ClientConfigBuilder {
     verifier: Arc<dyn ServerCertVerifier>,
     alpn_protocols: Vec<Vec<u8>>,
     enable_sni: bool,
-    cert_resolver: Option<Arc<dyn rustls::client::ResolvesClientCert>>,
+    cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
 }
 
 arc_castable! {
@@ -64,8 +64,8 @@ impl ServerCertVerifier for NoneVerifier {
         _server_name: &pki_types::ServerName<'_>,
         _ocsp_response: &[u8],
         _now: UnixTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
-        Err(rustls::Error::InvalidCertificate(
+    ) -> Result<ServerCertVerified, Error> {
+        Err(Error::InvalidCertificate(
             CertificateError::UnknownIssuer,
         ))
     }
@@ -180,11 +180,11 @@ impl rustls_client_config_builder {
                 cipher_suites: cs_vec,
                 ..rustls::crypto::ring::default_provider()
             };
-            let result = rustls::ClientConfig::builder_with_provider(provider.into())
+            let result = ClientConfig::builder_with_provider(provider.into())
                 .with_protocol_versions(&versions);
             let base = match result {
                 Ok(new) => new,
-                Err(_) => return rustls_result::InvalidParameter,
+                Err(_) => return InvalidParameter,
             };
             let config_builder = ClientConfigBuilder {
                 base,
@@ -259,12 +259,12 @@ impl ServerCertVerifier for Verifier {
         server_name: &pki_types::ServerName<'_>,
         ocsp_response: &[u8],
         _now: UnixTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
+    ) -> Result<ServerCertVerified, Error> {
         let cb = self.callback;
         let server_name = server_name.to_str();
         let server_name = match server_name.as_ref().try_into() {
             Ok(r) => r,
-            Err(NulByte {}) => return Err(rustls::Error::General("NUL byte in SNI".to_string())),
+            Err(NulByte {}) => return Err(Error::General("NUL byte in SNI".to_string())),
         };
 
         let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
@@ -280,7 +280,7 @@ impl ServerCertVerifier for Verifier {
             ocsp_response: ocsp_response.into(),
         };
         let userdata = userdata_get().map_err(|_| {
-            rustls::Error::General("internal error with thread-local storage".to_string())
+            Error::General("internal error with thread-local storage".to_string())
         })?;
         let result = unsafe { cb(userdata, &params) };
         match rustls_result::from(result) {
@@ -364,7 +364,7 @@ impl rustls_client_config_builder {
             let config_builder = try_mut_from_ptr!(config_builder);
             let callback = match callback {
                 Some(cb) => cb,
-                None => return rustls_result::InvalidParameter,
+                None => return InvalidParameter,
             };
 
             let verifier = Verifier { callback };
@@ -475,8 +475,8 @@ impl ResolvesClientCert for ResolvesClientCertFromChoices {
     fn resolve(
         &self,
         _acceptable_issuers: &[&[u8]],
-        sig_schemes: &[rustls::SignatureScheme],
-    ) -> Option<Arc<rustls::sign::CertifiedKey>> {
+        sig_schemes: &[SignatureScheme],
+    ) -> Option<Arc<CertifiedKey>> {
         for key in self.keys.iter() {
             if key.key.choose_scheme(sig_schemes).is_some() {
                 return Some(key.clone());
