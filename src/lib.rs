@@ -60,6 +60,7 @@ thread_local! {
 
 pub(crate) struct Userdata {
     userdata: *mut c_void,
+    #[cfg(not(feature = "no_log_capture"))]
     log_callback: rustls_log_callback,
 }
 
@@ -84,6 +85,7 @@ impl UserdataGuard {
         UserdataGuard {
             data: Some(Userdata {
                 userdata: u,
+                #[cfg(not(feature = "no_log_capture"))]
                 log_callback: None,
             }),
         }
@@ -146,7 +148,7 @@ pub(crate) enum UserdataError {
 #[must_use = "If you drop the guard, userdata will be immediately cleared"]
 pub(crate) fn userdata_push(
     u: *mut c_void,
-    cb: rustls_log_callback,
+    _cb: rustls_log_callback,
 ) -> Result<UserdataGuard, UserdataError> {
     USERDATA
         .try_with(|userdata| {
@@ -155,7 +157,8 @@ pub(crate) fn userdata_push(
                 |mut v| {
                     v.push(Userdata {
                         userdata: u,
-                        log_callback: cb,
+                        #[cfg(not(feature = "no_log_capture"))]
+                        log_callback: _cb,
                     });
                     Ok(())
                 },
@@ -179,6 +182,7 @@ pub(crate) fn userdata_get() -> Result<*mut c_void, UserdataError> {
         .unwrap_or(Err(UserdataError::AccessError))
 }
 
+#[cfg(not(feature = "no_log_capture"))]
 pub(crate) fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
     USERDATA
         .try_with(|userdata| {

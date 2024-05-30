@@ -1,10 +1,15 @@
 use libc::c_void;
 use log::Level;
 
-use crate::{log_callback_get, rslice::rustls_str};
+#[cfg(not(feature = "no_log_capture"))]
+use crate::log_callback_get;
 
+use crate::rslice::rustls_str;
+
+#[cfg(not(feature = "no_log_capture"))]
 struct Logger {}
 
+#[cfg(not(feature = "no_log_capture"))]
 impl log::Log for Logger {
     fn enabled(&self, _metadata: &log::Metadata<'_>) -> bool {
         true
