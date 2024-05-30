@@ -89,7 +89,7 @@ pub extern "C" fn rustls_slice_slice_bytes_get(
     input: *const rustls_slice_slice_bytes,
     n: size_t,
 ) -> rustls_slice_bytes {
-    let input: &rustls_slice_slice_bytes = {
+    let input = {
         match unsafe { input.as_ref() } {
             Some(c) => c,
             None => {
@@ -378,7 +378,7 @@ impl<'a> From<&'a [u16]> for rustls_slice_u16<'a> {
 
 #[test]
 fn test_rustls_slice_u16() {
-    let u16s: Vec<u16> = vec![101, 314, 2718];
+    let u16s = vec![101, 314, 2718];
     let rsu: rustls_slice_u16 = (&*u16s).into();
     assert_eq!(rsu.len, 3);
     unsafe {
