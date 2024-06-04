@@ -66,10 +66,11 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             // Unwrap safety: *ring* default provider always has ciphersuites compatible with the
             // default protocol versions.
-            let base =
-                ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                    .with_safe_default_protocol_versions()
-                    .unwrap();
+            let base = ServerConfig::builder_with_provider(
+                rustls::crypto::ring::default_provider().into(),
+            )
+            .with_safe_default_protocol_versions()
+            .unwrap();
             let builder = ServerConfigBuilder {
                 base,
                 verifier: WebPkiClientVerifier::no_client_auth(),
@@ -108,8 +109,7 @@ impl rustls_server_config_builder {
             if builder_out.is_null() {
                 return NullParameter;
             }
-            let cipher_suites =
-                try_slice!(cipher_suites, cipher_suites_len);
+            let cipher_suites = try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec = Vec::new();
             for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
@@ -248,8 +248,7 @@ impl rustls_server_config_builder {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let builder = try_mut_from_ptr!(builder);
-            let keys_ptrs=
-                try_slice!(certified_keys, certified_keys_len);
+            let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
             let mut keys = Vec::new();
             for &key_ptr in keys_ptrs {
                 let certified_key = try_clone_arc!(key_ptr);
@@ -600,8 +599,7 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
         if out_key.is_null() {
             return NullParameter;
         }
-        let keys_ptrs=
-            try_slice!(certified_keys, certified_keys_len);
+        let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
             let key_ref = try_ref_from_ptr!(key_ptr);
             if key_ref.key.choose_scheme(&schemes).is_some() {

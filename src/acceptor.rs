@@ -3,9 +3,7 @@ use rustls::server::{Accepted, AcceptedAlert, Acceptor};
 
 use crate::connection::rustls_connection;
 use crate::error::{map_error, rustls_io_result};
-use crate::io::{
-    rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter,
-};
+use crate::io::{rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
 use crate::{
@@ -184,7 +182,7 @@ impl rustls_acceptor {
                 Err((e, accepted_alert)) => {
                     set_boxed_mut_ptr(out_alert, accepted_alert);
                     map_error(e)
-                },
+                }
             }
         }
     }
@@ -338,7 +336,7 @@ impl rustls_accepted {
         i: usize,
     ) -> rustls_slice_bytes<'static> {
         ffi_panic_boundary! {
-            let accepted= try_ref_from_ptr!(accepted);
+            let accepted = try_ref_from_ptr!(accepted);
             let accepted = match accepted {
                 Some(a) => a,
                 None => return Default::default(),
@@ -419,7 +417,7 @@ impl rustls_accepted {
                 Err((e, accepted_alert)) => {
                     set_boxed_mut_ptr(out_alert, accepted_alert);
                     map_error(e)
-                },
+                }
             }
         }
     }
@@ -467,8 +465,11 @@ impl rustls_accepted_alert {
                 return rustls_io_result(EINVAL);
             }
             let accepted_alert = try_mut_from_ptr!(accepted_alert);
-            let mut writer = CallbackWriter { callback: try_callback!(callback), userdata };
-            let n_written= match accepted_alert.write(&mut writer) {
+            let mut writer = CallbackWriter {
+                callback: try_callback!(callback),
+                userdata,
+            };
+            let n_written = match accepted_alert.write(&mut writer) {
                 Ok(n) => n,
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
@@ -652,8 +653,7 @@ mod tests {
     }
 
     fn make_server_config() -> *const rustls_server_config {
-        let builder =
-            rustls_server_config_builder::rustls_server_config_builder_new();
+        let builder = rustls_server_config_builder::rustls_server_config_builder_new();
         let cert_pem = include_str!("../testdata/example.com/cert.pem").as_bytes();
         let key_pem = include_str!("../testdata/example.com/key.pem").as_bytes();
         let mut certified_key = null();

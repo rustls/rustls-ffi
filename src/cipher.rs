@@ -293,13 +293,13 @@ impl rustls_certified_key {
         cloned_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cloned_key_out= unsafe {
+            let cloned_key_out = unsafe {
                 match cloned_key_out.as_mut() {
                     Some(c) => c,
                     None => return NullParameter,
                 }
             };
-            let certified_key= try_ref_from_ptr!(certified_key);
+            let certified_key = try_ref_from_ptr!(certified_key);
             let mut new_key = certified_key.clone();
             if !ocsp_response.is_null() {
                 let ocsp_slice = unsafe { &*ocsp_response };
@@ -657,8 +657,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -688,8 +687,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -710,8 +708,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -729,8 +726,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -752,8 +748,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -803,16 +798,15 @@ impl rustls_web_pki_client_cert_verifier_builder {
             if verifier_out.is_null() {
                 return NullParameter;
             }
-            let client_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = try_take!(client_verifier_builder);
             let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
 
             let mut builder = WebPkiClientVerifier::builder_with_provider(
-                    client_verifier_builder.roots,
-                    rustls::crypto::ring::default_provider().into(),
-                )
-                .with_crls(client_verifier_builder.crls);
+                client_verifier_builder.roots,
+                rustls::crypto::ring::default_provider().into(),
+            )
+            .with_crls(client_verifier_builder.crls);
             match client_verifier_builder.revocation_depth {
                 RevocationCheckDepth::EndEntity => {
                     builder = builder.only_check_end_entity_revocation()
@@ -926,8 +920,7 @@ impl ServerCertVerifierBuilder {
         crl_pem_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -958,8 +951,7 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -980,8 +972,7 @@ impl ServerCertVerifierBuilder {
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
                 None => return AlreadyUsed,
                 Some(v) => v,
@@ -1008,16 +999,15 @@ impl ServerCertVerifierBuilder {
             if verifier_out.is_null() {
                 return NullParameter;
             }
-            let server_verifier_builder =
-                try_mut_from_ptr!(builder);
+            let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = try_take!(server_verifier_builder);
             let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
 
             let mut builder = WebPkiServerVerifier::builder_with_provider(
-                    server_verifier_builder.roots,
-                    rustls::crypto::ring::default_provider().into(),
-                )
-                .with_crls(server_verifier_builder.crls);
+                server_verifier_builder.roots,
+                rustls::crypto::ring::default_provider().into(),
+            )
+            .with_crls(server_verifier_builder.crls);
             match server_verifier_builder.revocation_depth {
                 RevocationCheckDepth::EndEntity => {
                     builder = builder.only_check_end_entity_revocation()
