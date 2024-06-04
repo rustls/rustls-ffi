@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn guard_try_pop() {
         let data = "hello";
-        let data_ptr: *mut c_void = data as *const _ as _;
+        let data_ptr = data as *const _ as _;
         let mut guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_pop().unwrap();
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn guard_try_drop() {
         let data = "hello";
-        let data_ptr: *mut c_void = data as *const _ as _;
+        let data_ptr = data as *const _ as _;
         let guard = userdata_push(data_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), data_ptr);
         guard.try_drop().unwrap();
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn guard_drop() {
         let data = "hello";
-        let data_ptr: *mut c_void = data as *const _ as _;
+        let data_ptr = data as *const _ as _;
         {
             let _guard = userdata_push(data_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), data_ptr);
@@ -236,13 +236,13 @@ mod tests {
     #[test]
     fn nested_guards() {
         let hello = "hello";
-        let hello_ptr: *mut c_void = hello as *const _ as _;
+        let hello_ptr = hello as *const _ as _;
         {
             let guard = userdata_push(hello_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), hello_ptr);
             {
                 let yo = "yo";
-                let yo_ptr: *mut c_void = yo as *const _ as _;
+                let yo_ptr = yo as *const _ as _;
                 let guard2 = userdata_push(yo_ptr, None).unwrap();
                 assert_eq!(userdata_get().unwrap(), yo_ptr);
                 guard2.try_drop().unwrap();
@@ -256,12 +256,12 @@ mod tests {
     #[test]
     fn out_of_order_drop() {
         let hello = "hello";
-        let hello_ptr: *mut c_void = hello as *const _ as _;
+        let hello_ptr = hello as *const _ as _;
         let guard = userdata_push(hello_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), hello_ptr);
 
         let yo = "yo";
-        let yo_ptr: *mut c_void = yo as *const _ as _;
+        let yo_ptr = yo as *const _ as _;
         let guard2 = userdata_push(yo_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), yo_ptr);
 
@@ -272,18 +272,18 @@ mod tests {
     #[test]
     fn userdata_multi_threads() {
         let hello = "hello";
-        let hello_ptr: *mut c_void = hello as *const _ as _;
+        let hello_ptr = hello as *const _ as _;
         let guard = userdata_push(hello_ptr, None).unwrap();
         assert_eq!(userdata_get().unwrap(), hello_ptr);
 
         let thread1 = thread::spawn(|| {
             let yo = "yo";
-            let yo_ptr: *mut c_void = yo as *const _ as _;
+            let yo_ptr = yo as *const _ as _;
             let guard2 = userdata_push(yo_ptr, None).unwrap();
             assert_eq!(userdata_get().unwrap(), yo_ptr);
 
             let greetz = "greetz";
-            let greetz_ptr: *mut c_void = greetz as *const _ as _;
+            let greetz_ptr = greetz as *const _ as _;
 
             let guard3 = userdata_push(greetz_ptr, None).unwrap();
 
