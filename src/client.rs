@@ -65,9 +65,7 @@ impl ServerCertVerifier for NoneVerifier {
         _ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, Error> {
-        Err(Error::InvalidCertificate(
-            CertificateError::UnknownIssuer,
-        ))
+        Err(Error::InvalidCertificate(CertificateError::UnknownIssuer))
     }
 
     fn verify_tls12_signature(
@@ -109,10 +107,11 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             // Unwrap safety: *ring* default provider always has ciphersuites compatible with the
             // default protocol versions.
-            let base =
-                ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                    .with_safe_default_protocol_versions()
-                    .unwrap();
+            let base = ClientConfig::builder_with_provider(
+                rustls::crypto::ring::default_provider().into(),
+            )
+            .with_safe_default_protocol_versions()
+            .unwrap();
             let builder = ClientConfigBuilder {
                 base,
                 verifier: Arc::new(NoneVerifier),
@@ -152,8 +151,7 @@ impl rustls_client_config_builder {
             if builder_out.is_null() {
                 return NullParameter;
             }
-            let cipher_suites =
-                try_slice!(cipher_suites, cipher_suites_len);
+            let cipher_suites = try_slice!(cipher_suites, cipher_suites_len);
             let mut cs_vec = Vec::new();
             for &cs in cipher_suites.iter() {
                 let cs = try_ref_from_ptr!(cs);
@@ -279,9 +277,8 @@ impl ServerCertVerifier for Verifier {
             server_name,
             ocsp_response: ocsp_response.into(),
         };
-        let userdata = userdata_get().map_err(|_| {
-            Error::General("internal error with thread-local storage".to_string())
-        })?;
+        let userdata = userdata_get()
+            .map_err(|_| Error::General("internal error with thread-local storage".to_string()))?;
         let result = unsafe { cb(userdata, &params) };
         match rustls_result::from(result) {
             rustls_result::Ok => Ok(ServerCertVerified::assertion()),
@@ -451,9 +448,8 @@ impl rustls_client_config_builder {
         certified_keys_len: size_t,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let config= try_mut_from_ptr!(builder);
-            let keys_ptrs =
-                try_slice!(certified_keys, certified_keys_len);
+            let config = try_mut_from_ptr!(builder);
+            let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
             let mut keys = Vec::new();
             for &key_ptr in keys_ptrs {
                 let certified_key = try_clone_arc!(key_ptr);

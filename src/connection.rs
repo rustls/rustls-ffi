@@ -242,7 +242,7 @@ impl rustls_connection {
         conn: *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let conn= try_mut_from_ptr!(conn);
+            let conn = try_mut_from_ptr!(conn);
             let guard = match userdata_push(conn.userdata, conn.log_callback) {
                 Ok(g) => g,
                 Err(_) => return rustls_result::Panic,
@@ -356,7 +356,7 @@ impl rustls_connection {
         protocol_out_len: *mut usize,
     ) {
         ffi_panic_boundary! {
-            let conn= try_ref_from_ptr!(conn);
+            let conn = try_ref_from_ptr!(conn);
             if protocol_out.is_null() || protocol_out_len.is_null() {
                 return;
             }
@@ -523,8 +523,7 @@ impl rustls_connection {
             if buf.is_null() || out_n.is_null() {
                 return NullParameter;
             }
-            let read_buf =
-                unsafe { slice::from_raw_parts_mut(buf, count) };
+            let read_buf = unsafe { slice::from_raw_parts_mut(buf, count) };
 
             let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
 
