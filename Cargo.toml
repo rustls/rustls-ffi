@@ -38,6 +38,7 @@ crate-type = ["lib", "staticlib"]
 
 [dev-dependencies]
 regex = "1.9.6"
+toml = { version = "0.6.0", default-features = false, features = ["parse"] }
 
 [package.metadata.capi.header]
 name = "rustls"
