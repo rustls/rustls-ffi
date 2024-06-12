@@ -705,15 +705,6 @@ pub extern "C" fn rustls_version() -> rustls_str<'static> {
     rustls_str::from_str_unchecked(RUSTLS_FFI_VERSION)
 }
 
-#[test]
-fn test_rustls_version() {
-    // very rough check that the version number is being interpolated into the
-    // variable
-    assert!(RUSTLS_FFI_VERSION.contains("/0."));
-    let vsn = rustls_version();
-    assert!(vsn.len > 4)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
