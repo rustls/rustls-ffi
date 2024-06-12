@@ -197,109 +197,6 @@ pub(crate) fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), U
         .unwrap_or(Err(UserdataError::AccessError))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread;
-
-    #[test]
-    fn guard_try_pop() {
-        let data = "hello";
-        let data_ptr = data as *const _ as _;
-        let mut guard = userdata_push(data_ptr, None).unwrap();
-        assert_eq!(userdata_get().unwrap(), data_ptr);
-        guard.try_pop().unwrap();
-        assert!(guard.try_pop().is_err())
-    }
-
-    #[test]
-    fn guard_try_drop() {
-        let data = "hello";
-        let data_ptr = data as *const _ as _;
-        let guard = userdata_push(data_ptr, None).unwrap();
-        assert_eq!(userdata_get().unwrap(), data_ptr);
-        guard.try_drop().unwrap();
-        assert!(userdata_get().is_err())
-    }
-
-    #[test]
-    fn guard_drop() {
-        let data = "hello";
-        let data_ptr = data as *const _ as _;
-        {
-            let _guard = userdata_push(data_ptr, None).unwrap();
-            assert_eq!(userdata_get().unwrap(), data_ptr);
-        }
-        assert!(userdata_get().is_err())
-    }
-
-    #[test]
-    fn nested_guards() {
-        let hello = "hello";
-        let hello_ptr = hello as *const _ as _;
-        {
-            let guard = userdata_push(hello_ptr, None).unwrap();
-            assert_eq!(userdata_get().unwrap(), hello_ptr);
-            {
-                let yo = "yo";
-                let yo_ptr = yo as *const _ as _;
-                let guard2 = userdata_push(yo_ptr, None).unwrap();
-                assert_eq!(userdata_get().unwrap(), yo_ptr);
-                guard2.try_drop().unwrap();
-            }
-            assert_eq!(userdata_get().unwrap(), hello_ptr);
-            guard.try_drop().unwrap();
-        }
-        assert!(userdata_get().is_err())
-    }
-
-    #[test]
-    fn out_of_order_drop() {
-        let hello = "hello";
-        let hello_ptr = hello as *const _ as _;
-        let guard = userdata_push(hello_ptr, None).unwrap();
-        assert_eq!(userdata_get().unwrap(), hello_ptr);
-
-        let yo = "yo";
-        let yo_ptr = yo as *const _ as _;
-        let guard2 = userdata_push(yo_ptr, None).unwrap();
-        assert_eq!(userdata_get().unwrap(), yo_ptr);
-
-        assert!(matches!(guard.try_drop(), Err(UserdataError::WrongData)));
-        assert!(matches!(guard2.try_drop(), Err(UserdataError::WrongData)));
-    }
-
-    #[test]
-    fn userdata_multi_threads() {
-        let hello = "hello";
-        let hello_ptr = hello as *const _ as _;
-        let guard = userdata_push(hello_ptr, None).unwrap();
-        assert_eq!(userdata_get().unwrap(), hello_ptr);
-
-        let thread1 = thread::spawn(|| {
-            let yo = "yo";
-            let yo_ptr = yo as *const _ as _;
-            let guard2 = userdata_push(yo_ptr, None).unwrap();
-            assert_eq!(userdata_get().unwrap(), yo_ptr);
-
-            let greetz = "greetz";
-            let greetz_ptr = greetz as *const _ as _;
-
-            let guard3 = userdata_push(greetz_ptr, None).unwrap();
-
-            assert_eq!(userdata_get().unwrap(), greetz_ptr);
-            guard3.try_drop().unwrap();
-
-            assert_eq!(userdata_get().unwrap(), yo_ptr);
-            guard2.try_drop().unwrap();
-        });
-
-        assert_eq!(userdata_get().unwrap(), hello_ptr);
-        guard.try_drop().unwrap();
-        thread1.join().unwrap();
-    }
-}
-
 /// Used to mark that pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
 /// to C code as a pointer to a `Box<Castable::RustType>`.
 pub(crate) struct OwnershipBox;
@@ -815,4 +712,107 @@ fn test_rustls_version() {
     assert!(RUSTLS_FFI_VERSION.contains("/0."));
     let vsn = rustls_version();
     assert!(vsn.len > 4)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn guard_try_pop() {
+        let data = "hello";
+        let data_ptr = data as *const _ as _;
+        let mut guard = userdata_push(data_ptr, None).unwrap();
+        assert_eq!(userdata_get().unwrap(), data_ptr);
+        guard.try_pop().unwrap();
+        assert!(guard.try_pop().is_err())
+    }
+
+    #[test]
+    fn guard_try_drop() {
+        let data = "hello";
+        let data_ptr = data as *const _ as _;
+        let guard = userdata_push(data_ptr, None).unwrap();
+        assert_eq!(userdata_get().unwrap(), data_ptr);
+        guard.try_drop().unwrap();
+        assert!(userdata_get().is_err())
+    }
+
+    #[test]
+    fn guard_drop() {
+        let data = "hello";
+        let data_ptr = data as *const _ as _;
+        {
+            let _guard = userdata_push(data_ptr, None).unwrap();
+            assert_eq!(userdata_get().unwrap(), data_ptr);
+        }
+        assert!(userdata_get().is_err())
+    }
+
+    #[test]
+    fn nested_guards() {
+        let hello = "hello";
+        let hello_ptr = hello as *const _ as _;
+        {
+            let guard = userdata_push(hello_ptr, None).unwrap();
+            assert_eq!(userdata_get().unwrap(), hello_ptr);
+            {
+                let yo = "yo";
+                let yo_ptr = yo as *const _ as _;
+                let guard2 = userdata_push(yo_ptr, None).unwrap();
+                assert_eq!(userdata_get().unwrap(), yo_ptr);
+                guard2.try_drop().unwrap();
+            }
+            assert_eq!(userdata_get().unwrap(), hello_ptr);
+            guard.try_drop().unwrap();
+        }
+        assert!(userdata_get().is_err())
+    }
+
+    #[test]
+    fn out_of_order_drop() {
+        let hello = "hello";
+        let hello_ptr = hello as *const _ as _;
+        let guard = userdata_push(hello_ptr, None).unwrap();
+        assert_eq!(userdata_get().unwrap(), hello_ptr);
+
+        let yo = "yo";
+        let yo_ptr = yo as *const _ as _;
+        let guard2 = userdata_push(yo_ptr, None).unwrap();
+        assert_eq!(userdata_get().unwrap(), yo_ptr);
+
+        assert!(matches!(guard.try_drop(), Err(UserdataError::WrongData)));
+        assert!(matches!(guard2.try_drop(), Err(UserdataError::WrongData)));
+    }
+
+    #[test]
+    fn userdata_multi_threads() {
+        let hello = "hello";
+        let hello_ptr = hello as *const _ as _;
+        let guard = userdata_push(hello_ptr, None).unwrap();
+        assert_eq!(userdata_get().unwrap(), hello_ptr);
+
+        let thread1 = thread::spawn(|| {
+            let yo = "yo";
+            let yo_ptr = yo as *const _ as _;
+            let guard2 = userdata_push(yo_ptr, None).unwrap();
+            assert_eq!(userdata_get().unwrap(), yo_ptr);
+
+            let greetz = "greetz";
+            let greetz_ptr = greetz as *const _ as _;
+
+            let guard3 = userdata_push(greetz_ptr, None).unwrap();
+
+            assert_eq!(userdata_get().unwrap(), greetz_ptr);
+            guard3.try_drop().unwrap();
+
+            assert_eq!(userdata_get().unwrap(), yo_ptr);
+            guard2.try_drop().unwrap();
+        });
+
+        assert_eq!(userdata_get().unwrap(), hello_ptr);
+        guard.try_drop().unwrap();
+        thread1.join().unwrap();
+    }
 }
