@@ -54,7 +54,11 @@ jobs:
           unzip cargo-c-macos.zip -d ~/.cargo/bin
 
       - name: Install the library
-        run: make --file=Makefile.pkg-config PREFIX=${PREFIX} install
+        # NOTE: We set --libdir explicitly to avoid per-system/distro path components
+        #       that will complicate setting PKG_CONFIG_PATH/LD_LIBRARY_PATH.
+        run: >
+          CARGOFLAGS=--libdir=lib
+          make --file=Makefile.pkg-config PREFIX=${PREFIX} install
 
       - name: Build the client/server examples
         run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config PROFILE=debug
