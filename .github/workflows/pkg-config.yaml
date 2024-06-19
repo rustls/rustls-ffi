@@ -39,7 +39,7 @@ jobs:
       - name: Install cargo-c (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         env:
-          LINK: https://github.com/lu-zero/cargo-c/releases/download/v0.9.32
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
         run: |
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
