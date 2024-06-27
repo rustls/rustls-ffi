@@ -30,7 +30,7 @@ webpki = { package = "rustls-webpki", version = "0.102.0", default-features = fa
 libc = "0.2"
 rustls-pemfile = "2"
 log = "0.4.17"
-rustls-platform-verifier = "0.3.1"
+rustls-platform-verifier = "0.3.2"
 
 [lib]
 name = "rustls_ffi"
