@@ -29,7 +29,7 @@ pki-types = { package = "rustls-pki-types", version = "1", features = ["std"] }
 webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = ["ring", "std"] }
 libc = "0.2"
 rustls-pemfile = "2"
-log = "0.4.17"
+log = "0.4.22"
 rustls-platform-verifier = "0.3.2"
 
 [lib]
