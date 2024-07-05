@@ -1706,12 +1706,24 @@ void rustls_connection_get_alpn_protocol(const struct rustls_connection *conn,
 uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *conn);
 
 /**
- * Retrieves the cipher suite agreed with the peer.
- * This returns NULL until the ciphersuite is agreed.
- * The returned pointer lives as long as the program.
+ * Retrieves the [IANA registered cipher suite identifier][IANA] agreed with the peer.
+ * This returns `TLS_NULL_WITH_NULL_NULL` (0x0000) until the ciphersuite is agreed.
+ *
+ * [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>
+ */
+uint16_t rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
+
+/**
+ * Retrieves the cipher suite name agreed with the peer.
+ *
+ * This returns "" until the ciphersuite is agreed.
+ *
+ * The lifetime of the `rustls_str` is the lifetime of the program, it does not
+ * need to be freed.
+ *
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.negotiated_cipher_suite>
  */
-const struct rustls_supported_ciphersuite *rustls_connection_get_negotiated_ciphersuite(const struct rustls_connection *conn);
+struct rustls_str rustls_connection_get_negotiated_ciphersuite_name(const struct rustls_connection *conn);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.

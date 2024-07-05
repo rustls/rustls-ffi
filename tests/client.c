@@ -170,6 +170,8 @@ send_request_and_read_response(struct conndata *conn,
   unsigned long content_length = 0;
   size_t headers_len = 0;
   struct rustls_str version;
+  int ciphersuite_id;
+  struct rustls_str ciphersuite_name;
 
   version = rustls_version();
   memset(buf, '\0', sizeof(buf));
@@ -196,6 +198,13 @@ send_request_and_read_response(struct conndata *conn,
     LOG_SIMPLE("short write writing plaintext bytes to rustls_connection");
     goto cleanup;
   }
+
+  ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
+  ciphersuite_name = rustls_connection_get_negotiated_ciphersuite_name(rconn);
+  LOG("negotiated ciphersuite: %.*s (%#x)",
+      (int)ciphersuite_name.len,
+      ciphersuite_name.data,
+      ciphersuite_id);
 
   for(;;) {
     FD_ZERO(&read_fds);
