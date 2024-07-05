@@ -7,6 +7,12 @@ IF (WIN32)
     )
 ENDIF (WIN32)
 
+if (CRYPTO_PROVIDER STREQUAL "aws_lc_rs")
+    add_compile_definitions(DEFINE_AWS_LC_RS)
+elseif (CRYPTO_PROVIDER STREQUAL "ring")
+    add_compile_definitions(DEFINE_RING)
+endif ()
+
 add_executable(client client.c common.c)
 add_dependencies(client rustls-ffi)
 target_include_directories(client PUBLIC ${CMAKE_SOURCE_DIR}/src)

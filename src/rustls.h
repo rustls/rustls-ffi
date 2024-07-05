@@ -1984,6 +1984,7 @@ rustls_result rustls_crypto_provider_builder_build_as_default(struct rustls_cryp
  */
 void rustls_crypto_provider_builder_free(struct rustls_crypto_provider_builder *builder);
 
+#if defined(DEFINE_RING)
 /**
  * Return the `rustls_crypto_provider` backed by the `*ring*` cryptography library.
  *
@@ -1991,6 +1992,17 @@ void rustls_crypto_provider_builder_free(struct rustls_crypto_provider_builder *
  * `rustls_crypto_provider_free`.
  */
 const struct rustls_crypto_provider *rustls_ring_crypto_provider(void);
+#endif
+
+#if defined(DEFINE_AWS_LC_RS)
+/**
+ * Return the `rustls_crypto_provider` backed by the `aws-lc-rs` cryptography library.
+ *
+ * The caller owns the returned `rustls_crypto_provider` and must free it using
+ * `rustls_crypto_provider_free`.
+ */
+const struct rustls_crypto_provider *rustls_aws_lc_rs_crypto_provider(void);
+#endif
 
 /**
  * Retrieve a pointer to the process default `rustls_crypto_provider`.
