@@ -61,6 +61,7 @@ u32_enum_builder! {
         AlreadyUsed => 7013,
         CertificateRevocationListParseError => 7014,
         NoServerCertVerifier => 7015,
+        NoDefaultCryptoProvider => 7016,
 
         // From https://docs.rs/rustls/latest/rustls/enum.Error.html
         NoCertificatesPresented => 7101,
@@ -486,6 +487,12 @@ impl Display for rustls_result {
                 write!(
                     f,
                     "no server certificate verifier was configured on the client config builder"
+                )
+            }
+            NoDefaultCryptoProvider => {
+                write!(
+                    f,
+                    "no default process-wide crypto provider has been installed"
                 )
             }
 
