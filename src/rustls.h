@@ -1450,7 +1450,19 @@ void rustls_web_pki_server_cert_verifier_builder_free(struct rustls_web_pki_serv
  *
  * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
  */
-struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier(void);
+rustls_result rustls_platform_server_cert_verifier(struct rustls_server_cert_verifier **verifier_out);
+
+/**
+ * Create a verifier that uses the default behavior for the current platform.
+ *
+ * This uses [`rustls-platform-verifier`][] and the specified crypto provider.
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be freed by
+ * the application using `rustls_server_cert_verifier_free` when no longer needed.
+ *
+ * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+ */
+struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_provider(const struct rustls_crypto_provider *provider);
 
 /**
  * Free a `rustls_server_cert_verifier` previously returned from
