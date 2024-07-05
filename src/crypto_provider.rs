@@ -333,7 +333,7 @@ pub extern "C" fn rustls_default_crypto_provider_ciphersuites_get(
     }
 }
 
-fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoProvider>> {
+pub(crate) fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoProvider>> {
     // If a process-wide default has already been installed, return it.
     if let Some(provider) = CryptoProvider::get_default() {
         return Some(provider.clone());
