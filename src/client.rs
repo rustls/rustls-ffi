@@ -585,7 +585,10 @@ mod tests {
     #[test]
     fn test_config_builder() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let verifier = rustls_server_cert_verifier::rustls_platform_server_cert_verifier();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
         assert!(!verifier.is_null());
         rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
             builder, verifier,
@@ -609,7 +612,8 @@ mod tests {
             assert!(!config2.enable_sni);
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
         }
-        rustls_client_config::rustls_client_config_free(config)
+        rustls_client_config::rustls_client_config_free(config);
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
     }
 
     // Build a client connection and test the getters and initial values.
@@ -617,7 +621,10 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let verifier = rustls_server_cert_verifier::rustls_platform_server_cert_verifier();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
         assert!(!verifier.is_null());
         rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
             builder, verifier,
@@ -667,13 +674,17 @@ mod tests {
             0
         );
         rustls_connection::rustls_connection_free(conn);
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
     }
 
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new_ipaddress() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let verifier = rustls_server_cert_verifier::rustls_platform_server_cert_verifier();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
         assert!(!verifier.is_null());
         rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
             builder, verifier,
@@ -692,6 +703,7 @@ mod tests {
         if !matches!(result, rustls_result::Ok) {
             panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
         }
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
     }
 
     #[test]

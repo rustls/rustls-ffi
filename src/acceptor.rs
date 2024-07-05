@@ -641,7 +641,10 @@ mod tests {
             protocols_slices.len(),
         );
 
-        let verifier = rustls_server_cert_verifier::rustls_platform_server_cert_verifier();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
         assert!(!verifier.is_null());
         rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
             builder, verifier,

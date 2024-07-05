@@ -441,8 +441,9 @@ main(int argc, const char **argv)
 #endif
 
   if(getenv("RUSTLS_PLATFORM_VERIFIER")) {
-    server_cert_verifier = rustls_platform_server_cert_verifier();
-    if(server_cert_verifier == NULL) {
+    result = rustls_platform_server_cert_verifier(&server_cert_verifier);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "client: failed to construct platform verifier\n");
       goto cleanup;
     }
     rustls_client_config_builder_set_server_verifier(config_builder,
