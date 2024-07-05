@@ -1205,7 +1205,8 @@ void rustls_root_cert_store_free(const struct rustls_root_cert_store *store);
 void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
 
 /**
- * Create a `rustls_web_pki_client_cert_verifier_builder`.
+ * Create a `rustls_web_pki_client_cert_verifier_builder` using the process-wide default
+ * cryptography provider.
  *
  * Caller owns the memory and may eventually call `rustls_web_pki_client_cert_verifier_builder_free`
  * to free it, whether or not `rustls_web_pki_client_cert_verifier_builder_build` was called.
@@ -1230,6 +1231,36 @@ void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifi
  * ownership of the pointed-to data.
  */
 struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Create a `rustls_web_pki_client_cert_verifier_builder` using the specified
+ * cryptography provider.
+ *
+ * Caller owns the memory and may eventually call
+ * `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
+ * not `rustls_web_pki_client_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a client certificate verifier that
+ * will require a client present a client certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+ * used.
+ *
+ * Unauthenticated clients will not be permitted unless
+ * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
+                                                                                                                  const struct rustls_root_cert_store *store);
 
 /**
  * Add one or more certificate revocation lists (CRLs) to the client certificate verifier
@@ -1310,7 +1341,8 @@ rustls_result rustls_web_pki_client_cert_verifier_builder_build(struct rustls_we
 void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_client_cert_verifier_builder *builder);
 
 /**
- * Create a `rustls_web_pki_server_cert_verifier_builder`.
+ * Create a `rustls_web_pki_server_cert_verifier_builder` using the process-wide default
+ * crypto provider. Caller owns the memory and may free it with
  *
  * Caller owns the memory and may free it with `rustls_web_pki_server_cert_verifier_builder_free`,
  * regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
@@ -1332,6 +1364,31 @@ void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_clie
  * ownership of the pointed-to data.
  */
 struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Create a `rustls_web_pki_server_cert_verifier_builder` using the specified
+ * crypto provider. Caller owns the memory and may free it with
+ * `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
+ * `rustls_web_pki_server_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a server certificate verifier that
+ * will require a server present a certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+ * used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
+                                                                                                                  const struct rustls_root_cert_store *store);
 
 /**
  * Add one or more certificate revocation lists (CRLs) to the server certificate verifier
