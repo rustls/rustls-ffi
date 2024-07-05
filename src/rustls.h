@@ -1419,7 +1419,7 @@ struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier(void);
 void rustls_server_cert_verifier_free(struct rustls_server_cert_verifier *verifier);
 
 /**
- * Create a rustls_client_config_builder.
+ * Create a rustls_client_config_builder using the process default crypto provider.
  *
  * Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
  * then free the resulting `rustls_client_config`.
@@ -1427,17 +1427,16 @@ void rustls_server_cert_verifier_free(struct rustls_server_cert_verifier *verifi
  * Alternatively, if an error occurs or, you don't wish to build a config,
  * call `rustls_client_config_builder_free` to free the builder directly.
  *
- * This uses rustls safe default values for the cipher suites, key exchange
- * groups and protocol versions.
+ * This uses the process default provider's values for the cipher suites and key
+ * exchange groups, as well as safe defaults for protocol versions.
  *
  * This starts out with no trusted roots. Caller must add roots with
- * rustls_client_config_builder_load_roots_from_file or provide a custom
- * verifier.
+ * rustls_client_config_builder_load_roots_from_file or provide a custom verifier.
  */
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
- * Create a rustls_client_config_builder.
+ * Create a rustls_client_config_builder using the specified crypto provider.
  *
  * Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
  * then free the resulting `rustls_client_config`.
@@ -1445,13 +1444,7 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * Alternatively, if an error occurs or, you don't wish to build a config,
  * call `rustls_client_config_builder_free` to free the builder directly.
  *
- * Specify cipher suites in preference order; the `cipher_suites` parameter
- * must point to an array containing `cipher_suites_len` pointers to
- * `rustls_supported_ciphersuite` previously obtained from
- * `rustls_all_ciphersuites_get_entry()`, or to a provided array,
- * RUSTLS_DEFAULT_CIPHER_SUITES or RUSTLS_ALL_CIPHER_SUITES.
- *
- * Set the TLS protocol versions to use when negotiating a TLS session.
+ * `tls_version` sets the TLS protocol versions to use when negotiating a TLS session.
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
  * `rustls_tls_version` for convenience, and the arrays
@@ -1460,9 +1453,11 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * `tls_versions` will only be used during the call and the application retains
  * ownership. `tls_versions_len` is the number of consecutive `uint16_t`
  * pointed to by `tls_versions`.
+ *
+ * Ciphersuites are configured separately via the crypto provider. See
+ * `rustls_crypto_provider_builder_set_cipher_suites` for more information.
  */
-rustls_result rustls_client_config_builder_new_custom(const struct rustls_supported_ciphersuite *const *cipher_suites,
-                                                      size_t cipher_suites_len,
+rustls_result rustls_client_config_builder_new_custom(const struct rustls_crypto_provider *provider,
                                                       const uint16_t *tls_versions,
                                                       size_t tls_versions_len,
                                                       struct rustls_client_config_builder **builder_out);
