@@ -679,8 +679,10 @@ mod tests {
 
         assert_eq!(
             rustls_connection::rustls_connection_get_negotiated_ciphersuite(conn),
-            null()
+            0
         );
+        let cs_name = rustls_connection::rustls_connection_get_negotiated_ciphersuite_name(conn);
+        assert_eq!(unsafe { cs_name.to_str() }, "");
         assert_eq!(
             rustls_connection::rustls_connection_get_peer_certificate(conn, 0),
             null()
