@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         # test a bunch of toolchains on ubuntu
-        cc: [clang, gcc]
+        cc: [ clang, gcc ]
         rust:
           - stable
           - beta
@@ -25,7 +25,7 @@ jobs:
           # MSRV - keep in sync with what rustls and rustls-platform-verifier
           # consider MSRV
           - 1.64.0
-        os: [ubuntu-latest]
+        os: [ ubuntu-latest ]
         # but only stable on macos/windows (slower platforms)
         include:
           - os: macos-latest
@@ -123,7 +123,7 @@ jobs:
         # reliably matched to CI. There can be non-semantic differences in
         # output between point releases of cbindgen that will fail this check
         # otherwise.
-        run: cargo install cbindgen --force --version 0.24.5
+        run: cargo install cbindgen --force --version 0.27.0
       - run: touch src/lib.rs
       - run: cbindgen --version
       - run: make src/rustls.h
