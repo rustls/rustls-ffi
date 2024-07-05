@@ -336,7 +336,12 @@ main(int argc, const char **argv)
                                                      client_cert_verifier);
   }
 
-  server_config = rustls_server_config_builder_build(config_builder);
+  rustls_result result =
+    rustls_server_config_builder_build(config_builder, &server_config);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error("building server config", result);
+    goto cleanup;
+  }
 
 #ifdef _WIN32
   WSADATA wsa;

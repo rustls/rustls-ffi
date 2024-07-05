@@ -696,8 +696,11 @@ mod tests {
         assert_eq!(result, rustls_result::Ok);
         rustls_certified_key::rustls_certified_key_free(certified_key);
 
-        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
-        assert_ne!(config, null());
+        let mut config = null();
+        let res =
+            rustls_server_config_builder::rustls_server_config_builder_build(builder, &mut config);
+        assert_eq!(res, rustls_result::Ok);
+        assert!(!config.is_null());
         config
     }
 
