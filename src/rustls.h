@@ -670,34 +670,6 @@ typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userd
                                                       const struct rustls_slice_bytes *val);
 
 /**
- * Rustls' list of supported cipher suites.
- *
- * This is an array of pointers, and its length is given by
- * `RUSTLS_ALL_CIPHER_SUITES_LEN`. The pointers will always be valid.
- * The contents and order of this array may change between releases.
- */
-extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
-
-/**
- * The length of the array `RUSTLS_ALL_CIPHER_SUITES`.
- */
-extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
-
-/**
- * Rustls' list of default cipher suites.
- *
- * This is an array of pointers, and its length is given by
- * `RUSTLS_DEFAULT_CIPHER_SUITES_LEN`. The pointers will always be valid.
- * The contents and order of this array may change between releases.
- */
-extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
-
-/**
- * The length of the array `RUSTLS_DEFAULT_CIPHER_SUITES`.
- */
-extern const size_t RUSTLS_DEFAULT_CIPHER_SUITES_LEN;
-
-/**
  * Rustls' list of supported protocol versions. The length of the array is
  * given by `RUSTLS_ALL_VERSIONS_LEN`.
  */
@@ -1039,36 +1011,6 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
  * it does not need to be freed.
  */
 struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
-
-/**
- * Return the length of rustls' list of supported cipher suites.
- */
-size_t rustls_all_ciphersuites_len(void);
-
-/**
- * Get a pointer to a member of rustls' list of supported cipher suites.
- *
- * This will return non-NULL for i < rustls_all_ciphersuites_len().
- *
- * The returned pointer is valid for the lifetime of the program and may
- * be used directly when building a ClientConfig or ServerConfig.
- */
-const struct rustls_supported_ciphersuite *rustls_all_ciphersuites_get_entry(size_t i);
-
-/**
- * Return the length of rustls' list of default cipher suites.
- */
-size_t rustls_default_ciphersuites_len(void);
-
-/**
- * Get a pointer to a member of rustls' list of supported cipher suites.
- *
- * This will return non-NULL for i < rustls_default_ciphersuites_len().
- *
- * The returned pointer is valid for the lifetime of the program and may
- * be used directly when building a ClientConfig or ServerConfig.
- */
-const struct rustls_supported_ciphersuite *rustls_default_ciphersuites_get_entry(size_t i);
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key.
