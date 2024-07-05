@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::{slice, str};
 
 use toml::Table;
 
@@ -51,12 +50,7 @@ fn rustls_version_match() {
     // E.g.:
     //   rustls-ffi/0.13.0/rustls/0.23.4
     let rustls_ffi_version = rustls_version();
-    let rustls_ffi_version = unsafe {
-        str::from_utf8_unchecked(slice::from_raw_parts(
-            rustls_ffi_version.data as *const u8,
-            rustls_ffi_version.len,
-        ))
-    };
+    let rustls_ffi_version = unsafe { rustls_ffi_version.to_str() };
     let rustls_ffi_version_parts = rustls_ffi_version.split('/').collect::<Vec<_>>();
     assert_eq!(
         rustls_ffi_version_parts,
