@@ -3,6 +3,9 @@ use std::io::Cursor;
 use std::slice;
 use std::sync::Arc;
 
+#[cfg(feature = "aws-lc-rs")]
+use rustls::crypto::aws_lc_rs;
+#[cfg(feature = "ring")]
 use rustls::crypto::ring;
 use rustls::crypto::CryptoProvider;
 use rustls::sign::SigningKey;
@@ -222,11 +225,23 @@ pub extern "C" fn rustls_crypto_provider_builder_free(
 ///
 /// The caller owns the returned `rustls_crypto_provider` and must free it using
 /// `rustls_crypto_provider_free`.
-// TODO(@cpu): Add a feature gate when we add support for other crypto providers.
 #[no_mangle]
+#[cfg(feature = "ring")]
 pub extern "C" fn rustls_ring_crypto_provider() -> *const rustls_crypto_provider {
     ffi_panic_boundary! {
         Arc::into_raw(Arc::new(ring::default_provider())) as *const rustls_crypto_provider
+    }
+}
+
+/// Return the `rustls_crypto_provider` backed by the `aws-lc-rs` cryptography library.
+///
+/// The caller owns the returned `rustls_crypto_provider` and must free it using
+/// `rustls_crypto_provider_free`.
+#[no_mangle]
+#[cfg(feature = "aws-lc-rs")]
+pub extern "C" fn rustls_aws_lc_rs_crypto_provider() -> *const rustls_crypto_provider {
+    ffi_panic_boundary! {
+        Arc::into_raw(Arc::new(aws_lc_rs::default_provider())) as *const rustls_crypto_provider
     }
 }
 
@@ -413,6 +428,20 @@ pub(crate) fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoP
 }
 
 fn provider_from_crate_features() -> Option<CryptoProvider> {
-    // TODO(XXX): Switch based on crate feature once ring is optional.
-    Some(ring::default_provider())
+    // Provider default is unambiguously aws-lc-rs
+    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
+    {
+        return Some(aws_lc_rs::default_provider());
+    }
+
+    // Provider default is unambiguously ring
+    #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
+    {
+        return Some(ring::default_provider());
+    }
+
+    // Both features activated - no clear default provider based on
+    // crate features.
+    #[allow(unreachable_code)]
+    None
 }
