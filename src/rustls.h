@@ -1405,7 +1405,10 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_crypto
                                                       struct rustls_client_config_builder **builder_out);
 
 /**
- * Set a custom server certificate verifier.
+ * Set a custom server certificate verifier using the builder crypto provider.
+ * Returns rustls_result::NoDefaultCryptoProvider if no process default crypto
+ * provider has been set, and the builder was not constructed with an explicit
+ * provider choice.
  *
  * The callback must not capture any of the pointers in its
  * rustls_verify_server_cert_params.

@@ -7,7 +7,7 @@ use libc::{c_char, size_t};
 use pki_types::{CertificateDer, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::ResolvesClientCert;
-use rustls::crypto::CryptoProvider;
+use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
 use rustls::{
     sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error,
     ProtocolVersion, SignatureScheme, SupportedProtocolVersion,
@@ -187,6 +187,7 @@ type VerifyCallback = unsafe extern "C" fn(
 
 // An implementation of rustls::ServerCertVerifier based on a C callback.
 struct Verifier {
+    provider: Arc<CryptoProvider>,
     callback: VerifyCallback,
 }
 
@@ -242,11 +243,11 @@ impl ServerCertVerifier for Verifier {
         cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
-        rustls::crypto::verify_tls12_signature(
+        verify_tls12_signature(
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &self.provider.signature_verification_algorithms,
         )
     }
 
@@ -256,16 +257,16 @@ impl ServerCertVerifier for Verifier {
         cert: &CertificateDer,
         dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, Error> {
-        rustls::crypto::verify_tls13_signature(
+        verify_tls13_signature(
             message,
             cert,
             dss,
-            &rustls::crypto::ring::default_provider().signature_verification_algorithms,
+            &self.provider.signature_verification_algorithms,
         )
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        rustls::crypto::ring::default_provider()
+        self.provider
             .signature_verification_algorithms
             .supported_schemes()
     }
@@ -278,7 +279,10 @@ impl Debug for Verifier {
 }
 
 impl rustls_client_config_builder {
-    /// Set a custom server certificate verifier.
+    /// Set a custom server certificate verifier using the builder crypto provider.
+    /// Returns rustls_result::NoDefaultCryptoProvider if no process default crypto
+    /// provider has been set, and the builder was not constructed with an explicit
+    /// provider choice.
     ///
     /// The callback must not capture any of the pointers in its
     /// rustls_verify_server_cert_params.
@@ -314,7 +318,12 @@ impl rustls_client_config_builder {
                 None => return InvalidParameter,
             };
 
-            config_builder.verifier = Some(Arc::new(Verifier { callback }));
+            let provider = match &config_builder.provider {
+                Some(provider) => provider.clone(),
+                None => return rustls_result::NoDefaultCryptoProvider,
+            };
+
+            config_builder.verifier = Some(Arc::new(Verifier { provider, callback }));
             rustls_result::Ok
         }
     }
