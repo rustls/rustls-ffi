@@ -1,12 +1,15 @@
 use libc::size_t;
+use std::io::Cursor;
 use std::slice;
 use std::sync::Arc;
 
 use rustls::crypto::ring;
 use rustls::crypto::CryptoProvider;
+use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
 
 use crate::cipher::rustls_supported_ciphersuite;
+use crate::error::map_error;
 use crate::{
     arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, rustls_result,
     set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr,
@@ -283,6 +286,43 @@ pub extern "C" fn rustls_crypto_provider_ciphersuites_get(
     }
 }
 
+/// Load a private key from the provided PEM content using the crypto provider.
+///
+/// `private_key` must point to a buffer of `private_key_len` bytes, containing
+/// a PEM-encoded private key. The exact formats supported will differ based on
+/// the crypto provider in use. The default providers support PKCS#1, PKCS#8 or
+/// SEC1 formats.
+///
+/// When this function returns `rustls_result::Ok` a pointer to a `rustls_signing_key`
+/// is written to `signing_key_out`. The caller owns the returned `rustls_signing_key`
+/// and must free it with `rustls_signing_key_free`.
+#[no_mangle]
+pub extern "C" fn rustls_crypto_provider_load_key(
+    provider: *const rustls_crypto_provider,
+    private_key: *const u8,
+    private_key_len: size_t,
+    signing_key_out: *mut *mut rustls_signing_key,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        let provider = try_clone_arc!(provider);
+        let private_key_pem = try_slice!(private_key, private_key_len);
+        let signing_key_out = try_mut_from_ptr_ptr!(signing_key_out);
+
+        let private_key_der = match rustls_pemfile::private_key(&mut Cursor::new(private_key_pem)) {
+            Ok(Some(p)) => p,
+            _ => return rustls_result::PrivateKeyParseError,
+        };
+
+        let private_key = match provider.key_provider.load_private_key(private_key_der) {
+            Ok(key) => key,
+            Err(e) => return map_error(e),
+        };
+
+        set_boxed_mut_ptr(signing_key_out, private_key);
+        rustls_result::Ok
+    }
+}
+
 /// Frees the `rustls_crypto_provider`.
 ///
 /// Calling with `NULL` is fine.
@@ -329,6 +369,25 @@ pub extern "C" fn rustls_default_crypto_provider_ciphersuites_get(
         match default_provider.cipher_suites.get(index) {
             Some(ciphersuite) => ciphersuite as *const SupportedCipherSuite as *const _,
             None => core::ptr::null(),
+        }
+    }
+}
+
+box_castable! {
+    /// A signing key that can be used to construct a certified key.
+    // NOTE: we box cast an arc over the dyn trait per the pattern described
+    //   in our docs[0] for dynamically sized types.
+    //   [0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+    pub struct rustls_signing_key(Arc<dyn SigningKey>);
+}
+
+impl rustls_signing_key {
+    /// Frees the `rustls_signing_key`. This is safe to call with a `NULL` argument, but
+    /// must not be called twice with the same value.
+    #[no_mangle]
+    pub extern "C" fn rustls_signing_key_free(signing_key: *mut rustls_signing_key) {
+        ffi_panic_boundary! {
+            free_box(signing_key);
         }
     }
 }

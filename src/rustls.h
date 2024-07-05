@@ -293,6 +293,11 @@ typedef struct rustls_server_config rustls_server_config;
 typedef struct rustls_server_config_builder rustls_server_config_builder;
 
 /**
+ * A signing key that can be used to construct a certified key.
+ */
+typedef struct rustls_signing_key rustls_signing_key;
+
+/**
  * A read-only view of a slice of Rust byte slices.
  *
  * This is used to pass data from rustls-ffi to callback functions provided
@@ -1913,6 +1918,23 @@ const struct rustls_supported_ciphersuite *rustls_crypto_provider_ciphersuites_g
                                                                                    size_t index);
 
 /**
+ * Load a private key from the provided PEM content using the crypto provider.
+ *
+ * `private_key` must point to a buffer of `private_key_len` bytes, containing
+ * a PEM-encoded private key. The exact formats supported will differ based on
+ * the crypto provider in use. The default providers support PKCS#1, PKCS#8 or
+ * SEC1 formats.
+ *
+ * When this function returns `rustls_result::Ok` a pointer to a `rustls_signing_key`
+ * is written to `signing_key_out`. The caller owns the returned `rustls_signing_key`
+ * and must free it with `rustls_signing_key_free`.
+ */
+rustls_result rustls_crypto_provider_load_key(const struct rustls_crypto_provider *provider,
+                                              const uint8_t *private_key,
+                                              size_t private_key_len,
+                                              struct rustls_signing_key **signing_key_out);
+
+/**
  * Frees the `rustls_crypto_provider`.
  *
  * Calling with `NULL` is fine.
@@ -1940,6 +1962,12 @@ size_t rustls_default_crypto_provider_ciphersuites_len(void);
  * default provider lives for as long as the process.
  */
 const struct rustls_supported_ciphersuite *rustls_default_crypto_provider_ciphersuites_get(size_t index);
+
+/**
+ * Frees the `rustls_signing_key`. This is safe to call with a `NULL` argument, but
+ * must not be called twice with the same value.
+ */
+void rustls_signing_key_free(struct rustls_signing_key *signing_key);
 
 /**
  * After a rustls function returns an error, you may call
