@@ -24,6 +24,7 @@ enum rustls_result {
   RUSTLS_RESULT_ALREADY_USED = 7013,
   RUSTLS_RESULT_CERTIFICATE_REVOCATION_LIST_PARSE_ERROR = 7014,
   RUSTLS_RESULT_NO_SERVER_CERT_VERIFIER = 7015,
+  RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER = 7016,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
   RUSTLS_RESULT_FAILED_TO_GET_CURRENT_TIME = 7103,
@@ -225,6 +226,16 @@ typedef struct rustls_client_config rustls_client_config;
 typedef struct rustls_client_config_builder rustls_client_config_builder;
 
 typedef struct rustls_connection rustls_connection;
+
+/**
+ * A C representation of a Rustls [`CryptoProvider`].
+ */
+typedef struct rustls_crypto_provider rustls_crypto_provider;
+
+/**
+ * A `rustls_crypto_provider` builder.
+ */
+typedef struct rustls_crypto_provider_builder rustls_crypto_provider_builder;
 
 /**
  * An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows.
@@ -658,20 +669,54 @@ typedef uint32_t (*rustls_session_store_put_callback)(rustls_session_store_userd
                                                       const struct rustls_slice_bytes *key,
                                                       const struct rustls_slice_bytes *val);
 
+/**
+ * Rustls' list of supported cipher suites.
+ *
+ * This is an array of pointers, and its length is given by
+ * `RUSTLS_ALL_CIPHER_SUITES_LEN`. The pointers will always be valid.
+ * The contents and order of this array may change between releases.
+ */
 extern const struct rustls_supported_ciphersuite *RUSTLS_ALL_CIPHER_SUITES[9];
 
+/**
+ * The length of the array `RUSTLS_ALL_CIPHER_SUITES`.
+ */
 extern const size_t RUSTLS_ALL_CIPHER_SUITES_LEN;
 
+/**
+ * Rustls' list of default cipher suites.
+ *
+ * This is an array of pointers, and its length is given by
+ * `RUSTLS_DEFAULT_CIPHER_SUITES_LEN`. The pointers will always be valid.
+ * The contents and order of this array may change between releases.
+ */
 extern const struct rustls_supported_ciphersuite *RUSTLS_DEFAULT_CIPHER_SUITES[9];
 
+/**
+ * The length of the array `RUSTLS_DEFAULT_CIPHER_SUITES`.
+ */
 extern const size_t RUSTLS_DEFAULT_CIPHER_SUITES_LEN;
 
+/**
+ * Rustls' list of supported protocol versions. The length of the array is
+ * given by `RUSTLS_ALL_VERSIONS_LEN`.
+ */
 extern const uint16_t RUSTLS_ALL_VERSIONS[2];
 
+/**
+ * The length of the array `RUSTLS_ALL_VERSIONS`.
+ */
 extern const size_t RUSTLS_ALL_VERSIONS_LEN;
 
+/**
+ * Rustls' default list of protocol versions. The length of the array is
+ * given by `RUSTLS_DEFAULT_VERSIONS_LEN`.
+ */
 extern const uint16_t RUSTLS_DEFAULT_VERSIONS[2];
 
+/**
+ * The length of the array `RUSTLS_DEFAULT_VERSIONS`.
+ */
 extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
 
 /**
@@ -1709,6 +1754,7 @@ uint16_t rustls_connection_get_protocol_version(const struct rustls_connection *
 
 /**
  * Retrieves the [IANA registered cipher suite identifier][IANA] agreed with the peer.
+ *
  * This returns `TLS_NULL_WITH_NULL_NULL` (0x0000) until the ciphersuite is agreed.
  *
  * [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>
@@ -1786,6 +1832,174 @@ rustls_result rustls_connection_read_2(struct rustls_connection *conn,
  * Must not be called twice with the same value.
  */
 void rustls_connection_free(struct rustls_connection *conn);
+
+/**
+ * Constructs a new `rustls_crypto_provider_builder` using the process-wide default crypto
+ * provider as the base crypto provider to be customized.
+ *
+ * When this function returns `rustls_result::Ok` a pointer to the `rustls_crypto_provider_builder`
+ * is written to `builder_out`. It returns `rustls_result::NoDefaultCryptoProvider` if no default
+ * provider has been registered.
+ *
+ * The caller owns the returned `rustls_crypto_provider_builder` and must free it using
+ * `rustls_crypto_provider_builder_free`.
+ *
+ * This function is typically used for customizing the default crypto provider for specific
+ * connections. For example, a typical workflow might be to:
+ *
+ * * Either:
+ *   * Use the default `aws-lc-rs` or `*ring*` provider that rustls-ffi is built with based on
+ *     the `CRYPTO_PROVIDER` build variable.
+ *   * Call `rustls_crypto_provider_builder_new_with_base` with the desired provider, and
+ *     then install it as the process default with
+ *     `rustls_crypto_provider_builder_build_as_default`.
+ * * Afterward, as required for customization:
+ *   * Use `rustls_crypto_provider_builder_new_from_default` to get a builder backed by the
+ *     default crypto provider.
+ *   * Use `rustls_crypto_provider_builder_set_cipher_suites` to customize the supported
+ *     ciphersuites.
+ *   * Use `rustls_crypto_provider_builder_build` to build a customized provider.
+ *   * Provide that customized provider to client or server configuration builders.
+ */
+rustls_result rustls_crypto_provider_builder_new_from_default(struct rustls_crypto_provider_builder **builder_out);
+
+/**
+ * Constructs a new `rustls_crypto_provider_builder` using the given `rustls_crypto_provider`
+ * as the base crypto provider to be customized.
+ *
+ * The caller owns the returned `rustls_crypto_provider_builder` and must free it using
+ * `rustls_crypto_provider_builder_free`.
+ *
+ * This function can be used for setting the default process wide crypto provider,
+ * or for constructing a custom crypto provider for a specific connection. A typical
+ * workflow could be to:
+ *
+ * * Call `rustls_crypto_provider_builder_new_with_base` with a custom provider
+ * * Install the custom provider as the process-wide default with
+ *   `rustls_crypto_provider_builder_build_as_default`.
+ *
+ * Or, for per-connection customization:
+ *
+ * * Call `rustls_crypto_provider_builder_new_with_base` with a custom provider
+ * * Use `rustls_crypto_provider_builder_set_cipher_suites` to customize the supported
+ *   ciphersuites.
+ * * Use `rustls_crypto_provider_builder_build` to build a customized provider.
+ * * Provide that customized provider to client or server configuration builders.
+ */
+struct rustls_crypto_provider_builder *rustls_crypto_provider_builder_new_with_base(const struct rustls_crypto_provider *base);
+
+/**
+ * Customize the supported ciphersuites of the `rustls_crypto_provider_builder`.
+ *
+ * Returns an error if the builder has already been built. Overwrites any previously
+ * set ciphersuites.
+ */
+rustls_result rustls_crypto_provider_builder_set_cipher_suites(struct rustls_crypto_provider_builder *builder,
+                                                               const struct rustls_supported_ciphersuite *const *cipher_suites,
+                                                               size_t cipher_suites_len);
+
+/**
+ * Builds a `rustls_crypto_provider` from the builder and returns it. Returns an error if the
+ * builder has already been built.
+ *
+ * The `rustls_crypto_provider_builder` builder is consumed and should not be used
+ * for further calls, except to `rustls_crypto_provider_builder_free`. The caller must
+ * still free the builder after a successful build.
+ */
+rustls_result rustls_crypto_provider_builder_build(struct rustls_crypto_provider_builder *builder,
+                                                   const struct rustls_crypto_provider **provider_out);
+
+/**
+ * Builds a `rustls_crypto_provider` from the builder and sets it as the
+ * process-wide default crypto provider.
+ *
+ * Afterward, the default provider can be retrieved using `rustls_crypto_provider_default`.
+ *
+ * This can only be done once per process, and will return an error if a
+ * default provider has already been set, or if the builder has already been built.
+ *
+ * The `rustls_crypto_provider_builder` builder is consumed and should not be used
+ * for further calls, except to `rustls_crypto_provider_builder_free`. The caller must
+ * still free the builder after a successful build.
+ */
+rustls_result rustls_crypto_provider_builder_build_as_default(struct rustls_crypto_provider_builder *builder);
+
+/**
+ * Free the `rustls_crypto_provider_builder`.
+ *
+ * Calling with `NULL` is fine.
+ * Must not be called twice with the same value.
+ */
+void rustls_crypto_provider_builder_free(struct rustls_crypto_provider_builder *builder);
+
+/**
+ * Return the `rustls_crypto_provider` backed by the `*ring*` cryptography library.
+ *
+ * The caller owns the returned `rustls_crypto_provider` and must free it using
+ * `rustls_crypto_provider_free`.
+ */
+const struct rustls_crypto_provider *rustls_ring_crypto_provider(void);
+
+/**
+ * Retrieve a pointer to the process default `rustls_crypto_provider`.
+ *
+ * This may return `NULL` if no process default provider has been set using
+ * `rustls_crypto_provider_builder_build_default`.
+ *
+ * Caller owns the returned `rustls_crypto_provider` and must free it w/ `rustls_crypto_provider_free`.
+ */
+const struct rustls_crypto_provider *rustls_crypto_provider_default(void);
+
+/**
+ * Returns the number of ciphersuites the `rustls_crypto_provider` supports.
+ *
+ * You can use this to know the maximum allowed index for use with
+ * `rustls_crypto_provider_ciphersuites_get`.
+ *
+ * This function will return 0 if the `provider` is NULL.
+ */
+size_t rustls_crypto_provider_ciphersuites_len(const struct rustls_crypto_provider *provider);
+
+/**
+ * Retrieve a pointer to a supported ciphersuite of the `rustls_crypto_provider`.
+ *
+ * This function will return NULL if the `provider` is NULL, or if the index is out of bounds
+ * with respect to `rustls_crypto_provider_ciphersuites_len`.
+ *
+ * The lifetime of the returned `rustls_supported_ciphersuite` is equal to the lifetime of the
+ * `provider` and should not be used after the `provider` is freed.
+ */
+const struct rustls_supported_ciphersuite *rustls_crypto_provider_ciphersuites_get(const struct rustls_crypto_provider *provider,
+                                                                                   size_t index);
+
+/**
+ * Frees the `rustls_crypto_provider`.
+ *
+ * Calling with `NULL` is fine.
+ * Must not be called twice with the same value.
+ */
+void rustls_crypto_provider_free(const struct rustls_crypto_provider *provider);
+
+/**
+ * Returns the number of ciphersuites the default process-wide crypto provider supports.
+ *
+ * You can use this to know the maximum allowed index for use with
+ * `rustls_default_crypto_provider_ciphersuites_get`.
+ *
+ * This function will return 0 if no process-wide default `rustls_crypto_provider` is available.
+ */
+size_t rustls_default_crypto_provider_ciphersuites_len(void);
+
+/**
+ * Retrieve a pointer to a supported ciphersuite of the default process-wide crypto provider.
+ *
+ * This function will return NULL if the `provider` is NULL, or if the index is out of bounds
+ * with respect to `rustls_default_crypto_provider_ciphersuites_len`.
+ *
+ * The lifetime of the returned `rustls_supported_ciphersuite` is static, as the process-wide
+ * default provider lives for as long as the process.
+ */
+const struct rustls_supported_ciphersuite *rustls_default_crypto_provider_ciphersuites_get(size_t index);
 
 /**
  * After a rustls function returns an error, you may call
@@ -2049,4 +2263,4 @@ rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_
                                                            rustls_session_store_get_callback get_cb,
                                                            rustls_session_store_put_callback put_cb);
 
-#endif /* RUSTLS_H */
+#endif  /* RUSTLS_H */
