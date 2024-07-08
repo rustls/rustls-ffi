@@ -133,4 +133,10 @@ enum demo_result read_file(const char *filename, char *buf, size_t buflen,
 const struct rustls_certified_key *load_cert_and_key(const char *certfile,
                                                      const char *keyfile);
 
+const struct rustls_crypto_provider *default_provider_with_custom_ciphersuite(
+  const char *custom_ciphersuite_name);
+
+extern const uint16_t default_tls_versions[];
+extern const size_t default_tls_versions_len;
+
 #endif /* COMMON_H */
