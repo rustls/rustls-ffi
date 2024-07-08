@@ -8,7 +8,7 @@ use std::{env, fs, path::PathBuf};
 // because doing so would require a heavy-weight deserialization lib dependency
 // (and it couldn't be a _dev_ dep for use in a build script) or doing brittle
 // by-hand parsing.
-const RUSTLS_CRATE_VERSION: &str = "0.23.4";
+const RUSTLS_CRATE_VERSION: &str = "0.23.12";
 
 fn main() {
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
