@@ -16,8 +16,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # test a bunch of toolchains on ubuntu
+        # test a bunch of toolchain and crypto providers on ubuntu
         cc: [ clang, gcc ]
+        crypto: [ aws-lc-rs, ring ]
         rust:
           - stable
           - beta
@@ -26,10 +27,11 @@ jobs:
           # consider MSRV
           - 1.64.0
         os: [ ubuntu-latest ]
-        # but only stable on macos/windows (slower platforms)
+        # but only stable, clang, and aws-lc-rs on macos (slower platform)
         include:
           - os: macos-latest
             cc: clang
+            crypto: aws-lc-rs
             rust: stable
     steps:
       - name: Checkout sources
@@ -41,11 +43,19 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - env:
+      - name: Unit tests
+        env:
           CARGO_UNSTABLE_HTTP_REGISTRY: true
-        run: make CC=${{ matrix.cc }} PROFILE=debug test integration
+        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} test
       - name: Platform verifier connect test
-        run: make PROFILE=debug connect-test
+        run: make PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} connect-test
+      - name: Integration tests
+        env:
+          CARGO_UNSTABLE_HTTP_REGISTRY: true
+        # Note: we run this after the connect-tests because the static libs test rebuilds the crate
+        #       squashing whatever RUSTFLAGS the Makefile has set and producing a librustls_ffi.a
+        #       for the default build config.
+        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} integration
       - name: Verify debug builds were using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
@@ -54,7 +64,7 @@ jobs:
       - name: Build release binaries
         run: |
           make clean
-          make CC=${{ matrix.cc }} PROFILE=release
+          make CC=${{ matrix.cc }} CRYPTO_PROVIDER=${{ matrix.crypto }} PROFILE=release
       - name: Verify release builds were not using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
@@ -75,6 +85,9 @@ jobs:
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
     runs-on: windows-latest
+    strategy:
+      matrix:
+        crypto: [ aws-lc-rs, ring ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,11 +97,11 @@ jobs:
       - name: Install NASM for aws-lc-rs
         uses: ilammy/setup-nasm@v1
       - name: Configure CMake
-        run: cmake -S . -B build
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
       - name: Build, debug configuration
         run: cmake --build build --config Debug
       - name: Integration test, debug configuration
-        run: cargo test --locked --test client_server client_server_integration -- --ignored --exact
+        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
         env:
           CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\client.exe
           SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\server.exe
@@ -96,6 +109,9 @@ jobs:
   test-windows-cmake-release:
     name: Windows CMake, Release configuration
     runs-on: windows-latest
+    strategy:
+      matrix:
+        crypto: [ aws-lc-rs, ring ]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -105,11 +121,11 @@ jobs:
       - name: Install NASM for aws-lc-rs
         uses: ilammy/setup-nasm@v1
       - name: Configure CMake
-        run: cmake -S . -B build
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
       - name: Build, release configuration
         run: cmake --build build --config Release
       - name: Integration test, release configuration
-        run: cargo test --locked --test client_server client_server_integration -- --ignored --exact
+        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
         env:
           CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
           SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
@@ -165,8 +181,11 @@ jobs:
       - name: Build client/server binaries
         run: make target/client target/server
 
-      - name: cargo test (debug; all features; -Z minimal-versions)
-        run: cargo -Z minimal-versions test --all-features --locked
+      - name: cargo test (debug; default features; -Z minimal-versions)
+        run: cargo -Z minimal-versions test --locked
+
+      - name: cargo test (debug; ring; -Z minimal-versions)
+        run: cargo -Z minimal-versions test --no-default-features --features=ring --locked
 
   format:
     name: Format
@@ -204,6 +223,8 @@ jobs:
         # If we suppress (e.g. #![allow(clippy::arc_with_non_send_sync)]),
         # we would get an unknown-lint error from older clippy versions.
         run: cargo clippy --locked --workspace --all-targets -- -D warnings -A unknown-lints
+      - name: Check clippy (ring)
+        run: cargo clippy --locked --workspace --all-targets --no-default-features --features=ring -- -D warnings -A unknown-lints
 
   clippy-nightly-optional:
     name: Clippy nightly (optional)
@@ -219,6 +240,8 @@ jobs:
           components: clippy
       - name: Check clippy (default features)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Check clippy (ring)
+        run: cargo clippy --locked --workspace --all-targets --no-default-features --features=ring -- -D warnings
       - name: Check clippy (all features)
         # We only test --all-features on nightly, because two of the features
         # (read_buf, core_io_borrowed_buf) require nightly.
