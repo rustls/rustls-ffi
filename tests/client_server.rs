@@ -92,11 +92,40 @@ fn client_server_integration() {
         ],
     };
 
+    let custom_ciphersuites = TestCase {
+        name: "client/server with limited ciphersuites",
+        server_opts: ServerOptions {
+            valgrind: valgrind.clone(),
+            env: vec![("RUSTLS_CIPHERSUITE", "TLS13_CHACHA20_POLY1305_SHA256")],
+        },
+        client_tests: vec![
+            ClientTest {
+                name: "limited ciphersuite, supported by server",
+                valgrind: valgrind.clone(),
+                env: vec![
+                    ("NO_CHECK_CERTIFICATE", "1"),
+                    ("RUSTLS_CIPHERSUITE", "TLS13_CHACHA20_POLY1305_SHA256"),
+                ],
+                expect_error: false,
+            },
+            ClientTest {
+                name: "limited ciphersuite, not supported by server",
+                valgrind: valgrind.clone(),
+                env: vec![
+                    ("NO_CHECK_CERTIFICATE", "1"),
+                    ("RUSTLS_CIPHERSUITE", "TLS13_AES_128_GCM_SHA256"),
+                ],
+                expect_error: true, // Unsupported ciphersuite.
+            },
+        ],
+    };
+
     TestCases(vec![
         standard_server,
         vectored_server,
         mandatory_client_auth_server,
         mandatory_client_auth_server_with_crls,
+        custom_ciphersuites,
     ])
     .run();
 }
