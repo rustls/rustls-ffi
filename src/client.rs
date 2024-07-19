@@ -31,9 +31,11 @@ box_castable! {
     /// A client config being constructed. A builder can be modified by,
     /// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
     /// done configuring settings, call rustls_client_config_builder_build
-    /// to turn it into a *rustls_client_config. This object is not safe
-    /// for concurrent mutation. Under the hood, it corresponds to a
-    /// `Box<ClientConfig>`.
+    /// to turn it into a *rustls_client_config. Alternatively, if an error
+    /// occurs or, you don't wish to build a config, call
+    /// `rustls_client_config_builder_free` to free the builder directly.
+    /// This object is not safe for concurrent mutation. Under the hood,
+    /// it corresponds to a `Box<ClientConfig>`.
     /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
     pub struct rustls_client_config_builder(ClientConfigBuilder);
 }
@@ -96,9 +98,11 @@ impl ServerCertVerifier for NoneVerifier {
 impl rustls_client_config_builder {
     /// Create a rustls_client_config_builder. Caller owns the memory and must
     /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config.
-    /// This uses rustls safe default values
-    /// for the cipher suites, key exchange groups and protocol versions.
+    /// resulting rustls_client_config. Alternatively, if an error occurs
+    /// or, you don't wish to build a config, call `rustls_client_config_builder_free`
+    /// to free the builder directly.
+    /// This uses rustls safe default values for the cipher suites, key exchange
+    /// groups and protocol versions.
     /// This starts out with no trusted roots.
     /// Caller must add roots with rustls_client_config_builder_load_roots_from_file
     /// or provide a custom verifier.
@@ -125,7 +129,9 @@ impl rustls_client_config_builder {
 
     /// Create a rustls_client_config_builder. Caller owns the memory and must
     /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config. Specify cipher suites in preference
+    /// resulting rustls_client_config. Alternatively, if an error occurs
+    /// or, you don't wish to build a config, call `rustls_client_config_builder_free`
+    /// to free the builder directly. Specify cipher suites in preference
     /// order; the `cipher_suites` parameter must point to an array containing
     /// `len` pointers to `rustls_supported_ciphersuite` previously obtained
     /// from `rustls_all_ciphersuites_get_entry()`, or to a provided array,
@@ -244,6 +250,7 @@ struct Verifier {
 /// Safety: Verifier is Send because we don't allocate or deallocate any of its
 /// fields.
 unsafe impl Send for Verifier {}
+
 /// Safety: Verifier is Sync if the C code that passes us a callback that
 /// obeys the concurrency safety requirements documented in
 /// rustls_client_config_builder_dangerous_set_certificate_verifier.
