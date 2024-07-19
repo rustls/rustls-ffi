@@ -1,5 +1,7 @@
 #![crate_type = "staticlib"]
 #![allow(non_camel_case_types)]
+// TODO(XXX): Remove `renamed_and_removed_lints` once stable renames `thread_local_initializer_can_be_made_const`
+#![allow(renamed_and_removed_lints)]
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 // TODO(#333): Fix this clippy warning.
 #![allow(clippy::arc_with_non_send_sync)]
@@ -54,7 +56,9 @@ include!(concat!(env!("OUT_DIR"), "/version.rs"));
 // Rust code, we model these thread locals as a stack, so we can always
 // restore the previous version.
 thread_local! {
-    #[allow(clippy::thread_local_initializer_can_be_made_const)]
+    // TODO(XXX): Remove 'thread_local_initializer_can_be_made_const' in the future
+    //            once stable has renamed.
+    #[allow(clippy::thread_local_initializer_can_be_made_const, clippy::missing_const_for_thread_local)]
     pub(crate) static USERDATA: RefCell<Vec<Userdata>> = RefCell::new(Vec::new());
 }
 
