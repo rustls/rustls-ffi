@@ -518,7 +518,7 @@ mod tests {
     use libc::c_char;
     use rustls::internal::msgs::codec::Codec;
     use rustls::internal::msgs::enums::AlertLevel;
-    use rustls::{AlertDescription, ContentType, ProtocolVersion};
+    use rustls::{AlertDescription, ContentType, ProtocolVersion, SignatureScheme};
 
     use crate::cipher::{rustls_certified_key, rustls_server_cert_verifier};
     use crate::client::{rustls_client_config, rustls_client_config_builder};
@@ -750,11 +750,28 @@ mod tests {
         }
         // Sort to ensure consistent comparison
         signature_schemes.sort();
-        #[cfg(feature = "aws-lc-rs")] // aws-lc-rs includes P-521.
-        let expected_schemes = &[1025, 1027, 1281, 1283, 1537, 1539, 2052, 2053, 2054, 2055];
-        #[cfg(all(feature = "ring", not(feature = "aws-lc-rs")))]
-        let expected_schemes = &[1025, 1027, 1281, 1283, 1537, 2052, 2053, 2054, 2055];
-        assert_eq!(&signature_schemes, expected_schemes);
+
+        #[cfg_attr(feature = "ring", allow(unused_mut))]
+        let mut expected_schemes = vec![
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+            SignatureScheme::ED25519,
+        ];
+        #[cfg(feature = "aws-lc-rs")] // aws-lc-rs also includes P-521.
+        expected_schemes.push(SignatureScheme::ECDSA_NISTP521_SHA512);
+
+        let mut expected_schemes = expected_schemes
+            .into_iter()
+            .map(u16::from)
+            .collect::<Vec<_>>();
+        expected_schemes.sort();
+        assert_eq!(signature_schemes, expected_schemes);
 
         let mut alpn = vec![];
         for i in 0.. {
