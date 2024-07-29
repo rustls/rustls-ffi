@@ -31,9 +31,11 @@ box_castable! {
     /// A client config being constructed. A builder can be modified by,
     /// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
     /// done configuring settings, call rustls_client_config_builder_build
-    /// to turn it into a *rustls_client_config. Alternatively, if an error
-    /// occurs or, you don't wish to build a config, call
-    /// `rustls_client_config_builder_free` to free the builder directly.
+    /// to turn it into a *rustls_client_config.
+    ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config,
+    /// call `rustls_client_config_builder_free` to free the builder directly.
+    ///
     /// This object is not safe for concurrent mutation. Under the hood,
     /// it corresponds to a `Box<ClientConfig>`.
     /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
@@ -98,14 +100,17 @@ impl ServerCertVerifier for NoneVerifier {
 impl rustls_client_config_builder {
     /// Create a rustls_client_config_builder. Caller owns the memory and must
     /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config. Alternatively, if an error occurs
-    /// or, you don't wish to build a config, call `rustls_client_config_builder_free`
-    /// to free the builder directly.
+    /// resulting rustls_client_config.
+    ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config,
+    /// call `rustls_client_config_builder_free` to free the builder directly.
+    ///
     /// This uses rustls safe default values for the cipher suites, key exchange
     /// groups and protocol versions.
-    /// This starts out with no trusted roots.
-    /// Caller must add roots with rustls_client_config_builder_load_roots_from_file
-    /// or provide a custom verifier.
+    ///
+    /// This starts out with no trusted roots. Caller must add roots with
+    /// rustls_client_config_builder_load_roots_from_file or provide a custom
+    /// verifier.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
@@ -129,22 +134,26 @@ impl rustls_client_config_builder {
 
     /// Create a rustls_client_config_builder. Caller owns the memory and must
     /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config. Alternatively, if an error occurs
-    /// or, you don't wish to build a config, call `rustls_client_config_builder_free`
-    /// to free the builder directly. Specify cipher suites in preference
-    /// order; the `cipher_suites` parameter must point to an array containing
-    /// `len` pointers to `rustls_supported_ciphersuite` previously obtained
-    /// from `rustls_all_ciphersuites_get_entry()`, or to a provided array,
-    /// RUSTLS_DEFAULT_CIPHER_SUITES or RUSTLS_ALL_CIPHER_SUITES. Set the TLS
-    /// protocol versions to use when negotiating a TLS session.
+    /// resulting rustls_client_config.
     ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config,
+    /// call `rustls_client_config_builder_free` to free the builder directly.
+    ///
+    /// Specify cipher suites in preference order; the `cipher_suites` parameter
+    /// must point to an array containing `cipher_suites_len` pointers to
+    /// `rustls_supported_ciphersuite` previously obtained from
+    /// `rustls_all_ciphersuites_get_entry()`, or to a provided array,
+    /// RUSTLS_DEFAULT_CIPHER_SUITES or RUSTLS_ALL_CIPHER_SUITES.
+    ///
+    /// Set the TLS protocol versions to use when negotiating a TLS session.
     /// `tls_version` is the version of the protocol, as defined in rfc8446,
     /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
     /// `rustls_tls_version` for convenience, and the arrays
     /// RUSTLS_DEFAULT_VERSIONS or RUSTLS_ALL_VERSIONS can be used directly.
     ///
-    /// `versions` will only be used during the call and the application retains
-    /// ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
+    /// `tls_versions` will only be used during the call and the application retains
+    /// ownership. `tls_versions_len` is the number of consecutive `uint16_t`
+    /// pointed to by `tls_versions`.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_new_custom(
         cipher_suites: *const *const rustls_supported_ciphersuite,
