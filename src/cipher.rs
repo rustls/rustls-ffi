@@ -1055,8 +1055,9 @@ box_castable! {
 }
 
 impl rustls_server_cert_verifier {
-    /// Create a new server certificate verifier that uses the system's root store and WebPKI via
-    /// [`rustls-platform-verifier`][].
+    /// Create a verifier that uses the default behavior for the current platform.
+    ///
+    /// This uses [`rustls-platform-verifier`][].
     ///
     /// The verifier can be used in several `rustls_client_config` instances and must be freed by
     /// the application using `rustls_server_cert_verifier_free` when no longer needed.
