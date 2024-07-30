@@ -19,13 +19,21 @@ fn main() {
 
     println!("cargo:include={}", include_dir.to_str().unwrap());
 
+    let rustls_crypto_provider = {
+        if cfg!(all(feature = "ring", not(feature = "aws-lc-rs"))) {
+            "ring"
+        } else {
+            "aws-lc-rs"
+        }
+    };
+
     let dest_path = out_dir.join("version.rs");
     let mut f = File::create(dest_path).expect("Could not create file");
     let pkg_version = env!("CARGO_PKG_VERSION");
     writeln!(
         &mut f,
-        r#"const RUSTLS_FFI_VERSION: &str = "rustls-ffi/{}/rustls/{}";"#,
-        pkg_version, RUSTLS_CRATE_VERSION
+        r#"const RUSTLS_FFI_VERSION: &str = "rustls-ffi/{}/rustls/{}/{}";"#,
+        pkg_version, RUSTLS_CRATE_VERSION, rustls_crypto_provider
     )
     .expect("Could not write file");
 

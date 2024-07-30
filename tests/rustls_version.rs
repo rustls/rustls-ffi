@@ -34,6 +34,14 @@ fn rustls_version_match() {
         .as_str()
         .expect("missing crate version");
 
+    let rustls_crypto_provider = {
+        if cfg!(all(feature = "ring", not(feature = "aws-lc-rs"))) {
+            "ring"
+        } else {
+            "aws-lc-rs"
+        }
+    };
+
     // Find the rustls dependency version specified in Cargo.toml
     let deps = metadata["dependencies"].as_table().unwrap();
     let rustls_dep = &deps["rustls"];
@@ -59,6 +67,7 @@ fn rustls_version_match() {
             crate_version,
             "rustls",
             rustls_dep_version,
+            rustls_crypto_provider,
         ]
     );
 }
