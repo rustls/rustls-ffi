@@ -93,6 +93,7 @@ u32_enum_builder! {
         CertInvalidPurpose => 7129,
         CertApplicationVerificationFailure => 7130,
         CertOtherError => 7131,
+        CertUnknownRevocationStatus => 7154, // Last added.
 
         // From InvalidMessage, with fields that get flattened.
         // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
@@ -116,7 +117,7 @@ u32_enum_builder! {
         MessageUnsupportedCompression => 7150,
         MessageUnsupportedCurveType => 7151,
         MessageUnsupportedKeyExchangeAlgorithm => 7152,
-        MessageInvalidOther => 7153, // Last added.
+        MessageInvalidOther => 7153,
 
         // From Error, with fields that get dropped.
         PeerIncompatibleError => 7107,
@@ -228,6 +229,7 @@ impl rustls_result {
                 | CertRevoked
                 | CertUnhandledCriticalExtension
                 | CertUnknownIssuer
+                | CertUnknownRevocationStatus
                 | CertBadSignature
                 | CertNotValidForName
                 | CertInvalidPurpose
@@ -346,6 +348,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
             CertificateError::Revoked => CertRevoked,
             CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
             CertificateError::UnknownIssuer => CertUnknownIssuer,
+            CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
             CertificateError::BadSignature => CertBadSignature,
             CertificateError::NotValidForName => CertNotValidForName,
             CertificateError::InvalidPurpose => CertInvalidPurpose,
@@ -492,6 +495,9 @@ impl Display for rustls_result {
             }
             CertApplicationVerificationFailure => {
                 Error::InvalidCertificate(CertificateError::ApplicationVerificationFailure).fmt(f)
+            }
+            CertUnknownRevocationStatus => {
+                Error::InvalidCertificate(CertificateError::UnknownRevocationStatus).fmt(f)
             }
             CertOtherError => write!(f, "unknown certificate error"),
 
