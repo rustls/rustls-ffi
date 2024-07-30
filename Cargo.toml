@@ -1,7 +1,6 @@
 [package]
 name = "rustls-ffi"
 version = "0.13.0"
-authors = ["Jacob Hoffman-Andrews <github@hoffman-andrews.com>"]
 license = "Apache-2.0 OR ISC OR MIT"
 readme = "README-crates.io.md"
 description = "Rustls bindings for non-Rust languages"
