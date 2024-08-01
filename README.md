@@ -22,7 +22,63 @@ to provide the cryptographic primitives.
 # Build
 
 You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.64
-or above) and a C compiler (`gcc` and `clang` should both work). 
+or above) and a C compiler (`gcc` and `clang` should both work).
+
+## Cryptography provider
+
+Both rustls and rustls-ffi support choosing a cryptography provider for
+implementing the cryptography required for TLS. By default, both will use
+[`aws-lc-rs`][], but [`*ring*`][] is available as an opt-in choice.
+
+It is **not** presently supported to build with both cryptography providers
+activated, or with neither provider activated.
+
+### Choosing a provider
+
+#### Make
+
+When building with the `Makefile`, or example `Makefile.pkg-config` specify
+a `CRYPTO_PROVIDER` as a makefile variable. E.g.:
+
+* `make` to build with the default (`aws-lc-rs`).
+* `make CRYPTO_PROVIDER=aws-lc-rs` to build with `aws-lc-rs` explicitly.
+* `make CRYPTO_PROVIDER=ring` to build with `*ring*`.
+
+#### CMake
+
+When building with `cmake`, specify a `CRYPTO_PROVIDER` as a cmake cache entry
+variable with `-DCRYPTO_PROVIDER`. E.g.:
+
+* `cmake -S . -B build; cmake --build build --config Release` - to build with
+  the default (`aws-lc-rs`).
+* `cmake -DCRYPTO_PROVIDER=aws-lc-rs -S . -B build; cmake --build build --config
+  Release` - to build with `aws-lc-rs` explicitly.
+* `cmake -DCRYPTO_PROVIDER=ring -S . -B build; cmake --build build --config
+  Release` - to build with `aws-lc-rs` explicitly.
+
+#### Cargo-c
+
+When building with the experimental [`cargo-c`] support, use `--features` to
+specify which provider to use. E.g.:
+
+* `cargo cinstall` to build with the default (`aws-lc-rs`).
+* `cargo cinstall --features aws-lc-rs` to build with `aws-lc-rs` explicitly.
+* `cargo cinstall --no-default-features --features ring` to build with `*ring*`.
+
+[`cargo-c`]: https://github.com/lu-zero/cargo-c
+
+### Cryptography provider build requirements
+
+For more information on cryptography provider builder requirements and supported
+platforms see the upstream documentation:
+
+* [`aws-lc-rs` platforms and requirements][]
+* [`*ring*` supported platforms][]
+
+[`aws-lc-rs`]:  https://crates.io/crates/aws-lc-rs
+[`aws-lc-rs` platforms and requirements]: https://aws.github.io/aws-lc-rs/requirements/index.html
+[`*ring*`]: https://crates.io/crates/ring
+[`*ring*` supported platforms]: https://github.com/briansmith/ring/blob/2e8363b433fa3b3962c877d9ed2e9145612f3160/include/ring-core/target.h#L18-L64
 
 ## Static Library
 
