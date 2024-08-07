@@ -1018,14 +1018,17 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
 struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
- * Build a `rustls_certified_key` from a certificate chain and a private key.
+ * Build a `rustls_certified_key` from a certificate chain and a private key
+ * and the default process-wide crypto provider.
  *
  * `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
  * a series of PEM-encoded certificates, with the end-entity (leaf)
  * certificate first.
  *
  * `private_key` must point to a buffer of `private_key_len` bytes, containing
- * a PEM-encoded private key in either PKCS#1 or PKCS#8 format.
+ * a PEM-encoded private key in either PKCS#1, PKCS#8 or SEC#1 format when
+ * using `aws-lc-rs` as the crypto provider. Supported formats may vary by
+ * provider.
  *
  * On success, this writes a pointer to the newly created
  * `rustls_certified_key` in `certified_key_out`. That pointer must later
@@ -1051,6 +1054,41 @@ rustls_result rustls_certified_key_build(const uint8_t *cert_chain,
                                          const uint8_t *private_key,
                                          size_t private_key_len,
                                          const struct rustls_certified_key **certified_key_out);
+
+/**
+ * Build a `rustls_certified_key` from a certificate chain and a
+ * `rustls_signing_key`.
+ *
+ * `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
+ * a series of PEM-encoded certificates, with the end-entity (leaf)
+ * certificate first.
+ *
+ * `signing_key` must point to a `rustls_signing_key` loaded using a
+ * `rustls_crypto_provider` and `rustls_crypto_provider_load_key()`.
+ *
+ * On success, this writes a pointer to the newly created
+ * `rustls_certified_key` in `certified_key_out`. That pointer must later
+ * be freed with `rustls_certified_key_free` to avoid memory leaks. Note that
+ * internally, this is an atomically reference-counted pointer, so even after
+ * the original caller has called `rustls_certified_key_free`, other objects
+ * may retain a pointer to the object. The memory will be freed when all
+ * references are gone.
+ *
+ * This function does not take ownership of any of its input pointers. It
+ * parses the pointed-to data and makes a copy of the result. You may
+ * free the cert_chain and private_key pointers after calling it.
+ *
+ * Typically, you will build a `rustls_certified_key`, use it to create a
+ * `rustls_server_config` (which increments the reference count), and then
+ * immediately call `rustls_certified_key_free`. That leaves the
+ * `rustls_server_config` in possession of the sole reference, so the
+ * `rustls_certified_key`'s memory will automatically be released when
+ * the `rustls_server_config` is freed.
+ */
+rustls_result rustls_certified_key_build_with_signing_key(const uint8_t *cert_chain,
+                                                          size_t cert_chain_len,
+                                                          struct rustls_signing_key *signing_key,
+                                                          const struct rustls_certified_key **certified_key_out);
 
 /**
  * Return the i-th rustls_certificate in the rustls_certified_key.
