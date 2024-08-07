@@ -1510,7 +1510,8 @@ rustls_result rustls_client_config_builder_set_certified_key(struct rustls_clien
  * Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
  * (read-only).
  */
-const struct rustls_client_config *rustls_client_config_builder_build(struct rustls_client_config_builder *builder);
+rustls_result rustls_client_config_builder_build(struct rustls_client_config_builder *builder,
+                                                 const struct rustls_client_config **config_out);
 
 /**
  * "Free" a client_config_builder without building it into a rustls_client_config.
