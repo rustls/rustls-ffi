@@ -22,9 +22,9 @@ use crate::error::{self, rustls_result};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
-    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, set_boxed_mut_ptr,
-    to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
-    try_mut_from_ptr_ptr, try_ref_from_ptr, try_slice, userdata_get,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, set_arc_mut_ptr,
+    set_boxed_mut_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, userdata_get,
 };
 
 box_castable! {
@@ -520,9 +520,12 @@ impl rustls_client_config_builder {
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_build(
         builder: *mut rustls_client_config_builder,
-    ) -> *const rustls_client_config {
+        config_out: *mut *const rustls_client_config,
+    ) -> rustls_result {
         ffi_panic_boundary! {
             let builder = try_box_from_ptr!(builder);
+            let config_out = try_ref_from_ptr_ptr!(config_out);
+
             let config = builder
                 .base
                 .dangerous()
@@ -533,7 +536,9 @@ impl rustls_client_config_builder {
             };
             config.alpn_protocols = builder.alpn_protocols;
             config.enable_sni = builder.enable_sni;
-            to_arc_const_ptr(config)
+
+            set_arc_mut_ptr(config_out, config);
+            rustls_result::Ok
         }
     }
 
@@ -638,7 +643,11 @@ mod tests {
             alpn.len(),
         );
         rustls_client_config_builder::rustls_client_config_builder_set_enable_sni(builder, false);
-        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
         {
             let config2 = try_ref_from_ptr!(config);
             assert!(!config2.enable_sni);
@@ -652,7 +661,11 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
@@ -699,7 +712,11 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new_ipaddress() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let config = rustls_client_config_builder::rustls_client_config_builder_build(builder);
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,

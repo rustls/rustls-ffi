@@ -503,7 +503,11 @@ main(int argc, const char **argv)
   rustls_client_config_builder_set_alpn_protocols(
     config_builder, &alpn_http11, 1);
 
-  client_config = rustls_client_config_builder_build(config_builder);
+  result = rustls_client_config_builder_build(config_builder, &client_config);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error("building client config", result);
+    goto cleanup;
+  }
 
   int i;
   for(i = 0; i < 3; i++) {
