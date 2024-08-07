@@ -127,6 +127,8 @@ handle_conn(struct conndata *conn)
   int sockfd = conn->fd;
   struct timeval tv;
   enum exchange_state state = READING_REQUEST;
+  int ciphersuite_id;
+  struct rustls_str ciphersuite_name;
 
   LOG("acccepted conn on fd %d", conn->fd);
 
@@ -189,6 +191,14 @@ handle_conn(struct conndata *conn)
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       LOG_SIMPLE("writing response");
+      ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
+      ciphersuite_name =
+        rustls_connection_get_negotiated_ciphersuite_name(rconn);
+      LOG("negotiated ciphersuite: %.*s (%#x)",
+          (int)ciphersuite_name.len,
+          ciphersuite_name.data,
+          ciphersuite_id);
+
       rustls_connection_get_alpn_protocol(
         rconn, &negotiated_alpn, &negotiated_alpn_len);
       if(negotiated_alpn != NULL) {
@@ -232,8 +242,9 @@ main(int argc, const char **argv)
 {
   int ret = 1;
   int sockfd = 0;
-  struct rustls_server_config_builder *config_builder =
-    rustls_server_config_builder_new();
+
+  const struct rustls_crypto_provider *custom_provider = NULL;
+  struct rustls_server_config_builder *config_builder = NULL;
   const struct rustls_server_config *server_config = NULL;
   struct rustls_connection *rconn = NULL;
   const struct rustls_certified_key *certified_key = NULL;
@@ -243,6 +254,7 @@ main(int argc, const char **argv)
   struct rustls_web_pki_client_cert_verifier_builder
     *client_cert_verifier_builder = NULL;
   struct rustls_client_cert_verifier *client_cert_verifier = NULL;
+  rustls_result result = RUSTLS_RESULT_OK;
 
   /* Set this global variable for logging purposes. */
   programname = "server";
@@ -265,6 +277,28 @@ main(int argc, const char **argv)
             "Listen on port 8443 with the given cert and key.\n",
             argv[0]);
     goto cleanup;
+  }
+
+  const char *custom_ciphersuite_name = getenv("RUSTLS_CIPHERSUITE");
+  if(custom_ciphersuite_name != NULL) {
+    custom_provider =
+      default_provider_with_custom_ciphersuite(custom_ciphersuite_name);
+    if(custom_provider == NULL) {
+      goto cleanup;
+    }
+    printf("customized to use ciphersuite: %s\n", custom_ciphersuite_name);
+
+    result = rustls_server_config_builder_new_custom(custom_provider,
+                                                     default_tls_versions,
+                                                     default_tls_versions_len,
+                                                     &config_builder);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("creating client config builder", result);
+      goto cleanup;
+    }
+  }
+  else {
+    config_builder = rustls_server_config_builder_new();
   }
 
   certified_key = load_cert_and_key(argv[1], argv[2]);
@@ -326,7 +360,11 @@ main(int argc, const char **argv)
                                                      client_cert_verifier);
   }
 
-  server_config = rustls_server_config_builder_build(config_builder);
+  result = rustls_server_config_builder_build(config_builder, &server_config);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error("building server config", result);
+    goto cleanup;
+  }
 
 #ifdef _WIN32
   WSADATA wsa;
@@ -412,6 +450,7 @@ cleanup:
   rustls_client_cert_verifier_free(client_cert_verifier);
   rustls_server_config_free(server_config);
   rustls_connection_free(rconn);
+  rustls_crypto_provider_free(custom_provider);
   if(sockfd > 0) {
     close(sockfd);
   }

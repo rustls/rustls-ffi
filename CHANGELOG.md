@@ -1,5 +1,145 @@
 # Changelog
 
+## 0.14.0 (2024-08-01)
+
+This release updates to [Rustls 0.23.12][] and changes the rustls-ffi API to allow
+choosing a cryptography provider to use with Rustls. 
+
+The default provider has been changed to match the Rustls default,
+[`aws-lc-rs`][]. Users that wish to continue using `*ring*` as the provider may
+opt-in. See the `README` for more detail on supported platforms and build
+requirements.
+
+[Rustls 0.23.12]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.12
+[`aws-lc-rs`]: https://github.com/aws/aws-lc-rs
+
+### Added
+
+* A new `rustls_crypto_provider` type has been added to represent
+  `rustls::CryptoProvider` instances.
+  * The current process-siwde default crypto provider (if any) can be retrieved
+    with `rustls_crypto_provider_default()`.
+  * If rustls-ffi was built with `aws-lc-rs`, (`DEFINE_AWS_LC_RS` is true), then
+    `rustls_aws_lc_rs_crypto_provider()` can be used to retrive the `aws-lc-rs`
+    provider.
+  * If rustls-ffi was built with `*ring*`, (`DEFINE_RING` is true), then
+    `rustls_ring_crypto_provider()` can be used to retrive the `aws-lc-rs`
+    provider.
+  * Ciphersuites supported by a `rustls_crypto_provider` can be retrieved with
+    `rustls_crypto_provider_ciphersuites()`.
+
+* A new `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` `rustls_result` was added to
+  indicate when an operation that requires a process-wide default crypto
+  provider fails because no provider has been installed as the default, or
+  the default was not implicit based on supported provider.
+
+* A new `rustls_crypto_provider_builder` type has been added to customize, or
+  install, a crypto provider.
+   * `rustls_crypto_provider_builder_new_from_default` will construct a builder
+     based on the current process-wide default.
+   * `rustls_crypto_provider_builder_new_with_base` will construct a builder
+     based on a specified `rustls_crypto_provider`.
+   * Customization of supported ciphersuites can be achieved with 
+     `rustls_crypto_provider_builder_set_cipher_suites()`.
+   * The default process-wide provider can be installed from a builder using
+     `rustls_crypto_provider_builder_build_as_default()`, if it has not already
+     been done.
+   * Or, a new `rustls_crypto_provider` instance built with
+     `rustls_crypto_provider_builder_build()`.
+   * See the function documentation for more information on recommended
+     workflows.
+
+* A new `rustls_signing_key` type has been added to represent a private key
+  that has been parsed by a `rustls_crypto_provider` and is ready to use for
+  cryptographic operations.
+   * Use `rustls_crypto_provider_load_key()` to load a `signing_key` from
+     a buffer of PEM data using a `rustls_crypto_provider`.
+   * Use `rustls_certified_key_build_with_signing_key()` to build
+     a `rustls_ceritifed_key` with a PEM cert chain and a `rustls_signing_key`.
+
+* A new `rustls_supported_ciphersuites` type has been added to represent the 
+  ciphersuites a `rustls_crypto_provider` supports.
+    * `rustls_crypto_provider_ciphersuites()` will return the
+      `rustls_supported_ciphersuites` for a given `rustls_crypto_provider`.
+    * `rustls_default_supported_ciphersuites()` will return the
+      `rustls_supported_ciphersuites` for the default crypto provider.
+    * `rustls_supported_ciphersuites_len()` will return the number of supported
+       ciphersuites.
+    * `rustls_supported_ciphersuites_get()` will return a specific
+      `rustls_supported_ciphersuite` instance by index.
+
+* New `rustls_web_pki_client_cert_verifier_builder_new_with_provider()` and
+  `rustls_web_pki_server_cert_verifier_builder_new_with_provider()`
+  functions have been added to construct `rustls_client_cert_verifier` or
+  `rustls_server_cert_verifier` instances that use a specified
+  `rustls_crypto_provider`.
+
+* Support for constructing a `rustls_server_cert_verifier` that uses the
+  platform operating system's native certificate verification functionality was
+  added. See the [`rustls-platform-verifier`] crate docs for
+  more information on supported platforms.
+    * Use `rustls_platform_server_cert_verifier()` to construct a platform verifier
+      that uses the default crypto provider.
+    * Use `rustls_platform_server_cert_verifier_with_provider()` to construct a 
+      platform verifier that uses the specified `rustls_crypto_provider`.
+    * The returned `rustls_server_cert_verifier` can be used with
+      a `rustls_client_config_builder` with
+      `rustls_client_config_builder_set_server_verifier()`.
+
+* When using `aws-lc-rs` as the crypto provider, NIST P-521 signatures are now
+  supported.
+
+[`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+
+### Changed
+
+* `rustls_server_config_builder_new()`, `rustls_client_config_builder_new()`,
+  `rustls_web_pki_client_cert_verifier_builder_new()`, and
+  `rustls_web_pki_server_cert_verifier_builder_new()`, and
+  `rustls_certified_key_build` functions now use the process
+  default crypto provider instead of being hardcoded to use `*ring*`.
+
+* `rustls_server_config_builder_new_custom()` and
+  `rustls_client_config_builder_new_custom()` no longer take custom
+  ciphersuites as an argument. Instead they requires providing
+  a `rustls_crypto_provider`.
+    * Customizing ciphersuite support is now done at the provider level using
+      `rustls_crypto_provider_builder` and
+      `rustls_crypto_provider_builder_set_cipher_suites()`.
+
+* `rustls_server_config_builder_build()` and
+  `rustls_client_config_builder_build()` now use out-parameters for the
+  `rustls_server_config` or `rustls_client_config`, and return a `rustls_result`. 
+  This allows returning an error if the build operation fails because a suitable
+  crypto provider was not available.
+
+* `rustls_client_config_builder_build()` now returns
+  a `RUSTLS_RESULT_NO_SERVER_CERT_VERIFIER` `rustls_result` error if a server
+  certificate verifier was not set instead of falling back to a verifier that
+  would fail all certificate validation attempts.
+
+* The `NoneVerifier` used if a `rustls_client_config` is constructed by
+  a `rustls_client_config_builder` without a verifier configured has been
+  changed to return an unknown issuer error instead of a bad signature error
+  when asked to verify a server certificate.
+
+* Error specificity for revoked certificates was improved.
+
+### Removed
+
+* The `ALL_CIPHER_SUITES` and `DEFAULT_CIPHER_SUITES` constants and associated
+  functions (`rustls_all_ciphersuites_len()`,
+  `rustls_all_ciphersuites_get_entry()`, `rustls_default_ciphersuites_len()` and
+  `rustls_default_ciphersuites_get_entry()`) have been
+  removed. Ciphersuite support is dictated by the `rustls_crypto_provider`. 
+  * Use `rustls_default_supported_ciphersuites()` to retrive
+    a `rustls_supported_ciphersuites` for the default `rustls_crypto_provider`.
+  * Use `rustls_crypto_provider_ciphersuites()` to retrieve a
+   `rustls_supported_ciphersuites` for a given `rustls_crypto_provider`.
+  * Use `rustls_supported_ciphersuites_len()` and
+    `rustls_supported_ciphersuites_get()` to iterate the
+    `rustls_supported_ciphersuites`.
+
 ## 0.13.0 (2024-03-28)
 
 This release updates to [Rustls 0.23.4] and continues to use `*ring*` as the

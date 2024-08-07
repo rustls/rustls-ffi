@@ -20,6 +20,7 @@ jobs:
       matrix:
         cc: [ clang, gcc ]
         os: [ ubuntu-latest, macos-latest ]
+        crypto: [ aws_lc_rs, ring ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -58,10 +59,10 @@ jobs:
         #       that will complicate setting PKG_CONFIG_PATH/LD_LIBRARY_PATH.
         run: >
           CARGOFLAGS=--libdir=lib
-          make --file=Makefile.pkg-config PREFIX=${PREFIX} install
+          make --file=Makefile.pkg-config PREFIX=${PREFIX} CRYPTO_PROVIDER=${{ matrix.crypto }} install
 
       - name: Build the client/server examples
-        run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config PROFILE=debug
+        run: PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig make --file=Makefile.pkg-config PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }}
 
       - name: Verify client is dynamically linked (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -80,4 +81,4 @@ jobs:
         run: LD_LIBRARY_PATH=$PREFIX/lib otool -L target/server | grep "rustls"
 
       - name: Run the integration tests
-        run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config PROFILE=debug integration
+        run: LD_LIBRARY_PATH=$PREFIX/lib make --file=Makefile.pkg-config PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} integration

@@ -170,6 +170,8 @@ send_request_and_read_response(struct conndata *conn,
   unsigned long content_length = 0;
   size_t headers_len = 0;
   struct rustls_str version;
+  int ciphersuite_id;
+  struct rustls_str ciphersuite_name;
 
   version = rustls_version();
   memset(buf, '\0', sizeof(buf));
@@ -196,6 +198,13 @@ send_request_and_read_response(struct conndata *conn,
     LOG_SIMPLE("short write writing plaintext bytes to rustls_connection");
     goto cleanup;
   }
+
+  ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
+  ciphersuite_name = rustls_connection_get_negotiated_ciphersuite_name(rconn);
+  LOG("negotiated ciphersuite: %.*s (%#x)",
+      (int)ciphersuite_name.len,
+      ciphersuite_name.data,
+      ciphersuite_id);
 
   for(;;) {
     FD_ZERO(&read_fds);
@@ -411,8 +420,8 @@ main(int argc, const char **argv)
   /* Set this global variable for logging purposes. */
   programname = "client";
 
-  struct rustls_client_config_builder *config_builder =
-    rustls_client_config_builder_new();
+  const struct rustls_crypto_provider *custom_provider = NULL;
+  struct rustls_client_config_builder *config_builder = NULL;
   struct rustls_root_cert_store_builder *server_cert_root_store_builder = NULL;
   const struct rustls_root_cert_store *server_cert_root_store = NULL;
   const struct rustls_client_config *client_config = NULL;
@@ -431,9 +440,32 @@ main(int argc, const char **argv)
   setmode(STDOUT_FILENO, O_BINARY);
 #endif
 
+  const char *custom_ciphersuite_name = getenv("RUSTLS_CIPHERSUITE");
+  if(custom_ciphersuite_name != NULL) {
+    custom_provider =
+      default_provider_with_custom_ciphersuite(custom_ciphersuite_name);
+    if(custom_provider == NULL) {
+      goto cleanup;
+    }
+    printf("customized to use ciphersuite: %s\n", custom_ciphersuite_name);
+
+    result = rustls_client_config_builder_new_custom(custom_provider,
+                                                     default_tls_versions,
+                                                     default_tls_versions_len,
+                                                     &config_builder);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("creating client config builder", result);
+      goto cleanup;
+    }
+  }
+  else {
+    config_builder = rustls_client_config_builder_new();
+  }
+
   if(getenv("RUSTLS_PLATFORM_VERIFIER")) {
-    server_cert_verifier = rustls_platform_server_cert_verifier();
-    if(server_cert_verifier == NULL) {
+    result = rustls_platform_server_cert_verifier(&server_cert_verifier);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "client: failed to construct platform verifier\n");
       goto cleanup;
     }
     rustls_client_config_builder_set_server_verifier(config_builder,
@@ -494,7 +526,11 @@ main(int argc, const char **argv)
   rustls_client_config_builder_set_alpn_protocols(
     config_builder, &alpn_http11, 1);
 
-  client_config = rustls_client_config_builder_build(config_builder);
+  result = rustls_client_config_builder_build(config_builder, &client_config);
+  if(result != RUSTLS_RESULT_OK) {
+    print_error("building client config", result);
+    goto cleanup;
+  }
 
   int i;
   for(i = 0; i < 3; i++) {
@@ -515,6 +551,7 @@ cleanup:
   rustls_server_cert_verifier_free(server_cert_verifier);
   rustls_certified_key_free(certified_key);
   rustls_client_config_free(client_config);
+  rustls_crypto_provider_free(custom_provider);
 
 #ifdef _WIN32
   WSACleanup();

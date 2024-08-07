@@ -27,6 +27,7 @@ pub mod acceptor;
 pub mod cipher;
 pub mod client;
 pub mod connection;
+pub mod crypto_provider;
 pub mod enums;
 mod error;
 pub mod io;

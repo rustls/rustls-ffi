@@ -12,7 +12,9 @@ include = ["rustls_tls_version"]
 
 [defines]
 "feature = read_buf" = "DEFINE_READ_BUF"
+"feature = aws_lc_rs" = "DEFINE_AWS_LC_RS"
+"feature = ring" = "DEFINE_RING"
 
 [parse.expand]
 crates = ["rustls-ffi"]
-features = ["read_buf"]
+features = ["read_buf", "aws_lc_rs", "ring"]

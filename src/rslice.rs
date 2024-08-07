@@ -206,6 +206,15 @@ impl<'a> rustls_str<'a> {
     pub unsafe fn into_static(self) -> rustls_str<'static> {
         std::mem::transmute(self)
     }
+
+    /// Change a rustls_str back to a &str.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the rustls_str data is valid utf8
+    pub unsafe fn to_str(&self) -> &str {
+        str::from_utf8_unchecked(slice::from_raw_parts(self.data as *const u8, self.len))
+    }
 }
 
 // If the assertion about Rust code being the only creator of rustls_str objects
@@ -241,6 +250,8 @@ fn test_rustls_str() {
         assert_eq!(*rs.data, 'a' as c_char);
         assert_eq!(*rs.data.offset(3), 'd' as c_char);
     }
+    let rs = unsafe { rs.to_str() };
+    assert_eq!(rs, s);
 }
 
 #[cfg(test)]

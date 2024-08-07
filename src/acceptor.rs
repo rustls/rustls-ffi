@@ -505,9 +505,9 @@ mod tests {
     use libc::c_char;
     use rustls::internal::msgs::codec::Codec;
     use rustls::internal::msgs::enums::AlertLevel;
-    use rustls::{AlertDescription, ContentType, ProtocolVersion};
+    use rustls::{AlertDescription, ContentType, ProtocolVersion, SignatureScheme};
 
-    use crate::cipher::rustls_certified_key;
+    use crate::cipher::{rustls_certified_key, rustls_server_cert_verifier};
     use crate::client::{rustls_client_config, rustls_client_config_builder};
     use crate::server::rustls_server_config_builder;
 
@@ -628,7 +628,19 @@ mod tests {
             protocols_slices.len(),
         );
 
-        let config = ccb::rustls_client_config_builder_build(builder);
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!verifier.is_null());
+        rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
+            builder, verifier,
+        );
+
+        let mut config = null();
+        let result = ccb::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
         let mut client_conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
@@ -649,6 +661,7 @@ mod tests {
 
         rustls_connection::rustls_connection_free(client_conn);
         rustls_client_config::rustls_client_config_free(config);
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
         buf
     }
 
@@ -673,8 +686,11 @@ mod tests {
         assert_eq!(result, rustls_result::Ok);
         rustls_certified_key::rustls_certified_key_free(certified_key);
 
-        let config = rustls_server_config_builder::rustls_server_config_builder_build(builder);
-        assert_ne!(config, null());
+        let mut config = null();
+        let res =
+            rustls_server_config_builder::rustls_server_config_builder_build(builder, &mut config);
+        assert_eq!(res, rustls_result::Ok);
+        assert!(!config.is_null());
         config
     }
 
@@ -721,10 +737,28 @@ mod tests {
         }
         // Sort to ensure consistent comparison
         signature_schemes.sort();
-        assert_eq!(
-            &signature_schemes,
-            &[1025, 1027, 1281, 1283, 1537, 2052, 2053, 2054, 2055]
-        );
+
+        #[cfg_attr(feature = "ring", allow(unused_mut))]
+        let mut expected_schemes = vec![
+            SignatureScheme::RSA_PKCS1_SHA256,
+            SignatureScheme::ECDSA_NISTP256_SHA256,
+            SignatureScheme::RSA_PKCS1_SHA384,
+            SignatureScheme::ECDSA_NISTP384_SHA384,
+            SignatureScheme::RSA_PKCS1_SHA512,
+            SignatureScheme::RSA_PSS_SHA256,
+            SignatureScheme::RSA_PSS_SHA384,
+            SignatureScheme::RSA_PSS_SHA512,
+            SignatureScheme::ED25519,
+        ];
+        #[cfg(feature = "aws_lc_rs")] // aws-lc-rs also includes P-521.
+        expected_schemes.push(SignatureScheme::ECDSA_NISTP521_SHA512);
+
+        let mut expected_schemes = expected_schemes
+            .into_iter()
+            .map(u16::from)
+            .collect::<Vec<_>>();
+        expected_schemes.sort();
+        assert_eq!(signature_schemes, expected_schemes);
 
         let mut alpn = vec![];
         for i in 0.. {

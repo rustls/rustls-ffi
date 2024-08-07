@@ -385,3 +385,82 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   }
   return certified_key;
 }
+
+const struct rustls_crypto_provider *
+default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
+{
+  const struct rustls_crypto_provider *custom_provider = NULL;
+  rustls_crypto_provider_builder *provider_builder = NULL;
+  const struct rustls_supported_ciphersuite *custom_ciphersuite = NULL;
+  const struct rustls_supported_ciphersuites *default_supported = NULL;
+
+  rustls_result result =
+    rustls_crypto_provider_builder_new_from_default(&provider_builder);
+  if(result != RUSTLS_RESULT_OK) {
+    fprintf(stderr, "failed to create provider builder\n");
+    goto cleanup;
+  }
+
+  result = rustls_default_supported_ciphersuites(&default_supported);
+  if(result != RUSTLS_RESULT_OK) {
+    fprintf(stderr,
+            "failed to get supported ciphersuites from default "
+            "provider\n");
+    goto cleanup;
+  }
+  size_t num_supported = rustls_supported_ciphersuites_len(default_supported);
+  for(size_t i = 0; i < num_supported; i++) {
+    const struct rustls_supported_ciphersuite *suite =
+      rustls_supported_ciphersuites_get(default_supported, i);
+    if(suite == NULL) {
+      fprintf(stderr, "failed to get ciphersuite %zu\n", i);
+      goto cleanup;
+    }
+
+    const rustls_str suite_name = rustls_supported_ciphersuite_get_name(suite);
+#if 1
+    fprintf(stderr,
+            "considering ciphersuite %.*s\n",
+            (int)suite_name.len,
+            suite_name.data);
+#endif
+    if(strncmp(suite_name.data, custom_ciphersuite_name, suite_name.len) ==
+       0) {
+      custom_ciphersuite = suite;
+      break;
+    }
+  }
+
+  if(custom_ciphersuite == NULL) {
+    fprintf(stderr,
+            "failed to select custom ciphersuite: %s\n",
+            custom_ciphersuite_name);
+    goto cleanup;
+  }
+
+  result = rustls_crypto_provider_builder_set_cipher_suites(
+    provider_builder, &custom_ciphersuite, 1);
+  if(result != RUSTLS_RESULT_OK) {
+    fprintf(stderr, "failed to set custom ciphersuite\n");
+    goto cleanup;
+  }
+
+  result =
+    rustls_crypto_provider_builder_build(provider_builder, &custom_provider);
+  if(result != RUSTLS_RESULT_OK) {
+    fprintf(stderr, "failed to build custom provider\n");
+    goto cleanup;
+  }
+
+cleanup:
+  rustls_supported_ciphersuites_free(default_supported);
+  rustls_crypto_provider_builder_free(provider_builder);
+  return custom_provider;
+}
+
+// TLS 1.2 and TLS 1.3, matching Rustls default.
+const uint16_t default_tls_versions[] = { 0x0303, 0x0304 };
+
+// Declare the length of the TLS versions array as a global constant
+const size_t default_tls_versions_len =
+  sizeof(default_tls_versions) / sizeof(default_tls_versions[0]);
