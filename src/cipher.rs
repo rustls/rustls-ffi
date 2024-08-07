@@ -14,16 +14,17 @@ use rustls::server::danger::ClientCertVerifier;
 use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
 use rustls::{DistinguishedName, RootCertStore, SupportedCipherSuite};
-use rustls_pemfile::{certs, crls, pkcs8_private_keys, rsa_private_keys};
+use rustls_pemfile::{certs, crls};
 use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
 
-use crate::error::{self, rustls_result};
+use crate::crypto_provider::rustls_signing_key;
+use crate::error::{self, map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
-    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, ref_castable,
-    set_arc_mut_ptr, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr, try_clone_arc,
-    try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
-    try_take,
+    arc_castable, box_castable, crypto_provider, ffi_panic_boundary, free_arc, free_box,
+    ref_castable, set_arc_mut_ptr, set_boxed_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
+    try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
+    try_ref_from_ptr_ptr, try_slice, try_take,
 };
 use rustls_result::{AlreadyUsed, NullParameter};
 
@@ -108,14 +109,17 @@ arc_castable! {
 }
 
 impl rustls_certified_key {
-    /// Build a `rustls_certified_key` from a certificate chain and a private key.
+    /// Build a `rustls_certified_key` from a certificate chain and a private key
+    /// and the default process-wide crypto provider.
     ///
     /// `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
     /// a series of PEM-encoded certificates, with the end-entity (leaf)
     /// certificate first.
     ///
     /// `private_key` must point to a buffer of `private_key_len` bytes, containing
-    /// a PEM-encoded private key in either PKCS#1 or PKCS#8 format.
+    /// a PEM-encoded private key in either PKCS#1, PKCS#8 or SEC#1 format when
+    /// using `aws-lc-rs` as the crypto provider. Supported formats may vary by
+    /// provider.
     ///
     /// On success, this writes a pointer to the newly created
     /// `rustls_certified_key` in `certified_key_out`. That pointer must later
@@ -144,23 +148,85 @@ impl rustls_certified_key {
         certified_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let certified_key_out = unsafe {
-                match certified_key_out.as_mut() {
-                    Some(c) => c,
-                    None => return NullParameter,
-                }
+            let default_provider =
+                match crypto_provider::get_default_or_install_from_crate_features() {
+                    Some(default_provider) => default_provider,
+                    None => return rustls_result::NoDefaultCryptoProvider,
+                };
+            let private_key_pem = try_slice!(private_key, private_key_len);
+
+            let private_key_der =
+                match rustls_pemfile::private_key(&mut Cursor::new(private_key_pem)) {
+                    Ok(Some(p)) => p,
+                    _ => return rustls_result::PrivateKeyParseError,
+                };
+
+            let private_key = match default_provider
+                .key_provider
+                .load_private_key(private_key_der)
+            {
+                Ok(key) => key,
+                Err(e) => return map_error(e),
             };
-            let certified_key = match rustls_certified_key::certified_key_build(
+
+            Self::rustls_certified_key_build_with_signing_key(
                 cert_chain,
                 cert_chain_len,
-                private_key,
-                private_key_len,
-            ) {
-                Ok(key) => Box::new(key),
-                Err(rr) => return rr,
+                to_boxed_mut_ptr(private_key),
+                certified_key_out,
+            )
+        }
+    }
+
+    /// Build a `rustls_certified_key` from a certificate chain and a
+    /// `rustls_signing_key`.
+    ///
+    /// `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
+    /// a series of PEM-encoded certificates, with the end-entity (leaf)
+    /// certificate first.
+    ///
+    /// `signing_key` must point to a `rustls_signing_key` loaded using a
+    /// `rustls_crypto_provider` and `rustls_crypto_provider_load_key()`.
+    ///
+    /// On success, this writes a pointer to the newly created
+    /// `rustls_certified_key` in `certified_key_out`. That pointer must later
+    /// be freed with `rustls_certified_key_free` to avoid memory leaks. Note that
+    /// internally, this is an atomically reference-counted pointer, so even after
+    /// the original caller has called `rustls_certified_key_free`, other objects
+    /// may retain a pointer to the object. The memory will be freed when all
+    /// references are gone.
+    ///
+    /// This function does not take ownership of any of its input pointers. It
+    /// parses the pointed-to data and makes a copy of the result. You may
+    /// free the cert_chain and private_key pointers after calling it.
+    ///
+    /// Typically, you will build a `rustls_certified_key`, use it to create a
+    /// `rustls_server_config` (which increments the reference count), and then
+    /// immediately call `rustls_certified_key_free`. That leaves the
+    /// `rustls_server_config` in possession of the sole reference, so the
+    /// `rustls_certified_key`'s memory will automatically be released when
+    /// the `rustls_server_config` is freed.
+    #[no_mangle]
+    pub extern "C" fn rustls_certified_key_build_with_signing_key(
+        cert_chain: *const u8,
+        cert_chain_len: size_t,
+        signing_key: *mut rustls_signing_key,
+        certified_key_out: *mut *const rustls_certified_key,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let mut cert_chain = try_slice!(cert_chain, cert_chain_len);
+            let signing_key = try_box_from_ptr!(signing_key);
+            let certified_key_out = try_ref_from_ptr_ptr!(certified_key_out);
+
+            let parsed_chain = match certs(&mut cert_chain).collect::<Result<Vec<_>, _>>() {
+                Ok(v) => v,
+                Err(_) => return rustls_result::CertificateParseError,
             };
-            let certified_key = Arc::into_raw(Arc::new(*certified_key)) as *const _;
-            *certified_key_out = certified_key;
+
+            set_arc_mut_ptr(
+                certified_key_out,
+                CertifiedKey::new(parsed_chain, *signing_key),
+            );
             rustls_result::Ok
         }
     }
@@ -233,49 +299,6 @@ impl rustls_certified_key {
         ffi_panic_boundary! {
             free_arc(key);
         }
-    }
-
-    fn certified_key_build(
-        cert_chain: *const u8,
-        cert_chain_len: size_t,
-        private_key: *const u8,
-        private_key_len: size_t,
-    ) -> Result<CertifiedKey, rustls_result> {
-        let mut cert_chain = unsafe {
-            if cert_chain.is_null() {
-                return Err(NullParameter);
-            }
-            slice::from_raw_parts(cert_chain, cert_chain_len)
-        };
-        let private_key_der = unsafe {
-            if private_key.is_null() {
-                return Err(NullParameter);
-            }
-            slice::from_raw_parts(private_key, private_key_len)
-        };
-        let private_key = match pkcs8_private_keys(&mut Cursor::new(private_key_der)).next() {
-            Some(Ok(p)) => p.into(),
-            Some(Err(_)) => return Err(rustls_result::PrivateKeyParseError),
-            None => {
-                let rsa_private_key =
-                    match rsa_private_keys(&mut Cursor::new(private_key_der)).next() {
-                        Some(Ok(p)) => p.into(),
-                        _ => return Err(rustls_result::PrivateKeyParseError),
-                    };
-                rsa_private_key
-            }
-        };
-        let signing_key = match rustls::crypto::ring::sign::any_supported_type(&private_key) {
-            Ok(key) => key,
-            Err(_) => return Err(rustls_result::PrivateKeyParseError),
-        };
-        let parsed_chain: Result<Vec<CertificateDer>, _> = certs(&mut cert_chain).collect();
-        let parsed_chain = match parsed_chain {
-            Ok(v) => v,
-            Err(_) => return Err(rustls_result::CertificateParseError),
-        };
-
-        Ok(CertifiedKey::new(parsed_chain, signing_key))
     }
 }
 
