@@ -60,6 +60,7 @@ u32_enum_builder! {
         AcceptorNotReady => 7012,
         AlreadyUsed => 7013,
         CertificateRevocationListParseError => 7014,
+        NoServerCertVerifier => 7015,
 
         // From https://docs.rs/rustls/latest/rustls/enum.Error.html
         NoCertificatesPresented => 7101,
@@ -480,6 +481,12 @@ impl Display for rustls_result {
             ),
             CertificateRevocationListParseError => {
                 write!(f, "error parsing certificate revocation list (CRL)",)
+            }
+            NoServerCertVerifier => {
+                write!(
+                    f,
+                    "no server certificate verifier was configured on the client config builder"
+                )
             }
 
             CertEncodingBad => Error::InvalidCertificate(CertificateError::BadEncoding).fmt(f),
