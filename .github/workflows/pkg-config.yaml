@@ -29,10 +29,6 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install pkg-config (macOS)
-        if: runner.os == 'macos-latest'
-        run: brew install pkg-config
-
       - name: Show pkg-config version
         run: pkg-config --version
 
