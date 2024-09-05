@@ -81,9 +81,10 @@ pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_
     }
 }
 
-/// Retrieve the nth element from the input slice of slices. If the input
-/// pointer is NULL, or n is greater than the length of the
-/// rustls_slice_slice_bytes, returns rustls_slice_bytes{NULL, 0}.
+/// Retrieve the nth element from the input slice of slices.
+///
+/// If the input pointer is NULL, or n is greater than the length
+/// of the `rustls_slice_slice_bytes`, returns rustls_slice_bytes{NULL, 0}.
 #[no_mangle]
 pub extern "C" fn rustls_slice_slice_bytes_get(
     input: *const rustls_slice_slice_bytes,
@@ -133,8 +134,11 @@ fn test_rustls_slice_slice_bytes() {
     }
 }
 
-/// A read-only view on a Rust `&str`. The contents are guaranteed to be valid
-/// UTF-8. As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+/// A read-only view on a Rust `&str`.
+///
+/// The contents are guaranteed to be valid UTF-8.
+///
+/// As an additional guarantee on top of Rust's normal UTF-8 guarantee,
 /// a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
 /// safe to interpolate into a C string or compare using strncmp. Keep in mind
 /// that it is not NUL-terminated.
@@ -177,9 +181,10 @@ impl<'a> Default for rustls_str<'a> {
     }
 }
 
-/// rustls_str represents a string that can be passed to C code. The string
-/// should not have any internal NUL bytes and is not NUL terminated. C code
-/// should not create rustls_str objects, they should only be created in Rust
+/// rustls_str represents a string that can be passed to C code.
+///
+/// The string should not have any internal NUL bytes and is not NUL terminated.
+/// C code should not create rustls_str objects, they should only be created in Rust
 /// code.
 impl<'a> rustls_str<'a> {
     pub fn from_str_unchecked(s: &'static str) -> rustls_str<'static> {
@@ -190,10 +195,11 @@ impl<'a> rustls_str<'a> {
         }
     }
 
-    /// Change a rustls_str's lifetime to 'static. This doesn't actually change
-    /// how long the pointed-to data lives, but is necessary when returning a
-    /// rustls_str (as opposed to passing it into a callback), because Rust
-    /// can't figure out the "real" lifetime.
+    /// Change a rustls_str's lifetime to 'static.
+    ///
+    /// This doesn't actually change how long the pointed-to data lives, but
+    /// is necessary when returning a rustls_str (as opposed to passing it
+    /// into a callback), because Rust can't figure out the "real" lifetime.
     ///
     /// # Safety
     ///
@@ -266,7 +272,9 @@ fn test_rustls_str_rejects_nul() {
 }
 
 /// A read-only view of a slice of multiple Rust `&str`'s (that is, multiple
-/// strings). Like `rustls_str`, this guarantees that each string contains
+/// strings).
+///
+/// Like `rustls_str`, this guarantees that each string contains
 /// UTF-8 and no NUL bytes. Strings are not NUL-terminated.
 ///
 /// This is used to pass data from rustls-ffi to callback functions provided
@@ -284,8 +292,9 @@ pub struct rustls_slice_str<'a> {
     pub(crate) inner: &'a [&'a str],
 }
 
-/// Return the length of the outer slice. If the input pointer is NULL,
-/// returns 0.
+/// Return the length of the outer slice.
+///
+/// If the input pointer is NULL, returns 0.
 #[no_mangle]
 pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t {
     unsafe {
@@ -296,8 +305,9 @@ pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t
     }
 }
 
-/// Retrieve the nth element from the input slice of `&str`s. If the input
-/// pointer is NULL, or n is greater than the length of the
+/// Retrieve the nth element from the input slice of `&str`s.
+///
+/// If the input pointer is NULL, or n is greater than the length of the
 /// rustls_slice_str, returns rustls_str{NULL, 0}.
 #[no_mangle]
 pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t) -> rustls_str {
