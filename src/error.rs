@@ -8,9 +8,10 @@ use rustls::server::VerifierBuilderError;
 use rustls::{CertRevocationListError, CertificateError, Error, InvalidMessage};
 
 /// A return value for a function that may return either success (0) or a
-/// non-zero value representing an error. The values should match socket
-/// error numbers for your operating system - for example, the integers for
-/// ETIMEDOUT, EAGAIN, or similar.
+/// non-zero value representing an error.
+///
+/// The values should match socket error numbers for your operating system --
+/// for example, the integers for `ETIMEDOUT`, `EAGAIN`, or similar.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
@@ -193,7 +194,9 @@ u32_enum_builder! {
 impl rustls_result {
     /// After a rustls function returns an error, you may call
     /// this to get a pointer to a buffer containing a detailed error
-    /// message. The contents of the error buffer will be out_n bytes long,
+    /// message.
+    ///
+    /// The contents of the error buffer will be out_n bytes long,
     /// UTF-8 encoded, and not NUL-terminated.
     #[no_mangle]
     pub extern "C" fn rustls_error(
@@ -239,8 +242,9 @@ impl rustls_result {
     }
 }
 
-/// For cert-related rustls_results, turn them into a rustls::Error. For other
-/// inputs, including Ok, return rustls::Error::General.
+/// For cert-related rustls_results, turn them into a rustls::Error.
+///
+/// For other inputs, including Ok, return rustls::Error::General.
 pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
     use rustls::Error::*;
     use rustls::OtherError;

@@ -31,12 +31,16 @@ use crate::{
 };
 
 box_castable! {
-    /// A server config being constructed. A builder can be modified by,
+    /// A server config being constructed.
+    ///
+    /// A builder can be modified by,
     /// e.g. rustls_server_config_builder_load_native_roots. Once you're
     /// done configuring settings, call rustls_server_config_builder_build
-    /// to turn it into a *const rustls_server_config. Alternatively, if
-    /// an error occurs or, you don't wish to build a config, call
-    /// `rustls_server_config_builder_free` to free the builder directly.
+    /// to turn it into a *const rustls_server_config.
+    ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config,
+    /// call `rustls_server_config_builder_free` to free the builder directly.
+    ///
     /// This object is not safe for concurrent mutation.
     /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
     pub struct rustls_server_config_builder(ServerConfigBuilder);
@@ -53,18 +57,23 @@ pub(crate) struct ServerConfigBuilder {
 
 arc_castable! {
     /// A server config that is done being constructed and is now read-only.
+    ///
     /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
     /// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
     pub struct rustls_server_config(ServerConfig);
 }
 
 impl rustls_server_config_builder {
-    /// Create a rustls_server_config_builder. Caller owns the memory and must
-    /// eventually call rustls_server_config_builder_build, then free the
-    /// resulting rustls_server_config. Alternatively, if an error occurs or,
-    /// you don't wish to build a config, call `rustls_server_config_builder_free`
-    /// to free the builder directly. This uses rustls safe default values
-    /// for the cipher suites, key exchange groups and protocol versions.
+    /// Create a rustls_server_config_builder.
+    ///
+    /// Caller owns the memory and must eventually call rustls_server_config_builder_build,
+    /// then free the resulting rustls_server_config.
+    ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config, call
+    /// `rustls_server_config_builder_free` to free the builder directly.
+    ///
+    /// This uses rustls safe default values for the cipher suites, key exchange groups
+    /// and protocol versions.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_new() -> *mut rustls_server_config_builder {
         ffi_panic_boundary! {
@@ -87,22 +96,27 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Create a rustls_server_config_builder. Caller owns the memory and must
-    /// eventually call rustls_server_config_builder_build, then free the
-    /// resulting rustls_server_config. Alternatively, if
-    /// an error occurs or, you don't wish to build a config, call
-    /// `rustls_server_config_builder_free` to free the builder directly. Specify
-    /// cipher suites in preference order; the `cipher_suites` parameter must
+    /// Create a rustls_server_config_builder.
+    ///
+    /// Caller owns the memory and must eventually call rustls_server_config_builder_build,
+    /// then free the resulting rustls_server_config.
+    ///
+    /// Alternatively, if an error occurs or, you don't wish to build a config, call
+    /// `rustls_server_config_builder_free` to free the builder directly.
+    ///
+    /// Specify cipher suites in preference order; the `cipher_suites` parameter must
     /// point to an array containing `len` pointers to `rustls_supported_ciphersuite`
     /// previously obtained from `rustls_all_ciphersuites_get_entry()`.
-    /// Set the TLS protocol versions to use when negotiating a TLS session.
     ///
-    /// `tls_version` is the version of the protocol, as defined in rfc8446,
+    /// `tls_versions` set the TLS protocol versions to use when negotiating a TLS session.
+    ///
+    /// `tls_versions` is the version of the protocol, as defined in rfc8446,
     /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
     /// `rustls_tls_version` for convenience.
     ///
-    /// `versions` will only be used during the call and the application retains
-    /// ownership. `len` is the number of consecutive `uint16_t` pointed to by `versions`.
+    /// `tls_versions` will only be used during the call and the application retains
+    /// ownership. `tls_versions_len` is the number of consecutive `uint16_t` pointed
+    /// to by `tls_versions`.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_new_custom(
         cipher_suites: *const *const rustls_supported_ciphersuite,
@@ -163,7 +177,9 @@ impl rustls_server_config_builder {
     }
 
     /// Create a rustls_server_config_builder for TLS sessions that may verify client
-    /// certificates. This increases the refcount of `verifier` and doesn't take ownership.
+    /// certificates.
+    ///
+    /// This increases the refcount of `verifier` and doesn't take ownership.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_client_verifier(
         builder: *mut rustls_server_config_builder,
@@ -177,8 +193,10 @@ impl rustls_server_config_builder {
     }
 
     /// "Free" a server_config_builder without building it into a rustls_server_config.
+    ///
     /// Normally builders are built into rustls_server_configs via `rustls_server_config_builder_build`
     /// and may not be free'd or otherwise used afterwards.
+    ///
     /// Use free only when the building of a config has to be aborted before a config
     /// was created.
     #[no_mangle]
@@ -204,9 +222,10 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Set the ALPN protocol list to the given protocols. `protocols` must point
-    /// to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
-    /// elements. Each element of the buffer must point to a slice of bytes that
+    /// Set the ALPN protocol list to the given protocols.
+    ///
+    /// `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
+    /// with `len` elements. Each element of the buffer must point to a slice of bytes that
     /// contains a single ALPN protocol from
     /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
     ///
@@ -236,8 +255,10 @@ impl rustls_server_config_builder {
 
     /// Provide the configuration a list of certificates where the connection
     /// will select the first one that is compatible with the client's signature
-    /// verification capabilities. Servers that want to support both ECDSA and
-    /// RSA certificates will want the ECSDA to go first in the list.
+    /// verification capabilities.
+    ///
+    /// Servers that want to support both ECDSA and RSA certificates will want
+    /// the ECSDA to go first in the list.
     ///
     /// The built configuration will keep a reference to all certified keys
     /// provided. The client may `rustls_certified_key_free()` afterwards
@@ -293,7 +314,9 @@ impl rustls_server_config_builder {
 
 impl rustls_server_config {
     /// "Free" a rustls_server_config previously returned from
-    /// rustls_server_config_builder_build. Since rustls_server_config is actually an
+    /// rustls_server_config_builder_build.
+    ///
+    /// Since rustls_server_config is actually an
     /// atomically reference-counted pointer, extant server connections may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
@@ -305,12 +328,17 @@ impl rustls_server_config {
         }
     }
 
-    /// Create a new rustls_connection containing a server connection, and return it
-    /// in the output parameter `out`. If this returns an error code, the memory
-    /// pointed to by `conn_out` remains unchanged. If this returns a non-error,
-    /// the memory pointed to by `conn_out` is modified to point
-    /// at a valid rustls_connection. The caller now owns the rustls_connection
-    /// and must call `rustls_connection_free` when done with it.
+    /// Create a new rustls_connection containing a server connection, and return it.
+    ///
+    /// It is returned in the output parameter `conn_out`.
+    ///
+    /// If this returns an error code, the memory pointed to by `conn_out` remains unchanged.
+    ///
+    /// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
+    /// at a valid rustls_connection
+    ///
+    /// The caller now owns the rustls_connection and must call `rustls_connection_free` when
+    /// done with it.
     #[no_mangle]
     pub extern "C" fn rustls_server_connection_new(
         config: *const rustls_server_config,
@@ -337,10 +365,14 @@ impl rustls_server_config {
     }
 }
 
-/// Copy the server name from the server name indication (SNI) extension to `buf` which can
-/// hold up  to `count` bytes, and the length of that server name in `out_n`. The string is
-/// stored in UTF-8 with no terminating NUL byte.
+/// Copy the server name from the server name indication (SNI) extension to `buf`.
+///
+/// `buf` can hold up  to `count` bytes, and the length of that server name in `out_n`.
+///
+/// The string is stored in UTF-8 with no terminating NUL byte.
+///
 /// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
+///
 /// Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
 /// because it hasn't been processed yet, or because the client did not send SNI.
 /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConnection.html#method.server_name>
@@ -417,12 +449,15 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 }
 
 /// The TLS Client Hello information provided to a ClientHelloCallback function.
+///
 /// `server_name` is the value of the ServerNameIndication extension provided
 /// by the client. If the client did not send an SNI, the length of this
-/// `rustls_string` will be 0. The signature_schemes field carries the values
-/// supplied by the client or, if the client did not send this TLS extension,
-/// the default schemes in the rustls library. See:
+/// `rustls_string` will be 0.
+///
+/// `signature_schemes` carries the values supplied by the client or, if the
+/// client did not send this TLS extension, the default schemes in the rustls library. See:
 /// <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+///
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
 /// the server. Again, the length of this list will be 0 if none were supplied.
 ///
@@ -448,9 +483,13 @@ impl<'a> Castable for rustls_client_hello<'a> {
 pub type rustls_client_hello_userdata = *mut c_void;
 
 /// Prototype of a callback that can be installed by the application at the
-/// `rustls_server_config`. This callback will be invoked by a `rustls_connection`
-/// once the TLS client hello message has been received.
+/// `rustls_server_config`.
+///
+/// This callback will be invoked by a `rustls_connection` once the TLS client
+/// hello message has been received.
+///
 /// `userdata` will be set based on rustls_connection_set_userdata.
+///
 /// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
 ///
@@ -577,9 +616,10 @@ fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
 }
 
 /// Select a `rustls_certified_key` from the list that matches the cryptographic
-/// parameters of a TLS client hello. Note that this does not do any SNI matching.
-/// The input certificates should already have been filtered to ones matching the
-/// SNI from the client hello.
+/// parameters of a TLS client hello.
+///
+/// Note that this does not do any SNI matching. The input certificates should
+/// already have been filtered to ones matching the SNI from the client hello.
 ///
 /// This is intended for servers that are configured with several keys for the
 /// same domain name(s), for example ECDSA and RSA types. The presented keys are

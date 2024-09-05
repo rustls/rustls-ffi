@@ -13,14 +13,18 @@ use crate::{
 };
 
 box_castable! {
-    /// A buffer and parser for ClientHello bytes. This allows reading ClientHello
-    /// before choosing a rustls_server_config. It's useful when the server
-    /// config will be based on parameters in the ClientHello: server name
-    /// indication (SNI), ALPN protocols, signature schemes, and cipher suites. In
-    /// particular, if a server wants to do some potentially expensive work to load a
-    /// certificate for a given hostname, rustls_acceptor allows doing that asynchronously,
-    /// as opposed to rustls_server_config_builder_set_hello_callback(), which doesn't
-    /// work well for asynchronous I/O.
+    /// A buffer and parser for ClientHello bytes.
+    ///
+    /// This allows reading ClientHello before choosing a rustls_server_config.
+    ///
+    /// It's useful when the server config will be based on parameters in the
+    /// ClientHello: server name indication (SNI), ALPN protocols, signature
+    /// schemes, and cipher suites.
+    ///
+    /// In particular, if a server wants to do some potentially expensive work
+    /// to load a certificate for a given hostname, rustls_acceptor allows doing
+    /// that asynchronously, as opposed to rustls_server_config_builder_set_hello_callback(),
+    /// which doesn't work well for asynchronous I/O.
     ///
     /// The general flow is:
     ///  - rustls_acceptor_new()
@@ -39,10 +43,11 @@ box_castable! {
 }
 
 box_castable! {
-    /// A parsed ClientHello produced by a rustls_acceptor. It is used to check
-    /// server name indication (SNI), ALPN protocols, signature schemes, and
-    /// cipher suites. It can be combined with a rustls_server_config to build a
-    /// rustls_connection.
+    /// A parsed ClientHello produced by a rustls_acceptor.
+    ///
+    /// It is used to check server name indication (SNI), ALPN protocols,
+    /// signature schemes, and cipher suites. It can be combined with a
+    /// `rustls_server_config` to build a `rustls_connection`.
     pub struct rustls_accepted(Option<Accepted>);
 }
 
@@ -72,10 +77,12 @@ impl rustls_acceptor {
         }
     }
 
-    /// Read some TLS bytes from the network into internal buffers. The actual network
-    /// I/O is performed by `callback`, which you provide. Rustls will invoke your
-    /// callback with a suitable buffer to store the read bytes into. You don't have
-    /// to fill it up, just fill with as many bytes as you get in one syscall.
+    /// Read some TLS bytes from the network into internal buffers.
+    ///
+    /// The actual network I/O is performed by `callback`, which you provide.
+    /// Rustls will invoke your callback with a suitable buffer to store the
+    /// read bytes into. You don't have to fill it up, just fill with as many
+    /// bytes as you get in one syscall.
     ///
     /// Parameters:
     ///
@@ -125,8 +132,9 @@ impl rustls_acceptor {
         }
     }
 
-    /// Parse all TLS bytes read so far.  If those bytes make up a ClientHello,
-    /// create a rustls_accepted from them.
+    /// Parse all TLS bytes read so far.
+    ///
+    /// If those bytes make up a ClientHello, create a rustls_accepted from them.
     ///
     /// Parameters:
     ///
@@ -232,6 +240,7 @@ impl rustls_accepted {
     }
 
     /// Get the i'th in the list of signature schemes offered in the ClientHello.
+    ///
     /// This is useful in selecting a server certificate when there are multiple
     /// available for the same server name, for instance when selecting
     /// between an RSA and an ECDSA certificate.
@@ -443,13 +452,17 @@ box_castable! {
 }
 
 impl rustls_accepted_alert {
-    /// Write some TLS bytes (an alert) to the network. The actual network I/O is
-    /// performed by `callback`, which you provide. Rustls will invoke your callback with a
-    /// suitable buffer containing TLS bytes to send. You don't have to write them
-    /// all, just as many as you can in one syscall.
+    /// Write some TLS bytes (an alert) to the network.
+    ///
+    /// The actual network I/O is performed by `callback`, which you provide.
+    /// Rustls will invoke your callback with a suitable buffer containing TLS
+    /// bytes to send. You don't have to write them all, just as many as you can
+    /// in one syscall.
+    ///
     /// The `userdata` parameter is passed through directly to `callback`. Note that
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
+    ///
     /// Returns 0 for success, or an errno value on error. Passes through return values
     /// from callback. See [`rustls_write_callback`] or [`AcceptedAlert`] for
     /// more details.

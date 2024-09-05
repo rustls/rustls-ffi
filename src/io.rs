@@ -4,17 +4,25 @@ use libc::{c_void, size_t};
 
 use crate::error::rustls_io_result;
 
-/// A callback for rustls_connection_read_tls.
+/// A callback for `rustls_connection_read_tls`.
+///
 /// An implementation of this callback should attempt to read up to n bytes from the
 /// network, storing them in `buf`. If any bytes were stored, the implementation should
-/// set out_n to the number of bytes stored and return 0. If there was an error,
-/// the implementation should return a nonzero rustls_io_result, which will be
-/// passed through to the caller. On POSIX systems, returning `errno` is convenient.
+/// set out_n to the number of bytes stored and return 0.
+///
+/// If there was an error, the implementation should return a nonzero rustls_io_result,
+/// which will be passed through to the caller.
+///
+/// On POSIX systems, returning `errno` is convenient.
+///
 /// On other systems, any appropriate error code works.
+///
 /// It's best to make one read attempt to the network per call. Additional reads will
 /// be triggered by subsequent calls to one of the `_read_tls` methods.
-/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
-/// cases that should be a struct that contains, at a minimum, a file descriptor.
+///
+/// `userdata` is set to the value provided to `rustls_connection_set_userdata`.
+/// In most cases that should be a struct that contains, at a minimum, a file descriptor.
+///
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_read_callback = Option<
     unsafe extern "C" fn(
@@ -49,17 +57,27 @@ impl Read for CallbackReader {
     }
 }
 
-/// A callback for rustls_connection_write_tls or rustls_accepted_alert_write_tls.
+/// A callback for `rustls_connection_write_tls` or `rustls_accepted_alert_write_tls`.
+///
 /// An implementation of this callback should attempt to write the `n` bytes in buf
-/// to the network. If any bytes were written, the implementation should
-/// set out_n to the number of bytes stored and return 0. If there was an error,
-/// the implementation should return a nonzero rustls_io_result, which will be
-/// passed through to the caller. On POSIX systems, returning `errno` is convenient.
+/// to the network.
+///
+/// If any bytes were written, the implementation should set `out_n` to the number of
+/// bytes stored and return 0.
+///
+/// If there was an error, the implementation should return a nonzero `rustls_io_result`,
+/// which will be passed through to the caller.
+///
+/// On POSIX systems, returning `errno` is convenient.
+///
 /// On other systems, any appropriate error code works.
+///
 /// It's best to make one write attempt to the network per call. Additional writes will
 /// be triggered by subsequent calls to rustls_connection_write_tls.
+///
 /// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
+///
 /// The buf and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_write_callback = Option<
     unsafe extern "C" fn(
@@ -98,26 +116,37 @@ impl Write for CallbackWriter {
     }
 }
 
-/// An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows. You should cast
-/// `const struct rustls_iovec *` to `const struct iovec *` on Unix, or `const *LPWSABUF`
-/// on Windows. See [`std::io::IoSlice`] for details on interoperability with platform
-/// specific vectored IO.
+/// An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows.
+///
+/// You should cast `const struct rustls_iovec *` to `const struct iovec *` on
+/// Unix, or `const *LPWSABUF` on Windows. See [`std::io::IoSlice`] for details
+/// on interoperability with platform specific vectored IO.
 pub struct rustls_iovec {
     _private: [u8; 0],
 }
 
-/// A callback for rustls_connection_write_tls_vectored.
+/// A callback for `rustls_connection_write_tls_vectored`.
+///
 /// An implementation of this callback should attempt to write the bytes in
-/// the given `count` iovecs to the network. If any bytes were written,
-/// the implementation should set out_n to the number of bytes written and return 0.
+/// the given `count` iovecs to the network.
+///
+/// If any bytes were written, the implementation should set out_n to the number of
+/// bytes written and return 0.
+///
 /// If there was an error, the implementation should return a nonzero rustls_io_result,
-/// which will be passed through to the caller. On POSIX systems, returning `errno` is convenient.
+/// which will be passed through to the caller.
+///
+/// On POSIX systems, returning `errno` is convenient.
+///
 /// On other systems, any appropriate error code works.
+///
 /// It's best to make one write attempt to the network per call. Additional write will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
+///
 /// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
-/// The buf and out_n pointers are borrowed and should not be retained across calls.
+///
+/// The iov and out_n pointers are borrowed and should not be retained across calls.
 pub type rustls_write_vectored_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,

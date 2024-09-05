@@ -65,6 +65,7 @@ ref_castable! {
 impl rustls_supported_ciphersuite {
     /// Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
     /// <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+    ///
     /// The bytes from the assignment are interpreted in network order.
     #[no_mangle]
     pub extern "C" fn rustls_supported_ciphersuite_get_suite(
@@ -81,10 +82,11 @@ impl rustls_supported_ciphersuite {
     }
 }
 
-/// Returns the name of the ciphersuite as a `rustls_str`. If the provided
-/// ciphersuite is invalid, the rustls_str will contain the empty string. The
-/// lifetime of the `rustls_str` is the lifetime of the program, it does not
-/// need to be freed.
+/// Returns the name of the ciphersuite as a `rustls_str`.
+///
+/// If the provided ciphersuite is invalid, the `rustls_str` will contain the
+/// empty string. The lifetime of the `rustls_str` is the lifetime of the program,
+/// it does not need to be freed.
 #[no_mangle]
 pub extern "C" fn rustls_supported_ciphersuite_get_name(
     supported_ciphersuite: *const rustls_supported_ciphersuite,
@@ -103,10 +105,12 @@ pub extern "C" fn rustls_all_ciphersuites_len() -> usize {
     ALL_CIPHER_SUITES.len()
 }
 
-/// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
-/// for i < rustls_all_ciphersuites_len().
-/// The returned pointer is valid for the lifetime of the program and may be used directly when
-/// building a ClientConfig or ServerConfig.
+/// Get a pointer to a member of rustls' list of supported cipher suites.
+///
+/// This will return non-NULL for i < rustls_all_ciphersuites_len().
+///
+/// The returned pointer is valid for the lifetime of the program and may
+/// be used directly when building a ClientConfig or ServerConfig.
 #[no_mangle]
 pub extern "C" fn rustls_all_ciphersuites_get_entry(
     i: size_t,
@@ -123,10 +127,12 @@ pub extern "C" fn rustls_default_ciphersuites_len() -> usize {
     DEFAULT_CIPHER_SUITES.len()
 }
 
-/// Get a pointer to a member of rustls' list of supported cipher suites. This will return non-NULL
-/// for i < rustls_default_ciphersuites_len().
-/// The returned pointer is valid for the lifetime of the program and may be used directly when
-/// building a ClientConfig or ServerConfig.
+/// Get a pointer to a member of rustls' list of supported cipher suites.
+///
+/// This will return non-NULL for i < rustls_default_ciphersuites_len().
+///
+/// The returned pointer is valid for the lifetime of the program and may
+/// be used directly when building a ClientConfig or ServerConfig.
 #[no_mangle]
 pub extern "C" fn rustls_default_ciphersuites_get_entry(
     i: size_t,
@@ -137,10 +143,11 @@ pub extern "C" fn rustls_default_ciphersuites_get_entry(
     }
 }
 
-/// Rustls' list of supported cipher suites. This is an array of pointers, and
-/// its length is given by `RUSTLS_ALL_CIPHER_SUITES_LEN`. The pointers will
-/// always be valid. The contents and order of this array may change between
-/// releases.
+/// Rustls' list of supported cipher suites.
+///
+/// This is an array of pointers, and its length is given by
+/// `RUSTLS_ALL_CIPHER_SUITES_LEN`. The pointers will always be valid.
+/// The contents and order of this array may change between releases.
 #[no_mangle]
 pub static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
     &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
@@ -167,10 +174,11 @@ pub static mut RUSTLS_ALL_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9
 #[no_mangle]
 pub static RUSTLS_ALL_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_ALL_CIPHER_SUITES.len() };
 
-/// Rustls' list of default cipher suites. This is an array of pointers, and
-/// its length is given by `RUSTLS_DEFAULT_CIPHER_SUITES_LEN`. The pointers
-/// will always be valid. The contents and order of this array may change
-/// between releases.
+/// Rustls' list of default cipher suites.
+///
+/// This is an array of pointers, and its length is given by
+/// `RUSTLS_DEFAULT_CIPHER_SUITES_LEN`. The pointers will always be valid.
+/// The contents and order of this array may change between releases.
 #[no_mangle]
 pub static mut RUSTLS_DEFAULT_CIPHER_SUITES: [*const rustls_supported_ciphersuite; 9] = [
     &rustls::crypto::ring::cipher_suite::TLS13_AES_256_GCM_SHA384 as *const SupportedCipherSuite
@@ -200,6 +208,7 @@ pub static RUSTLS_DEFAULT_CIPHER_SUITES_LEN: usize = unsafe { RUSTLS_DEFAULT_CIP
 arc_castable! {
     /// The complete chain of certificates to send during a TLS handshake,
     /// plus a private key that matches the end-entity (leaf) certificate.
+    ///
     /// Corresponds to `CertifiedKey` in the Rust API.
     /// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
     pub struct rustls_certified_key(CertifiedKey);
@@ -207,6 +216,7 @@ arc_castable! {
 
 impl rustls_certified_key {
     /// Build a `rustls_certified_key` from a certificate chain and a private key.
+    ///
     /// `cert_chain` must point to a buffer of `cert_chain_len` bytes, containing
     /// a series of PEM-encoded certificates, with the end-entity (leaf)
     /// certificate first.
@@ -262,8 +272,10 @@ impl rustls_certified_key {
         }
     }
 
-    /// Return the i-th rustls_certificate in the rustls_certified_key. 0 gives the
-    /// end-entity certificate. 1 and higher give certificates from the chain.
+    /// Return the i-th rustls_certificate in the rustls_certified_key.
+    ///
+    /// 0 gives the end-entity certificate. 1 and higher give certificates from the chain.
+    ///
     /// Indexes higher than the last available certificate return NULL.
     ///
     /// The returned certificate is valid until the rustls_certified_key is freed.
@@ -282,8 +294,11 @@ impl rustls_certified_key {
     }
 
     /// Create a copy of the rustls_certified_key with the given OCSP response data
-    /// as DER encoded bytes. The OCSP response may be given as NULL to clear any
-    /// possibly present OCSP data from the cloned key.
+    /// as DER encoded bytes.
+    ///
+    /// The OCSP response may be given as NULL to clear any possibly present OCSP
+    /// data from the cloned key.
+    ///
     /// The cloned key is independent from its original and needs to be freed
     /// by the application.
     #[no_mangle]
@@ -312,11 +327,13 @@ impl rustls_certified_key {
         }
     }
 
-    /// "Free" a certified_key previously returned from
-    /// rustls_certified_key_build. Since certified_key is actually an
-    /// atomically reference-counted pointer, extant certified_key may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
+    /// "Free" a certified_key previously returned from `rustls_certified_key_build`.
+    ///
+    /// Since certified_key is actually an atomically reference-counted pointer,
+    /// extant certified_key may still hold an internal reference to the Rust object.
+    ///
+    /// However, C code must consider this pointer unusable after "free"ing it.
+    ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_free(key: *const rustls_certified_key) {
@@ -528,8 +545,9 @@ impl rustls_root_cert_store_builder {
     }
 
     /// Free a `rustls_root_cert_store_builder` previously returned from
-    /// `rustls_root_cert_store_builder_new`. Calling with NULL is fine. Must not be
-    /// called twice with the same value.
+    /// `rustls_root_cert_store_builder_new`.
+    ///
+    /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_builder_free(
         builder: *mut rustls_root_cert_store_builder,
@@ -548,6 +566,7 @@ arc_castable! {
 
 impl rustls_root_cert_store {
     /// Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
+    ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_free(store: *const rustls_root_cert_store) {
@@ -590,11 +609,14 @@ pub(crate) struct ClientCertVerifierBuilder {
 }
 
 box_castable! {
-    /// A client certificate verifier being constructed. A builder can be modified by,
-    /// e.g. `rustls_web_pki_client_cert_verifier_builder_add_crl`. Once you're
-    /// done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
-    /// to turn it into a `rustls_client_cert_verifier`. This object is not safe
-    /// for concurrent mutation.
+    /// A client certificate verifier being constructed.
+    ///
+    /// A builder can be modified by, e.g. `rustls_web_pki_client_cert_verifier_builder_add_crl`.
+    ///
+    /// Once you're done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
+    /// to turn it into a `rustls_client_cert_verifier`.
+    ///
+    /// This object is not safe for concurrent mutation.
     ///
     /// See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>
     /// for more information.
@@ -602,9 +624,10 @@ box_castable! {
 }
 
 impl rustls_web_pki_client_cert_verifier_builder {
-    /// Create a `rustls_web_pki_client_cert_verifier_builder`. Caller owns the memory and may
-    /// eventually call `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
-    /// not `rustls_web_pki_client_cert_verifier_builder_build` was called.
+    /// Create a `rustls_web_pki_client_cert_verifier_builder`.
+    ///
+    /// Caller owns the memory and may eventually call `rustls_web_pki_client_cert_verifier_builder_free`
+    /// to free it, whether or not `rustls_web_pki_client_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a client certificate verifier that
     /// will require a client present a client certificate that chains to one of the trust anchors
@@ -838,8 +861,9 @@ impl rustls_web_pki_client_cert_verifier_builder {
     }
 
     /// Free a `rustls_client_cert_verifier_builder` previously returned from
-    /// `rustls_client_cert_verifier_builder_new`. Calling with NULL is fine. Must not be
-    /// called twice with the same value.
+    /// `rustls_client_cert_verifier_builder_new`.
+    ///
+    /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_free(
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
@@ -851,11 +875,12 @@ impl rustls_web_pki_client_cert_verifier_builder {
 }
 
 box_castable! {
-    /// A server certificate verifier being constructed. A builder can be modified by,
-    /// e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`. Once you're
-    /// done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
-    /// to turn it into a `rustls_server_cert_verifier`. This object is not safe
-    /// for concurrent mutation.
+    /// A server certificate verifier being constructed.
+    ///
+    /// A builder can be modified by, e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`.
+    ///
+    /// Once you're done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
+    /// to turn it into a `rustls_server_cert_verifier`. This object is not safe for concurrent mutation.
     ///
     /// See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>
     /// for more information.
@@ -870,9 +895,10 @@ pub(crate) struct ServerCertVerifierBuilder {
 }
 
 impl ServerCertVerifierBuilder {
-    /// Create a `rustls_web_pki_server_cert_verifier_builder`. Caller owns the memory and may
-    /// free it with `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
-    /// `rustls_web_pki_server_cert_verifier_builder_build` was called.
+    /// Create a `rustls_web_pki_server_cert_verifier_builder`.
+    ///
+    /// Caller owns the memory and may free it with `rustls_web_pki_server_cert_verifier_builder_free`,
+    /// regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a server certificate verifier that
     /// will require a server present a certificate that chains to one of the trust anchors
@@ -1031,8 +1057,9 @@ impl ServerCertVerifierBuilder {
     }
 
     /// Free a `rustls_server_cert_verifier_builder` previously returned from
-    /// `rustls_server_cert_verifier_builder_new`. Calling with NULL is fine. Must not be
-    /// called twice with the same value.
+    /// `rustls_server_cert_verifier_builder_new`.
+    ///
+    /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_free(
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
@@ -1076,6 +1103,7 @@ impl rustls_server_cert_verifier {
 
     /// Free a `rustls_server_cert_verifier` previously returned from
     /// `rustls_server_cert_verifier_builder_build` or `rustls_platform_server_cert_verifier`.
+    ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_server_cert_verifier_free(verifier: *mut rustls_server_cert_verifier) {

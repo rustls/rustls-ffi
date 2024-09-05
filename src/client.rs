@@ -28,9 +28,10 @@ use crate::{
 };
 
 box_castable! {
-    /// A client config being constructed. A builder can be modified by,
-    /// e.g. rustls_client_config_builder_load_roots_from_file. Once you're
-    /// done configuring settings, call rustls_client_config_builder_build
+    /// A client config being constructed.
+    ///
+    /// A builder can be modified by, e.g. `rustls_client_config_builder_load_roots_from_file`.
+    /// Once you're done configuring settings, call `rustls_client_config_builder_build`
     /// to turn it into a *rustls_client_config.
     ///
     /// Alternatively, if an error occurs or, you don't wish to build a config,
@@ -52,6 +53,7 @@ pub(crate) struct ClientConfigBuilder {
 
 arc_castable! {
     /// A client config that is done being constructed and is now read-only.
+    ///
     /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
     /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
     pub struct rustls_client_config(ClientConfig);
@@ -98,9 +100,10 @@ impl ServerCertVerifier for NoneVerifier {
 }
 
 impl rustls_client_config_builder {
-    /// Create a rustls_client_config_builder. Caller owns the memory and must
-    /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config.
+    /// Create a rustls_client_config_builder.
+    ///
+    /// Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
+    /// then free the resulting `rustls_client_config`.
     ///
     /// Alternatively, if an error occurs or, you don't wish to build a config,
     /// call `rustls_client_config_builder_free` to free the builder directly.
@@ -132,9 +135,10 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Create a rustls_client_config_builder. Caller owns the memory and must
-    /// eventually call rustls_client_config_builder_build, then free the
-    /// resulting rustls_client_config.
+    /// Create a rustls_client_config_builder.
+    ///
+    /// Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
+    /// then free the resulting `rustls_client_config`.
     ///
     /// Alternatively, if an error occurs or, you don't wish to build a config,
     /// call `rustls_client_config_builder_free` to free the builder directly.
@@ -213,8 +217,9 @@ impl rustls_client_config_builder {
     }
 }
 
-/// Input to a custom certificate verifier callback. See
-/// rustls_client_config_builder_dangerous_set_certificate_verifier().
+/// Input to a custom certificate verifier callback.
+///
+/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
 ///
 /// server_name can contain a hostname, an IPv4 address in textual form, or an
 /// IPv6 address in textual form.
@@ -227,8 +232,9 @@ pub struct rustls_verify_server_cert_params<'a> {
     pub ocsp_response: rustls_slice_bytes<'a>,
 }
 
-/// User-provided input to a custom certificate verifier callback. See
-/// rustls_client_config_builder_dangerous_set_certificate_verifier().
+/// User-provided input to a custom certificate verifier callback.
+///
+/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
 #[allow(non_camel_case_types)]
 pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
 
@@ -401,11 +407,15 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Set the ALPN protocol list to the given protocols. `protocols` must point
-    /// to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
-    /// elements. Each element of the buffer must be a rustls_slice_bytes whose
-    /// data field points to a single ALPN protocol ID. Standard ALPN protocol
-    /// IDs are defined at
+    /// Set the ALPN protocol list to the given protocols.
+    ///
+    /// `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
+    /// elements.
+    ///
+    /// Each element of the buffer must be a rustls_slice_bytes whose
+    /// data field points to a single ALPN protocol ID.
+    ///
+    /// Standard ALPN protocol IDs are defined at
     /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
     ///
     /// This function makes a copy of the data in `protocols` and does not retain
@@ -447,8 +457,10 @@ impl rustls_client_config_builder {
 
     /// Provide the configuration a list of certificates where the connection
     /// will select the first one that is compatible with the server's signature
-    /// verification capabilities. Clients that want to support both ECDSA and
-    /// RSA certificates will want the ECSDA to go first in the list.
+    /// verification capabilities.
+    ///
+    /// Clients that want to support both ECDSA and RSA certificates will want the
+    /// ECSDA to go first in the list.
     ///
     /// The built configuration will keep a reference to all certified keys
     /// provided. The client may `rustls_certified_key_free()` afterwards
@@ -526,8 +538,10 @@ impl rustls_client_config_builder {
     }
 
     /// "Free" a client_config_builder without building it into a rustls_client_config.
+    ///
     /// Normally builders are built into rustls_client_config via `rustls_client_config_builder_build`
     /// and may not be free'd or otherwise used afterwards.
+    ///
     /// Use free only when the building of a config has to be aborted before a config
     /// was created.
     #[no_mangle]
@@ -539,11 +553,14 @@ impl rustls_client_config_builder {
 }
 
 impl rustls_client_config {
-    /// "Free" a rustls_client_config previously returned from
-    /// rustls_client_config_builder_build. Since rustls_client_config is actually an
-    /// atomically reference-counted pointer, extant client connections may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
+    /// "Free" a `rustls_client_config` previously returned from
+    /// `rustls_client_config_builder_build`.
+    ///
+    /// Since `rustls_client_config` is actually an atomically reference-counted pointer,
+    /// extant client connections may still hold an internal reference to the Rust object.
+    ///
+    /// However, C code must consider this pointer unusable after "free"ing it.
+    ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_free(config: *const rustls_client_config) {
@@ -553,11 +570,14 @@ impl rustls_client_config {
     }
 
     /// Create a new rustls_connection containing a client connection and return
-    /// it in the output parameter `out`. If this returns an error code, the
-    /// memory pointed to by `conn_out` remains unchanged. If this returns a
-    /// non-error, the memory pointed to by `conn_out` is modified to point at a
-    /// valid rustls_connection. The caller now owns the rustls_connection and must
-    /// call `rustls_connection_free` when done with it.
+    /// it in the output parameter `conn_out`.
+    ///
+    /// If this returns an error code, the memory pointed to by `conn_out` remains
+    /// unchanged.
+    ///
+    /// If this returns a non-error, the memory pointed to by `conn_out`
+    /// is modified to point at a valid `rustls_connection`.  The caller now owns
+    /// the `rustls_connection` and must call `rustls_connection_free` when done with it.
     ///
     /// The server_name parameter can contain a hostname or an IP address in
     /// textual form (IPv4 or IPv6). This function will return an error if it
