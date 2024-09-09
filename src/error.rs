@@ -62,6 +62,7 @@ u32_enum_builder! {
         CertificateRevocationListParseError => 7014,
         NoServerCertVerifier => 7015,
         NoDefaultCryptoProvider => 7016,
+        GetRandomFailed => 7017,
 
         // From https://docs.rs/rustls/latest/rustls/enum.Error.html
         NoCertificatesPresented => 7101,
@@ -494,6 +495,9 @@ impl Display for rustls_result {
                     f,
                     "no default process-wide crypto provider has been installed"
                 )
+            }
+            GetRandomFailed => {
+                write!(f, "failed to get random bytes from the crypto provider")
             }
 
             CertEncodingBad => Error::InvalidCertificate(CertificateError::BadEncoding).fmt(f),
