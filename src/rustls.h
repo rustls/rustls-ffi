@@ -25,6 +25,7 @@ enum rustls_result {
   RUSTLS_RESULT_CERTIFICATE_REVOCATION_LIST_PARSE_ERROR = 7014,
   RUSTLS_RESULT_NO_SERVER_CERT_VERIFIER = 7015,
   RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER = 7016,
+  RUSTLS_RESULT_GET_RANDOM_FAILED = 7017,
   RUSTLS_RESULT_NO_CERTIFICATES_PRESENTED = 7101,
   RUSTLS_RESULT_DECRYPT_ERROR = 7102,
   RUSTLS_RESULT_FAILED_TO_GET_CURRENT_TIME = 7103,
@@ -2054,6 +2055,18 @@ rustls_result rustls_crypto_provider_load_key(const struct rustls_crypto_provide
                                               struct rustls_signing_key **signing_key_out);
 
 /**
+ * Write `len` bytes of cryptographically secure random data to `buff` using the crypto provider.
+ *
+ * `buff` must point to a buffer of at least `len` bytes. The caller maintains ownership
+ * of the buffer.
+ *
+ * Returns `RUSTLS_RESULT_OK` on success, or `RUSTLS_RESULT_GET_RANDOM_FAILED` on failure.
+ */
+rustls_result rustls_crypto_provider_random(const struct rustls_crypto_provider *provider,
+                                            uint8_t *buff,
+                                            size_t len);
+
+/**
  * Frees the `rustls_crypto_provider`.
  *
  * Calling with `NULL` is fine.
@@ -2081,6 +2094,18 @@ size_t rustls_default_crypto_provider_ciphersuites_len(void);
  * default provider lives for as long as the process.
  */
 const struct rustls_supported_ciphersuite *rustls_default_crypto_provider_ciphersuites_get(size_t index);
+
+/**
+ * Write `len` bytes of cryptographically secure random data to `buff` using the process-wide
+ * default crypto provider.
+ *
+ * `buff` must point to a buffer of at least `len` bytes. The caller maintains ownership
+ * of the buffer.
+ *
+ * Returns `RUSTLS_RESULT_OK` on success, and one of `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER`
+ * or `RUSTLS_RESULT_GET_RANDOM_FAILED` on failure.
+ */
+rustls_result rustls_default_crypto_provider_random(uint8_t *buff, size_t len);
 
 /**
  * Frees the `rustls_signing_key`. This is safe to call with a `NULL` argument, but

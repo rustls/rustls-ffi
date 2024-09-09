@@ -16,7 +16,8 @@ use crate::error::map_error;
 use crate::{
     arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, rustls_result,
     set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr,
-    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_take,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_slice_mut,
+    try_take,
 };
 
 box_castable! {
@@ -338,6 +339,29 @@ pub extern "C" fn rustls_crypto_provider_load_key(
     }
 }
 
+/// Write `len` bytes of cryptographically secure random data to `buff` using the crypto provider.
+///
+/// `buff` must point to a buffer of at least `len` bytes. The caller maintains ownership
+/// of the buffer.
+///
+/// Returns `RUSTLS_RESULT_OK` on success, or `RUSTLS_RESULT_GET_RANDOM_FAILED` on failure.
+#[no_mangle]
+pub extern "C" fn rustls_crypto_provider_random(
+    provider: *const rustls_crypto_provider,
+    buff: *mut u8,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        match try_clone_arc!(provider)
+            .secure_random
+            .fill(try_slice_mut!(buff, len))
+        {
+            Ok(_) => rustls_result::Ok,
+            Err(_) => rustls_result::GetRandomFailed,
+        }
+    }
+}
+
 /// Frees the `rustls_crypto_provider`.
 ///
 /// Calling with `NULL` is fine.
@@ -384,6 +408,30 @@ pub extern "C" fn rustls_default_crypto_provider_ciphersuites_get(
         match default_provider.cipher_suites.get(index) {
             Some(ciphersuite) => ciphersuite as *const SupportedCipherSuite as *const _,
             None => core::ptr::null(),
+        }
+    }
+}
+
+/// Write `len` bytes of cryptographically secure random data to `buff` using the process-wide
+/// default crypto provider.
+///
+/// `buff` must point to a buffer of at least `len` bytes. The caller maintains ownership
+/// of the buffer.
+///
+/// Returns `RUSTLS_RESULT_OK` on success, and one of `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER`
+/// or `RUSTLS_RESULT_GET_RANDOM_FAILED` on failure.
+#[no_mangle]
+pub extern "C" fn rustls_default_crypto_provider_random(
+    buff: *mut u8,
+    len: size_t,
+) -> rustls_result {
+    ffi_panic_boundary! {
+        match get_default_or_install_from_crate_features() {
+            Some(provider) => match provider.secure_random.fill(try_slice_mut!(buff, len)) {
+                Ok(_) => rustls_result::Ok,
+                Err(_) => rustls_result::GetRandomFailed,
+            },
+            None => rustls_result::NoDefaultCryptoProvider,
         }
     }
 }
@@ -444,4 +492,50 @@ fn provider_from_crate_features() -> Option<CryptoProvider> {
     // crate features.
     #[allow(unreachable_code)]
     None
+}
+
+#[cfg(all(test, not(miri)))]
+mod tests {
+    use std::ptr;
+
+    use super::*;
+    use rustls_result;
+
+    /// Simple smoketest of CSRNG fill with specific provider.
+    #[test]
+    fn random_data() {
+        let provider = rustls_crypto_provider_default();
+        assert!(!provider.is_null());
+
+        // NULL buffer should return an error.
+        let result = rustls_crypto_provider_random(provider, ptr::null_mut(), 1337);
+        assert_eq!(result, rustls_result::NullParameter);
+
+        let mut buff = vec![0; 32];
+
+        // NULL provider should return an error and not touch buff.
+        let result = rustls_crypto_provider_random(ptr::null(), buff.as_mut_ptr(), buff.len());
+        assert_eq!(buff, vec![0; 32]);
+        assert_eq!(result, rustls_result::NullParameter);
+
+        // Proper parameters should return OK and overwrite the buffer.
+        let result = rustls_crypto_provider_random(provider, buff.as_mut_ptr(), buff.len());
+        assert_eq!(result, rustls_result::Ok);
+        assert_ne!(buff, vec![0; 32]);
+    }
+
+    /// Simple smoketest of CSRNG fill with default provider.
+    #[test]
+    fn default_random_data() {
+        // NULL buffer should return an error.
+        let result = rustls_default_crypto_provider_random(ptr::null_mut(), 1337);
+        assert_eq!(result, rustls_result::NullParameter);
+
+        let mut buff = vec![0; 32];
+
+        // Proper parameters should return OK and overwrite the buffer.
+        let result = rustls_default_crypto_provider_random(buff.as_mut_ptr(), buff.len());
+        assert_eq!(result, rustls_result::Ok);
+        assert_ne!(buff, vec![0; 32]);
+    }
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.14.0 (2024-08-01)
+## 0.14.0-rc1 (2024-09-09)
 
 This release updates to [Rustls 0.23.12][] and changes the rustls-ffi API to allow
 choosing a cryptography provider to use with Rustls. 
@@ -30,6 +30,9 @@ requirements.
   * Ciphersuites supported by the current process-wide default crypto provider (if any) can
     be retrieved with `rustls_default_crypto_provider_ciphersuites_len()` and 
     `rustls_default_crypto_provider_ciphersuites_get()`.
+  * A buffer can be filled with cryptographically secure random data from
+    a specific `rustls_crypto_provider` using `rustls_crypto_provider_random()`,
+    or the process-wide default provider using `rustls_default_crypto_provider_random()`.
 
 * A new `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` `rustls_result` was added to
   indicate when an operation that requires a process-wide default crypto
