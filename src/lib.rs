@@ -679,6 +679,18 @@ macro_rules! try_slice {
 
 pub(crate) use try_slice;
 
+macro_rules! try_slice_mut {
+    ( $ptr:expr, $count:expr ) => {
+        if $ptr.is_null() {
+            return $crate::panic::NullParameterOrDefault::value();
+        } else {
+            unsafe { slice::from_raw_parts_mut($ptr, $count) }
+        }
+    };
+}
+
+pub(crate) use try_slice_mut;
+
 macro_rules! try_callback {
     ( $var:ident ) => {
         match $var {
