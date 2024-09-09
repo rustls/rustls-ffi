@@ -258,18 +258,6 @@ jobs:
       - name: Clang tidy
         run: clang-tidy tests/*.c -- -I src/
 
-  cargo-c:
-    name: cargo-c
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-
-
   miri:
     name: Miri
     runs-on: ubuntu-latest
