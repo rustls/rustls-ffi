@@ -17,7 +17,7 @@ use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::rslice::rustls_str;
 use crate::{
     box_castable, ffi_panic_boundary, free_box, try_callback, try_mut_from_ptr, try_ref_from_ptr,
-    try_slice, userdata_push,
+    try_slice, try_slice_mut, userdata_push,
 };
 
 use rustls_result::NullParameter;
@@ -491,7 +491,7 @@ impl rustls_connection {
 
             // Safety: the memory pointed at by buf must be initialized
             // (required by documentation of this function).
-            let read_buf = unsafe { slice::from_raw_parts_mut(buf, count) };
+            let read_buf = try_slice_mut!(buf, count);
 
             let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
@@ -536,9 +536,7 @@ impl rustls_connection {
             if buf.is_null() || out_n.is_null() {
                 return NullParameter;
             }
-            let read_buf = unsafe { slice::from_raw_parts_mut(buf, count) };
-
-            let mut read_buf: std::io::BorrowedBuf<'_> = read_buf.into();
+            let mut read_buf: std::io::BorrowedBuf<'_> = try_slice_mut!(buf, count).into();
 
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
