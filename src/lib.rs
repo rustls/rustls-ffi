@@ -672,7 +672,7 @@ macro_rules! try_slice {
         if $ptr.is_null() {
             return $crate::panic::NullParameterOrDefault::value();
         } else {
-            unsafe { slice::from_raw_parts($ptr, $count as usize) }
+            unsafe { slice::from_raw_parts($ptr, $count) }
         }
     };
 }
