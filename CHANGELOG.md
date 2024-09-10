@@ -81,6 +81,10 @@ requirements.
       a `rustls_client_config_builder` with
       `rustls_client_config_builder_set_server_verifier()`.
 
+* A new `rustls_supported_ciphersuite_protocol_version()` function was added for
+  getting the `rustls_tls_version` IANA registered protocol version identifier
+  supported by a given `rustls_supported_ciphersuite`.
+
 * When using `aws-lc-rs` as the crypto provider, NIST P-521 signatures are now
   supported.
 
