@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.14.0-rc1 (2024-09-09)
+## 0.14.0-rc1 (pending)
 
-This release updates to [Rustls 0.23.12][] and changes the rustls-ffi API to allow
+This release updates to [Rustls 0.23.13][] and changes the rustls-ffi API to allow
 choosing a cryptography provider to use with Rustls. 
 
 The default provider has been changed to match the Rustls default,
@@ -10,7 +10,7 @@ The default provider has been changed to match the Rustls default,
 opt-in. See the `README` for more detail on supported platforms and build
 requirements.
 
-[Rustls 0.23.12]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.12
+[Rustls 0.23.13]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.13
 [`aws-lc-rs`]: https://github.com/aws/aws-lc-rs
 
 ### Added
