@@ -19,6 +19,7 @@ use rustls_pemfile::{certs, crls};
 use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::crypto_provider::{rustls_crypto_provider, rustls_signing_key};
+use crate::enums::rustls_tls_version;
 use crate::error::{self, map_error, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::{
@@ -97,6 +98,18 @@ pub extern "C" fn rustls_supported_ciphersuite_get_name(
     match rustls_str::try_from(s) {
         Ok(s) => s,
         Err(_) => rustls_str::from_str_unchecked(""),
+    }
+}
+
+/// Returns the `rustls_tls_version` of the ciphersuite.
+///
+/// See also `RUSTLS_ALL_VERSIONS`.
+#[no_mangle]
+pub extern "C" fn rustls_supported_ciphersuite_protocol_version(
+    supported_ciphersuite: *const rustls_supported_ciphersuite,
+) -> rustls_tls_version {
+    ffi_panic_boundary! {
+        rustls_tls_version::from(try_ref_from_ptr!(supported_ciphersuite).version())
     }
 }
 
@@ -1162,7 +1175,8 @@ mod tests {
             let suite = rustls_default_crypto_provider_ciphersuites_get(i);
             let name = rustls_supported_ciphersuite_get_name(suite);
             let name = unsafe { name.to_str() };
-            println!("{}: {}", i, name);
+            let proto = rustls_supported_ciphersuite_protocol_version(suite);
+            println!("{}: {} {:?}", i, name, proto);
         }
     }
 }

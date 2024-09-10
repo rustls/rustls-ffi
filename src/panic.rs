@@ -1,5 +1,6 @@
 use libc::EINVAL;
 
+use crate::enums::rustls_tls_version;
 use crate::error::{rustls_io_result, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 
@@ -28,9 +29,15 @@ pub(crate) trait NullParameterOrDefault {
 pub(crate) trait Defaultable: Default {}
 
 impl Defaultable for u16 {}
+
 impl Defaultable for usize {}
+
 impl Defaultable for bool {}
+
 impl Defaultable for () {}
+
+impl Defaultable for rustls_tls_version {}
+
 impl<T> Defaultable for Option<T> {}
 
 impl<'a> Defaultable for rustls_slice_bytes<'a> {}

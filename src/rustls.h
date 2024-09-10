@@ -128,6 +128,7 @@ typedef uint32_t rustls_result;
  * Definitions of known TLS protocol versions.
  */
 typedef enum rustls_tls_version {
+  RUSTLS_TLS_VERSION_UNKNOWN = 0,
   RUSTLS_TLS_VERSION_SSLV2 = 512,
   RUSTLS_TLS_VERSION_SSLV3 = 768,
   RUSTLS_TLS_VERSION_TLSV1_0 = 769,
@@ -1017,6 +1018,13 @@ uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ci
  * it does not need to be freed.
  */
 struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
+
+/**
+ * Returns the `rustls_tls_version` of the ciphersuite.
+ *
+ * See also `RUSTLS_ALL_VERSIONS`.
+ */
+enum rustls_tls_version rustls_supported_ciphersuite_protocol_version(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
  * Build a `rustls_certified_key` from a certificate chain and a private key
