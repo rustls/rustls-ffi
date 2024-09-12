@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "rustls-ffi"
-version = "0.14.0-rc1"
+version = "0.14.0"
 dependencies = [
  "libc",
  "log",

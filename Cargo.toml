@@ -1,6 +1,6 @@
 [package]
 name = "rustls-ffi"
-version = "0.14.0-rc1"
+version = "0.14.0"
 license = "Apache-2.0 OR ISC OR MIT"
 readme = "README-crates.io.md"
 description = "Rustls bindings for non-Rust languages"
