@@ -443,6 +443,61 @@ cleanup:
   return custom_provider;
 }
 
+// hex encode the given data buffer, returning a new NULL terminated buffer
+// with the result, or NULL if memory allocation fails.
+//
+// Caller owns the returned buffer and must free it.
+static char *
+hex_encode(const unsigned char *data, size_t len)
+{
+  // Two output chars per input char, plus the NULL terminator.
+  char *hex_str = (char *)malloc((len * 2) + 1);
+  if(!hex_str) {
+    return NULL;
+  }
+
+  for(size_t i = 0; i < len; i++) {
+    snprintf(hex_str + (i * 2), 3, "%02x", data[i]);
+  }
+
+  hex_str[len * 2] = '\0';
+  return hex_str;
+}
+
+void
+stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
+                  size_t client_random_len, const unsigned char *secret,
+                  size_t secret_len)
+{
+  char *client_random_str = NULL;
+  char *secret_str = NULL;
+
+  client_random_str = hex_encode(client_random, client_random_len);
+  if(client_random_str == NULL) {
+    goto cleanup;
+  }
+
+  secret_str = hex_encode(secret, secret_len);
+  if(secret_str == NULL) {
+    goto cleanup;
+  }
+
+  fprintf(stderr,
+          "SSLKEYLOG: label=%.*s client_random=%s secret=%s\n",
+          (int)label.len,
+          label.data,
+          client_random_str,
+          secret_str);
+
+cleanup:
+  if(client_random_str != NULL) {
+    free(client_random_str);
+  }
+  if(secret_str != NULL) {
+    free(secret_str);
+  }
+}
+
 // TLS 1.2 and TLS 1.3, matching Rustls default.
 const uint16_t default_tls_versions[] = { 0x0303, 0x0304 };
 

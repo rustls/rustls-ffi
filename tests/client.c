@@ -506,6 +506,22 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
+  if(getenv("SSLKEYLOGFILE")) {
+    result = rustls_client_config_builder_set_key_log_file(config_builder);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", result);
+      goto cleanup;
+    }
+  }
+  else if(getenv("STDERRKEYLOG")) {
+    result = rustls_client_config_builder_set_key_log(
+      config_builder, stderr_key_log_cb, NULL);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", result);
+      goto cleanup;
+    }
+  }
+
   char *auth_cert = getenv("AUTH_CERT");
   char *auth_key = getenv("AUTH_KEY");
   if((auth_cert && !auth_key) || (!auth_cert && auth_key)) {

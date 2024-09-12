@@ -360,6 +360,22 @@ main(int argc, const char **argv)
                                                      client_cert_verifier);
   }
 
+  if(getenv("SSLKEYLOGFILE")) {
+    result = rustls_server_config_builder_set_key_log_file(config_builder);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", result);
+      goto cleanup;
+    }
+  }
+  else if(getenv("STDERRKEYLOG")) {
+    result = rustls_server_config_builder_set_key_log(
+      config_builder, stderr_key_log_cb, NULL);
+    if(result != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", result);
+      goto cleanup;
+    }
+  }
+
   result = rustls_server_config_builder_build(config_builder, &server_config);
   if(result != RUSTLS_RESULT_OK) {
     print_error("building server config", result);

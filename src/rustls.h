@@ -499,6 +499,28 @@ typedef struct rustls_verify_server_cert_params {
 typedef uint32_t (*rustls_verify_server_cert_callback)(rustls_verify_server_cert_user_data userdata,
                                                        const struct rustls_verify_server_cert_params *params);
 
+/**
+ * An optional callback for logging key material.
+ *
+ * See the documentation on `rustls_client_config_builder_set_key_log` and
+ * `rustls_server_config_builder_set_key_log` for more information about the
+ * lifetimes of the parameters.
+ */
+typedef void (*rustls_keylog_log_callback)(struct rustls_str label,
+                                           const uint8_t *client_random,
+                                           size_t client_random_len,
+                                           const uint8_t *secret,
+                                           size_t secret_len);
+
+/**
+ * An optional callback for deciding if key material will be logged.
+ *
+ * See the documentation on `rustls_client_config_builder_set_key_log` and
+ * `rustls_server_config_builder_set_key_log` for more information about the
+ * lifetimes of the parameters.
+ */
+typedef int (*rustls_keylog_will_log_callback)(struct rustls_str label);
+
 typedef size_t rustls_log_level;
 
 typedef struct rustls_log_params {
@@ -1614,6 +1636,48 @@ rustls_result rustls_client_config_builder_set_certified_key(struct rustls_clien
                                                              size_t certified_keys_len);
 
 /**
+ * Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.
+ *
+ * The key material will be logged in the NSS key log format,
+ * <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is
+ * compatible with tools like Wireshark.
+ *
+ * Secrets logged in this manner are **extremely sensitive** and can break the security
+ * of past, present and future sessions.
+ *
+ * For more control over which secrets are logged, or to customize the format, prefer
+ * `rustls_client_config_builder_set_key_log`.
+ */
+rustls_result rustls_client_config_builder_set_key_log_file(struct rustls_client_config_builder *builder);
+
+/**
+ * Provide callbacks to manage logging key material.
+ *
+ * The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is
+ * returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,
+ * a `label` to identify the purpose of the `secret`, and the `secret` itself. See the
+ * Rustls documentation of the `KeyLog` trait for more information on possible labels:
+ * <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>
+ *
+ * The `will_log_cb` may be `NULL`, in which case all key material will be provided to
+ * the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't
+ * wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.
+ *
+ * Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as
+ * long as the callback is executing and are not valid after the callback returns. The
+ * callbacks must not retain references to the provided data.
+ *
+ * Secrets provided to the `log_cb` are **extremely sensitive** and can break the security
+ * of past, present and future sessions.
+ *
+ * See also `rustls_client_config_builder_set_key_log_file` for a simpler way to log
+ * to a file specified by the `SSLKEYLOGFILE` environment variable.
+ */
+rustls_result rustls_client_config_builder_set_key_log(struct rustls_client_config_builder *builder,
+                                                       rustls_keylog_log_callback log_cb,
+                                                       rustls_keylog_will_log_callback will_log_cb);
+
+/**
  * Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
  * (read-only).
  */
@@ -2217,6 +2281,48 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_crypto
  */
 void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
+
+/**
+ * Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.
+ *
+ * The key material will be logged in the NSS key log format,
+ * <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is
+ * compatible with tools like Wireshark.
+ *
+ * Secrets logged in this manner are **extremely sensitive** and can break the security
+ * of past, present and future sessions.
+ *
+ * For more control over which secrets are logged, or to customize the format, prefer
+ * `rustls_server_config_builder_set_key_log`.
+ */
+rustls_result rustls_server_config_builder_set_key_log_file(struct rustls_server_config_builder *builder);
+
+/**
+ * Provide callbacks to manage logging key material.
+ *
+ * The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is
+ * returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,
+ * a `label` to identify the purpose of the `secret`, and the `secret` itself. See the
+ * Rustls documentation of the `KeyLog` trait for more information on possible labels:
+ * <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>
+ *
+ * The `will_log_cb` may be `NULL`, in which case all key material will be provided to
+ * the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't
+ * wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.
+ *
+ * Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as
+ * long as the callback is executing and are not valid after the callback returns. The
+ * callbacks must not retain references to the provided data.
+ *
+ * Secrets provided to the `log_cb` are **extremely sensitive** and can break the security
+ * of past, present and future sessions.
+ *
+ * See also `rustls_server_config_builder_set_key_log_file` for a simpler way to log
+ * to a file specified by the `SSLKEYLOGFILE` environment variable.
+ */
+rustls_result rustls_server_config_builder_set_key_log(struct rustls_server_config_builder *builder,
+                                                       rustls_keylog_log_callback log_cb,
+                                                       rustls_keylog_will_log_callback will_log_cb);
 
 /**
  * "Free" a server_config_builder without building it into a rustls_server_config.

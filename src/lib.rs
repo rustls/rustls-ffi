@@ -31,6 +31,7 @@ pub mod crypto_provider;
 pub mod enums;
 mod error;
 pub mod io;
+pub mod keylog;
 pub mod log;
 mod panic;
 pub mod rslice;
