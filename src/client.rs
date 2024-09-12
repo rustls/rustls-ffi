@@ -9,8 +9,8 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::client::ResolvesClientCert;
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
 use rustls::{
-    sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error,
-    ProtocolVersion, SignatureScheme, SupportedProtocolVersion,
+    sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error, KeyLog,
+    KeyLogFile, ProtocolVersion, SignatureScheme, SupportedProtocolVersion,
 };
 
 use crate::cipher::{rustls_certified_key, rustls_server_cert_verifier};
@@ -18,6 +18,7 @@ use crate::connection::{rustls_connection, Connection};
 use crate::crypto_provider::rustls_crypto_provider;
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, map_error, rustls_result};
+use crate::keylog::{rustls_keylog_log_callback, rustls_keylog_will_log_callback, CallbackKeyLog};
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::{
@@ -50,6 +51,7 @@ pub(crate) struct ClientConfigBuilder {
     alpn_protocols: Vec<Vec<u8>>,
     enable_sni: bool,
     cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
+    key_log: Option<Arc<dyn KeyLog>>,
 }
 
 arc_castable! {
@@ -84,6 +86,7 @@ impl rustls_client_config_builder {
                 cert_resolver: None,
                 alpn_protocols: vec![],
                 enable_sni: true,
+                key_log: None,
             };
             to_boxed_mut_ptr(builder)
         }
@@ -137,6 +140,7 @@ impl rustls_client_config_builder {
                 cert_resolver: None,
                 alpn_protocols: vec![],
                 enable_sni: true,
+                key_log: None,
             };
 
             set_boxed_mut_ptr(builder_out, config_builder);
@@ -422,6 +426,71 @@ impl rustls_client_config_builder {
             rustls_result::Ok
         }
     }
+
+    /// Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.
+    ///
+    /// The key material will be logged in the NSS key log format,
+    /// <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is
+    /// compatible with tools like Wireshark.
+    ///
+    /// Secrets logged in this manner are **extremely sensitive** and can break the security
+    /// of past, present and future sessions.
+    ///
+    /// For more control over which secrets are logged, or to customize the format, prefer
+    /// `rustls_client_config_builder_set_key_log`.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_set_key_log_file(
+        builder: *mut rustls_client_config_builder,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder = try_mut_from_ptr!(builder);
+            builder.key_log = Some(Arc::new(KeyLogFile::new()));
+            rustls_result::Ok
+        }
+    }
+
+    /// Provide callbacks to manage logging key material.
+    ///
+    /// The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is
+    /// returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,
+    /// a `label` to identify the purpose of the `secret`, and the `secret` itself. See the
+    /// Rustls documentation of the `KeyLog` trait for more information on possible labels:
+    /// <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>
+    ///
+    /// The `will_log_cb` may be `NULL`, in which case all key material will be provided to
+    /// the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't
+    /// wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.
+    ///
+    /// Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as
+    /// long as the callback is executing and are not valid after the callback returns. The
+    /// callbacks must not retain references to the provided data.
+    ///
+    /// Secrets provided to the `log_cb` are **extremely sensitive** and can break the security
+    /// of past, present and future sessions.
+    ///
+    /// See also `rustls_client_config_builder_set_key_log_file` for a simpler way to log
+    /// to a file specified by the `SSLKEYLOGFILE` environment variable.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_set_key_log(
+        builder: *mut rustls_client_config_builder,
+        log_cb: rustls_keylog_log_callback,
+        will_log_cb: rustls_keylog_will_log_callback,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder = try_mut_from_ptr!(builder);
+            let log_cb = match log_cb {
+                Some(cb) => cb,
+                None => return NullParameter,
+            };
+
+            builder.key_log = Some(Arc::new(CallbackKeyLog {
+                log_cb,
+                will_log_cb,
+            }));
+
+            rustls_result::Ok
+        }
+    }
 }
 
 /// Always send the same client certificate.
@@ -487,6 +556,10 @@ impl rustls_client_config_builder {
             };
             config.alpn_protocols = builder.alpn_protocols;
             config.enable_sni = builder.enable_sni;
+
+            if let Some(key_log) = builder.key_log {
+                config.key_log = key_log;
+            }
 
             set_arc_mut_ptr(config_out, config);
             rustls_result::Ok

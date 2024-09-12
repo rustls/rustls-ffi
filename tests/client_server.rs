@@ -33,6 +33,24 @@ fn client_server_integration() {
         client_tests: standard_client_tests(valgrind.clone()),
     };
 
+    let keylogfile_server = TestCase {
+        name: "SSLKEYLOG server",
+        server_opts: ServerOptions {
+            valgrind: valgrind.clone(),
+            env: vec![("SSLKEYLOGFILE", "/tmp/rustls-ffi.server.key")],
+        },
+        client_tests: standard_client_tests(valgrind.clone()),
+    };
+
+    let stderrkeylog_server = TestCase {
+        name: "STDERRKEYLOG server",
+        server_opts: ServerOptions {
+            valgrind: valgrind.clone(),
+            env: vec![("STDERRKEYLOG", "1")],
+        },
+        client_tests: standard_client_tests(valgrind.clone()),
+    };
+
     let mandatory_client_auth_server = TestCase {
         name: "Mandatory client auth tests",
         server_opts: ServerOptions {
@@ -123,6 +141,8 @@ fn client_server_integration() {
     TestCases(vec![
         standard_server,
         vectored_server,
+        keylogfile_server,
+        stderrkeylog_server,
         mandatory_client_auth_server,
         mandatory_client_auth_server_with_crls,
         custom_ciphersuites,
@@ -164,6 +184,21 @@ fn standard_client_tests(valgrind: Option<String>) -> Vec<ClientTest> {
                 ("AUTH_CERT", "testdata/localhost/cert.pem"),
                 ("AUTH_KEY", "testdata/localhost/key.pem"),
             ],
+            expect_error: false,
+        },
+        ClientTest {
+            name: "SSLKEYLOGFILE",
+            valgrind: valgrind.clone(),
+            env: vec![
+                ("CA_FILE", "testdata/minica.pem"),
+                ("SSLKEYLOGFILE", "/tmp/rustls-ffi.client.key"),
+            ],
+            expect_error: false,
+        },
+        ClientTest {
+            name: "STDERRKEYLOG",
+            valgrind: valgrind.clone(),
+            env: vec![("CA_FILE", "testdata/minica.pem"), ("STDERRKEYLOG", "1")],
             expect_error: false,
         },
     ]

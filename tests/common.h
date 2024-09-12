@@ -136,6 +136,10 @@ const struct rustls_certified_key *load_cert_and_key(const char *certfile,
 const struct rustls_crypto_provider *default_provider_with_custom_ciphersuite(
   const char *custom_ciphersuite_name);
 
+void stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
+                       size_t client_random_len, const unsigned char *secret,
+                       size_t secret_len);
+
 extern const uint16_t default_tls_versions[];
 extern const size_t default_tls_versions_len;
 
