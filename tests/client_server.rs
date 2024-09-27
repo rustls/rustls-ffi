@@ -292,6 +292,7 @@ impl TestCase {
         });
 
         server.kill().expect("failed to kill server");
+        server.wait().expect("failed to wait on server");
         result
     }
 }
