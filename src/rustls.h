@@ -1148,6 +1148,17 @@ rustls_result rustls_certified_key_clone_with_ocsp(const struct rustls_certified
                                                    const struct rustls_certified_key **cloned_key_out);
 
 /**
+ * Verify the consistency of this `rustls_certified_key`'s public and private keys.
+ *
+ * This is done by performing a comparison of subject public key information (SPKI) bytes
+ * between the certificate and private key.
+ *
+ * If the private key matches the certificate this function returns `RUSTLS_RESULT_OK`,
+ * otherwise an error `rustls_result` is returned.
+ */
+rustls_result rustls_certified_key_keys_match(const struct rustls_certified_key *key);
+
+/**
  * "Free" a certified_key previously returned from `rustls_certified_key_build`.
  *
  * Since certified_key is actually an atomically reference-counted pointer,

@@ -383,6 +383,16 @@ load_cert_and_key(const char *certfile, const char *keyfile)
     print_error("parsing certificate and key", result);
     return NULL;
   }
+
+  if(rustls_certified_key_keys_match(certified_key) != RUSTLS_RESULT_OK) {
+    fprintf(stderr,
+            "private key %s does not match certificate %s public key\n",
+            keyfile,
+            certfile);
+    rustls_certified_key_free(certified_key);
+    return NULL;
+  }
+
   return certified_key;
 }
 

@@ -300,6 +300,25 @@ impl rustls_certified_key {
         }
     }
 
+    /// Verify the consistency of this `rustls_certified_key`'s public and private keys.
+    ///
+    /// This is done by performing a comparison of subject public key information (SPKI) bytes
+    /// between the certificate and private key.
+    ///
+    /// If the private key matches the certificate this function returns `RUSTLS_RESULT_OK`,
+    /// otherwise an error `rustls_result` is returned.
+    #[no_mangle]
+    pub extern "C" fn rustls_certified_key_keys_match(
+        key: *const rustls_certified_key,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            match try_ref_from_ptr!(key).keys_match() {
+                Ok(_) => rustls_result::Ok,
+                Err(e) => map_error(e),
+            }
+        }
+    }
+
     /// "Free" a certified_key previously returned from `rustls_certified_key_build`.
     ///
     /// Since certified_key is actually an atomically reference-counted pointer,
