@@ -127,8 +127,9 @@ handle_conn(struct conndata *conn)
   int sockfd = conn->fd;
   struct timeval tv;
   enum exchange_state state = READING_REQUEST;
+  rustls_handshake_kind hs_kind;
   int ciphersuite_id, kex_id;
-  struct rustls_str ciphersuite_name, kex_name;
+  struct rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
   LOG("acccepted conn on fd %d", conn->fd);
 
@@ -191,6 +192,9 @@ handle_conn(struct conndata *conn)
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       LOG_SIMPLE("writing response");
+      hs_kind = rustls_connection_handshake_kind(rconn);
+      hs_kind_name = rustls_handshake_kind_str(hs_kind);
+      LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
       ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
       ciphersuite_name =
         rustls_connection_get_negotiated_ciphersuite_name(rconn);

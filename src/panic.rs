@@ -1,6 +1,6 @@
 use libc::EINVAL;
 
-use crate::enums::rustls_tls_version;
+use crate::enums::{rustls_handshake_kind, rustls_tls_version};
 use crate::error::{rustls_io_result, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 
@@ -37,6 +37,8 @@ impl Defaultable for bool {}
 impl Defaultable for () {}
 
 impl Defaultable for rustls_tls_version {}
+
+impl Defaultable for rustls_handshake_kind {}
 
 impl<T> Defaultable for Option<T> {}
 

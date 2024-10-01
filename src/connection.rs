@@ -20,6 +20,7 @@ use crate::{
     try_slice, try_slice_mut, userdata_push,
 };
 
+use crate::enums::rustls_handshake_kind;
 use rustls_result::NullParameter;
 
 pub(crate) struct Connection {
@@ -284,6 +285,18 @@ impl rustls_connection {
     pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
             try_ref_from_ptr!(conn).is_handshaking()
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_handshake_kind(
+        conn: *const rustls_connection,
+    ) -> rustls_handshake_kind {
+        ffi_panic_boundary! {
+            try_ref_from_ptr!(conn)
+                .handshake_kind()
+                .map(Into::into)
+                .unwrap_or(rustls_handshake_kind::Unknown)
         }
     }
 
