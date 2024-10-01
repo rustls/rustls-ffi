@@ -1424,7 +1424,8 @@ struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_v
  * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
  * revocation status for certificates considered for revocation status will be treated as
  * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
- * used.
+ * used. Expired CRLs will not be treated as an error unless
+ * `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry` is used.
  *
  * This copies the contents of the `rustls_root_cert_store`. It does not take
  * ownership of the pointed-to data.
@@ -1461,6 +1462,14 @@ rustls_result rustls_web_pki_server_cert_verifier_only_check_end_entity_revocati
  * Overrides the default behavior where unknown revocation status is considered an error.
  */
 rustls_result rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and the
+ * CRL nextUpdate field is in the past, treat it as an error condition.
+ *
+ * Overrides the default behavior where CRL expiration is ignored.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_enforce_revocation_expiry(struct rustls_web_pki_server_cert_verifier_builder *builder);
 
 /**
  * Create a new server certificate verifier from the builder.
