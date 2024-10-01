@@ -170,8 +170,9 @@ send_request_and_read_response(struct conndata *conn,
   unsigned long content_length = 0;
   size_t headers_len = 0;
   struct rustls_str version;
+  rustls_handshake_kind hs_kind;
   int ciphersuite_id, kex_id;
-  struct rustls_str ciphersuite_name, kex_name;
+  struct rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
   version = rustls_version();
   memset(buf, '\0', sizeof(buf));
@@ -298,6 +299,10 @@ send_request_and_read_response(struct conndata *conn,
   LOG_SIMPLE("send_request_and_read_response: loop fell through");
 
 drain_plaintext:
+  hs_kind = rustls_connection_handshake_kind(rconn);
+  hs_kind_name = rustls_handshake_kind_str(hs_kind);
+  LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
+
   kex_id = rustls_connection_get_negotiated_key_exchange_group(rconn);
   kex_name = rustls_connection_get_negotiated_key_exchange_group_name(rconn);
   LOG("negotiated key exchange: %.*s (%#x)",

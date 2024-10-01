@@ -7,6 +7,41 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/**
+ * Describes which sort of handshake happened.
+ */
+typedef enum rustls_handshake_kind {
+  /**
+   * The type of handshake could not be determined.
+   *
+   * This variant should not be used.
+   */
+  RUSTLS_HANDSHAKE_KIND_UNKNOWN = 0,
+  /**
+   * A full TLS handshake.
+   *
+   * This is the typical TLS connection initiation process when resumption is
+   * not yet unavailable, and the initial client hello was accepted by the server.
+   */
+  RUSTLS_HANDSHAKE_KIND_FULL = 1,
+  /**
+   * A full TLS handshake, with an extra round-trip for a hello retry request.
+   *
+   * The server can respond with a hello retry request (HRR) if the initial client
+   * hello is unacceptable for several reasons, the most likely if no supported key
+   * shares were offered by the client.
+   */
+  RUSTLS_HANDSHAKE_KIND_FULL_WITH_HELLO_RETRY_REQUEST = 2,
+  /**
+   * A resumed TLS handshake.
+   *
+   * Resumed handshakes involve fewer round trips and less cryptography than
+   * full ones, but can only happen when the peers have previously done a full
+   * handshake together, and then remember data about it.
+   */
+  RUSTLS_HANDSHAKE_KIND_RESUMED = 3,
+} rustls_handshake_kind;
+
 enum rustls_result {
   RUSTLS_RESULT_OK = 7000,
   RUSTLS_RESULT_IO = 7001,
@@ -1850,6 +1885,8 @@ bool rustls_connection_wants_write(const struct rustls_connection *conn);
  */
 bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
 
+enum rustls_handshake_kind rustls_connection_handshake_kind(const struct rustls_connection *conn);
+
 /**
  * Sets a limit on the internal buffers used to buffer unsent plaintext (prior
  * to completing the TLS handshake) and unsent TLS records. By default, there
@@ -2242,6 +2279,15 @@ rustls_result rustls_default_crypto_provider_random(uint8_t *buff, size_t len);
  * must not be called twice with the same value.
  */
 void rustls_signing_key_free(struct rustls_signing_key *signing_key);
+
+/**
+ * Convert a `rustls_handshake_kind` to a string with a friendly description of the kind
+ * of handshake.
+ *
+ * The returned `rustls_str` has a static lifetime equal to that of the program and does
+ * not need to be manually freed.
+ */
+struct rustls_str rustls_handshake_kind_str(enum rustls_handshake_kind kind);
 
 /**
  * After a rustls function returns an error, you may call
