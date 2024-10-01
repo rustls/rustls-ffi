@@ -16,7 +16,7 @@ use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
 use rustls::{DistinguishedName, RootCertStore, SupportedCipherSuite};
 use rustls_pemfile::{certs, crls};
-use webpki::{RevocationCheckDepth, UnknownStatusPolicy};
+use webpki::{ExpirationPolicy, RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::crypto_provider::{rustls_crypto_provider, rustls_signing_key};
 use crate::enums::rustls_tls_version;
@@ -890,6 +890,7 @@ pub(crate) struct ServerCertVerifierBuilder {
     crls: Vec<CertificateRevocationListDer<'static>>,
     revocation_depth: RevocationCheckDepth,
     revocation_policy: UnknownStatusPolicy,
+    revocation_expiration_policy: ExpirationPolicy,
 }
 
 impl ServerCertVerifierBuilder {
@@ -926,6 +927,7 @@ impl ServerCertVerifierBuilder {
                 crls: Vec::default(),
                 revocation_depth: RevocationCheckDepth::Chain,
                 revocation_policy: UnknownStatusPolicy::Deny,
+                revocation_expiration_policy: ExpirationPolicy::Ignore,
             }))
         }
     }
@@ -946,7 +948,8 @@ impl ServerCertVerifierBuilder {
     /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
     /// revocation status for certificates considered for revocation status will be treated as
     /// an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
-    /// used.
+    /// used. Expired CRLs will not be treated as an error unless
+    /// `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry` is used.
     ///
     /// This copies the contents of the `rustls_root_cert_store`. It does not take
     /// ownership of the pointed-to data.
@@ -964,6 +967,7 @@ impl ServerCertVerifierBuilder {
                 crls: Vec::default(),
                 revocation_depth: RevocationCheckDepth::Chain,
                 revocation_policy: UnknownStatusPolicy::Deny,
+                revocation_expiration_policy: ExpirationPolicy::Ignore,
             }))
         }
     }
@@ -1046,6 +1050,24 @@ impl ServerCertVerifierBuilder {
         }
     }
 
+    /// When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and the
+    /// CRL nextUpdate field is in the past, treat it as an error condition.
+    ///
+    /// Overrides the default behavior where CRL expiration is ignored.
+    #[no_mangle]
+    pub extern "C" fn rustls_web_pki_server_cert_verifier_enforce_revocation_expiry(
+        builder: *mut rustls_web_pki_server_cert_verifier_builder,
+    ) -> rustls_result {
+        let server_verifier_builder = try_mut_from_ptr!(builder);
+        let server_verifier_builder = match server_verifier_builder {
+            None => return AlreadyUsed,
+            Some(v) => v,
+        };
+
+        server_verifier_builder.revocation_expiration_policy = ExpirationPolicy::Enforce;
+        rustls_result::Ok
+    }
+
     /// Create a new server certificate verifier from the builder.
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
@@ -1081,6 +1103,10 @@ impl ServerCertVerifierBuilder {
             match server_verifier_builder.revocation_policy {
                 UnknownStatusPolicy::Allow => builder = builder.allow_unknown_revocation_status(),
                 UnknownStatusPolicy::Deny => {}
+            }
+            match server_verifier_builder.revocation_expiration_policy {
+                ExpirationPolicy::Enforce => builder = builder.enforce_revocation_expiration(),
+                ExpirationPolicy::Ignore => {}
             }
 
             let verifier = match builder.build() {
