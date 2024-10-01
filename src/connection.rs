@@ -422,6 +422,41 @@ impl rustls_connection {
         }
     }
 
+    /// Retrieves the [IANA registered supported group identifier][IANA] agreed with the peer.
+    ///
+    /// This returns Reserved (0x0000) until the key exchange group is agreed.
+    ///
+    /// [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_get_negotiated_key_exchange_group(
+        conn: *const rustls_connection,
+    ) -> u16 {
+        ffi_panic_boundary! {
+            try_ref_from_ptr!(conn)
+                .negotiated_key_exchange_group()
+                .map(|kxg| u16::from(kxg.name()))
+                .unwrap_or_default()
+        }
+    }
+
+    /// Retrieves the key exchange group name agreed with the peer.
+    ///
+    /// This returns "" until the key exchange group is agreed.
+    ///
+    /// The lifetime of the `rustls_str` is the lifetime of the program, it does not
+    /// need to be freed.
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_get_negotiated_key_exchange_group_name(
+        conn: *const rustls_connection,
+    ) -> rustls_str<'static> {
+        ffi_panic_boundary! {
+            try_ref_from_ptr!(conn)
+                .negotiated_key_exchange_group()
+                .and_then(|kxg| rustls_str::try_from(kxg.name().as_str().unwrap_or_default()).ok())
+                .unwrap_or(rustls_str::from_str_unchecked(""))
+        }
+    }
+
     /// Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
     /// This will increase the number of output bytes available to
     /// `rustls_connection_write_tls`.

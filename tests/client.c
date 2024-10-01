@@ -170,8 +170,8 @@ send_request_and_read_response(struct conndata *conn,
   unsigned long content_length = 0;
   size_t headers_len = 0;
   struct rustls_str version;
-  int ciphersuite_id;
-  struct rustls_str ciphersuite_name;
+  int ciphersuite_id, kex_id;
+  struct rustls_str ciphersuite_name, kex_name;
 
   version = rustls_version();
   memset(buf, '\0', sizeof(buf));
@@ -298,6 +298,13 @@ send_request_and_read_response(struct conndata *conn,
   LOG_SIMPLE("send_request_and_read_response: loop fell through");
 
 drain_plaintext:
+  kex_id = rustls_connection_get_negotiated_key_exchange_group(rconn);
+  kex_name = rustls_connection_get_negotiated_key_exchange_group_name(rconn);
+  LOG("negotiated key exchange: %.*s (%#x)",
+      (int)kex_name.len,
+      kex_name.data,
+      kex_id);
+
   result = copy_plaintext_to_buffer(conn);
   if(result != DEMO_OK && result != DEMO_EOF) {
     goto cleanup;
