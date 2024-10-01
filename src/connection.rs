@@ -308,6 +308,25 @@ impl rustls_connection {
         }
     }
 
+    /// Queues a TLS1.3 key_update message to refresh a connection’s keys.
+    ///
+    /// Rustls internally manages key updates as required and so this function should
+    /// seldom be used. See the Rustls documentation for important caveats and suggestions
+    /// on occasions that merit its use.
+    ///
+    /// <https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys>
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_refresh_traffic_keys(
+        conn: *mut rustls_connection,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            match try_mut_from_ptr!(conn).refresh_traffic_keys() {
+                Ok(_) => rustls_result::Ok,
+                Err(e) => map_error(e),
+            }
+        }
+    }
+
     /// Return the i-th certificate provided by the peer.
     /// Index 0 is the end entity certificate. Higher indexes are certificates
     /// in the chain. Requesting an index higher than what is available returns
