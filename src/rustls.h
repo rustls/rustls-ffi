@@ -1838,6 +1838,17 @@ void rustls_connection_set_buffer_limit(struct rustls_connection *conn, size_t n
 void rustls_connection_send_close_notify(struct rustls_connection *conn);
 
 /**
+ * Queues a TLS1.3 key_update message to refresh a connection’s keys.
+ *
+ * Rustls internally manages key updates as required and so this function should
+ * seldom be used. See the Rustls documentation for important caveats and suggestions
+ * on occasions that merit its use.
+ *
+ * <https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys>
+ */
+rustls_result rustls_connection_refresh_traffic_keys(struct rustls_connection *conn);
+
+/**
  * Return the i-th certificate provided by the peer.
  * Index 0 is the end entity certificate. Higher indexes are certificates
  * in the chain. Requesting an index higher than what is available returns
