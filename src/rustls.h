@@ -1899,6 +1899,25 @@ uint16_t rustls_connection_get_negotiated_ciphersuite(const struct rustls_connec
 struct rustls_str rustls_connection_get_negotiated_ciphersuite_name(const struct rustls_connection *conn);
 
 /**
+ * Retrieves the [IANA registered supported group identifier][IANA] agreed with the peer.
+ *
+ * This returns Reserved (0x0000) until the key exchange group is agreed.
+ *
+ * [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>
+ */
+uint16_t rustls_connection_get_negotiated_key_exchange_group(const struct rustls_connection *conn);
+
+/**
+ * Retrieves the key exchange group name agreed with the peer.
+ *
+ * This returns "" until the key exchange group is agreed.
+ *
+ * The lifetime of the `rustls_str` is the lifetime of the program, it does not
+ * need to be freed.
+ */
+struct rustls_str rustls_connection_get_negotiated_key_exchange_group_name(const struct rustls_connection *conn);
+
+/**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
  * This will increase the number of output bytes available to
  * `rustls_connection_write_tls`.

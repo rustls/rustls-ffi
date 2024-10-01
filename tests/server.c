@@ -127,8 +127,8 @@ handle_conn(struct conndata *conn)
   int sockfd = conn->fd;
   struct timeval tv;
   enum exchange_state state = READING_REQUEST;
-  int ciphersuite_id;
-  struct rustls_str ciphersuite_name;
+  int ciphersuite_id, kex_id;
+  struct rustls_str ciphersuite_name, kex_name;
 
   LOG("acccepted conn on fd %d", conn->fd);
 
@@ -198,6 +198,13 @@ handle_conn(struct conndata *conn)
           (int)ciphersuite_name.len,
           ciphersuite_name.data,
           ciphersuite_id);
+      kex_id = rustls_connection_get_negotiated_key_exchange_group(rconn);
+      kex_name =
+        rustls_connection_get_negotiated_key_exchange_group_name(rconn);
+      LOG("negotiated key exchange: %.*s (%#x)",
+          (int)kex_name.len,
+          kex_name.data,
+          kex_id);
 
       rustls_connection_get_alpn_protocol(
         rconn, &negotiated_alpn, &negotiated_alpn_len);
