@@ -10,6 +10,7 @@ CARGOFLAGS += --locked
 CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
 CRYPTO_PROVIDER := aws-lc-rs
+COMPRESSION := false
 DESTDIR=/usr/local
 
 ifeq ($(PROFILE), debug)
@@ -33,6 +34,11 @@ ifeq ($(CRYPTO_PROVIDER), aws-lc-rs)
 else ifeq ($(CRYPTO_PROVIDER), ring)
 	CFLAGS += -D DEFINE_RING
 	CARGOFLAGS += --no-default-features --features ring
+endif
+
+ifeq ($(COMPRESSION), true)
+	CARGOFLAGS += --features cert_compression
+	LDFLAGS += -lm
 endif
 
 all: target/client target/server

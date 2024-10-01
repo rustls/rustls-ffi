@@ -82,6 +82,23 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: VALGRIND=valgrind make PROFILE=release test integration
 
+  cert-compression:
+    name: Certificate Compression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install nightly rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Unit tests
+        run: make PROFILE=debug CERT_COMPRESSION=true test
+      - name: Integration tests
+        run: make PROFILE=debug CERT_COMPRESSION=true integration
+
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
     runs-on: windows-latest
@@ -126,6 +143,27 @@ jobs:
         run: cmake --build build --config Release
       - name: Integration test, release configuration
         run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
+        env:
+          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
+          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
+
+  test-windows-cmake-compression:
+    name: Windows CMake, Cert. Compression
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install nightly rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install NASM for aws-lc-rs
+        uses: ilammy/setup-nasm@v1
+      - name: Configure CMake enabling cert compression
+        run: cmake -DCERT_COMPRESSION="true" -S . -B build
+      - name: Build, release configuration, compression
+        run: cmake --build build --config Release
+      - name: Integration test, release configuration, compression
+        run: cargo test --features=cert_compression --locked --test client_server client_server_integration -- --ignored --exact
         env:
           CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
           SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
