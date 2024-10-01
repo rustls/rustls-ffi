@@ -104,8 +104,7 @@ impl rustls_connection {
         conn: *mut rustls_connection,
         userdata: *mut c_void,
     ) {
-        let conn = try_mut_from_ptr!(conn);
-        conn.userdata = userdata;
+        try_mut_from_ptr!(conn).userdata = userdata;
     }
 
     /// Set the logging callback for this connection. The log callback will be invoked
@@ -261,8 +260,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn = try_ref_from_ptr!(conn);
-            conn.wants_read()
+            try_ref_from_ptr!(conn).wants_read()
         }
     }
 
@@ -270,8 +268,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn = try_ref_from_ptr!(conn);
-            conn.wants_write()
+            try_ref_from_ptr!(conn).wants_write()
         }
     }
 
@@ -286,8 +283,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
-            let conn = try_ref_from_ptr!(conn);
-            conn.is_handshaking()
+            try_ref_from_ptr!(conn).is_handshaking()
         }
     }
 
@@ -299,8 +295,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
         ffi_panic_boundary! {
-            let conn = try_mut_from_ptr!(conn);
-            conn.set_buffer_limit(Some(n));
+            try_mut_from_ptr!(conn).set_buffer_limit(Some(n));
         }
     }
 
@@ -309,8 +304,7 @@ impl rustls_connection {
     #[no_mangle]
     pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
         ffi_panic_boundary! {
-            let conn = try_mut_from_ptr!(conn);
-            conn.send_close_notify();
+            try_mut_from_ptr!(conn).send_close_notify();
         }
     }
 
@@ -329,8 +323,10 @@ impl rustls_connection {
         i: size_t,
     ) -> *const rustls_certificate<'a> {
         ffi_panic_boundary! {
-            let conn = try_ref_from_ptr!(conn);
-            match conn.peer_certificates().and_then(|c| c.get(i)) {
+            match try_ref_from_ptr!(conn)
+                .peer_certificates()
+                .and_then(|c| c.get(i))
+            {
                 Some(cert) => cert as *const CertificateDer as *const _,
                 None => null(),
             }
@@ -382,11 +378,10 @@ impl rustls_connection {
         conn: *const rustls_connection,
     ) -> u16 {
         ffi_panic_boundary! {
-            let conn = try_ref_from_ptr!(conn);
-            match conn.protocol_version() {
-                Some(p) => u16::from(p),
-                _ => 0,
-            }
+            try_ref_from_ptr!(conn)
+                .protocol_version()
+                .map(u16::from)
+                .unwrap_or_default()
         }
     }
 
@@ -400,10 +395,10 @@ impl rustls_connection {
         conn: *const rustls_connection,
     ) -> u16 {
         ffi_panic_boundary! {
-            match try_ref_from_ptr!(conn).negotiated_cipher_suite() {
-                Some(cs) => u16::from(cs.suite()),
-                None => u16::from(TLS_NULL_WITH_NULL_NULL),
-            }
+            try_ref_from_ptr!(conn)
+                .negotiated_cipher_suite()
+                .map(|cs| u16::from(cs.suite()))
+                .unwrap_or(u16::from(TLS_NULL_WITH_NULL_NULL))
         }
     }
 
@@ -420,14 +415,10 @@ impl rustls_connection {
         conn: *const rustls_connection,
     ) -> rustls_str<'static> {
         ffi_panic_boundary! {
-            let cs_name = try_ref_from_ptr!(conn)
+            try_ref_from_ptr!(conn)
                 .negotiated_cipher_suite()
-                .and_then(|cs| cs.suite().as_str())
-                .and_then(|name| rustls_str::try_from(name).ok());
-            match cs_name {
-                Some(cs) => cs,
-                None => rustls_str::from_str_unchecked(""),
-            }
+                .and_then(|cs| rustls_str::try_from(cs.suite().as_str().unwrap_or_default()).ok())
+                .unwrap_or(rustls_str::from_str_unchecked(""))
         }
     }
 
