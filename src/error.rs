@@ -5,7 +5,10 @@ use std::sync::Arc;
 use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
 use rustls::server::VerifierBuilderError;
-use rustls::{CertRevocationListError, CertificateError, Error, InvalidMessage};
+use rustls::{
+    CertRevocationListError, CertificateError, EncryptedClientHelloError, Error, InconsistentKeys,
+    InvalidMessage,
+};
 
 /// A return value for a function that may return either success (0) or a
 /// non-zero value representing an error.
@@ -98,7 +101,8 @@ u32_enum_builder! {
         CertInvalidPurpose => 7129,
         CertApplicationVerificationFailure => 7130,
         CertOtherError => 7131,
-        CertUnknownRevocationStatus => 7154, // Last added.
+        CertUnknownRevocationStatus => 7154,
+        CertExpiredRevocationList => 7156, // Last added.
 
         // From InvalidMessage, with fields that get flattened.
         // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
@@ -123,6 +127,7 @@ u32_enum_builder! {
         MessageUnsupportedCurveType => 7151,
         MessageUnsupportedKeyExchangeAlgorithm => 7152,
         MessageInvalidOther => 7153,
+        MessageCertificatePayloadTooLarge => 7155,
 
         // From Error, with fields that get dropped.
         PeerIncompatibleError => 7107,
@@ -191,7 +196,16 @@ u32_enum_builder! {
         CertRevocationListUnsupportedRevocationReason => 7410,
 
         // From ClientCertVerifierBuilderError, with fields that get flattened.
-        ClientCertVerifierBuilderNoRootAnchors => 7500
+        ClientCertVerifierBuilderNoRootAnchors => 7500,
+
+        // From InconsistentKeys, with fields that get flattened.
+        InconsistentKeysKeysMismatch => 7600,
+        InconsistentKeysUnknown => 7601,
+
+        // From InvalidEncryptedClientHello, with fields that get flattened.
+        InvalidEncryptedClientHelloInvalidConfigList => 7700,
+        InvalidEncryptedClientHelloNoCompatibleConfig => 7701,
+        InvalidEncryptedClientHelloSniRequired => 7702
     }
 }
 
@@ -268,6 +282,7 @@ pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
         CertApplicationVerificationFailure => {
             InvalidCertificate(CertificateError::ApplicationVerificationFailure)
         }
+        CertExpiredRevocationList => InvalidCertificate(CertificateError::ExpiredRevocationList),
         CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
             Box::from(""),
         )))),
@@ -320,6 +335,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
 
         Error::InvalidMessage(e) => match e {
             InvalidMessage::HandshakePayloadTooLarge => MessageHandshakePayloadTooLarge,
+            InvalidMessage::CertificatePayloadTooLarge => MessageCertificatePayloadTooLarge,
             InvalidMessage::InvalidCcs => MessageInvalidCcs,
             InvalidMessage::InvalidContentType => MessageInvalidContentType,
             InvalidMessage::InvalidCertificateStatusType => MessageInvalidCertStatusType,
@@ -357,6 +373,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
             CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
             CertificateError::UnknownIssuer => CertUnknownIssuer,
             CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
+            CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
             CertificateError::BadSignature => CertBadSignature,
             CertificateError::NotValidForName => CertNotValidForName,
             CertificateError::InvalidPurpose => CertInvalidPurpose,
@@ -406,6 +423,9 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
         },
 
         Error::InvalidCertRevocationList(e) => map_crl_error(e),
+
+        Error::InconsistentKeys(InconsistentKeys::KeyMismatch) => InconsistentKeysKeysMismatch,
+        Error::InconsistentKeys(InconsistentKeys::Unknown) => InconsistentKeysUnknown,
 
         _ => General,
     }
@@ -525,6 +545,9 @@ impl Display for rustls_result {
             CertUnknownRevocationStatus => {
                 Error::InvalidCertificate(CertificateError::UnknownRevocationStatus).fmt(f)
             }
+            CertExpiredRevocationList => {
+                Error::InvalidCertificate(CertificateError::ExpiredRevocationList).fmt(f)
+            }
             CertOtherError => write!(f, "unknown certificate error"),
 
             // These variants correspond to a rustls::Error variant with a field,
@@ -535,6 +558,9 @@ impl Display for rustls_result {
 
             MessageHandshakePayloadTooLarge => {
                 Error::InvalidMessage(InvalidMessage::HandshakePayloadTooLarge).fmt(f)
+            }
+            MessageCertificatePayloadTooLarge => {
+                Error::InvalidMessage(InvalidMessage::CertificatePayloadTooLarge).fmt(f)
             }
             MessageInvalidContentType => {
                 Error::InvalidMessage(InvalidMessage::InvalidContentType).fmt(f)
@@ -692,6 +718,23 @@ impl Display for rustls_result {
             .fmt(f),
 
             ClientCertVerifierBuilderNoRootAnchors => write!(f, "no root trust anchors provided"),
+
+            InconsistentKeysKeysMismatch => {
+                Error::InconsistentKeys(InconsistentKeys::KeyMismatch).fmt(f)
+            }
+            InconsistentKeysUnknown => Error::InconsistentKeys(InconsistentKeys::Unknown).fmt(f),
+
+            InvalidEncryptedClientHelloInvalidConfigList => {
+                Error::InvalidEncryptedClientHello(EncryptedClientHelloError::InvalidConfigList)
+                    .fmt(f)
+            }
+            InvalidEncryptedClientHelloNoCompatibleConfig => {
+                Error::InvalidEncryptedClientHello(EncryptedClientHelloError::NoCompatibleConfig)
+                    .fmt(f)
+            }
+            InvalidEncryptedClientHelloSniRequired => {
+                Error::InvalidEncryptedClientHello(EncryptedClientHelloError::SniRequired).fmt(f)
+            }
         }
     }
 }
