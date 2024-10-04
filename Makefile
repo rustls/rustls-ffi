@@ -41,12 +41,14 @@ ifeq ($(COMPRESSION), true)
 	LDFLAGS += -lm
 endif
 
-all: target/client target/server
+default: target/$(PROFILE)/librustls_ffi.a
 
-test: all
+all: default test integration connect-test
+
+test: target/client target/server
 	${CARGO} test ${CARGOFLAGS}
 
-integration: all
+integration: test
 	${CARGO} test ${CARGOFLAGS} -- --ignored
 
 connect-test: target/client
@@ -97,4 +99,4 @@ format-check:
 	cargo fmt --check
 	sed -i -e 's/if true {/ffi_panic_boundary! {/g' src/*.rs
 
-.PHONY: all clean test integration format format-check
+.PHONY: default all clean test integration format format-check

@@ -64,7 +64,7 @@ jobs:
       - name: Build release binaries
         run: |
           make clean
-          make CC=${{ matrix.cc }} CRYPTO_PROVIDER=${{ matrix.crypto }} PROFILE=release
+          make CC=${{ matrix.cc }} CRYPTO_PROVIDER=${{ matrix.crypto }} PROFILE=release test
       - name: Verify release builds were not using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
