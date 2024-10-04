@@ -356,7 +356,7 @@ impl rustls_server_config_builder {
             let mut config = if let Some(r) = builder.cert_resolver {
                 base.with_cert_resolver(r)
             } else {
-                return rustls_result::General;
+                return rustls_result::NoCertResolver;
             };
             if let Some(ss) = builder.session_storage {
                 config.session_storage = ss;
@@ -816,7 +816,7 @@ mod tests {
         let mut config = null();
         let result =
             rustls_server_config_builder::rustls_server_config_builder_build(builder, &mut config);
-        assert_eq!(result, rustls_result::General);
+        assert_eq!(result, rustls_result::NoCertResolver);
         assert!(config.is_null());
     }
 
