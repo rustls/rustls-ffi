@@ -40,7 +40,7 @@ impl Defaultable for rustls_tls_version {}
 
 impl<T> Defaultable for Option<T> {}
 
-impl<'a> Defaultable for rustls_slice_bytes<'a> {}
+impl Defaultable for rustls_slice_bytes<'_> {}
 
 impl<T: Defaultable> PanicOrDefault for T {
     fn value() -> Self {
@@ -66,7 +66,7 @@ impl PanicOrDefault for rustls_result {
     }
 }
 
-impl<'a> PanicOrDefault for rustls_str<'a> {
+impl PanicOrDefault for rustls_str<'_> {
     fn value() -> Self {
         rustls_str::from_str_unchecked("")
     }
@@ -108,7 +108,7 @@ impl NullParameterOrDefault for rustls_io_result {
     }
 }
 
-impl<'a> NullParameterOrDefault for rustls_str<'a> {
+impl NullParameterOrDefault for rustls_str<'_> {
     fn value() -> Self {
         rustls_str::from_str_unchecked("")
     }
