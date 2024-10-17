@@ -1,6 +1,10 @@
+use std::slice;
+use std::sync::Arc;
+
 use libc::size_t;
 use pki_types::pem::PemObject;
 use pki_types::PrivateKeyDer;
+
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
 #[cfg(feature = "ring")]
@@ -8,8 +12,6 @@ use rustls::crypto::ring;
 use rustls::crypto::CryptoProvider;
 use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
-use std::slice;
-use std::sync::Arc;
 
 use crate::cipher::rustls_supported_ciphersuite;
 use crate::error::map_error;
