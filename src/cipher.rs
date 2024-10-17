@@ -1,13 +1,12 @@
 use libc::{c_char, size_t};
-use std::ffi::{CStr, OsStr};
-use std::fs::File;
-use std::io::{BufReader, Cursor};
+use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr::null;
 use std::slice;
 use std::sync::Arc;
 
-use pki_types::{CertificateDer, CertificateRevocationListDer};
+use pki_types::pem::PemObject;
+use pki_types::{CertificateDer, CertificateRevocationListDer, PrivateKeyDer};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::client::WebPkiServerVerifier;
 use rustls::crypto::CryptoProvider;
@@ -15,7 +14,6 @@ use rustls::server::danger::ClientCertVerifier;
 use rustls::server::WebPkiClientVerifier;
 use rustls::sign::CertifiedKey;
 use rustls::{DistinguishedName, RootCertStore, SupportedCipherSuite};
-use rustls_pemfile::{certs, crls};
 use webpki::{ExpirationPolicy, RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::crypto_provider::{rustls_crypto_provider, rustls_signing_key};
@@ -167,12 +165,11 @@ impl rustls_certified_key {
                     Some(default_provider) => default_provider,
                     None => return rustls_result::NoDefaultCryptoProvider,
                 };
-            let private_key_pem = try_slice!(private_key, private_key_len);
 
             let private_key_der =
-                match rustls_pemfile::private_key(&mut Cursor::new(private_key_pem)) {
-                    Ok(Some(p)) => p,
-                    _ => return rustls_result::PrivateKeyParseError,
+                match PrivateKeyDer::from_pem_slice(try_slice!(private_key, private_key_len)) {
+                    Ok(der) => der,
+                    Err(_) => return rustls_result::PrivateKeyParseError,
                 };
 
             let private_key = match default_provider
@@ -228,14 +225,15 @@ impl rustls_certified_key {
         certified_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let mut cert_chain = try_slice!(cert_chain, cert_chain_len);
+            let cert_chain = try_slice!(cert_chain, cert_chain_len);
             let signing_key = try_box_from_ptr!(signing_key);
             let certified_key_out = try_ref_from_ptr_ptr!(certified_key_out);
 
-            let parsed_chain = match certs(&mut cert_chain).collect::<Result<Vec<_>, _>>() {
-                Ok(v) => v,
-                Err(_) => return rustls_result::CertificateParseError,
-            };
+            let parsed_chain =
+                match CertificateDer::pem_slice_iter(cert_chain).collect::<Result<Vec<_>, _>>() {
+                    Ok(parsed_chain) => parsed_chain,
+                    Err(_) => return rustls_result::CertificateParseError,
+                };
 
             set_arc_mut_ptr(
                 certified_key_out,
@@ -389,17 +387,17 @@ impl rustls_root_cert_store_builder {
                 Some(b) => b,
             };
 
-            let certs_der: Result<Vec<CertificateDer>, _> =
-                rustls_pemfile::certs(&mut Cursor::new(certs_pem)).collect();
-            let certs_der = match certs_der {
-                Ok(vv) => vv,
-                Err(_) => return rustls_result::CertificateParseError,
-            };
+            let certs =
+                match CertificateDer::pem_slice_iter(certs_pem).collect::<Result<Vec<_>, _>>() {
+                    Ok(certs) => certs,
+                    Err(_) => return rustls_result::CertificateParseError,
+                };
+
             // We first copy into a temporary root store so we can uphold our
             // API guideline that there are no partial failures or partial
             // successes.
             let mut new_store = RootCertStore::empty();
-            let (parsed, rejected) = new_store.add_parsable_certificates(certs_der);
+            let (parsed, rejected) = new_store.add_parsable_certificates(certs);
             if strict && (rejected > 0 || parsed == 0) {
                 return rustls_result::CertificateParseError;
             }
@@ -444,17 +442,15 @@ impl rustls_root_cert_store_builder {
                 Ok(s) => s,
                 Err(_) => return rustls_result::Io,
             };
-            let filename = OsStr::new(filename);
-            let mut cafile = match File::open(filename) {
-                Ok(f) => f,
+
+            let certs = match CertificateDer::pem_file_iter(filename) {
+                Ok(certs) => certs,
                 Err(_) => return rustls_result::Io,
             };
 
-            let mut bufreader = BufReader::new(&mut cafile);
-            let certs: Result<Vec<CertificateDer>, _> = certs(&mut bufreader).collect();
-            let certs = match certs {
+            let certs = match certs.collect::<Result<Vec<_>, _>>() {
                 Ok(certs) => certs,
-                Err(_) => return rustls_result::Io,
+                Err(_) => return rustls_result::CertificateParseError,
             };
 
             // We first copy into a temporary root store so we can uphold our
@@ -682,13 +678,16 @@ impl rustls_web_pki_client_cert_verifier_builder {
                 Some(v) => v,
             };
 
-            let crl_pem = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
-                crls(&mut Cursor::new(crl_pem)).collect();
-            let crls_der = match crls_der {
-                Ok(vv) => vv,
+            let crls_der = match CertificateRevocationListDer::pem_slice_iter(try_slice!(
+                crl_pem,
+                crl_pem_len
+            ))
+            .collect::<Result<Vec<_>, _>>()
+            {
+                Ok(crls_der) => crls_der,
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
+
             if crls_der.is_empty() {
                 return rustls_result::CertificateRevocationListParseError;
             }
@@ -993,13 +992,16 @@ impl ServerCertVerifierBuilder {
                 Some(v) => v,
             };
 
-            let crl_pem = try_slice!(crl_pem, crl_pem_len);
-            let crls_der: Result<Vec<CertificateRevocationListDer>, _> =
-                crls(&mut Cursor::new(crl_pem)).collect();
-            let crls_der = match crls_der {
-                Ok(vv) => vv,
+            let crls_der = match CertificateRevocationListDer::pem_slice_iter(try_slice!(
+                crl_pem,
+                crl_pem_len
+            ))
+            .collect::<Result<Vec<_>, _>>()
+            {
+                Ok(crls_der) => crls_der,
                 Err(_) => return rustls_result::CertificateRevocationListParseError,
             };
+
             if crls_der.is_empty() {
                 return rustls_result::CertificateRevocationListParseError;
             }

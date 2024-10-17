@@ -1,8 +1,6 @@
 use libc::size_t;
-use std::io::Cursor;
-use std::slice;
-use std::sync::Arc;
-
+use pki_types::pem::PemObject;
+use pki_types::PrivateKeyDer;
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
 #[cfg(feature = "ring")]
@@ -10,6 +8,8 @@ use rustls::crypto::ring;
 use rustls::crypto::CryptoProvider;
 use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
+use std::slice;
+use std::sync::Arc;
 
 use crate::cipher::rustls_supported_ciphersuite;
 use crate::error::map_error;
@@ -324,9 +324,9 @@ pub extern "C" fn rustls_crypto_provider_load_key(
         let private_key_pem = try_slice!(private_key, private_key_len);
         let signing_key_out = try_mut_from_ptr_ptr!(signing_key_out);
 
-        let private_key_der = match rustls_pemfile::private_key(&mut Cursor::new(private_key_pem)) {
-            Ok(Some(p)) => p,
-            _ => return rustls_result::PrivateKeyParseError,
+        let private_key_der = match PrivateKeyDer::from_pem_slice(private_key_pem) {
+            Ok(der) => der,
+            Err(_) => return rustls_result::PrivateKeyParseError,
         };
 
         let private_key = match provider.key_provider.load_private_key(private_key_der) {
