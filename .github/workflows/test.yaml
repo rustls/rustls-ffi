@@ -99,6 +99,24 @@ jobs:
       - name: Integration tests
         run: make PROFILE=debug CERT_COMPRESSION=true integration
 
+  # TODO(@cpu): MacOS and Windows FIPS test coverage
+  fips:
+    name: FIPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install nightly rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Unit tests
+        run: make FIPS=true test
+      - name: Integration tests
+        run: make FIPS=true integration
+
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
     runs-on: windows-latest
