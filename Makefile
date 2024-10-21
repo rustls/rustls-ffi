@@ -11,6 +11,7 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
 CRYPTO_PROVIDER := aws-lc-rs
 COMPRESSION := false
+FIPS := false
 DESTDIR=/usr/local
 
 ifeq ($(PROFILE), debug)
@@ -39,6 +40,11 @@ endif
 ifeq ($(COMPRESSION), true)
 	CARGOFLAGS += --features cert_compression
 	LDFLAGS += -lm
+endif
+
+# See https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
+ifeq ($(FIPS), true)
+	CARGOFLAGS += --features fips
 endif
 
 default: target/$(PROFILE)/librustls_ffi.a
