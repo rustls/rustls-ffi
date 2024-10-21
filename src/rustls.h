@@ -1759,6 +1759,16 @@ rustls_result rustls_client_config_builder_build(struct rustls_client_config_bui
 void rustls_client_config_builder_free(struct rustls_client_config_builder *config);
 
 /**
+ * Returns true if a `rustls_connection` created from the `rustls_client_config` will
+ * operate in FIPS mode.
+ *
+ * This is different from `rustls_crypto_provider_fips` which is concerned
+ * only with cryptography, whereas this also covers TLS-level configuration that NIST
+ * recommends, as well as ECH HPKE suites if applicable.
+ */
+bool rustls_client_config_fips(const struct rustls_client_config *config);
+
+/**
  * "Free" a `rustls_client_config` previously returned from
  * `rustls_client_config_builder_build`.
  *
@@ -2048,6 +2058,16 @@ rustls_result rustls_connection_read_2(struct rustls_connection *conn,
 #endif
 
 /**
+ * Returns true if the `rustls_connection` was made with a `rustls_client_config`
+ * that is FIPS compatible.
+ *
+ * This is different from `rustls_crypto_provider_fips` which is concerned
+ * only with cryptography, whereas this also covers TLS-level configuration that NIST
+ * recommends, as well as ECH HPKE suites if applicable.
+ */
+bool rustls_connection_fips(const struct rustls_connection *conn);
+
+/**
  * Free a rustls_connection. Calling with NULL is fine.
  * Must not be called twice with the same value.
  */
@@ -2172,6 +2192,23 @@ const struct rustls_crypto_provider *rustls_ring_crypto_provider(void);
 const struct rustls_crypto_provider *rustls_aws_lc_rs_crypto_provider(void);
 #endif
 
+#if defined(DEFINE_FIPS)
+/**
+ * Return a `rustls_crypto_provider` that uses FIPS140-3 approved cryptography.
+ *
+ * Using this function expresses in your code that you require FIPS-approved cryptography,
+ * and will not compile if you make a mistake with cargo features.
+ *
+ * See the upstream [rustls FIPS documentation][FIPS] for more information.
+ *
+ * The caller owns the returned `rustls_crypto_provider` and must free it using
+ * `rustls_crypto_provider_free`.
+ *
+ * [FIPS]: https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
+ */
+const struct rustls_crypto_provider *rustls_default_fips_provider(void);
+#endif
+
 /**
  * Retrieve a pointer to the process default `rustls_crypto_provider`.
  *
@@ -2232,6 +2269,16 @@ rustls_result rustls_crypto_provider_load_key(const struct rustls_crypto_provide
 rustls_result rustls_crypto_provider_random(const struct rustls_crypto_provider *provider,
                                             uint8_t *buff,
                                             size_t len);
+
+/**
+ * Returns true if the `rustls_crypto_provider` is operating in FIPS mode.
+ *
+ * This covers only the cryptographic parts of FIPS approval. There are also
+ * TLS protocol-level recommendations made by NIST. You should prefer to call
+ * `rustls_client_config_fips` or `rustls_server_config_fips` which take these
+ * into account.
+ */
+bool rustls_crypto_provider_fips(const struct rustls_crypto_provider *provider);
 
 /**
  * Frees the `rustls_crypto_provider`.
@@ -2496,6 +2543,16 @@ rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_serv
  */
 rustls_result rustls_server_config_builder_build(struct rustls_server_config_builder *builder,
                                                  const struct rustls_server_config **config_out);
+
+/**
+ * Returns true if a `rustls_connection` created from the `rustls_server_config` will
+ * operate in FIPS mode.
+ *
+ * This is different from `rustls_crypto_provider_fips` which is concerned
+ * only with cryptography, whereas this also covers TLS-level configuration that NIST
+ * recommends, as well as ECH HPKE suites if applicable.
+ */
+bool rustls_server_config_fips(const struct rustls_server_config *config);
 
 /**
  * "Free" a rustls_server_config previously returned from

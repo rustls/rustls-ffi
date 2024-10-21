@@ -582,6 +582,19 @@ impl rustls_client_config_builder {
 }
 
 impl rustls_client_config {
+    /// Returns true if a `rustls_connection` created from the `rustls_client_config` will
+    /// operate in FIPS mode.
+    ///
+    /// This is different from `rustls_crypto_provider_fips` which is concerned
+    /// only with cryptography, whereas this also covers TLS-level configuration that NIST
+    /// recommends, as well as ECH HPKE suites if applicable.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_fips(config: *const rustls_client_config) -> bool {
+        ffi_panic_boundary! {
+            try_ref_from_ptr!(config).fips()
+        }
+    }
+
     /// "Free" a `rustls_client_config` previously returned from
     /// `rustls_client_config_builder_build`.
     ///

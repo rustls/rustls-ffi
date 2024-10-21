@@ -613,6 +613,24 @@ impl rustls_connection {
         }
     }
 
+    /// Returns true if the `rustls_connection` was made with a `rustls_client_config`
+    /// that is FIPS compatible.
+    ///
+    /// This is different from `rustls_crypto_provider_fips` which is concerned
+    /// only with cryptography, whereas this also covers TLS-level configuration that NIST
+    /// recommends, as well as ECH HPKE suites if applicable.
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_fips(conn: *const rustls_connection) -> bool {
+        ffi_panic_boundary! {
+            let conn = try_ref_from_ptr!(conn);
+            match &conn.conn {
+                rustls::Connection::Client(c) => c.fips(),
+                // TODO(XXX): investigate why there isn't a ServerConnection::fips().
+                _ => false,
+            }
+        }
+    }
+
     /// Free a rustls_connection. Calling with NULL is fine.
     /// Must not be called twice with the same value.
     #[no_mangle]
