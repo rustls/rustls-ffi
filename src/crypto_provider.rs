@@ -248,6 +248,26 @@ pub extern "C" fn rustls_aws_lc_rs_crypto_provider() -> *const rustls_crypto_pro
     }
 }
 
+/// Return a `rustls_crypto_provider` that uses FIPS140-3 approved cryptography.
+///
+/// Using this function expresses in your code that you require FIPS-approved cryptography,
+/// and will not compile if you make a mistake with cargo features.
+///
+/// See the upstream [rustls FIPS documentation][FIPS] for more information.
+///
+/// The caller owns the returned `rustls_crypto_provider` and must free it using
+/// `rustls_crypto_provider_free`.
+///
+/// [FIPS]: https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
+#[no_mangle]
+#[cfg(feature = "fips")]
+pub extern "C" fn rustls_default_fips_provider() -> *const rustls_crypto_provider {
+    ffi_panic_boundary! {
+        Arc::into_raw(Arc::new(rustls::crypto::default_fips_provider()))
+            as *const rustls_crypto_provider
+    }
+}
+
 /// Retrieve a pointer to the process default `rustls_crypto_provider`.
 ///
 /// This may return `NULL` if no process default provider has been set using
@@ -361,6 +381,19 @@ pub extern "C" fn rustls_crypto_provider_random(
             Ok(_) => rustls_result::Ok,
             Err(_) => rustls_result::GetRandomFailed,
         }
+    }
+}
+
+/// Returns true if the `rustls_crypto_provider` is operating in FIPS mode.
+///
+/// This covers only the cryptographic parts of FIPS approval. There are also
+/// TLS protocol-level recommendations made by NIST. You should prefer to call
+/// `rustls_client_config_fips` or `rustls_server_config_fips` which take these
+/// into account.
+#[no_mangle]
+pub extern "C" fn rustls_crypto_provider_fips(provider: *const rustls_crypto_provider) -> bool {
+    ffi_panic_boundary! {
+        try_ref_from_ptr!(provider).fips()
     }
 }
 
