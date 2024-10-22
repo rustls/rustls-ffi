@@ -110,11 +110,17 @@ fn client_server_integration() {
         ],
     };
 
+    // CHACHA20 is not FIPS approved :)
+    #[cfg(not(feature = "fips"))]
+    let custom_ciphersuite = "TLS13_CHACHA20_POLY1305_SHA256";
+    #[cfg(feature = "fips")]
+    let custom_ciphersuite = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
+
     let custom_ciphersuites = TestCase {
         name: "client/server with limited ciphersuites",
         server_opts: ServerOptions {
             valgrind: valgrind.clone(),
-            env: vec![("RUSTLS_CIPHERSUITE", "TLS13_CHACHA20_POLY1305_SHA256")],
+            env: vec![("RUSTLS_CIPHERSUITE", custom_ciphersuite)],
         },
         client_tests: vec![
             ClientTest {
@@ -122,7 +128,7 @@ fn client_server_integration() {
                 valgrind: valgrind.clone(),
                 env: vec![
                     ("NO_CHECK_CERTIFICATE", "1"),
-                    ("RUSTLS_CIPHERSUITE", "TLS13_CHACHA20_POLY1305_SHA256"),
+                    ("RUSTLS_CIPHERSUITE", custom_ciphersuite),
                 ],
                 expect_error: false,
             },

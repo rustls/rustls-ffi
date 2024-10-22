@@ -99,6 +99,32 @@ jobs:
       - name: Integration tests
         run: make PROFILE=debug CERT_COMPRESSION=true integration
 
+  fips:
+    name: FIPS
+    runs-on: "${{ matrix.os }}"
+    continue-on-error: true # TODO(@cpu): remove this after debugging MacOS failures.
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install golang for aws-lc-fips-sys on macos
+        if: runner.os == 'MacOS'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.2"
+      - name: Install nightly rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Unit tests
+        run: make FIPS=true test
+      - name: Integration tests
+        run: make FIPS=true integration
+
   test-windows-cmake-debug:
     name: Windows CMake, Debug configuration
     runs-on: windows-latest
@@ -164,6 +190,31 @@ jobs:
         run: cmake --build build --config Release
       - name: Integration test, release configuration, compression
         run: cargo test --features=cert_compression --locked --test client_server client_server_integration -- --ignored --exact
+        env:
+          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
+          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
+
+  test-windows-cmake-fips:
+    name: Windows CMake, FIPS
+    runs-on: windows-latest
+    env:
+      AWS_LC_SYS_PREBUILT_NASM: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install nightly rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install NASM for aws-lc-rs
+        uses: ilammy/setup-nasm@v1
+      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+        uses: seanmiddleditch/gha-setup-ninja@v5
+      - name: Configure CMake enabling FIPS
+        run: cmake -DFIPS="true" -S . -B build
+      - name: Build, release configuration, FIPS
+        run: cmake --build build --config Release
+      - name: Integration test, release configuration, FIPS
+        run: cargo test --features=fips --locked --test client_server client_server_integration -- --ignored --exact
         env:
           CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
           SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe

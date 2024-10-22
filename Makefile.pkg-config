@@ -15,6 +15,7 @@ CFLAGS := -Werror -Wall -Wextra -Wpedantic -g -I src/
 PROFILE := release
 CRYPTO_PROVIDER := aws-lc-rs
 CERT_COMPRESSION := false
+FIPS := false
 PREFIX=/usr/local
 
 ifeq ($(PROFILE), debug)
@@ -37,6 +38,11 @@ endif
 
 ifeq ($(CERT_COMPRESSION), true)
 	CARGOFLAGS += --features cert_compression
+endif
+
+# See https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
+ifeq ($(FIPS), true)
+	CARGOFLAGS += --features fips
 endif
 
 all: target/client target/server
