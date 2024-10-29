@@ -13,6 +13,10 @@ elseif (CRYPTO_PROVIDER STREQUAL "ring")
     add_compile_definitions(DEFINE_RING)
 endif ()
 
+# Set ASAN sanitizer flags conditionally for Debug builds
+set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
+add_compile_options(${sanitizer_flags})
+
 add_executable(client client.c common.c)
 add_dependencies(client rustls-ffi)
 target_include_directories(client PUBLIC ${CMAKE_SOURCE_DIR}/src)

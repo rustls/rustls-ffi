@@ -111,6 +111,14 @@ jobs:
           persist-credentials: false
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+      # For Debug builds we use ASAN, which requires a modern MSVC on $PATH
+      # to provide the ASAN clang_rt.asan_*.dll runtime deps or
+      # the built client/server binary will exit immediately with 
+      # exit code -1073741515
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v3
+        with:
+          arch: x64
       - name: Configure CMake
         run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
       - name: Build, debug configuration
