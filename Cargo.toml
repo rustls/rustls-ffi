@@ -32,7 +32,7 @@ pki-types = { package = "rustls-pki-types", version = "1.10", features = ["std"]
 webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = ["std"] }
 libc = "0.2"
 log = "0.4.22"
-rustls-platform-verifier = "0.3"
+rustls-platform-verifier = "0.4"
 
 [lib]
 name = "rustls_ffi"
