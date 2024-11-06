@@ -54,6 +54,25 @@ pub(crate) struct ClientConfigBuilder {
     key_log: Option<Arc<dyn KeyLog>>,
 }
 
+impl Default for ClientConfigBuilder {
+    fn default() -> Self {
+        Self {
+            provider: None,
+            // Note: we populate default versions at build-time with the Rustls defaults.
+            // We leave it empty for the default builder to be able to distinguish when
+            // a caller has customized w/ `rustls_client_config_builder_new_custom`.
+            versions: Vec::new(),
+            verifier: None,
+            alpn_protocols: Vec::new(),
+            // Note: we don't derive Default for this struct because we want to enable SNI
+            // by default.
+            enable_sni: true,
+            cert_resolver: None,
+            key_log: None,
+        }
+    }
+}
+
 arc_castable! {
     /// A client config that is done being constructed and is now read-only.
     ///
@@ -81,12 +100,7 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder = ClientConfigBuilder {
                 provider: crypto_provider::get_default_or_install_from_crate_features(),
-                versions: rustls::DEFAULT_VERSIONS.to_vec(),
-                verifier: None,
-                cert_resolver: None,
-                alpn_protocols: vec![],
-                enable_sni: true,
-                key_log: None,
+                ..ClientConfigBuilder::default()
             };
             to_boxed_mut_ptr(builder)
         }
@@ -136,11 +150,7 @@ impl rustls_client_config_builder {
             let config_builder = ClientConfigBuilder {
                 provider: Some(provider),
                 versions,
-                verifier: None,
-                cert_resolver: None,
-                alpn_protocols: vec![],
-                enable_sni: true,
-                key_log: None,
+                ..ClientConfigBuilder::default()
             };
 
             set_boxed_mut_ptr(builder_out, config_builder);
@@ -540,8 +550,13 @@ impl rustls_client_config_builder {
                 None => return rustls_result::NoServerCertVerifier,
             };
 
+            let versions = match builder.versions.is_empty() {
+                true => rustls::DEFAULT_VERSIONS,
+                false => builder.versions.as_slice(),
+            };
+
             let config = match ClientConfig::builder_with_provider(provider)
-                .with_protocol_versions(&builder.versions)
+                .with_protocol_versions(versions)
             {
                 Ok(c) => c,
                 Err(err) => return map_error(err),
