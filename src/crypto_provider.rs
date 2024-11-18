@@ -463,14 +463,9 @@ pub(crate) fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoP
         return Some(provider.clone());
     }
 
-    let provider = match provider_from_crate_features() {
-        Some(provider) => provider,
-        None => return None,
-    };
-
     // Ignore the error resulting from us losing a race to install the default,
     // and accept the outcome.
-    let _ = provider.install_default();
+    let _ = provider_from_crate_features()?.install_default();
 
     // Safety: we can unwrap safely here knowing we've just set the default, or
     // lost a race to something else setting the default.
