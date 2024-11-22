@@ -175,7 +175,7 @@ impl<'a> TryFrom<&'a str> for rustls_str<'a> {
     }
 }
 
-impl<'a> Default for rustls_str<'a> {
+impl Default for rustls_str<'_> {
     fn default() -> rustls_str<'static> {
         Self::from_str_unchecked("")
     }
@@ -186,7 +186,7 @@ impl<'a> Default for rustls_str<'a> {
 /// The string should not have any internal NUL bytes and is not NUL terminated.
 /// C code should not create rustls_str objects, they should only be created in Rust
 /// code.
-impl<'a> rustls_str<'a> {
+impl rustls_str<'_> {
     pub fn from_str_unchecked(s: &'static str) -> rustls_str<'static> {
         rustls_str {
             data: s.as_ptr() as *const _,
@@ -226,7 +226,7 @@ impl<'a> rustls_str<'a> {
 // If the assertion about Rust code being the only creator of rustls_str objects
 // changes, you must change this Debug impl, since the assertion in it no longer
 // holds.
-impl<'a> fmt::Debug for rustls_str<'a> {
+impl fmt::Debug for rustls_str<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let raw = unsafe {
             // Despite the use of "unsafe", we know that this is safe because:
