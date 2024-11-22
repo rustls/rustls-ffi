@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.1 (2024-11-22)
+
+This release updates to [Rustls 0.23.18][] and increases the project MSRV from
+1.64 to 1.71, matching the upstream Rustls MSRV.
+
+Notably this brings in a fix for an availability issue for **servers** using
+the `rustls_acceptor` type and associated APIs. See the upstream 0.23.18
+release notes for more information.
+
+[Rustls 0.23.18]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.18
+
 ## 0.14.0 (2024-09-12)
 
 This release updates to [Rustls 0.23.13][] and changes the rustls-ffi API to allow
