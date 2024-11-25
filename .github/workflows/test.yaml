@@ -25,7 +25,7 @@ jobs:
           - nightly
           # MSRV - keep in sync with what rustls and rustls-platform-verifier
           # consider MSRV
-          - 1.71.0
+          - "1.71"
         os: [ ubuntu-latest ]
         # Include a few MacOS and cert-compression builds to ensure they're tested without
         # bloating the matrix or slowing down CI.
@@ -59,6 +59,25 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
+      - name: Install cargo-c (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          # Version picked for MSRV compat.
+          LINK: https://github.com/lu-zero/cargo-c/releases/download/v0.10.0
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Install cargo-c (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          # Version picked for MSRV compat.
+          LINK: https://github.com/lu-zero/cargo-c/releases/download/v0.10.0
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
+
       - name: Setup cmake build
         run: |
           CC=${{matrix.cc}} \
@@ -69,6 +88,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
             -S . -B build
+
+      - name: Build
+        run: cmake --build build
 
       - name: Platform verifier connect test
         run: cmake --build build --target connect-test
@@ -105,6 +127,13 @@ jobs:
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
 
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
       - name: Setup cmake build
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release # No ASAN w/ Valgrind
 
@@ -125,6 +154,13 @@ jobs:
 
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
       - name: Setup cmake build
         run: |
@@ -165,6 +201,10 @@ jobs:
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: x64
+
+      # TODO(@cpu): install pre-built cargo-c similar to other platforms. This is slowww.
+      - name: Install cargo-c
+        run: cargo install cargo-c
 
       - name: Configure CMake
         run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -S . -B build
@@ -247,7 +287,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.71.0
+          toolchain: "1.71"
           components: rustfmt
 
       - name: Install Gersemi

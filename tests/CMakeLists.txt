@@ -37,16 +37,19 @@ function(test_binary target_name)
     target_sources(${target_name} PRIVATE ${target_name}.c common.c common.h)
     add_dependencies(${target_name} rustls-ffi)
 
-    target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(
+        ${target_name}
+        PRIVATE ${CMAKE_BINARY_DIR}/rust/include
+    )
 
     if(WIN32)
         target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
         target_link_libraries(
             ${target_name}
             debug
-            "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
+            "${CMAKE_BINARY_DIR}/rust/lib/rustls.lib"
             optimized
-            "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
+            "${CMAKE_BINARY_DIR}/rust/lib/rustls.lib"
             advapi32.lib
             bcrypt.lib
             crypt32.lib
@@ -78,9 +81,9 @@ function(test_binary target_name)
         target_link_libraries(
             ${target_name}
             debug
-            "${CMAKE_SOURCE_DIR}/target/debug/librustls_ffi.a"
+            "${CMAKE_BINARY_DIR}/rust/lib/librustls.a"
             optimized
-            "${CMAKE_SOURCE_DIR}/target/release/librustls_ffi.a"
+            "${CMAKE_BINARY_DIR}/rust/lib/librustls.a"
         )
         if(CERT_COMPRESSION)
             target_link_libraries(${target_name} m)
