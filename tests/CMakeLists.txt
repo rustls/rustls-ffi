@@ -22,7 +22,15 @@ elseif(CRYPTO_PROVIDER STREQUAL "ring")
 endif()
 
 # Set ASAN sanitizer flags conditionally for Debug builds
-set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Clang supports some additional undefined behaviour sanitizers that are helpful.
+    set(sanitizer_flags
+        "$<$<CONFIG:Debug>:-fsanitize=address,undefined,unsigned-integer-overflow,local-bounds,implicit-conversion>"
+    )
+else()
+    # For GCC and MSVC, stick to just ASAN.
+    set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
+endif()
 
 function(test_binary target_name)
     add_executable(${target_name})
