@@ -22,7 +22,7 @@ function(test_binary target_name)
     target_sources(${target_name} PRIVATE ${target_name}.c common.c common.h)
     add_dependencies(${target_name} rustls-ffi)
 
-    target_include_directories(${target_name} PUBLIC ${CMAKE_SOURCE_DIR}/src)
+    target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
     if(WIN32)
         target_link_libraries(
