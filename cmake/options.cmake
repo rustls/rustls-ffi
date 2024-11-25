@@ -35,3 +35,26 @@ endif()
 if(FIPS)
     list(APPEND CARGO_FEATURES --features=fips)
 endif()
+
+# By default w/ Makefile or Ninja generators (e.g. Linux/MacOS CLI)
+# the `CMAKE_BUILD_TYPE` is "" when using the C/C++ project tooling.
+#
+# This is annoying to handle in places where we want to decide on
+# release or debug so we conditionally set our own default.
+#
+# We don't do this if the user has already set a `CMAKE_BUILD_TYPE`
+# explicitly. We also check `CMAKE_CONFIGURATION_TYPES` to exclude
+# "multi-config" generators like Visual Studio that use --config and
+# ignore `CMAKE_BUILD_TYPE`.
+#
+# Isn't cmake fun!?
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Using default build type: ${default_build_type}")
+    set(CMAKE_BUILD_TYPE
+        "${default_build_type}"
+        CACHE STRING
+        "Choose the type of build."
+        FORCE
+    )
+endif()
