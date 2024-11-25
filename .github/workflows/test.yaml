@@ -117,12 +117,19 @@ jobs:
       - name: Integration tests
         run: make FIPS=true integration
 
-  test-windows-cmake-debug:
-    name: Windows CMake, Debug configuration
+  test-windows:
+    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }})"
     runs-on: windows-latest
     strategy:
       matrix:
         crypto: [ aws-lc-rs, ring ]
+        config: [ Debug, Release ]
+        cert_compression: [ off ]
+        include:
+          # Just one build with cert_compression on to reduce build times.
+          - crypto: aws-lc-rs
+            config: Release
+            cert_compression: on
     steps:
       - uses: actions/checkout@v4
         with:
@@ -131,62 +138,18 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
       # For Debug builds we use ASAN, which requires a modern MSVC on $PATH
       # to provide the ASAN clang_rt.asan_*.dll runtime deps or
-      # the built client/server binary will exit immediately with 
+      # the built client/server binary will exit immediately with
       # exit code -1073741515
       - name: Setup MSVC
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: x64
       - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
-      - name: Build, debug configuration
-        run: cmake --build build --config Debug
-      - name: Integration test, debug configuration
-        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
-        env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\server.exe
-
-  test-windows-cmake-release:
-    name: Windows CMake, Release configuration
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        crypto: [ aws-lc-rs, ring ]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
-      - name: Build, release configuration
-        run: cmake --build build --config Release
-      - name: Integration test, release configuration
-        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
-        env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
-
-  test-windows-cmake-compression:
-    name: Windows CMake, Cert. Compression
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Configure CMake enabling cert compression
-        run: cmake -DCERT_COMPRESSION="true" -S . -B build
-      - name: Build, release configuration, compression
-        run: cmake --build build --config Release
-      - name: Integration test, release configuration, compression
-        run: cargo test --features=cert_compression --locked --test client_server client_server_integration -- --ignored --exact
-        env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -S . -B build
+      - name: Build
+        run: cmake --build build --config "${{ matrix.config }}"
+      - name: Integration test
+        run: cmake --build build --config "${{matrix.config}}" --target integration-test
 
   ensure-header-updated:
     runs-on: ubuntu-latest
