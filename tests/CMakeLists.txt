@@ -5,7 +5,15 @@ if(WIN32)
         _CRT_NONSTDC_NO_WARNINGS
         ssize_t=int
     )
-endif(WIN32)
+elseif(APPLE) # Check this before UNIX! We want to handle Apple specially, and it's also a UNIX.
+    add_link_options(LINKER:-dead_strip)
+elseif(UNIX)
+    add_link_options(LINKER:--gc-sections)
+endif()
+
+if(UNIX) # Handled separately from link options to allow Apple/Unix to share the same compile options.
+    add_compile_options(-Werror -Wall -Wextra -Wpedantic)
+endif()
 
 if(CRYPTO_PROVIDER STREQUAL "aws_lc_rs")
     add_compile_definitions(DEFINE_AWS_LC_RS)
@@ -56,13 +64,27 @@ function(test_binary target_name)
             TARGET ${target_name}
             PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL"
         )
-    endif(WIN32)
-    if(UNIX)
-        # TODO
-    endif(UNIX)
-    if(APPLE)
-        # TODO
-    endif(APPLE)
+    elseif(UNIX)
+        target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
+        target_link_options(${target_name} PRIVATE ${sanitizer_flags})
+        target_link_libraries(
+            ${target_name}
+            debug
+            "${CMAKE_SOURCE_DIR}/target/debug/librustls_ffi.a"
+            optimized
+            "${CMAKE_SOURCE_DIR}/target/release/librustls_ffi.a"
+        )
+        if(CERT_COMPRESSION)
+            target_link_libraries(${target_name} m)
+        endif()
+        if(APPLE)
+            target_link_libraries(
+                ${target_name}
+                "-framework Foundation"
+                "-framework Security"
+            )
+        endif()
+    endif()
 endfunction()
 
 # Add client and server test binary targets
