@@ -17,82 +17,54 @@ endif()
 set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
 add_compile_options(${sanitizer_flags})
 
-add_executable(client client.c common.c)
-add_dependencies(client rustls-ffi)
-target_include_directories(client PUBLIC ${CMAKE_SOURCE_DIR}/src)
-if(WIN32)
-    target_link_libraries(
-        client
-        debug
-        "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
-        optimized
-        "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib
-        bcrypt.lib
-        crypt32.lib
-        cryptnet.lib
-        kernel32.lib
-        ncrypt.lib
-        bcrypt.lib
-        advapi32.lib
-        legacy_stdio_definitions.lib
-        kernel32.lib
-        advapi32.lib
-        kernel32.lib
-        ntdll.lib
-        userenv.lib
-        ws2_32.lib
-        synchronization.lib
-        kernel32.lib
-        ws2_32.lib
-        kernel32.lib
-        msvcrt.lib
-    )
-    set_property(TARGET client PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-endif(WIN32)
-if(UNIX)
-    # TODO
-endif(UNIX)
-if(APPLE)
-    # TODO
-endif(APPLE)
+function(test_binary target_name)
+    add_executable(${target_name})
+    target_sources(${target_name} PRIVATE ${target_name}.c common.c common.h)
+    add_dependencies(${target_name} rustls-ffi)
 
-add_executable(server server.c common.c)
-add_dependencies(server rustls-ffi)
-target_include_directories(server PUBLIC ${CMAKE_SOURCE_DIR}/src)
-if(WIN32)
-    target_link_libraries(
-        server
-        debug
-        "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
-        optimized
-        "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
-        advapi32.lib
-        bcrypt.lib
-        crypt32.lib
-        cryptnet.lib
-        kernel32.lib
-        ncrypt.lib
-        bcrypt.lib
-        advapi32.lib
-        legacy_stdio_definitions.lib
-        kernel32.lib
-        advapi32.lib
-        kernel32.lib
-        ntdll.lib
-        userenv.lib
-        ws2_32.lib
-        synchronization.lib
-        kernel32.lib
-        ws2_32.lib
-        kernel32.lib
-        msvcrt.lib
-    )
-    set_property(TARGET server PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-endif(WIN32)
-if(UNIX)
-    # TODO
-endif(UNIX)
-if(APPLE)
-    # TODO
-endif(APPLE)
+    target_include_directories(${target_name} PUBLIC ${CMAKE_SOURCE_DIR}/src)
+
+    if(WIN32)
+        target_link_libraries(
+            ${target_name}
+            debug
+            "${CMAKE_SOURCE_DIR}/target/debug/rustls_ffi.lib"
+            optimized
+            "${CMAKE_SOURCE_DIR}/target/release/rustls_ffi.lib"
+            advapi32.lib
+            bcrypt.lib
+            crypt32.lib
+            cryptnet.lib
+            kernel32.lib
+            ncrypt.lib
+            bcrypt.lib
+            advapi32.lib
+            legacy_stdio_definitions.lib
+            kernel32.lib
+            advapi32.lib
+            kernel32.lib
+            ntdll.lib
+            userenv.lib
+            ws2_32.lib
+            synchronization.lib
+            kernel32.lib
+            ws2_32.lib
+            kernel32.lib
+            msvcrt.lib
+        )
+        set_property(
+            TARGET ${target_name}
+            PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL"
+        )
+    endif(WIN32)
+    if(UNIX)
+        # TODO
+    endif(UNIX)
+    if(APPLE)
+        # TODO
+    endif(APPLE)
+endfunction()
+
+# Add client and server test binary targets
+test_binary(client)
+test_binary(server)
