@@ -7,5 +7,6 @@ project(rustls-ffi)
 
 include(cmake/options.cmake)
 include(cmake/rust.cmake)
+include(cmake/format.cmake)
 
 add_subdirectory(tests)
