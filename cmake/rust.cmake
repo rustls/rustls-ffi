@@ -21,3 +21,10 @@ ExternalProject_Add(
         cargo test --locked ${CARGO_FEATURES}
         "$<IF:$<CONFIG:Release>,--release,-->" --quiet
 )
+
+add_custom_target(
+    cbindgen
+    # TODO(@cpu): I suspect this won't work on Windows :P
+    COMMAND cbindgen > "src/rustls.h"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
