@@ -265,7 +265,7 @@ jobs:
       - name: Check C formatting
         run: make format-check
       - name: Check CMake formatting
-        run: gersemi --check --diff CMakeLists.txt tests/CMakeLists.txt
+        run: gersemi --check --diff CMakeLists.txt tests/CMakeLists.txt cmake/*.cmake
 
   clippy:
     name: Clippy
