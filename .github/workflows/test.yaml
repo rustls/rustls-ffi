@@ -258,10 +258,14 @@ jobs:
         with:
           toolchain: 1.67.1
           components: rustfmt
+      - name: Install Gersemi
+        run: pip install gersemi
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
       - name: Check C formatting
         run: make format-check
+      - name: Check CMake formatting
+        run: gersemi --check --diff CMakeLists.txt tests/CMakeLists.txt
 
   clippy:
     name: Clippy
