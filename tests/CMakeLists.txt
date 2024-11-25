@@ -15,7 +15,6 @@ endif()
 
 # Set ASAN sanitizer flags conditionally for Debug builds
 set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
-add_compile_options(${sanitizer_flags})
 
 function(test_binary target_name)
     add_executable(${target_name})
@@ -25,6 +24,7 @@ function(test_binary target_name)
     target_include_directories(${target_name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
     if(WIN32)
+        target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
         target_link_libraries(
             ${target_name}
             debug
