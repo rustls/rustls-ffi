@@ -17,13 +17,12 @@ if(
     )
 endif()
 
-set(CERT_COMPRESSION
-    "false"
-    CACHE STRING
+option(
+    CERT_COMPRESSION
     "Whether to enable brotli and zlib certificate compression support"
 )
 
-set(FIPS "false" CACHE STRING "Whether to enable aws-lc-rs and FIPS support")
+option(FIPS "Whether to enable aws-lc-rs and FIPS support")
 
 set(CARGO_FEATURES --no-default-features)
 if(CRYPTO_PROVIDER STREQUAL "aws-lc-rs")
@@ -32,12 +31,12 @@ elseif(CRYPTO_PROVIDER STREQUAL "ring")
     list(APPEND CARGO_FEATURES --features=ring)
 endif()
 
-if(CERT_COMPRESSION STREQUAL "true")
+if(CERT_COMPRESSION)
     list(APPEND CARGO_FEATURES --features=cert_compression)
 endif()
 
 # See https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
-if(FIPS STREQUAL "true")
+if(FIPS)
     list(APPEND CARGO_FEATURES --features=fips)
 endif()
 
