@@ -3,9 +3,9 @@
 [![Build Status](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml/badge.svg)](https://github.com/rustls/rustls-ffi/actions/workflows/test.yaml)
 
 This crate contains FFI bindings for the [rustls](https://docs.rs/rustls) TLS
-library, so you can use the library in any language that supports FFI (C, C++, Python, etc).
-It also contains demo C programs that use those bindings to run an HTTPS server, and to
-make an HTTPS request.
+library, so you can use the library in any language that supports FFI (C, C++,
+Python, etc). It also contains demo C programs that use those bindings to run an
+HTTPS server, and to make an HTTPS request.
 
 Rustls is a modern TLS library written in Rust, meaning it is less likely to
 have memory safety vulnerabilities than equivalent TLS libraries written in
@@ -19,12 +19,53 @@ to provide the cryptographic primitives.
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/rustls-ffi.svg)](https://repology.org/project/rustls-ffi/versions)
 
-# Build
+# Build rustls-ffi
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.71
-or above) and a C compiler (`gcc` and `clang` should both work).
+To build rustls-ffi as a static or shared library you'll need to [install the
+Rust toolchain](https://rustup.rs/) (version 1.71 or above) as well as 
+[cargo c](https://github.com/lu-zero/cargo-c).
 
-## Cryptography provider
+The [cargo-c] tool can be installed from 
+[your package manager](https://github.com/lu-zero/cargo-c?tab=readme-ov-file#availability)
+or using Cargo with `cargo install cargo-c`.
+
+If you plan to build the `client` and `server` [C examples](#example-applications) 
+you will also need `cmake` and a C compiler (`gcc` and `clang` should both work, 
+as well as MSVC on Windows).
+
+## Building and Installing
+
+```bash
+git clone https://github.com/rustls/rustls-ffi
+cd rustls-ffi
+sudo cargo capi install --release
+```
+
+If you receive a message like "error: no such command capi" you need to install
+[cargo c] from your package manager, or using `cargo install cargo-c`.
+
+To change where the library is installed, use `--prefix` like:
+
+```bash
+cargo capi install --release --prefix=/tmp/rustls-ffi
+```
+
+Running `capi install` takes care of:
+* Building `.a`, `.so`, `.dylib`, `.lib` or `.dll` library files for rustls-ffi
+  (depending on the OS).
+* Generating a [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) 
+  `.pc` file if appropriate.
+* Installing the library and header files in the appropriate location.
+
+Replace `--release` with `--debug` to generate a (slower) debug build. See
+`cargo capi install --help` for more information
+
+### Build Features
+
+You can build rustls-ffi with different optional features, providing the
+selection in your `cargo capi` commands.
+
+#### Cryptography Provider
 
 Both rustls and rustls-ffi support choosing a cryptography provider for
 implementing the cryptography required for TLS. By default, both will use
@@ -33,43 +74,17 @@ implementing the cryptography required for TLS. By default, both will use
 It is **not** presently supported to build with both cryptography providers
 activated, or with neither provider activated.
 
-### Choosing a provider
+Select the cryptography provider using `--no-default-features` and `--features`:
 
-#### Make
+```bash
+cargo capi install                                       # aws-lc-rs default
+cargo capi install --features=aws-lc-rs                  # aws-lc-rs explicit
+cargo capi install --no-default-features --features=ring # ring
+```
 
-When building with the `Makefile`, or example `Makefile.pkg-config` specify
-a `CRYPTO_PROVIDER` as a makefile variable. E.g.:
+##### Cryptography Provider build requirements
 
-* `make` to build with the default (`aws-lc-rs`).
-* `make CRYPTO_PROVIDER=aws-lc-rs` to build with `aws-lc-rs` explicitly.
-* `make CRYPTO_PROVIDER=ring` to build with `*ring*`.
-
-#### CMake
-
-When building with `cmake`, specify a `CRYPTO_PROVIDER` as a cmake cache entry
-variable with `-DCRYPTO_PROVIDER`. E.g.:
-
-* `cmake -S . -B build; cmake --build build --config Release` - to build with
-  the default (`aws-lc-rs`).
-* `cmake -DCRYPTO_PROVIDER=aws-lc-rs -S . -B build; cmake --build build --config
-  Release` - to build with `aws-lc-rs` explicitly.
-* `cmake -DCRYPTO_PROVIDER=ring -S . -B build; cmake --build build --config
-  Release` - to build with `aws-lc-rs` explicitly.
-
-#### Cargo-c
-
-When building with the experimental [`cargo-c`] support, use `--features` to
-specify which provider to use. E.g.:
-
-* `cargo cinstall` to build with the default (`aws-lc-rs`).
-* `cargo cinstall --features aws-lc-rs` to build with `aws-lc-rs` explicitly.
-* `cargo cinstall --no-default-features --features ring` to build with `*ring*`.
-
-[`cargo-c`]: https://github.com/lu-zero/cargo-c
-
-### Cryptography provider build requirements
-
-For more information on cryptography provider builder requirements and supported
+For more information on cryptography provider build requirements and supported
 platforms see the upstream documentation:
 
 * [`aws-lc-rs` platforms and requirements][]
@@ -80,35 +95,62 @@ platforms see the upstream documentation:
 [`*ring*`]: https://crates.io/crates/ring
 [`*ring*` supported platforms]: https://github.com/briansmith/ring/blob/2e8363b433fa3b3962c877d9ed2e9145612f3160/include/ring-core/target.h#L18-L64
 
-## Static Library
+#### Certificate Compression
 
-In its current form rustls-ffi's `Makefile` infrastructure will generate a static
-system library (e.g. `--crate-type=staticlib`), producing a `.a` or `.lib` file
-(depending on the OS).
+You can optionally enable [RFC 8879](https://www.rfc-editor.org/rfc/rfc8879)
+certificate compression support with `--features=cert_compression`. 
 
-We recommend using rustls-ffi as a static library as we  make no guarantees of
+This is **disabled** by default. Enabling this feature will bring in additional
+dependencies (e.g. `zlib-rs`, `brotli`) and requires an MSRV of 1.75. Once
+enabled support is handled transparently and no code changes are required in
+your application.
+
+```bash
+cargo capi install                             # Without cert compression.
+cargo capi install --features=cert_compression # With cert compression.
+```
+
+#### FIPS 140-3
+
+You can optionally enable FIPS support via `--features=fips`. This implicitly
+enables the `aws-lc-rs` cryptography provider since `ring` does not have FIPS
+140-3 support at this time.
+
+Enabling FIPS mode adds several new build requirements depending on your
+platform. For example, all platforms will require `cmake` and `go`. Windows will
+require `ninja`.
+
+Note that this is an **experimental** feature and on MacOS and Windows using this
+feature requires you to dynamically link rustls-ffi - static linking is not
+supported. You must additionally provide and link your own copies of the
+required `aws-lc-fips` FIPS module `.DLL` or `.a` libraries on MacOS and
+Windows when building your application.
+
+See the upstream
+[Windows](https://aws.github.io/aws-lc-rs/requirements/windows.html#fips-build)
+and [Apple](https://aws.github.io/aws-lc-rs/requirements/apple.html)
+documentation for more information.
+
+# Using rustls-ffi
+
+To use rustls-ffi in your application you will need to link against the
+installed library. The details of this will vary based on your OS and intended
+use-case. The following assumes using rustls-ffi on Linux/MacOS with
+a traditional C application:
+
+## Static Linking
+
+We recommend linking rustls-ffi as a static library as we make no guarantees of
 [ABI](https://en.wikipedia.org/wiki/Application_binary_interface) stability across
 versions at this time, and dynamic library support is considered **experimental**.
 
-### Building a Static Library
-
-To build a static library in optimized mode:
-
-    make
-
-To install in `/usr/local/`:
-
-    sudo make install
-
-To build a static library in debug mode:
-
-    make PROFILE=debug
-
-To link against the resulting static library, on **Linux**:
+After running `cargo capi install` you can link against the resulting static
+library on **Linux** using these compiler arguments:
 
     -lrustls -lgcc_s -lutil -lrt -lpthread -lm -ldl -lc
 
-To link against the resulting static library, on **macOS**:
+To link against the resulting static library, on **macOS**, use these compiler
+arguments:
 
     -lrustls -liconv -lSystem -lc -l
 
@@ -117,15 +159,23 @@ via](https://doc.rust-lang.org/rustc/command-line-arguments.html#--print-print-c
 
     RUSTFLAGS="--print native-static-libs" cargo build
 
-## Dynamic Library
+It may also be helpful to consult the [example C applications](#example-applications).
+
+## Dynamic linking rustls-ffi
 
 Using rustls-ffi as a static library has some downsides. Notably each application
 that links the static library will need to be rebuilt for each update to rustls-ffi,
 and duplicated copies of rustls-ffi will be included in each application.
 
-Building rustls-ffi as a dynamic library (`--crate-type=cdylib`) can resolve these
-issues, however this approach comes with its own trade-offs. We currently consider
-this option **experimental**.
+Building rustls-ffi as a dynamic library can resolve these issues, however this
+approach comes with its own trade-offs. We currently consider this option
+**experimental**.
+
+To link against the resulting dynamic library on MacOS or Linux, use
+`pkg-config` to populate your `LDLIBS` and `CFLAGS` as appropriate:
+
+    LDLIBS="$(pkg-config --libs rustls)"
+    CFLAGS="$(pkg-config --cflags rustls)"
 
 ### ABI Stability
 
@@ -135,43 +185,68 @@ Each release of rustls-ffi may introduce breaking changes to the ABI and so
 the built library should use the exact rustls-ffi version as the dynamic library
 [SONAME](https://en.wikipedia.org/wiki/Soname).
 
-### Building a Dynamic Library
+# Example Applications
 
-Since building a useful dynamic library is more complex than building a static
-library, rustls-ffi uses [cargo-ci](https://github.com/lu-zero/cargo-c) in place
-of the `Makefile` system used for the static library.
+The rustls-ffi repo includes two example C programs for Linux, MacOS and Windows:
 
-This takes care of:
-* Generating the `rustls.h` header file.
-* Building a `.so` or `.dylib` file (depending on the OS).
-* Generating a [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/) `.pc` file.
-* Installing the library and header files in the appropriate location.
+* [tests/client.c](tests/client.c) - a simple HTTPS client
+* [tests/server.c](tests/server.c) - a simple HTTPS server
 
-If your operating system doesn't package `cargo-c` natively
-(see [package availability](https://github.com/lu-zero/cargo-c#availability)),
-you can install it with:
+## Building the Examples
 
-    cargo install cargo-c
+To build the `client` and `server` C examples you will also need `cmake` (3.15+)
+and a C compiler (`gcc` and `clang` should both work, as well as MSVC on
+Windows).
 
-To build a dynamic library in optimized mode:
+### Linux and MacOS
 
-    cargo capi build --release
+```
+# Configure your build directory
+cmake -S . -B build -DCMAKE_BUILD_TYPE=release
 
-To install in `/usr/local/`:
+# Build the client/server examples
+cmake --build build
+```
 
-    sudo cargo capi install
+Use `-DCRYPTO_PROVIDER=ring` to select the cryptography provider for the
+examples explicitly.
 
-To build a static library in debug mode:
+Use `-DCERT_COMPRESSION=on` to enable certificate compression.
 
-    cargo capi build
+Use `-DFIPS=on` to enable FIPS mode.
 
-To link against the resulting dynamic library, use `pkg-config` to populate your
-`LDLIBS` and `CFLAGS` as appropriate:
+Use `cmake --build build --target integration-test` to build and run the
+client/server integration tests.
 
-    LDLIBS="$(pkg-config --libs rustls)"
-    CFLAGS="$(pkg-config --cflags rustls)"
+Use `cmake -LH build` to see all options/help. Use `cmake --build build --target
+help` to view all targets.
 
-# Overview
+### Windows
+
+Note that Windows uses the traditional CMake "multi config" arrangement, using `--config` instead 
+of `-DCMAKE_BUILD_TYPE`:
+
+```
+# Configure your build directory
+cmake -S . -B build
+
+# Build the client/server examples
+cmake --build build --config Release
+```
+
+#### Examples
+
+Running the client/server examples in a debug build (ASAN enabled), with cert
+compression, the ring cryptography provider, and `clang` as the compiler on
+a Linux system in a `my-clang-build` build directory:
+
+```
+CC=clang CXX=clang cmake -S . -B my-clang-build -DCMAKE_BUILD_TYPE=Debug -DCERT_COMPRESSION=on
+-DCRYPTO_PROVIDER=ring
+cmake --build my-clang-build --target integration-test
+```
+
+# API Overview
 
 Rustls doesn't do any I/O on its own. It provides the protocol handling, and
 leaves it up to the user to send and receive bytes on the network. Because of
@@ -180,7 +255,7 @@ the [rustls documentation](https://docs.rs/rustls/) for a diagram
 of its input and output methods, along with a description of the TLS features it
 supports.
 
-# Conventions
+## API Conventions
 
 This library defines an `enum`, `rustls_result`, to indicate success or failure of
 a function call. All fallible functions return a `rustls_result`. If a function
