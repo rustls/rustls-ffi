@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: Build+test
+    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.crypto }}, ${{ matrix.rust }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -27,12 +27,27 @@ jobs:
           # consider MSRV
           - 1.71.0
         os: [ ubuntu-latest ]
-        # but only stable, clang, and aws-lc-rs on macos (slower platform)
+        # Include a few MacOS and cert-compression builds to ensure they're tested without
+        # bloating the matrix or slowing down CI.
         include:
+          # Linux cert compression build
+          - os: ubuntu-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            cert_compression: on
+          # MacOS standard build
           - os: macos-latest
             cc: clang
             crypto: aws-lc-rs
             rust: stable
+            cert_compression: off
+          # MacOS cert compression build
+          - os: macos-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            cert_compression: on
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -44,38 +59,40 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
 
-      - name: Unit tests
-        env:
-          CARGO_UNSTABLE_HTTP_REGISTRY: true
-        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} test
+      - name: Setup cmake build
+        run: |
+          CC=${{matrix.cc}} \
+          CXX=${{matrix.cc}} \
+          cmake \
+            -DCRYPTO_PROVIDER=${{matrix.crypto}} \
+            -DCERT_COMPRESSION=${{matrix.cert_compression}} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
+            -S . -B build
 
       - name: Platform verifier connect test
-        run: make PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} connect-test
+        run: cmake --build build --target connect-test
 
       - name: Integration tests
-        env:
-          CARGO_UNSTABLE_HTTP_REGISTRY: true
-        # Note: we run this after the connect-tests because the static libs test rebuilds the crate
-        #       squashing whatever RUSTFLAGS the Makefile has set and producing a librustls_ffi.a
-        #       for the default build config.
-        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} integration
+        run: cmake --build build --target integration-test
 
       - name: Verify debug builds were using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
-          nm target/client | grep '__asan_init'
-          nm target/server | grep '__asan_init'
+          nm build/tests/client | grep '__asan_init'
+          nm build/tests/server | grep '__asan_init'
 
       - name: Build release binaries
         run: |
-          make clean
-          make CC=${{ matrix.cc }} CRYPTO_PROVIDER=${{ matrix.crypto }} PROFILE=release test
+          cmake --build build -- clean
+          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S . -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
 
       - name: Verify release builds were not using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
-          nm target/client | grep -v '__asan_init'
-          nm target/server | grep -v '__asan_init'
+          ! nm build/tests/client | grep '__asan_init' 
+          ! nm build/tests/server | grep '__asan_init' 
 
   valgrind:
     name: Valgrind
@@ -88,28 +105,10 @@ jobs:
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
 
-      - run: VALGRIND=valgrind make PROFILE=release test integration
+      - name: Setup cmake build
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release # No ASAN w/ Valgrind
 
-  cert-compression:
-    name: Certificate Compression
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-
-      - name: Unit tests
-        run: make PROFILE=debug CERT_COMPRESSION=true test
-
-      - name: Integration tests
-        run: make PROFILE=debug CERT_COMPRESSION=true integration
+      - run: VALGRIND=valgrind cmake --build build --target integration-test
 
   # TODO(@cpu): MacOS and Windows FIPS test coverage
   fips:
@@ -127,11 +126,15 @@ jobs:
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Unit tests
-        run: make FIPS=true test
+      - name: Setup cmake build
+        run: |
+          cmake \
+            -DFIPS=true \
+            -DCMAKE_BUILD_TYPE=Release \
+            -S . -B build
 
       - name: Integration tests
-        run: make FIPS=true integration
+        run: cmake --build build --target integration-test
 
   test-windows:
     name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }})"
@@ -226,9 +229,6 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Build client/server binaries
-        run: make target/client target/server
-
       - name: cargo test (debug; default features; -Z minimal-versions)
         run: cargo -Z minimal-versions test --locked
 
@@ -247,20 +247,17 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.67.1
+          toolchain: 1.71.0
           components: rustfmt
 
       - name: Install Gersemi
         run: pip install gersemi
 
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
+      - name: Setup cmake build
+        run: cmake -S . -B build
 
-      - name: Check C formatting
-        run: make format-check
-
-      - name: Check CMake formatting
-        run: gersemi --no-warn-about-unknown-commands --check --diff CMakeLists.txt tests/CMakeLists.txt cmake/*.cmake
+      - name: Check formatting
+        run: cmake --build build --target format-check
 
   clippy:
     name: Clippy
