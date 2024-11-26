@@ -474,6 +474,56 @@ main(int argc, const char **argv)
     config_builder = rustls_client_config_builder_new();
   }
 
+  if(getenv("RUSTLS_ECH_GREASE")) {
+    const rustls_hpke *hpke = rustls_supported_hpke();
+    if(hpke == NULL) {
+      fprintf(stderr, "client: no HPKE suites for ECH available\n");
+      goto cleanup;
+    }
+
+    result =
+      rustls_client_config_builder_enable_ech_grease(config_builder, hpke);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "client: failed to configure ECH GREASE\n");
+      goto cleanup;
+    }
+    fprintf(stderr, "configured for ECH GREASE\n");
+  }
+  else if(getenv("RUSTLS_ECH_CONFIG_LIST")) {
+    const rustls_hpke *hpke = rustls_supported_hpke();
+    if(hpke == NULL) {
+      fprintf(stderr, "client: no HPKE suites for ECH available\n");
+      goto cleanup;
+    }
+
+    char ech_config_list_buf[10000];
+    size_t ech_config_list_len;
+
+    unsigned int read_result = read_file(getenv("RUSTLS_ECH_CONFIG_LIST"),
+                                         ech_config_list_buf,
+                                         sizeof(ech_config_list_buf),
+                                         &ech_config_list_len);
+    if(read_result != DEMO_OK) {
+      fprintf(stderr,
+              "client: failed to read ECH config list file: '%s'\n",
+              getenv("RUSTLS_ECH_CONFIG_LIST"));
+      goto cleanup;
+    }
+    result =
+      rustls_client_config_builder_enable_ech(config_builder,
+                                              (uint8_t *)ech_config_list_buf,
+                                              ech_config_list_len,
+                                              hpke);
+    if(result != RUSTLS_RESULT_OK) {
+      fprintf(stderr, "client: failed to configure ECH");
+      goto cleanup;
+    }
+
+    fprintf(stderr,
+            "client: using ECH with config list from '%s'\n",
+            getenv("RUSTLS_ECH_CONFIG_LIST"));
+  }
+
   if(getenv("RUSTLS_PLATFORM_VERIFIER")) {
     result = rustls_platform_server_cert_verifier(&server_cert_verifier);
     if(result != RUSTLS_RESULT_OK) {
