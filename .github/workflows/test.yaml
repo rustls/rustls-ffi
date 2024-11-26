@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.crypto }}, ${{ matrix.rust }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }})"
+    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.rust }}, ${{ matrix.crypto }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,6 +30,12 @@ jobs:
         # Include a few MacOS and cert-compression builds to ensure they're tested without
         # bloating the matrix or slowing down CI.
         include:
+          # Linux dyn link build
+          - os: ubuntu-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            dyn_link: on
           # Linux cert compression build
           - os: ubuntu-latest
             cc: clang
@@ -42,6 +48,12 @@ jobs:
             crypto: aws-lc-rs
             rust: stable
             cert_compression: off
+          # MacOS dyn link build
+          - os: macos-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            dyn_link: on
           # MacOS cert compression build
           - os: macos-latest
             cc: clang
@@ -85,6 +97,7 @@ jobs:
           cmake \
             -DCRYPTO_PROVIDER=${{matrix.crypto}} \
             -DCERT_COMPRESSION=${{matrix.cert_compression}} \
+            -DDYN_LINK=${{matrix.dyn_link}} \
             -DCMAKE_BUILD_TYPE=Debug \
             ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
             -S . -B build
@@ -173,15 +186,21 @@ jobs:
         run: cmake --build build --target integration-test
 
   test-windows:
-    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }})"
+    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: windows-latest
     strategy:
       matrix:
         crypto: [ aws-lc-rs, ring ]
         config: [ Debug, Release ]
         cert_compression: [ off ]
+        dyn_link: [ off ]
         include:
-          # Just one build with cert_compression on to reduce build times.
+          # One build with dynamic linking.
+          # TODO(@cpu): debug broken dyn-link build on Windows.
+          # - crypto: aws-lc-rs
+          #   config: Release
+          #   dyn_link: on
+          # One build with cert_compression.
           - crypto: aws-lc-rs
             config: Release
             cert_compression: on
@@ -202,12 +221,16 @@ jobs:
         with:
           arch: x64
 
-      # TODO(@cpu): install pre-built cargo-c similar to other platforms. This is slowww.
       - name: Install cargo-c
-        run: cargo install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-windows-msvc.zip
+        run: |
+          curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
+          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
 
       - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -S . -B build
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S . -B build
 
       - name: Build
         run: cmake --build build --config "${{ matrix.config }}"
