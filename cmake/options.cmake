@@ -20,6 +20,15 @@ option(
 
 option(FIPS "Whether to enable aws-lc-rs and FIPS support")
 
+option(DYN_LINK "Use dynamic linking for rustls library" OFF)
+
+if(DYN_LINK AND FIPS AND (APPLE OR WIN32))
+    message(
+        FATAL_ERROR
+        "Dynamic linking is not supported with FIPS on MacOS or Windows"
+    )
+endif()
+
 set(CARGO_FEATURES --no-default-features)
 if(CRYPTO_PROVIDER STREQUAL "aws-lc-rs")
     list(APPEND CARGO_FEATURES --features=aws-lc-rs)

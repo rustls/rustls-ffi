@@ -215,6 +215,9 @@ Use `-DCERT_COMPRESSION=on` to enable certificate compression.
 
 Use `-DFIPS=on` to enable FIPS mode.
 
+Use `-DDYN_LINK=on` to dynamically link Rustls to the test programs instead of
+statically linking (the default).
+
 Use `cmake --build build --target integration-test` to build and run the
 client/server integration tests.
 

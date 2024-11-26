@@ -32,6 +32,17 @@ else()
     set(sanitizer_flags "$<$<CONFIG:Debug>:-fsanitize=address>")
 endif()
 
+set(lib_extension "a") # Static linking (default) for both MacOS and Linux
+if(WIN32 AND DYN_LINK)
+    set(lib_extension "dll.lib") # Dynamic linking for Windows
+elseif(WIN32)
+    set(lib_extension "lib") # Static linking (default) for Windows
+elseif(APPLE AND DYN_LINK)
+    set(lib_extension "dylib") # Dynamic linking for MacOS
+elseif(UNIX AND DYN_LINK)
+    set(lib_extension "so") # Dynamic linking for Linux
+endif()
+
 function(test_binary target_name)
     add_executable(${target_name})
     target_sources(${target_name} PRIVATE ${target_name}.c common.c common.h)
@@ -46,10 +57,10 @@ function(test_binary target_name)
         target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
         target_link_libraries(
             ${target_name}
-            debug
-            "${CMAKE_BINARY_DIR}/rust/lib/rustls.lib"
-            optimized
-            "${CMAKE_BINARY_DIR}/rust/lib/rustls.lib"
+            "${CMAKE_BINARY_DIR}/rust/lib/rustls.${lib_extension}"
+        )
+        target_link_libraries(
+            ${target_name}
             advapi32.lib
             bcrypt.lib
             crypt32.lib
@@ -80,10 +91,7 @@ function(test_binary target_name)
         target_link_options(${target_name} PRIVATE ${sanitizer_flags})
         target_link_libraries(
             ${target_name}
-            debug
-            "${CMAKE_BINARY_DIR}/rust/lib/librustls.a"
-            optimized
-            "${CMAKE_BINARY_DIR}/rust/lib/librustls.a"
+            "${CMAKE_BINARY_DIR}/rust/lib/librustls.${lib_extension}"
         )
         if(CERT_COMPRESSION)
             target_link_libraries(${target_name} m)
