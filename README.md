@@ -22,7 +22,7 @@ to provide the cryptographic primitives.
 # Build rustls-ffi
 
 To build rustls-ffi as a static or shared library you'll need to [install the
-Rust toolchain](https://rustup.rs/) (version 1.71 or above) as well as 
+Rust toolchain](https://rustup.rs/) (version 1.73 or above) as well as 
 [cargo-c].
 
 The [cargo-c] tool can be installed from 
