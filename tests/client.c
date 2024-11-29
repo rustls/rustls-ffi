@@ -30,9 +30,7 @@ int
 make_conn(const char *hostname, const char *port)
 {
   int sockfd = 0;
-  struct addrinfo *getaddrinfo_output = NULL, hints;
-
-  memset(&hints, 0, sizeof(hints));
+  struct addrinfo *getaddrinfo_output = NULL, hints = { 0 };
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM; /* looking for TCP */
 
