@@ -337,18 +337,30 @@ main(const int argc, const char **argv)
 {
   int ret = 1;
 
-  if(argc <= 2) {
-    fprintf(stderr,
-            "usage: %s hostname port path\n\n"
-            "Connect to a host via HTTPS on the provided port, make a request "
-            "for the\n"
-            "given path, and emit response to stdout (three times).\n",
-            argv[0]);
+  if(argc <= 3) {
+    fprintf(
+      stderr,
+      "usage: %s hostname port path [numreqs]\n\n"
+      "Connect to a host via HTTPS on the provided port, make [numreqs] \n"
+      "requests for the given path, and emit each response to stdout.\n",
+      argv[0]);
     return 1;
   }
   const char *hostname = argv[1];
   const char *port = argv[2];
   const char *path = argv[3];
+  const char *numreqs = argc > 4 ? argv[4] : "3";
+
+  char *end;
+  const long int numreqs_int = strtol(numreqs, &end, 10);
+  if(end == numreqs || *end != '\0') {
+    fprintf(stderr, "numreqs must be a positive integer\n");
+    return 1;
+  }
+  if(numreqs_int <= 0) {
+    fprintf(stderr, "numreqs must be a positive integer\n");
+    return 1;
+  }
 
   /* Set this global variable for logging purposes. */
   programname = "client";
@@ -577,7 +589,7 @@ main(const int argc, const char **argv)
     goto cleanup;
   }
 
-  for(int i = 0; i < 3; i++) {
+  for(int i = 0; i < numreqs_int; i++) {
     const demo_result dr = do_request(client_config, hostname, port, path);
     if(dr != DEMO_OK) {
       goto cleanup;
