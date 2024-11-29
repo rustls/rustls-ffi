@@ -177,7 +177,7 @@ bytevec_ensure_available(bytevec *vec, size_t n)
     }
     newdata = realloc(vec->data, newsize);
     if(newdata == NULL) {
-      fprintf(stderr, "out of memory trying to get %zu bytes\n", newsize);
+      LOG("out of memory trying to get %zu bytes", newsize);
       return DEMO_ERROR;
     }
     vec->data = newdata;
@@ -214,7 +214,7 @@ copy_plaintext_to_buffer(conndata *conn)
       return DEMO_ERROR;
     }
     if(n == 0) {
-      fprintf(stderr, "got 0-byte read, cleanly ending connection\n");
+      LOG_SIMPLE("got 0-byte read, cleanly ending connection");
       return DEMO_EOF;
     }
     bytevec_consume(&conn->data, n);
@@ -373,21 +373,22 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   }
 
   const rustls_certified_key *certified_key;
-  const rustls_result rr = rustls_certified_key_build((uint8_t *)certbuf,
-                                                      certbuf_len,
-                                                      (uint8_t *)keybuf,
-                                                      keybuf_len,
-                                                      &certified_key);
+  rustls_result rr = rustls_certified_key_build((uint8_t *)certbuf,
+                                                certbuf_len,
+                                                (uint8_t *)keybuf,
+                                                keybuf_len,
+                                                &certified_key);
   if(rr != RUSTLS_RESULT_OK) {
     print_error("parsing certificate and key", rr);
     return NULL;
   }
 
-  if(rustls_certified_key_keys_match(certified_key) != RUSTLS_RESULT_OK) {
-    fprintf(stderr,
-            "private key %s does not match certificate %s public key\n",
-            keyfile,
-            certfile);
+  rr = rustls_certified_key_keys_match(certified_key);
+  if(rr != RUSTLS_RESULT_OK) {
+    LOG("private key %s does not match certificate %s public key",
+        keyfile,
+        certfile);
+    print_error("certified key mismatch", rr);
     rustls_certified_key_free(certified_key);
     return NULL;
   }
@@ -407,7 +408,7 @@ default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
     const rustls_supported_ciphersuite *suite =
       rustls_default_crypto_provider_ciphersuites_get(i);
     if(suite == NULL) {
-      fprintf(stderr, "failed to get ciphersuite %zu\n", i);
+      LOG("failed to get ciphersuite %zu", i);
       goto cleanup;
     }
 
@@ -420,30 +421,28 @@ default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
   }
 
   if(custom_ciphersuite == NULL) {
-    fprintf(stderr,
-            "failed to select custom ciphersuite: %s\n",
-            custom_ciphersuite_name);
+    LOG("failed to select custom ciphersuite: %s", custom_ciphersuite_name);
     goto cleanup;
   }
 
   rustls_result rr =
     rustls_crypto_provider_builder_new_from_default(&provider_builder);
   if(rr != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to create provider builder\n");
+    print_error("failed to create provider builder", rr);
     goto cleanup;
   }
 
   rr = rustls_crypto_provider_builder_set_cipher_suites(
     provider_builder, &custom_ciphersuite, 1);
   if(rr != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to set custom ciphersuite\n");
+    print_error("failed to set custom ciphersuite", rr);
     goto cleanup;
   }
 
   rr =
     rustls_crypto_provider_builder_build(provider_builder, &custom_provider);
   if(rr != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to build custom provider\n");
+    print_error("failed to build custom provider", rr);
     goto cleanup;
   }
 
@@ -491,12 +490,11 @@ stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
     goto cleanup;
   }
 
-  fprintf(stderr,
-          "SSLKEYLOG: label=%.*s client_random=%s secret=%s\n",
-          (int)label.len,
-          label.data,
-          client_random_str,
-          secret_str);
+  LOG("SSLKEYLOG: label=%.*s client_random=%s secret=%s",
+      (int)label.len,
+      label.data,
+      client_random_str,
+      secret_str);
 
 cleanup:
   if(client_random_str != NULL) {
