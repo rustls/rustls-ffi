@@ -87,10 +87,10 @@ rustls_io_result write_vectored_cb(void *userdata, const rustls_iovec *iov,
 #endif /* _WIN32 */
 
 /* Number of bytes available for writing. */
-size_t bytevec_available(bytevec *vec);
+size_t bytevec_available(const bytevec *vec);
 
 /* Pointer to the writeable region. */
-char *bytevec_writeable(bytevec *vec);
+char *bytevec_writeable(const bytevec *vec);
 
 /* Indicate that n bytes have been written, increasing len. */
 void bytevec_consume(bytevec *vec, size_t n);
@@ -117,7 +117,7 @@ void *memmem(const void *haystack, size_t haystacklen, const void *needle,
 /* If headers are done (received \r\n\r\n), return a pointer to the beginning
  * of the body. Otherwise return NULL.
  */
-char *body_beginning(bytevec *vec);
+char *body_beginning(const bytevec *vec);
 
 /* If any header matching the provided name (NUL-terminated) exists, return
  * a pointer to the beginning of the value for the first such occurrence
