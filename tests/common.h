@@ -108,7 +108,7 @@ demo_result bytevec_ensure_available(bytevec *vec, size_t n);
  * DEMO_ERROR for error,
  * DEMO_EOF for "connection cleanly terminated by peer"
  */
-int copy_plaintext_to_buffer(conndata *conn);
+demo_result copy_plaintext_to_buffer(conndata *conn);
 
 /* Polyfill */
 void *memmem(const void *haystack, size_t haystacklen, const void *needle,
