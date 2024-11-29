@@ -347,8 +347,7 @@ main(const int argc, const char **argv)
       getenv("VECTORED_IO"));
 
   while(!shutting_down) {
-    socklen_t peer_addr_size;
-    peer_addr_size = sizeof(struct sockaddr_in);
+    socklen_t peer_addr_size = sizeof(struct sockaddr_in);
     const int clientfd =
       accept(sockfd, (struct sockaddr *)&peer_addr, &peer_addr_size);
     if(shutting_down) {
