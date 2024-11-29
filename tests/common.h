@@ -156,6 +156,14 @@ void stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
                        size_t client_random_len, const unsigned char *secret,
                        size_t secret_len);
 
+/*
+ * Log information about the rustls_connection to stderr.
+ *
+ * This includes the handshake type (full vs resumed), the negotiated
+ * ciphersuite, and the key exchange algorithm.
+ */
+void log_connection_info(const rustls_connection *rconn);
+
 extern const uint16_t default_tls_versions[];
 extern const size_t default_tls_versions_len;
 

@@ -554,6 +554,60 @@ cleanup:
   }
 }
 
+void
+log_connection_info(const rustls_connection *rconn)
+{
+  const rustls_handshake_kind hs_kind =
+    rustls_connection_handshake_kind(rconn);
+  const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
+  LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
+
+  const int protocol = rustls_connection_get_protocol_version(rconn);
+  const char *protocol_name;
+  switch(protocol) {
+  case RUSTLS_TLS_VERSION_TLSV1_2:
+    protocol_name = "TLSv1.2";
+    break;
+  case RUSTLS_TLS_VERSION_TLSV1_3:
+    protocol_name = "TLSv1.3";
+    break;
+  default:
+    protocol_name = "Unknown";
+  }
+  LOG("negotiated protocol version: %s (%#x)", protocol_name, protocol);
+
+  const int ciphersuite_id =
+    rustls_connection_get_negotiated_ciphersuite(rconn);
+  const rustls_str ciphersuite_name =
+    rustls_connection_get_negotiated_ciphersuite_name(rconn);
+  LOG("negotiated ciphersuite: %.*s (%#x)",
+      (int)ciphersuite_name.len,
+      ciphersuite_name.data,
+      ciphersuite_id);
+
+  const int kex_id =
+    rustls_connection_get_negotiated_key_exchange_group(rconn);
+  const rustls_str kex_name =
+    rustls_connection_get_negotiated_key_exchange_group_name(rconn);
+  LOG("negotiated key exchange: %.*s (%#x)",
+      (int)kex_name.len,
+      kex_name.data,
+      kex_id);
+
+  const uint8_t *negotiated_alpn = NULL;
+  size_t negotiated_alpn_len;
+  rustls_connection_get_alpn_protocol(
+    rconn, &negotiated_alpn, &negotiated_alpn_len);
+  if(negotiated_alpn != NULL) {
+    LOG("negotiated ALPN protocol: '%.*s'",
+        (int)negotiated_alpn_len,
+        (const char *)negotiated_alpn);
+  }
+  else {
+    LOG_SIMPLE("negotiated ALPN protocol: none");
+  }
+}
+
 // TLS 1.2 and TLS 1.3, matching Rustls default.
 const uint16_t default_tls_versions[] = { 0x0303, 0x0304 };
 
