@@ -45,8 +45,8 @@ do_read(conndata *conn, rustls_connection *rconn)
   size_t n = 0;
   char buf[1];
 
-  int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
-  if(err == EAGAIN || err == EWOULDBLOCK) {
+  const int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
+  if(err == EWOULDBLOCK) {
     LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
     return DEMO_AGAIN;
   }
