@@ -44,7 +44,6 @@ do_read(conndata *conn, rustls_connection *rconn)
 {
   size_t n = 0;
   char buf[1];
-
   const int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EWOULDBLOCK) {
     LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
@@ -54,8 +53,7 @@ do_read(conndata *conn, rustls_connection *rconn)
     LOG("reading from socket: errno %d", err);
     return DEMO_ERROR;
   }
-
-  if(n == 0) {
+  else if(n == 0) {
     return DEMO_EOF;
   }
   LOG("read %zu bytes from socket", n);
@@ -74,7 +72,7 @@ do_read(conndata *conn, rustls_connection *rconn)
 
   /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
    * verify that the sender then closed the TCP connection. */
-  ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
+  const ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
   if(signed_n > 0) {
     LOG("error: read returned %zu bytes after receiving close_notify", n);
     return DEMO_ERROR;
@@ -87,7 +85,7 @@ do_read(conndata *conn, rustls_connection *rconn)
 }
 
 demo_result
-send_response(conndata *conn)
+send_response(const conndata *conn)
 {
   rustls_connection *rconn = conn->rconn;
   const char *prefix = "HTTP/1.1 200 OK\r\nContent-Length:";
@@ -124,12 +122,9 @@ handle_conn(conndata *conn)
   fd_set write_fds;
   size_t n = 0;
   rustls_connection *rconn = conn->rconn;
-  int sockfd = conn->fd;
+  const int sockfd = conn->fd;
   struct timeval tv;
   exchange_state state = READING_REQUEST;
-  rustls_handshake_kind hs_kind;
-  int ciphersuite_id, kex_id;
-  rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
   LOG("acccepted conn on fd %d", conn->fd);
 
@@ -176,7 +171,7 @@ handle_conn(conndata *conn)
       }
     }
     if(FD_ISSET(sockfd, &write_fds)) {
-      int err = write_tls(rconn, conn, &n);
+      const int err = write_tls(rconn, conn, &n);
       if(err != 0) {
         LOG("error in write_tls: errno %d", err);
         goto cleanup;
@@ -192,18 +187,21 @@ handle_conn(conndata *conn)
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       LOG_SIMPLE("writing response");
-      hs_kind = rustls_connection_handshake_kind(rconn);
-      hs_kind_name = rustls_handshake_kind_str(hs_kind);
+      const rustls_handshake_kind hs_kind =
+        rustls_connection_handshake_kind(rconn);
+      const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
       LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
-      ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
-      ciphersuite_name =
+      const int ciphersuite_id =
+        rustls_connection_get_negotiated_ciphersuite(rconn);
+      const rustls_str ciphersuite_name =
         rustls_connection_get_negotiated_ciphersuite_name(rconn);
       LOG("negotiated ciphersuite: %.*s (%#x)",
           (int)ciphersuite_name.len,
           ciphersuite_name.data,
           ciphersuite_id);
-      kex_id = rustls_connection_get_negotiated_key_exchange_group(rconn);
-      kex_name =
+      const int kex_id =
+        rustls_connection_get_negotiated_key_exchange_group(rconn);
+      const rustls_str kex_name =
         rustls_connection_get_negotiated_key_exchange_group_name(rconn);
       LOG("negotiated key exchange: %.*s (%#x)",
           (int)kex_name.len,
@@ -240,7 +238,7 @@ cleanup:
 bool shutting_down = false;
 
 void
-handle_signal(int signo)
+handle_signal(const int signo)
 {
   if(signo == SIGTERM) {
     LOG_SIMPLE("received SIGTERM, shutting down");
@@ -249,7 +247,7 @@ handle_signal(int signo)
 }
 
 int
-main(int argc, const char **argv)
+main(const int argc, const char **argv)
 {
   int ret = 1;
   int sockfd = 0;
@@ -347,9 +345,9 @@ main(int argc, const char **argv)
     client_cert_verifier_builder =
       rustls_web_pki_client_cert_verifier_builder_new(client_cert_root_store);
 
-    char crlbuf[10000];
-    size_t crlbuf_len;
     if(auth_crl) {
+      size_t crlbuf_len;
+      char crlbuf[10000];
       result = read_file(auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
       if(result != DEMO_OK) {
         goto cleanup;
@@ -404,7 +402,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  int enable = 1;
+  const int enable = 1;
   if(setsockopt(
        sockfd, SOL_SOCKET, SO_REUSEADDR, (const char *)&enable, sizeof(int)) <
      0) {
@@ -436,7 +434,7 @@ main(int argc, const char **argv)
   while(!shutting_down) {
     socklen_t peer_addr_size;
     peer_addr_size = sizeof(struct sockaddr_in);
-    int clientfd =
+    const int clientfd =
       accept(sockfd, (struct sockaddr *)&peer_addr, &peer_addr_size);
     if(shutting_down) {
       break;
@@ -455,8 +453,7 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
-    conndata *conndata;
-    conndata = calloc(1, sizeof(struct conndata));
+    conndata *conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
     rustls_connection_set_userdata(rconn, conndata);
