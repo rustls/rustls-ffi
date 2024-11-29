@@ -62,7 +62,7 @@ extern const char *programname;
  * we have a special case for when there are no formatting parameters. */
 #define LOG_SIMPLE(s) LOG("%s", s)
 
-void print_error(const char *prefix, rustls_result result);
+void print_error(const char *prefix, rustls_result rr);
 
 int write_all(int fd, const char *buf, int n);
 
