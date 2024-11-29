@@ -211,7 +211,7 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
         /* This invokes rustls_connection_write_tls. We pass a callback to
          * that function. Rustls will pass a buffer to that callback with
          * encrypted bytes, that we will write to `conn`. */
-        const int err = write_tls(rconn, conn, &n);
+        const rustls_io_result err = write_tls(rconn, conn, &n);
         if(err != 0) {
           LOG("error in rustls_connection_write_tls: errno %d", err);
           goto cleanup;
