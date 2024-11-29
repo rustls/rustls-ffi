@@ -29,61 +29,6 @@ typedef enum exchange_state
   SENT_RESPONSE
 } exchange_state;
 
-/*
- * Do one read from the socket, and process all resulting bytes into the
- * rustls_connection, then copy all plaintext bytes from the session to stdout.
- * Returns:
- *  - DEMO_OK for success
- *  - DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
- *    socket
- *  - DEMO_EOF if we got EOF
- *  - DEMO_ERROR for other errors.
- */
-demo_result
-do_read(conndata *conn, rustls_connection *rconn)
-{
-  size_t n = 0;
-  char buf[1];
-  const int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
-  if(err == EWOULDBLOCK) {
-    LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
-    return DEMO_AGAIN;
-  }
-  else if(err != 0) {
-    LOG("reading from socket: errno %d", err);
-    return DEMO_ERROR;
-  }
-  else if(n == 0) {
-    return DEMO_EOF;
-  }
-  LOG("read %zu bytes from socket", n);
-
-  const rustls_result rr = rustls_connection_process_new_packets(rconn);
-  if(rr != RUSTLS_RESULT_OK) {
-    print_error("in process_new_packets", rr);
-    return DEMO_ERROR;
-  }
-
-  const demo_result dr = copy_plaintext_to_buffer(conn);
-  if(dr != DEMO_EOF) {
-    LOG("do_read returning %d", dr);
-    return dr;
-  }
-
-  /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
-   * verify that the sender then closed the TCP connection. */
-  const ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
-  if(signed_n > 0) {
-    LOG("error: read returned %zu bytes after receiving close_notify", n);
-    return DEMO_ERROR;
-  }
-  else if(signed_n < 0 && errno != EWOULDBLOCK) {
-    LOG("wrong error after receiving close_notify: %s", strerror(errno));
-    return DEMO_ERROR;
-  }
-  return DEMO_EOF;
-}
-
 demo_result
 send_response(const conndata *conn)
 {
@@ -181,7 +126,6 @@ handle_conn(conndata *conn)
         goto cleanup;
       }
     }
-
 
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;

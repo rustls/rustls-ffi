@@ -100,6 +100,18 @@ void bytevec_consume(bytevec *vec, size_t n);
  * DEMO_ERROR. */
 demo_result bytevec_ensure_available(bytevec *vec, size_t n);
 
+/*
+ * Do one read from the socket, and process all resulting bytes into the
+ * rustls_connection.
+ * Returns:
+ *  - DEMO_OK for success
+ *  - DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
+ *    socket
+ *  - DEMO_EOF if we got EOF
+ *  - DEMO_ERROR for other errors.
+ */
+demo_result do_read(conndata *conn, rustls_connection *rconn);
+
 /* Read all available bytes from the rustls_connection until EOF.
  * Note that EOF here indicates "no more bytes until
  * process_new_packets", not "stream is closed".
