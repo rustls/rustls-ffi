@@ -196,10 +196,9 @@ jobs:
         dyn_link: [ off ]
         include:
           # One build with dynamic linking.
-          # TODO(@cpu): debug broken dyn-link build on Windows.
-          # - crypto: aws-lc-rs
-          #   config: Release
-          #   dyn_link: on
+          - crypto: aws-lc-rs
+            config: Release
+            dyn_link: on
           # One build with cert_compression.
           - crypto: aws-lc-rs
             config: Release
@@ -221,6 +220,7 @@ jobs:
         with:
           arch: x64
 
+      # Note: must use cargo-c 0.10.7+ for dynamic linking support on Windows.
       - name: Install cargo-c
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
