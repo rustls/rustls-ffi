@@ -69,8 +69,8 @@ make_conn(const char *hostname, const char *port)
     perror("client: connecting");
     goto cleanup;
   }
-  demo_result result = nonblock(sockfd);
-  if(result != DEMO_OK) {
+  const demo_result dr = nonblock(sockfd);
+  if(dr != DEMO_OK) {
     return 1;
   }
 
@@ -101,7 +101,6 @@ demo_result
 do_read(conndata *conn, rustls_connection *rconn)
 {
   int err = 1;
-  unsigned result = 1;
   size_t n = 0;
   ssize_t signed_n = 0;
   char buf[1];
@@ -117,15 +116,15 @@ do_read(conndata *conn, rustls_connection *rconn)
     return DEMO_ERROR;
   }
 
-  result = rustls_connection_process_new_packets(rconn);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("in process_new_packets", result);
+  const rustls_result rr = rustls_connection_process_new_packets(rconn);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("in process_new_packets", rr);
     return DEMO_ERROR;
   }
 
-  result = copy_plaintext_to_buffer(conn);
-  if(result != DEMO_EOF) {
-    return result;
+  const demo_result dr = copy_plaintext_to_buffer(conn);
+  if(dr != DEMO_EOF) {
+    return dr;
   }
 
   /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
@@ -156,7 +155,6 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
   int sockfd = conn->fd;
   int ret = 1;
   int err = 1;
-  unsigned result = 1;
   char buf[2048];
   fd_set read_fds;
   fd_set write_fds;
@@ -187,8 +185,9 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
            version.data);
   /* First we write the plaintext - the data that we want rustls to encrypt for
    * us- to the rustls connection. */
-  result = rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
-  if(result != RUSTLS_RESULT_OK) {
+  const rustls_result rr =
+    rustls_connection_write(rconn, (uint8_t *)buf, strlen(buf), &n);
+  if(rr != RUSTLS_RESULT_OK) {
     LOG_SIMPLE("error writing plaintext bytes to rustls_connection");
     goto cleanup;
   }
@@ -229,18 +228,19 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
       goto cleanup;
     }
 
+    demo_result dr = DEMO_ERROR;
     if(FD_ISSET(sockfd, &read_fds)) {
       /* Read all bytes until we get EAGAIN. Then loop again to wind up in
          select awaiting the next bit of data. */
       for(;;) {
-        result = do_read(conn, rconn);
-        if(result == DEMO_AGAIN) {
+        dr = do_read(conn, rconn);
+        if(dr == DEMO_AGAIN) {
           break;
         }
-        else if(result == DEMO_EOF) {
+        else if(dr == DEMO_EOF) {
           goto drain_plaintext;
         }
-        else if(result != DEMO_OK) {
+        else if(dr != DEMO_OK) {
           goto cleanup;
         }
         if(headers_len == 0) {
@@ -282,7 +282,7 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
           LOG("error in rustls_connection_write_tls: errno %d", err);
           goto cleanup;
         }
-        if(result == DEMO_AGAIN) {
+        if(dr == DEMO_AGAIN) {
           break;
         }
         else if(n == 0) {
@@ -307,8 +307,8 @@ drain_plaintext:
       kex_name.data,
       kex_id);
 
-  result = copy_plaintext_to_buffer(conn);
-  if(result != DEMO_OK && result != DEMO_EOF) {
+  const demo_result dr = copy_plaintext_to_buffer(conn);
+  if(dr != DEMO_OK && dr != DEMO_EOF) {
     goto cleanup;
   }
   LOG("writing %zu bytes to stdout", conn->data.len);
@@ -325,24 +325,24 @@ cleanup:
   return ret;
 }
 
-int
+demo_result
 do_request(const rustls_client_config *client_config, const char *hostname,
            const char *port,
            const char *path) // NOLINT(bugprone-easily-swappable-parameters)
 {
   rustls_connection *rconn = NULL;
   conndata *conn = NULL;
-  int ret = 1;
+  demo_result dr = DEMO_ERROR;
   int sockfd = make_conn(hostname, port);
   if(sockfd < 0) {
     // No perror because make_conn printed error already.
     goto cleanup;
   }
 
-  rustls_result result =
+  const rustls_result rr =
     rustls_client_connection_new(client_config, hostname, &rconn);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("client_connection_new", result);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("client_connection_new", rr);
     goto cleanup;
   }
 
@@ -357,12 +357,12 @@ do_request(const rustls_client_config *client_config, const char *hostname,
   rustls_connection_set_userdata(rconn, conn);
   rustls_connection_set_log_callback(rconn, log_cb);
 
-  ret = send_request_and_read_response(conn, rconn, hostname, path);
-  if(ret != RUSTLS_RESULT_OK) {
+  dr = send_request_and_read_response(conn, rconn, hostname, path);
+  if(dr != DEMO_OK) {
     goto cleanup;
   }
 
-  ret = 0;
+  dr = DEMO_OK;
 
 cleanup:
   rustls_connection_free(rconn);
@@ -375,7 +375,7 @@ cleanup:
     }
     free(conn);
   }
-  return ret;
+  return dr;
 }
 
 uint32_t
@@ -411,7 +411,6 @@ int
 main(int argc, const char **argv)
 {
   int ret = 1;
-  unsigned result = 1;
 
   if(argc <= 2) {
     fprintf(stderr,
@@ -458,12 +457,13 @@ main(int argc, const char **argv)
     }
     printf("customized to use ciphersuite: %s\n", custom_ciphersuite_name);
 
-    result = rustls_client_config_builder_new_custom(custom_provider,
-                                                     default_tls_versions,
-                                                     default_tls_versions_len,
-                                                     &config_builder);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("creating client config builder", result);
+    const rustls_result rr =
+      rustls_client_config_builder_new_custom(custom_provider,
+                                              default_tls_versions,
+                                              default_tls_versions_len,
+                                              &config_builder);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("creating client config builder", rr);
       goto cleanup;
     }
   }
@@ -567,8 +567,9 @@ main(int argc, const char **argv)
   }
 
   if(getenv("RUSTLS_PLATFORM_VERIFIER")) {
-    result = rustls_platform_server_cert_verifier(&server_cert_verifier);
-    if(result != RUSTLS_RESULT_OK) {
+    const rustls_result rr =
+      rustls_platform_server_cert_verifier(&server_cert_verifier);
+    if(rr != RUSTLS_RESULT_OK) {
       fprintf(stderr, "client: failed to construct platform verifier\n");
       goto cleanup;
     }
@@ -577,23 +578,23 @@ main(int argc, const char **argv)
   }
   else if(getenv("CA_FILE")) {
     server_cert_root_store_builder = rustls_root_cert_store_builder_new();
-    result = rustls_root_cert_store_builder_load_roots_from_file(
+    rustls_result rr = rustls_root_cert_store_builder_load_roots_from_file(
       server_cert_root_store_builder, getenv("CA_FILE"), true);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("loading trusted certificates", result);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("loading trusted certificates", rr);
       goto cleanup;
     }
-    result = rustls_root_cert_store_builder_build(
-      server_cert_root_store_builder, &server_cert_root_store);
-    if(result != RUSTLS_RESULT_OK) {
+    rr = rustls_root_cert_store_builder_build(server_cert_root_store_builder,
+                                              &server_cert_root_store);
+    if(rr != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
     server_cert_verifier_builder =
       rustls_web_pki_server_cert_verifier_builder_new(server_cert_root_store);
 
-    result = rustls_web_pki_server_cert_verifier_builder_build(
+    rr = rustls_web_pki_server_cert_verifier_builder_build(
       server_cert_verifier_builder, &server_cert_verifier);
-    if(result != RUSTLS_RESULT_OK) {
+    if(rr != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
     rustls_client_config_builder_set_server_verifier(config_builder,
@@ -611,17 +612,18 @@ main(int argc, const char **argv)
   }
 
   if(getenv("SSLKEYLOGFILE")) {
-    result = rustls_client_config_builder_set_key_log_file(config_builder);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("enabling keylog", result);
+    const rustls_result rr =
+      rustls_client_config_builder_set_key_log_file(config_builder);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", rr);
       goto cleanup;
     }
   }
   else if(getenv("STDERRKEYLOG")) {
-    result = rustls_client_config_builder_set_key_log(
+    const rustls_result rr = rustls_client_config_builder_set_key_log(
       config_builder, stderr_key_log_cb, NULL);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("enabling keylog", result);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", rr);
       goto cleanup;
     }
   }
@@ -646,16 +648,17 @@ main(int argc, const char **argv)
   rustls_client_config_builder_set_alpn_protocols(
     config_builder, &alpn_http11, 1);
 
-  result = rustls_client_config_builder_build(config_builder, &client_config);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("building client config", result);
+  const rustls_result rr =
+    rustls_client_config_builder_build(config_builder, &client_config);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("building client config", rr);
     goto cleanup;
   }
 
   int i;
   for(i = 0; i < 3; i++) {
-    result = do_request(client_config, hostname, port, path);
-    if(result != 0) {
+    const demo_result dr = do_request(client_config, hostname, port, path);
+    if(dr != DEMO_OK) {
       goto cleanup;
     }
   }

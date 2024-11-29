@@ -25,11 +25,11 @@
 const char *programname;
 
 void
-print_error(const char *prefix, rustls_result result)
+print_error(const char *prefix, rustls_result rr)
 {
   char buf[256];
   size_t n;
-  rustls_error(result, buf, sizeof(buf), &n);
+  rustls_error(rr, buf, sizeof(buf), &n);
   LOG("%s: %.*s", prefix, (int)n, buf);
 }
 
@@ -190,10 +190,9 @@ bytevec_ensure_available(bytevec *vec, size_t n)
  * Copy all available plaintext from rustls into our own buffer, growing
  * our buffer as much as needed.
  */
-int
+demo_result
 copy_plaintext_to_buffer(conndata *conn)
 {
-  unsigned int result;
   size_t n;
   rustls_connection *rconn = conn->rconn;
 
@@ -204,13 +203,14 @@ copy_plaintext_to_buffer(conndata *conn)
   for(;;) {
     char *buf = bytevec_writeable(&conn->data);
     size_t avail = bytevec_available(&conn->data);
-    result = rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
-    if(result == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
+    const rustls_result rr =
+      rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
+    if(rr == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
       /* This is expected. It just means "no more bytes for now." */
       return DEMO_OK;
     }
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("error in rustls_connection_read", result);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("error in rustls_connection_read", rr);
       return DEMO_ERROR;
     }
     if(n == 0) {
@@ -362,25 +362,24 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   char keybuf[10000];
   size_t keybuf_len;
 
-  unsigned int result =
-    read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
-  if(result != DEMO_OK) {
+  demo_result dr = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
+  if(dr != DEMO_OK) {
     return NULL;
   }
 
-  result = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
-  if(result != DEMO_OK) {
+  dr = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
+  if(dr != DEMO_OK) {
     return NULL;
   }
 
   const rustls_certified_key *certified_key;
-  result = rustls_certified_key_build((uint8_t *)certbuf,
-                                      certbuf_len,
-                                      (uint8_t *)keybuf,
-                                      keybuf_len,
-                                      &certified_key);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("parsing certificate and key", result);
+  const rustls_result rr = rustls_certified_key_build((uint8_t *)certbuf,
+                                                      certbuf_len,
+                                                      (uint8_t *)keybuf,
+                                                      keybuf_len,
+                                                      &certified_key);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("parsing certificate and key", rr);
     return NULL;
   }
 
@@ -427,23 +426,23 @@ default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
     goto cleanup;
   }
 
-  rustls_result result =
+  rustls_result rr =
     rustls_crypto_provider_builder_new_from_default(&provider_builder);
-  if(result != RUSTLS_RESULT_OK) {
+  if(rr != RUSTLS_RESULT_OK) {
     fprintf(stderr, "failed to create provider builder\n");
     goto cleanup;
   }
 
-  result = rustls_crypto_provider_builder_set_cipher_suites(
+  rr = rustls_crypto_provider_builder_set_cipher_suites(
     provider_builder, &custom_ciphersuite, 1);
-  if(result != RUSTLS_RESULT_OK) {
+  if(rr != RUSTLS_RESULT_OK) {
     fprintf(stderr, "failed to set custom ciphersuite\n");
     goto cleanup;
   }
 
-  result =
+  rr =
     rustls_crypto_provider_builder_build(provider_builder, &custom_provider);
-  if(result != RUSTLS_RESULT_OK) {
+  if(rr != RUSTLS_RESULT_OK) {
     fprintf(stderr, "failed to build custom provider\n");
     goto cleanup;
   }
