@@ -35,7 +35,7 @@ make_conn(const char *hostname, const char *port)
   hints.ai_socktype = SOCK_STREAM; /* looking for TCP */
 
   LOG("connecting to %s:%s", hostname, port);
-  int getaddrinfo_result =
+  const int getaddrinfo_result =
     getaddrinfo(hostname, port, &hints, &getaddrinfo_output);
   if(getaddrinfo_result != 0) {
     LOG("getaddrinfo: %s", gai_strerror(getaddrinfo_result));
@@ -100,13 +100,11 @@ cleanup:
 demo_result
 do_read(conndata *conn, rustls_connection *rconn)
 {
-  int err = 1;
   size_t n = 0;
   ssize_t signed_n = 0;
   char buf[1];
 
-  err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
-
+  const int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
   if(err == EAGAIN || err == EWOULDBLOCK) {
     LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
     return DEMO_AGAIN;
@@ -152,24 +150,17 @@ int
 send_request_and_read_response(conndata *conn, rustls_connection *rconn,
                                const char *hostname, const char *path)
 {
-  int sockfd = conn->fd;
+  const int sockfd = conn->fd;
   int ret = 1;
-  int err = 1;
   char buf[2048];
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
-  const char *body;
-  const char *content_length_str;
   const char *content_length_end;
   unsigned long content_length = 0;
   size_t headers_len = 0;
-  rustls_str version;
-  rustls_handshake_kind hs_kind;
-  int ciphersuite_id, kex_id;
-  rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
-  version = rustls_version();
+  const rustls_str version = rustls_version();
   memset(buf, '\0', sizeof(buf));
   snprintf(buf,
            sizeof(buf),
@@ -196,8 +187,10 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
     goto cleanup;
   }
 
-  ciphersuite_id = rustls_connection_get_negotiated_ciphersuite(rconn);
-  ciphersuite_name = rustls_connection_get_negotiated_ciphersuite_name(rconn);
+  const int ciphersuite_id =
+    rustls_connection_get_negotiated_ciphersuite(rconn);
+  const rustls_str ciphersuite_name =
+    rustls_connection_get_negotiated_ciphersuite_name(rconn);
   LOG("negotiated ciphersuite: %.*s (%#x)",
       (int)ciphersuite_name.len,
       ciphersuite_name.data,
@@ -222,7 +215,8 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
       goto drain_plaintext;
     }
 
-    int select_result = select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
+    const int select_result =
+      select(sockfd + 1, &read_fds, &write_fds, NULL, NULL);
     if(select_result == -1) {
       perror("client: select");
       goto cleanup;
@@ -244,15 +238,16 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
           goto cleanup;
         }
         if(headers_len == 0) {
-          body = body_beginning(&conn->data);
+          const char *body = body_beginning(&conn->data);
           if(body != NULL) {
             headers_len = body - conn->data.data;
             LOG("body began at %zu", headers_len);
-            content_length_str = get_first_header_value(conn->data.data,
-                                                        headers_len,
-                                                        CONTENT_LENGTH,
-                                                        strlen(CONTENT_LENGTH),
-                                                        &n);
+            const char *content_length_str =
+              get_first_header_value(conn->data.data,
+                                     headers_len,
+                                     CONTENT_LENGTH,
+                                     strlen(CONTENT_LENGTH),
+                                     &n);
             if(content_length_str == NULL) {
               LOG_SIMPLE("content length header not found");
               goto cleanup;
@@ -277,7 +272,7 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
         /* This invokes rustls_connection_write_tls. We pass a callback to
          * that function. Rustls will pass a buffer to that callback with
          * encrypted bytes, that we will write to `conn`. */
-        err = write_tls(rconn, conn, &n);
+        const int err = write_tls(rconn, conn, &n);
         if(err != 0) {
           LOG("error in rustls_connection_write_tls: errno %d", err);
           goto cleanup;
@@ -295,13 +290,16 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
 
   LOG_SIMPLE("send_request_and_read_response: loop fell through");
 
-drain_plaintext:
-  hs_kind = rustls_connection_handshake_kind(rconn);
-  hs_kind_name = rustls_handshake_kind_str(hs_kind);
+drain_plaintext:; // NOTE: empty statement after label to allow var decls.
+  const rustls_handshake_kind hs_kind =
+    rustls_connection_handshake_kind(rconn);
+  const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
   LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
 
-  kex_id = rustls_connection_get_negotiated_key_exchange_group(rconn);
-  kex_name = rustls_connection_get_negotiated_key_exchange_group_name(rconn);
+  const int kex_id =
+    rustls_connection_get_negotiated_key_exchange_group(rconn);
+  const rustls_str kex_name =
+    rustls_connection_get_negotiated_key_exchange_group_name(rconn);
   LOG("negotiated key exchange: %.*s (%#x)",
       (int)kex_name.len,
       kex_name.data,
@@ -333,7 +331,7 @@ do_request(const rustls_client_config *client_config, const char *hostname,
   rustls_connection *rconn = NULL;
   conndata *conn = NULL;
   demo_result dr = DEMO_ERROR;
-  int sockfd = make_conn(hostname, port);
+  const int sockfd = make_conn(hostname, port);
   if(sockfd < 0) {
     // No perror because make_conn printed error already.
     goto cleanup;
@@ -384,9 +382,8 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
   size_t i = 0;
   const rustls_slice_slice_bytes *intermediates =
     params->intermediate_certs_der;
-  rustls_slice_bytes bytes;
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
-  conndata *conn = (struct conndata *)userdata;
+  const conndata *conn = (struct conndata *)userdata;
 
   LOG("custom certificate verifier called for %.*s",
       (int)params->server_name.len,
@@ -394,7 +391,8 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
   LOG("end entity len: %zu", params->end_entity_cert_der.len);
   LOG_SIMPLE("intermediates:");
   for(i = 0; i < intermediates_len; i++) {
-    bytes = rustls_slice_slice_bytes_get(intermediates, i);
+    const rustls_slice_bytes bytes =
+      rustls_slice_slice_bytes_get(intermediates, i);
     if(bytes.data != NULL) {
       LOG("   intermediate, len = %zu", bytes.len);
     }
@@ -408,7 +406,7 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
 }
 
 int
-main(int argc, const char **argv)
+main(const int argc, const char **argv)
 {
   int ret = 1;
 
@@ -652,8 +650,7 @@ main(int argc, const char **argv)
     goto cleanup;
   }
 
-  int i;
-  for(i = 0; i < 3; i++) {
+  for(int i = 0; i < 3; i++) {
     const demo_result dr = do_request(client_config, hostname, port, path);
     if(dr != DEMO_OK) {
       goto cleanup;
