@@ -71,7 +71,7 @@ make_conn(const char *hostname, const char *port)
     perror("client: connecting");
     goto cleanup;
   }
-  enum demo_result result = nonblock(sockfd);
+  demo_result result = nonblock(sockfd);
   if(result != DEMO_OK) {
     return 1;
   }
@@ -99,8 +99,8 @@ cleanup:
  *  - DEMO_EOF if we got EOF
  *  - DEMO_ERROR for other errors.
  */
-enum demo_result
-do_read(struct conndata *conn, struct rustls_connection *rconn)
+demo_result
+do_read(conndata *conn, rustls_connection *rconn)
 {
   int err = 1;
   unsigned result = 1;
@@ -152,8 +152,7 @@ static const char *CONTENT_LENGTH = "Content-Length";
  * the message and return 1.
  */
 int
-send_request_and_read_response(struct conndata *conn,
-                               struct rustls_connection *rconn,
+send_request_and_read_response(conndata *conn, rustls_connection *rconn,
                                const char *hostname, const char *path)
 {
   int sockfd = conn->fd;
@@ -169,10 +168,10 @@ send_request_and_read_response(struct conndata *conn,
   const char *content_length_end;
   unsigned long content_length = 0;
   size_t headers_len = 0;
-  struct rustls_str version;
+  rustls_str version;
   rustls_handshake_kind hs_kind;
   int ciphersuite_id, kex_id;
-  struct rustls_str ciphersuite_name, kex_name, hs_kind_name;
+  rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
   version = rustls_version();
   memset(buf, '\0', sizeof(buf));
@@ -329,12 +328,12 @@ cleanup:
 }
 
 int
-do_request(const struct rustls_client_config *client_config,
-           const char *hostname, const char *port,
+do_request(const rustls_client_config *client_config, const char *hostname,
+           const char *port,
            const char *path) // NOLINT(bugprone-easily-swappable-parameters)
 {
-  struct rustls_connection *rconn = NULL;
-  struct conndata *conn = NULL;
+  rustls_connection *rconn = NULL;
+  conndata *conn = NULL;
   int ret = 1;
   int sockfd = make_conn(hostname, port);
   if(sockfd < 0) {
@@ -349,7 +348,7 @@ do_request(const struct rustls_client_config *client_config,
     goto cleanup;
   }
 
-  conn = calloc(1, sizeof(struct conndata));
+  conn = calloc(1, sizeof(conndata));
   if(conn == NULL) {
     goto cleanup;
   }
@@ -387,9 +386,9 @@ verify(void *userdata, const rustls_verify_server_cert_params *params)
   size_t i = 0;
   const rustls_slice_slice_bytes *intermediates =
     params->intermediate_certs_der;
-  struct rustls_slice_bytes bytes;
+  rustls_slice_bytes bytes;
   const size_t intermediates_len = rustls_slice_slice_bytes_len(intermediates);
-  struct conndata *conn = (struct conndata *)userdata;
+  conndata *conn = (struct conndata *)userdata;
 
   LOG("custom certificate verifier called for %.*s",
       (int)params->server_name.len,
@@ -432,16 +431,16 @@ main(int argc, const char **argv)
   /* Set this global variable for logging purposes. */
   programname = "client";
 
-  const struct rustls_crypto_provider *custom_provider = NULL;
-  struct rustls_client_config_builder *config_builder = NULL;
-  struct rustls_root_cert_store_builder *server_cert_root_store_builder = NULL;
-  const struct rustls_root_cert_store *server_cert_root_store = NULL;
-  const struct rustls_client_config *client_config = NULL;
-  struct rustls_web_pki_server_cert_verifier_builder
-    *server_cert_verifier_builder = NULL;
-  struct rustls_server_cert_verifier *server_cert_verifier = NULL;
-  struct rustls_slice_bytes alpn_http11;
-  const struct rustls_certified_key *certified_key = NULL;
+  const rustls_crypto_provider *custom_provider = NULL;
+  rustls_client_config_builder *config_builder = NULL;
+  rustls_root_cert_store_builder *server_cert_root_store_builder = NULL;
+  const rustls_root_cert_store *server_cert_root_store = NULL;
+  const rustls_client_config *client_config = NULL;
+  rustls_web_pki_server_cert_verifier_builder *server_cert_verifier_builder =
+    NULL;
+  rustls_server_cert_verifier *server_cert_verifier = NULL;
+  rustls_slice_bytes alpn_http11;
+  const rustls_certified_key *certified_key = NULL;
 
   alpn_http11.data = (unsigned char *)"http/1.1";
   alpn_http11.len = 8;

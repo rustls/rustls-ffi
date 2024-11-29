@@ -39,8 +39,8 @@ typedef enum exchange_state
  *  - DEMO_EOF if we got EOF
  *  - DEMO_ERROR for other errors.
  */
-enum demo_result
-do_read(struct conndata *conn, struct rustls_connection *rconn)
+demo_result
+do_read(conndata *conn, rustls_connection *rconn)
 {
   size_t n = 0;
   char buf[1];
@@ -86,10 +86,10 @@ do_read(struct conndata *conn, struct rustls_connection *rconn)
   return DEMO_EOF;
 }
 
-enum demo_result
-send_response(struct conndata *conn)
+demo_result
+send_response(conndata *conn)
 {
-  struct rustls_connection *rconn = conn->rconn;
+  rustls_connection *rconn = conn->rconn;
   const char *prefix = "HTTP/1.1 200 OK\r\nContent-Length:";
   const int body_size = 10000;
   size_t response_size = strlen(prefix) + 15 + body_size;
@@ -118,18 +118,18 @@ send_response(struct conndata *conn)
 }
 
 void
-handle_conn(struct conndata *conn)
+handle_conn(conndata *conn)
 {
   fd_set read_fds;
   fd_set write_fds;
   size_t n = 0;
-  struct rustls_connection *rconn = conn->rconn;
+  rustls_connection *rconn = conn->rconn;
   int sockfd = conn->fd;
   struct timeval tv;
-  enum exchange_state state = READING_REQUEST;
+  exchange_state state = READING_REQUEST;
   rustls_handshake_kind hs_kind;
   int ciphersuite_id, kex_id;
-  struct rustls_str ciphersuite_name, kex_name, hs_kind_name;
+  rustls_str ciphersuite_name, kex_name, hs_kind_name;
 
   LOG("acccepted conn on fd %d", conn->fd);
 
@@ -254,17 +254,17 @@ main(int argc, const char **argv)
   int ret = 1;
   int sockfd = 0;
 
-  const struct rustls_crypto_provider *custom_provider = NULL;
-  struct rustls_server_config_builder *config_builder = NULL;
-  const struct rustls_server_config *server_config = NULL;
-  struct rustls_connection *rconn = NULL;
-  const struct rustls_certified_key *certified_key = NULL;
-  struct rustls_slice_bytes alpn_http11;
-  struct rustls_root_cert_store_builder *client_cert_root_store_builder = NULL;
-  const struct rustls_root_cert_store *client_cert_root_store = NULL;
-  struct rustls_web_pki_client_cert_verifier_builder
-    *client_cert_verifier_builder = NULL;
-  struct rustls_client_cert_verifier *client_cert_verifier = NULL;
+  const rustls_crypto_provider *custom_provider = NULL;
+  rustls_server_config_builder *config_builder = NULL;
+  const rustls_server_config *server_config = NULL;
+  rustls_connection *rconn = NULL;
+  const rustls_certified_key *certified_key = NULL;
+  rustls_slice_bytes alpn_http11;
+  rustls_root_cert_store_builder *client_cert_root_store_builder = NULL;
+  const rustls_root_cert_store *client_cert_root_store = NULL;
+  rustls_web_pki_client_cert_verifier_builder *client_cert_verifier_builder =
+    NULL;
+  rustls_client_cert_verifier *client_cert_verifier = NULL;
   rustls_result result = RUSTLS_RESULT_OK;
 
   /* Set this global variable for logging purposes. */
@@ -454,7 +454,7 @@ main(int argc, const char **argv)
       goto cleanup;
     }
 
-    struct conndata *conndata;
+    conndata *conndata;
     conndata = calloc(1, sizeof(struct conndata));
     conndata->fd = clientfd;
     conndata->rconn = rconn;
