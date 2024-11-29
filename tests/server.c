@@ -401,6 +401,7 @@ main(int argc, const char **argv)
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0) {
     LOG("making socket: %s", strerror(errno));
+    goto cleanup;
   }
 
   int enable = 1;
