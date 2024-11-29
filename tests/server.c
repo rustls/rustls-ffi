@@ -263,7 +263,6 @@ main(const int argc, const char **argv)
   rustls_web_pki_client_cert_verifier_builder *client_cert_verifier_builder =
     NULL;
   rustls_client_cert_verifier *client_cert_verifier = NULL;
-  rustls_result result = RUSTLS_RESULT_OK;
 
   /* Set this global variable for logging purposes. */
   programname = "server";
@@ -297,12 +296,13 @@ main(const int argc, const char **argv)
     }
     printf("customized to use ciphersuite: %s\n", custom_ciphersuite_name);
 
-    result = rustls_server_config_builder_new_custom(custom_provider,
-                                                     default_tls_versions,
-                                                     default_tls_versions_len,
-                                                     &config_builder);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("creating client config builder", result);
+    const rustls_result rr =
+      rustls_server_config_builder_new_custom(custom_provider,
+                                              default_tls_versions,
+                                              default_tls_versions_len,
+                                              &config_builder);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("creating client config builder", rr);
       goto cleanup;
     }
   }
@@ -325,21 +325,21 @@ main(const int argc, const char **argv)
   if(auth_cert) {
     char certbuf[10000];
     size_t certbuf_len;
-    const demo_result dr =
+    demo_result dr =
       read_file(auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
     if(dr != DEMO_OK) {
       goto cleanup;
     }
 
     client_cert_root_store_builder = rustls_root_cert_store_builder_new();
-    result = rustls_root_cert_store_builder_add_pem(
+    rustls_result rr = rustls_root_cert_store_builder_add_pem(
       client_cert_root_store_builder, (uint8_t *)certbuf, certbuf_len, true);
-    if(result != RUSTLS_RESULT_OK) {
+    if(rr != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
-    result = rustls_root_cert_store_builder_build(
-      client_cert_root_store_builder, &client_cert_root_store);
-    if(result != RUSTLS_RESULT_OK) {
+    rr = rustls_root_cert_store_builder_build(client_cert_root_store_builder,
+                                              &client_cert_root_store);
+    if(rr != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
     client_cert_verifier_builder =
@@ -348,21 +348,21 @@ main(const int argc, const char **argv)
     if(auth_crl) {
       size_t crlbuf_len;
       char crlbuf[10000];
-      result = read_file(auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
-      if(result != DEMO_OK) {
+      dr = read_file(auth_crl, crlbuf, sizeof(crlbuf), &crlbuf_len);
+      if(dr != DEMO_OK) {
         goto cleanup;
       }
 
-      result = rustls_web_pki_client_cert_verifier_builder_add_crl(
+      rr = rustls_web_pki_client_cert_verifier_builder_add_crl(
         client_cert_verifier_builder, (uint8_t *)crlbuf, crlbuf_len);
-      if(result != RUSTLS_RESULT_OK) {
+      if(rr != RUSTLS_RESULT_OK) {
         goto cleanup;
       }
     }
 
-    result = rustls_web_pki_client_cert_verifier_builder_build(
+    rr = rustls_web_pki_client_cert_verifier_builder_build(
       client_cert_verifier_builder, &client_cert_verifier);
-    if(result != RUSTLS_RESULT_OK) {
+    if(rr != RUSTLS_RESULT_OK) {
       goto cleanup;
     }
     rustls_server_config_builder_set_client_verifier(config_builder,
@@ -370,24 +370,26 @@ main(const int argc, const char **argv)
   }
 
   if(getenv("SSLKEYLOGFILE")) {
-    result = rustls_server_config_builder_set_key_log_file(config_builder);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("enabling keylog", result);
+    const rustls_result rr =
+      rustls_server_config_builder_set_key_log_file(config_builder);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", rr);
       goto cleanup;
     }
   }
   else if(getenv("STDERRKEYLOG")) {
-    result = rustls_server_config_builder_set_key_log(
+    const rustls_result rr = rustls_server_config_builder_set_key_log(
       config_builder, stderr_key_log_cb, NULL);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("enabling keylog", result);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("enabling keylog", rr);
       goto cleanup;
     }
   }
 
-  result = rustls_server_config_builder_build(config_builder, &server_config);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("building server config", result);
+  rustls_result rr =
+    rustls_server_config_builder_build(config_builder, &server_config);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("building server config", rr);
     goto cleanup;
   }
 
@@ -446,8 +448,7 @@ main(const int argc, const char **argv)
 
     nonblock(clientfd);
 
-    const rustls_result rr =
-      rustls_server_connection_new(server_config, &rconn);
+    rr = rustls_server_connection_new(server_config, &rconn);
     if(rr != RUSTLS_RESULT_OK) {
       print_error("making session", rr);
       goto cleanup;
