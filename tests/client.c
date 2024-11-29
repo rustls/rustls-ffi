@@ -219,10 +219,11 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
         if(dr == DEMO_AGAIN) {
           break;
         }
-        else if(n == 0) {
-          LOG_SIMPLE("write returned 0 from rustls_connection_write_tls");
+        if(n == 0) {
+          // Writing was successful, but we wrote 0 bytes.
           break;
         }
+        LOG("wrote %zu bytes of data to socket", n);
       }
     }
   }

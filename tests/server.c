@@ -121,10 +121,11 @@ handle_conn(conndata *conn)
         LOG("error in write_tls: errno %d", err);
         goto cleanup;
       }
-      else if(n == 0) {
-        LOG_SIMPLE("write returned 0 from write_tls");
+      if(n == 0) {
+        // Writing was successful, but we wrote 0 bytes.
         goto cleanup;
       }
+      LOG("wrote %zu bytes of data to socket", n);
     }
 
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
