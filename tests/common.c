@@ -25,7 +25,7 @@
 const char *programname;
 
 void
-print_error(const char *prefix, rustls_result rr)
+print_error(const char *prefix, const rustls_result rr)
 {
   char buf[256];
   size_t n;
@@ -64,8 +64,7 @@ nonblock(int sockfd)
     return DEMO_ERROR;
   }
 #else
-  int flags;
-  flags = fcntl(sockfd, F_GETFL, 0);
+  int flags = fcntl(sockfd, F_GETFL, 0);
   if(flags < 0) {
     perror("getting socket flags");
     return DEMO_ERROR;
@@ -80,10 +79,10 @@ nonblock(int sockfd)
 }
 
 int
-read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
+read_cb(void *userdata, unsigned char *buf, const size_t len, size_t *out_n)
 {
-  conndata *conn = (struct conndata *)userdata;
-  ssize_t n = recv(conn->fd, buf, len, 0);
+  const conndata *conn = (struct conndata *)userdata;
+  const ssize_t n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -94,11 +93,12 @@ read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 }
 
 int
-write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
+write_cb(void *userdata, const unsigned char *buf, const size_t len,
+         size_t *out_n)
 {
-  conndata *conn = (struct conndata *)userdata;
+  const conndata *conn = (struct conndata *)userdata;
 
-  ssize_t n = send(conn->fd, buf, len, 0);
+  const ssize_t n = send(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -118,9 +118,8 @@ write_tls(rustls_connection *rconn, conndata *conn, size_t *n)
     return rustls_connection_write_tls_vectored(
       rconn, write_vectored_cb, conn, n);
   }
-  else {
-    return rustls_connection_write_tls(rconn, write_cb, conn, n);
-  }
+
+  return rustls_connection_write_tls(rconn, write_cb, conn, n);
 #endif /* _WIN32 */
 }
 
@@ -129,12 +128,12 @@ rustls_io_result
 write_vectored_cb(void *userdata, const rustls_iovec *iov, size_t count,
                   size_t *out_n)
 {
-  conndata *conn = (struct conndata *)userdata;
+  const conndata *conn = (struct conndata *)userdata;
 
   // safety: narrowing conversion from `size_t count` to `int` is safe because
   // writev return -1 and sets errno to EINVAL on out of range input (<0 || >
   // IOV_MAX).
-  ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int)count);
+  const ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int)count);
   if(n < 0) {
     return errno;
   }
@@ -144,19 +143,19 @@ write_vectored_cb(void *userdata, const rustls_iovec *iov, size_t count,
 #endif /* _WIN32 */
 
 size_t
-bytevec_available(bytevec *vec)
+bytevec_available(const bytevec *vec)
 {
   return vec->capacity - vec->len;
 }
 
 char *
-bytevec_writeable(bytevec *vec)
+bytevec_writeable(const bytevec *vec)
 {
   return vec->data + vec->len;
 }
 
 void
-bytevec_consume(bytevec *vec, size_t n)
+bytevec_consume(bytevec *vec, const size_t n)
 {
   vec->len += n;
 }
@@ -165,17 +164,15 @@ bytevec_consume(bytevec *vec, size_t n)
 // vec->capacity. If this requires reallocating, this may return
 // DEMO_ERROR.
 demo_result
-bytevec_ensure_available(bytevec *vec, size_t n)
+bytevec_ensure_available(bytevec *vec, const size_t n)
 {
-  size_t available = vec->capacity - vec->len;
-  size_t newsize;
-  void *newdata;
+  const size_t available = vec->capacity - vec->len;
   if(available < n) {
-    newsize = vec->len + n;
+    size_t newsize = vec->len + n;
     if(newsize < vec->capacity * 2) {
       newsize = vec->capacity * 2;
     }
-    newdata = realloc(vec->data, newsize);
+    void *newdata = realloc(vec->data, newsize);
     if(newdata == NULL) {
       LOG("out of memory trying to get %zu bytes", newsize);
       return DEMO_ERROR;
@@ -202,7 +199,7 @@ copy_plaintext_to_buffer(conndata *conn)
 
   for(;;) {
     char *buf = bytevec_writeable(&conn->data);
-    size_t avail = bytevec_available(&conn->data);
+    const size_t avail = bytevec_available(&conn->data);
     const rustls_result rr =
       rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
     if(rr == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
@@ -254,13 +251,12 @@ memmem(const void *haystack, size_t haystacklen, const void *needle,
   const char *p = bf;
 
   while(needlelen <= (haystacklen - (p - bf))) {
-    if(NULL != (p = memchr(p, (int)(*pt), haystacklen - (p - bf)))) {
+    p = memchr(p, (int)(*pt), haystacklen - (p - bf));
+    if(NULL != p) {
       if(0 == memcmp(p, needle, needlelen)) {
         return (void *)p;
       }
-      else {
-        ++p;
-      }
+      ++p;
     }
     else {
       break;
@@ -271,34 +267,31 @@ memmem(const void *haystack, size_t haystacklen, const void *needle,
 }
 
 char *
-body_beginning(bytevec *vec)
+body_beginning(const bytevec *vec)
 {
   const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
   if(result == NULL) {
     return NULL;
   }
-  else {
-    return (char *)result + 4;
-  }
+
+  return (char *)result + 4;
 }
 
 const char *
-get_first_header_value(const char *headers, size_t headers_len,
-                       const char *name, size_t name_len, size_t *n)
+get_first_header_value(const char *headers, const size_t headers_len,
+                       const char *name, const size_t name_len, size_t *n)
 {
-  const void *result;
   const char *current = headers;
   size_t len = headers_len;
-  size_t skipped;
 
   // We use + 3 because there needs to be room for `:` and `\r\n` after the
   // header name
   while(len > name_len + 3) {
-    result = memmem(current, len, "\r\n", 2);
+    const void *result = memmem(current, len, "\r\n", 2);
     if(result == NULL) {
       return NULL;
     }
-    skipped = (char *)result - current + 2;
+    const size_t skipped = (char *)result - current + 2;
     len -= skipped;
     current += skipped;
     /* Make sure there's enough room to conceivably contain the header name,
@@ -326,8 +319,8 @@ get_first_header_value(const char *headers, size_t headers_len,
 void
 log_cb(void *userdata, const rustls_log_params *params)
 {
-  conndata *conn = (struct conndata *)userdata;
-  rustls_str level_str = rustls_log_level_str(params->level);
+  const conndata *conn = (struct conndata *)userdata;
+  const rustls_str level_str = rustls_log_level_str(params->level);
   LOG("[fd %d][%.*s]: %.*s",
       conn->fd,
       (int)level_str.len,
@@ -337,7 +330,7 @@ log_cb(void *userdata, const rustls_log_params *params)
 }
 
 demo_result
-read_file(const char *filename, char *buf, size_t buflen, size_t *n)
+read_file(const char *filename, char *buf, const size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
@@ -403,7 +396,8 @@ default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
   rustls_crypto_provider_builder *provider_builder = NULL;
   const rustls_crypto_provider *custom_provider = NULL;
 
-  size_t num_supported = rustls_default_crypto_provider_ciphersuites_len();
+  const size_t num_supported =
+    rustls_default_crypto_provider_ciphersuites_len();
   for(size_t i = 0; i < num_supported; i++) {
     const rustls_supported_ciphersuite *suite =
       rustls_default_crypto_provider_ciphersuites_get(i);
@@ -456,10 +450,10 @@ cleanup:
 //
 // Caller owns the returned buffer and must free it.
 static char *
-hex_encode(const unsigned char *data, size_t len)
+hex_encode(const unsigned char *data, const size_t len)
 {
   // Two output chars per input char, plus the NULL terminator.
-  char *hex_str = (char *)malloc((len * 2) + 1);
+  char *hex_str = malloc((len * 2) + 1);
   if(!hex_str) {
     return NULL;
   }
@@ -473,9 +467,9 @@ hex_encode(const unsigned char *data, size_t len)
 }
 
 void
-stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
-                  size_t client_random_len, const unsigned char *secret,
-                  size_t secret_len)
+stderr_key_log_cb(const rustls_str label, const unsigned char *client_random,
+                  const size_t client_random_len, const unsigned char *secret,
+                  const size_t secret_len)
 {
   char *client_random_str = NULL;
   char *secret_str = NULL;
