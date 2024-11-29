@@ -135,15 +135,6 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
     goto cleanup;
   }
 
-  const int ciphersuite_id =
-    rustls_connection_get_negotiated_ciphersuite(rconn);
-  const rustls_str ciphersuite_name =
-    rustls_connection_get_negotiated_ciphersuite_name(rconn);
-  LOG("negotiated ciphersuite: %.*s (%#x)",
-      (int)ciphersuite_name.len,
-      ciphersuite_name.data,
-      ciphersuite_id);
-
   for(;;) {
     FD_ZERO(&read_fds);
     /* These two calls just inspect the state of the connection - if it's time
@@ -239,19 +230,7 @@ send_request_and_read_response(conndata *conn, rustls_connection *rconn,
   LOG_SIMPLE("send_request_and_read_response: loop fell through");
 
 drain_plaintext:; // NOTE: empty statement after label to allow var decls.
-  const rustls_handshake_kind hs_kind =
-    rustls_connection_handshake_kind(rconn);
-  const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
-  LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
-
-  const int kex_id =
-    rustls_connection_get_negotiated_key_exchange_group(rconn);
-  const rustls_str kex_name =
-    rustls_connection_get_negotiated_key_exchange_group_name(rconn);
-  LOG("negotiated key exchange: %.*s (%#x)",
-      (int)kex_name.len,
-      kex_name.data,
-      kex_id);
+  log_connection_info(rconn);
 
   const demo_result dr = copy_plaintext_to_buffer(conn);
   if(dr != DEMO_OK && dr != DEMO_EOF) {
