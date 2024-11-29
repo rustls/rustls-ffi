@@ -5,7 +5,6 @@
 #define sleep(s) Sleep(1000 * (s))
 #define read(s, buf, n) recv(s, buf, n, 0)
 #define close(s) closesocket(s)
-#define bzero(buf, n) memset(buf, '\0', n)
 
 /* Hacks for 'errno' stuff
  */
