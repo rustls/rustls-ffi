@@ -220,7 +220,6 @@ do_read(conndata *conn, rustls_connection *rconn)
 
   const demo_result dr = copy_plaintext_to_buffer(conn);
   if(dr != DEMO_EOF) {
-    LOG("do_read returning %d", dr);
     return dr;
   }
 
