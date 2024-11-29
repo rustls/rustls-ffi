@@ -130,39 +130,7 @@ handle_conn(conndata *conn)
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       LOG_SIMPLE("writing response");
-      const rustls_handshake_kind hs_kind =
-        rustls_connection_handshake_kind(rconn);
-      const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
-      LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
-      const int ciphersuite_id =
-        rustls_connection_get_negotiated_ciphersuite(rconn);
-      const rustls_str ciphersuite_name =
-        rustls_connection_get_negotiated_ciphersuite_name(rconn);
-      LOG("negotiated ciphersuite: %.*s (%#x)",
-          (int)ciphersuite_name.len,
-          ciphersuite_name.data,
-          ciphersuite_id);
-      const int kex_id =
-        rustls_connection_get_negotiated_key_exchange_group(rconn);
-      const rustls_str kex_name =
-        rustls_connection_get_negotiated_key_exchange_group_name(rconn);
-      LOG("negotiated key exchange: %.*s (%#x)",
-          (int)kex_name.len,
-          kex_name.data,
-          kex_id);
-
-      const uint8_t *negotiated_alpn = NULL;
-      size_t negotiated_alpn_len;
-      rustls_connection_get_alpn_protocol(
-        rconn, &negotiated_alpn, &negotiated_alpn_len);
-      if(negotiated_alpn != NULL) {
-        LOG("negotiated ALPN protocol: '%.*s'",
-            (int)negotiated_alpn_len,
-            (const char *)negotiated_alpn);
-      }
-      else {
-        LOG_SIMPLE("no ALPN protocol was negotiated");
-      }
+      log_connection_info(rconn);
 
       if(send_response(conn) != DEMO_OK) {
         goto cleanup;
