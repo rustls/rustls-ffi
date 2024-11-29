@@ -182,8 +182,7 @@ handle_conn(conndata *conn)
       }
     }
 
-    const uint8_t *negotiated_alpn;
-    size_t negotiated_alpn_len;
+
     if(state == READING_REQUEST && body_beginning(&conn->data) != NULL) {
       state = SENT_RESPONSE;
       LOG_SIMPLE("writing response");
@@ -208,12 +207,14 @@ handle_conn(conndata *conn)
           kex_name.data,
           kex_id);
 
+      const uint8_t *negotiated_alpn = NULL;
+      size_t negotiated_alpn_len;
       rustls_connection_get_alpn_protocol(
         rconn, &negotiated_alpn, &negotiated_alpn_len);
       if(negotiated_alpn != NULL) {
         LOG("negotiated ALPN protocol: '%.*s'",
             (int)negotiated_alpn_len,
-            negotiated_alpn);
+            (const char *)negotiated_alpn);
       }
       else {
         LOG_SIMPLE("no ALPN protocol was negotiated");
