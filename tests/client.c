@@ -570,7 +570,7 @@ main(int argc, const char **argv)
     const rustls_result rr =
       rustls_platform_server_cert_verifier(&server_cert_verifier);
     if(rr != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "client: failed to construct platform verifier\n");
+      print_error("client: failed to construct platform verifier", rr);
       goto cleanup;
     }
     rustls_client_config_builder_set_server_verifier(config_builder,
@@ -605,9 +605,8 @@ main(int argc, const char **argv)
       config_builder, verify);
   }
   else {
-    fprintf(stderr,
-            "client: must set either RUSTLS_PLATFORM_VERIFIER or CA_FILE or "
-            "NO_CHECK_CERTIFICATE env var\n");
+    LOG_SIMPLE("must set either RUSTLS_PLATFORM_VERIFIER or CA_FILE or "
+               "NO_CHECK_CERTIFICATE env var");
     goto cleanup;
   }
 
@@ -631,9 +630,7 @@ main(int argc, const char **argv)
   char *auth_cert = getenv("AUTH_CERT");
   char *auth_key = getenv("AUTH_KEY");
   if((auth_cert && !auth_key) || (!auth_cert && auth_key)) {
-    fprintf(
-      stderr,
-      "client: must set both AUTH_CERT and AUTH_KEY env vars, or neither\n");
+    LOG_SIMPLE("must set both AUTH_CERT and AUTH_KEY env vars, or neither");
     goto cleanup;
   }
   else if(auth_cert && auth_key) {
