@@ -53,7 +53,7 @@ ws_strerror(int err)
  *
  * Returns DEMO_OK on success, DEMO_ERROR on error.
  */
-enum demo_result
+demo_result
 nonblock(int sockfd)
 {
 #ifdef _WIN32
@@ -82,7 +82,7 @@ nonblock(int sockfd)
 int
 read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
+  conndata *conn = (struct conndata *)userdata;
   ssize_t n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
@@ -96,7 +96,7 @@ read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 int
 write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
+  conndata *conn = (struct conndata *)userdata;
 
   ssize_t n = send(conn->fd, buf, len, 0);
   if(n < 0) {
@@ -109,7 +109,7 @@ write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
 }
 
 rustls_io_result
-write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
+write_tls(rustls_connection *rconn, conndata *conn, size_t *n)
 {
 #ifdef _WIN32
   return rustls_connection_write_tls(rconn, write_cb, conn, n);
@@ -126,10 +126,10 @@ write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
 
 #ifndef _WIN32
 rustls_io_result
-write_vectored_cb(void *userdata, const struct rustls_iovec *iov, size_t count,
+write_vectored_cb(void *userdata, const rustls_iovec *iov, size_t count,
                   size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
+  conndata *conn = (struct conndata *)userdata;
 
   // safety: narrowing conversion from `size_t count` to `int` is safe because
   // writev return -1 and sets errno to EINVAL on out of range input (<0 || >
@@ -144,19 +144,19 @@ write_vectored_cb(void *userdata, const struct rustls_iovec *iov, size_t count,
 #endif /* _WIN32 */
 
 size_t
-bytevec_available(struct bytevec *vec)
+bytevec_available(bytevec *vec)
 {
   return vec->capacity - vec->len;
 }
 
 char *
-bytevec_writeable(struct bytevec *vec)
+bytevec_writeable(bytevec *vec)
 {
   return vec->data + vec->len;
 }
 
 void
-bytevec_consume(struct bytevec *vec, size_t n)
+bytevec_consume(bytevec *vec, size_t n)
 {
   vec->len += n;
 }
@@ -164,8 +164,8 @@ bytevec_consume(struct bytevec *vec, size_t n)
 // Ensure there are at least n bytes available between vec->len and
 // vec->capacity. If this requires reallocating, this may return
 // DEMO_ERROR.
-enum demo_result
-bytevec_ensure_available(struct bytevec *vec, size_t n)
+demo_result
+bytevec_ensure_available(bytevec *vec, size_t n)
 {
   size_t available = vec->capacity - vec->len;
   size_t newsize;
@@ -191,11 +191,11 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
  * our buffer as much as needed.
  */
 int
-copy_plaintext_to_buffer(struct conndata *conn)
+copy_plaintext_to_buffer(conndata *conn)
 {
   unsigned int result;
   size_t n;
-  struct rustls_connection *rconn = conn->rconn;
+  rustls_connection *rconn = conn->rconn;
 
   if(bytevec_ensure_available(&conn->data, 1024) != DEMO_OK) {
     return DEMO_ERROR;
@@ -271,7 +271,7 @@ memmem(const void *haystack, size_t haystacklen, const void *needle,
 }
 
 char *
-body_beginning(struct bytevec *vec)
+body_beginning(bytevec *vec)
 {
   const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
   if(result == NULL) {
@@ -324,10 +324,10 @@ get_first_header_value(const char *headers, size_t headers_len,
 }
 
 void
-log_cb(void *userdata, const struct rustls_log_params *params)
+log_cb(void *userdata, const rustls_log_params *params)
 {
-  struct conndata *conn = (struct conndata *)userdata;
-  struct rustls_str level_str = rustls_log_level_str(params->level);
+  conndata *conn = (struct conndata *)userdata;
+  rustls_str level_str = rustls_log_level_str(params->level);
   LOG("[fd %d][%.*s]: %.*s",
       conn->fd,
       (int)level_str.len,
@@ -336,7 +336,7 @@ log_cb(void *userdata, const struct rustls_log_params *params)
       params->message.data);
 }
 
-enum demo_result
+demo_result
 read_file(const char *filename, char *buf, size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
@@ -354,7 +354,7 @@ read_file(const char *filename, char *buf, size_t buflen, size_t *n)
   return DEMO_OK;
 }
 
-const struct rustls_certified_key *
+const rustls_certified_key *
 load_cert_and_key(const char *certfile, const char *keyfile)
 {
   char certbuf[10000];
@@ -373,7 +373,7 @@ load_cert_and_key(const char *certfile, const char *keyfile)
     return NULL;
   }
 
-  const struct rustls_certified_key *certified_key;
+  const rustls_certified_key *certified_key;
   result = rustls_certified_key_build((uint8_t *)certbuf,
                                       certbuf_len,
                                       (uint8_t *)keybuf,
@@ -396,16 +396,16 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   return certified_key;
 }
 
-const struct rustls_crypto_provider *
+const rustls_crypto_provider *
 default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
 {
-  const struct rustls_supported_ciphersuite *custom_ciphersuite = NULL;
+  const rustls_supported_ciphersuite *custom_ciphersuite = NULL;
   rustls_crypto_provider_builder *provider_builder = NULL;
-  const struct rustls_crypto_provider *custom_provider = NULL;
+  const rustls_crypto_provider *custom_provider = NULL;
 
   size_t num_supported = rustls_default_crypto_provider_ciphersuites_len();
   for(size_t i = 0; i < num_supported; i++) {
-    const struct rustls_supported_ciphersuite *suite =
+    const rustls_supported_ciphersuite *suite =
       rustls_default_crypto_provider_ciphersuites_get(i);
     if(suite == NULL) {
       fprintf(stderr, "failed to get ciphersuite %zu\n", i);
