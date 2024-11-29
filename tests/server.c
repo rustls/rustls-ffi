@@ -411,8 +411,7 @@ main(int argc, const char **argv)
     print_error("setsockopt(SO_REUSEADDR) failed", 7001);
   }
 
-  struct sockaddr_in my_addr, peer_addr;
-  memset(&my_addr, 0, sizeof(struct sockaddr_in));
+  struct sockaddr_in my_addr = { 0 }, peer_addr;
   /* Clear structure */
   my_addr.sin_family = AF_INET;
   my_addr.sin_addr.s_addr = INADDR_ANY;
