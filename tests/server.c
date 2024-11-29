@@ -199,6 +199,8 @@ main(const int argc, const char **argv)
             argv[0]);
     goto cleanup;
   }
+  const char *certfile = argv[1];
+  const char *keyfile = argv[2];
 
   const char *custom_ciphersuite_name = getenv("RUSTLS_CIPHERSUITE");
   if(custom_ciphersuite_name != NULL) {
@@ -223,7 +225,7 @@ main(const int argc, const char **argv)
     config_builder = rustls_server_config_builder_new();
   }
 
-  certified_key = load_cert_and_key(argv[1], argv[2]);
+  certified_key = load_cert_and_key(certfile, keyfile);
   if(certified_key == NULL) {
     goto cleanup;
   }
