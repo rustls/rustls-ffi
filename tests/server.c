@@ -60,16 +60,16 @@ do_read(conndata *conn, rustls_connection *rconn)
   }
   LOG("read %zu bytes from socket", n);
 
-  unsigned int result = rustls_connection_process_new_packets(rconn);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("in process_new_packets", result);
+  const rustls_result rr = rustls_connection_process_new_packets(rconn);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("in process_new_packets", rr);
     return DEMO_ERROR;
   }
 
-  result = copy_plaintext_to_buffer(conn);
-  if(result != DEMO_EOF) {
-    LOG("do_read returning %d", result);
-    return result;
+  const demo_result dr = copy_plaintext_to_buffer(conn);
+  if(dr != DEMO_EOF) {
+    LOG("do_read returning %d", dr);
+    return dr;
   }
 
   /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
@@ -327,9 +327,9 @@ main(int argc, const char **argv)
   if(auth_cert) {
     char certbuf[10000];
     size_t certbuf_len;
-    unsigned result =
+    const demo_result dr =
       read_file(auth_cert, certbuf, sizeof(certbuf), &certbuf_len);
-    if(result != DEMO_OK) {
+    if(dr != DEMO_OK) {
       goto cleanup;
     }
 
@@ -448,9 +448,10 @@ main(int argc, const char **argv)
 
     nonblock(clientfd);
 
-    unsigned int result = rustls_server_connection_new(server_config, &rconn);
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("making session", result);
+    const rustls_result rr =
+      rustls_server_connection_new(server_config, &rconn);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("making session", rr);
       goto cleanup;
     }
 
