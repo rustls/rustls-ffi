@@ -116,7 +116,7 @@ handle_conn(conndata *conn)
       }
     }
     if(FD_ISSET(sockfd, &write_fds)) {
-      const int err = write_tls(rconn, conn, &n);
+      const rustls_io_result err = write_tls(rconn, conn, &n);
       if(err != 0) {
         LOG("error in write_tls: errno %d", err);
         goto cleanup;
