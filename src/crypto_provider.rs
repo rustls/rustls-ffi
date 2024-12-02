@@ -4,9 +4,11 @@ use std::sync::Arc;
 use libc::size_t;
 use pki_types::pem::PemObject;
 use pki_types::PrivateKeyDer;
+use rand::seq::SliceRandom;
 
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
+use rustls::crypto::hpke;
 #[cfg(feature = "ring")]
 use rustls::crypto::ring;
 use rustls::crypto::CryptoProvider;
@@ -16,10 +18,10 @@ use rustls::SupportedCipherSuite;
 use crate::cipher::rustls_supported_ciphersuite;
 use crate::error::map_error;
 use crate::{
-    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, rustls_result,
-    set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr,
-    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_slice_mut,
-    try_take,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, ref_castable,
+    rustls_result, set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc,
+    try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
+    try_slice_mut, try_take,
 };
 
 box_castable! {
@@ -490,6 +492,57 @@ impl rustls_signing_key {
     }
 }
 
+ref_castable! {
+    /// A collection of supported Hybrid Public Key Encryption (HPKE) suites.
+    ///
+    /// `rustls_hpke` can be provided to `rustls_client_config_builder_enable_ech` and
+    /// `rustls_client_config_builder_enable_ech_grease()` to customize a
+    /// `rustls_client_config_builder` to use Encrypted Client Hello (ECH).
+    pub struct rustls_hpke(Hpke);
+}
+
+pub(crate) struct Hpke {
+    pub(crate) suites: &'static [&'static dyn hpke::Hpke],
+}
+
+impl Hpke {
+    /// Chooses a random supported HPKE suite and generates a throw-away public key.
+    ///
+    /// Returns both the selected Rustls `hpke::Hpke` suite and the `hpke::HpkePublicKey`
+    /// or `None` if an error occurs.
+    pub(crate) fn grease_public_key(&self) -> Option<(&dyn hpke::Hpke, hpke::HpkePublicKey)> {
+        let suite = self.suites.choose(&mut rand::thread_rng())?;
+        let pk = suite.generate_key_pair().map(|pair| pair.0).ok()?;
+        Some((*suite, pk))
+    }
+}
+
+#[cfg(feature = "aws-lc-rs")]
+static AWS_LC_RS_HPKE: &Hpke = &Hpke {
+    suites: aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
+};
+
+/// Returns a pointer to the supported `rustls_hpke` Hybrid Public Key Encryption (HPKE)
+/// suites, or `NULL` if HPKE is not supported.
+///
+/// HPKE is only supported with the `aws-lc-rs` cryptography provider.
+///
+/// The returned pointer has a static lifetime equal to that of the program and does not
+/// need to be freed.
+#[no_mangle]
+pub extern "C" fn rustls_supported_hpke() -> *const rustls_hpke {
+    ffi_panic_boundary! {
+        #[cfg(feature = "aws-lc-rs")]
+        {
+            AWS_LC_RS_HPKE as *const _ as _
+        }
+        #[cfg(not(feature = "aws-lc-rs"))]
+        {
+            core::ptr::null()
+        }
+    }
+}
+
 pub(crate) fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoProvider>> {
     // If a process-wide default has already been installed, return it.
     if let Some(provider) = CryptoProvider::get_default() {
@@ -567,5 +620,25 @@ mod tests {
         let result = rustls_default_crypto_provider_random(buff.as_mut_ptr(), buff.len());
         assert_eq!(result, rustls_result::Ok);
         assert_ne!(buff, vec![0; 32]);
+    }
+
+    #[cfg(feature = "aws-lc-rs")]
+    #[test]
+    fn test_hpke_aws_lc_rs() {
+        let hpke = rustls_supported_hpke();
+        assert!(!hpke.is_null());
+
+        let hpke = try_ref_from_ptr!(hpke);
+
+        // We should be able to pick an HPKE suite and a pubkey for ECH GREASE.
+        let (suite, pk) = hpke.grease_public_key().unwrap();
+        // The PK and the suite should be compatible. Setup a sealer to check.
+        let (_, _) = suite.setup_sealer(&[0xC0, 0xFF, 0xEE], &pk).unwrap();
+    }
+
+    #[cfg(not(feature = "aws-lc-rs"))]
+    #[test]
+    fn test_hpke_not_aws_lc_rs() {
+        assert!(rustls_supported_hpke().is_null());
     }
 }
