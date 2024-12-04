@@ -1,0 +1,5 @@
+function(test_binary target_name)
+endfunction()
+
+function(add_c_format_targets targets)
+endfunction()
