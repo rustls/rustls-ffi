@@ -30,16 +30,6 @@ add_custom_target(
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-# The location/names of the example binaries change based on platform, and
-# in the case of WIN32, by the Config.
-if(WIN32)
-    set(CLIENT_BINARY "${CMAKE_BINARY_DIR}\\tests\\$<CONFIG>\\client.exe")
-    set(SERVER_BINARY "${CMAKE_BINARY_DIR}\\tests\\$<CONFIG>\\server.exe")
-else()
-    set(CLIENT_BINARY "${CMAKE_BINARY_DIR}/tests/client")
-    set(SERVER_BINARY "${CMAKE_BINARY_DIR}/tests/server")
-endif()
-
 add_custom_target(connect-test DEPENDS client)
 
 # For WIN32 when using dynamic linking we need to put the .dll
@@ -58,8 +48,8 @@ add_custom_command(
     TARGET connect-test
     POST_BUILD
     COMMAND
-        ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1 ${CLIENT_BINARY}
-        example.com 443 /
+        ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1
+        "$<TARGET_FILE:client>" example.com 443 /
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
@@ -79,9 +69,9 @@ add_custom_command(
     TARGET integration-test
     POST_BUILD
     COMMAND
-        ${CMAKE_COMMAND} -E env CLIENT_BINARY=${CLIENT_BINARY} ${CMAKE_COMMAND}
-        -E env SERVER_BINARY=${SERVER_BINARY} cargo test --locked
-        ${CARGO_FEATURES} "$<IF:$<CONFIG:Release>,--release,>" --test
+        ${CMAKE_COMMAND} -E env CLIENT_BINARY="$<TARGET_FILE:client>"
+        ${CMAKE_COMMAND} -E env SERVER_BINARY="$<TARGET_FILE:server>" cargo test
+        --locked ${CARGO_FEATURES} "$<IF:$<CONFIG:Release>,--release,>" --test
         client_server client_server_integration -- --ignored --exact
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
