@@ -232,7 +232,7 @@ impl ClientTest {
             .args(args)
             .envs(self.env.clone())
             .output()
-            .unwrap_or_else(|_| panic!("failed to run client binary {client_binary}"));
+            .unwrap_or_else(|e| panic!("failed to run client binary {client_binary}: {e}"));
 
         let passed = result.status.success() != self.expect_error;
         if !passed {
@@ -265,7 +265,7 @@ impl ServerOptions {
             .args(args)
             .envs(self.env.clone())
             .spawn()
-            .unwrap_or_else(|_| panic!("failed to run server binary {server_binary}"))
+            .unwrap_or_else(|e| panic!("failed to run server binary {server_binary}: {e}"))
     }
 }
 
