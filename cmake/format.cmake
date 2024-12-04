@@ -17,7 +17,7 @@ add_custom_target(
 add_custom_target(
     cmake-format-fix
     COMMAND
-        gersemi --no-warn-about-unknown-commands -i CMakeLists.txt
+        gersemi --definitions cmake/custom_function_defs.txt -i CMakeLists.txt
         tests/CMakeLists.txt cmake/*.cmake
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
@@ -25,7 +25,7 @@ add_custom_target(
 add_custom_target(
     cmake-format-check
     COMMAND
-        gersemi --no-warn-about-unknown-commands -c CMakeLists.txt
+        gersemi --definitions cmake/custom_function_defs.txt -c CMakeLists.txt
         tests/CMakeLists.txt cmake/*.cmake
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
