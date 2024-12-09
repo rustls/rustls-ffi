@@ -64,8 +64,6 @@ extern const char *programname;
 
 void print_error(const char *prefix, rustls_result rr);
 
-int write_all(int fd, const char *buf, int n);
-
 /* Make a socket nonblocking. */
 demo_result nonblock(int sockfd);
 
