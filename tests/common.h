@@ -70,11 +70,6 @@ demo_result nonblock(int sockfd);
 /* A callback that reads bytes from the network. */
 int read_cb(void *userdata, uint8_t *buf, uintptr_t len, uintptr_t *out_n);
 
-/* Invoke rustls_connection_write_tls with either a vectored or unvectored
-   callback, depending on environment variable. */
-rustls_io_result write_tls(rustls_connection *rconn, conndata *conn,
-                           size_t *n);
-
 /* A callback that writes bytes to the network. */
 int write_cb(void *userdata, const uint8_t *buf, uintptr_t len,
              uintptr_t *out_n);
@@ -98,18 +93,6 @@ void bytevec_consume(bytevec *vec, size_t n);
  * DEMO_ERROR. */
 demo_result bytevec_ensure_available(bytevec *vec, size_t n);
 
-/*
- * Do one read from the socket, and process all resulting bytes into the
- * rustls_connection.
- * Returns:
- *  - DEMO_OK for success
- *  - DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
- *    socket
- *  - DEMO_EOF if we got EOF
- *  - DEMO_ERROR for other errors.
- */
-demo_result do_read(conndata *conn, rustls_connection *rconn);
-
 /* Read all available bytes from the rustls_connection until EOF.
  * Note that EOF here indicates "no more bytes until
  * process_new_packets", not "stream is closed".
@@ -123,11 +106,6 @@ demo_result copy_plaintext_to_buffer(conndata *conn);
 /* Polyfill */
 void *memmem(const void *haystack, size_t haystacklen, const void *needle,
              size_t needlelen);
-
-/* If headers are done (received \r\n\r\n), return a pointer to the beginning
- * of the body. Otherwise return NULL.
- */
-char *body_beginning(const bytevec *vec);
 
 void log_cb(void *userdata, const rustls_log_params *params);
 

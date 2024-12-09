@@ -61,6 +61,91 @@ send_response(const conndata *conn)
   return DEMO_OK;
 }
 
+/* Invoke rustls_connection_write_tls with either a vectored or unvectored
+   callback, depending on environment variable. */
+rustls_io_result
+write_tls(rustls_connection *rconn, conndata *conn, size_t *n)
+{
+#ifdef _WIN32
+  return rustls_connection_write_tls(rconn, write_cb, conn, n);
+#else
+  if(getenv("VECTORED_IO")) {
+    return rustls_connection_write_tls_vectored(
+      rconn, write_vectored_cb, conn, n);
+  }
+
+  return rustls_connection_write_tls(rconn, write_cb, conn, n);
+#endif /* _WIN32 */
+}
+
+/*
+ * Do one read from the socket, and process all resulting bytes into the
+ * rustls_connection.
+ * Returns:
+ *  - DEMO_OK for success
+ *  - DEMO_AGAIN if we got an EAGAIN or EWOULDBLOCK reading from the
+ *    socket
+ *  - DEMO_EOF if we got EOF
+ *  - DEMO_ERROR for other errors.
+ */
+demo_result
+do_read(conndata *conn, rustls_connection *rconn)
+{
+  size_t n = 0;
+  char buf[1];
+  const int err = rustls_connection_read_tls(rconn, read_cb, conn, &n);
+  if(err == EWOULDBLOCK) {
+    LOG("reading from socket: EAGAIN or EWOULDBLOCK: %s", strerror(errno));
+    return DEMO_AGAIN;
+  }
+  else if(err != 0) {
+    LOG("reading from socket: errno %d", err);
+    return DEMO_ERROR;
+  }
+  else if(n == 0) {
+    return DEMO_EOF;
+  }
+  LOG("read %zu bytes from socket", n);
+
+  const rustls_result rr = rustls_connection_process_new_packets(rconn);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("in process_new_packets", rr);
+    return DEMO_ERROR;
+  }
+
+  const demo_result dr = copy_plaintext_to_buffer(conn);
+  if(dr != DEMO_EOF) {
+    return dr;
+  }
+
+  /* If we got an EOF on the plaintext stream (peer closed connection cleanly),
+   * verify that the sender then closed the TCP connection. */
+  const ssize_t signed_n = read(conn->fd, buf, sizeof(buf));
+  if(signed_n > 0) {
+    LOG("error: read returned %zu bytes after receiving close_notify", n);
+    return DEMO_ERROR;
+  }
+  else if(signed_n < 0 && errno != EWOULDBLOCK) {
+    LOG("wrong error after receiving close_notify: %s", strerror(errno));
+    return DEMO_ERROR;
+  }
+  return DEMO_EOF;
+}
+
+/* If headers are done (received \r\n\r\n), return a pointer to the beginning
+ * of the body. Otherwise return NULL.
+ */
+char *
+body_beginning(const bytevec *vec)
+{
+  const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
+  if(result == NULL) {
+    return NULL;
+  }
+
+  return (char *)result + 4;
+}
+
 void
 handle_conn(conndata *conn)
 {
