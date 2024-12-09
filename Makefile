@@ -69,7 +69,7 @@ src/rustls.h: src/*.rs cbindgen.toml
 target/$(PROFILE)/librustls_ffi.a: src/*.rs Cargo.toml
 	RUSTFLAGS="-C metadata=rustls-ffi" ${CARGO} build $(CARGOFLAGS)
 
-target/%.o: tests/%.c tests/common.h | target
+target/%.o: tests/%.c tests/%.h tests/common.h | target
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 target/client: target/client.o target/common.o target/$(PROFILE)/librustls_ffi.a
