@@ -331,45 +331,6 @@ body_beginning(const bytevec *vec)
   return (char *)result + 4;
 }
 
-const char *
-get_first_header_value(const char *headers, const size_t headers_len,
-                       const char *name, const size_t name_len, size_t *n)
-{
-  const char *current = headers;
-  size_t len = headers_len;
-
-  // We use + 3 because there needs to be room for `:` and `\r\n` after the
-  // header name
-  while(len > name_len + 3) {
-    const void *result = memmem(current, len, "\r\n", 2);
-    if(result == NULL) {
-      return NULL;
-    }
-    const size_t skipped = (char *)result - current + 2;
-    len -= skipped;
-    current += skipped;
-    /* Make sure there's enough room to conceivably contain the header name,
-     * a colon (:), and something after that.
-     */
-    if(len < name_len + 2) {
-      return NULL;
-    }
-    if(strncasecmp(name, current, name_len) == 0 && current[name_len] == ':') {
-      /* Found it! */
-      len -= name_len + 1;
-      current += name_len + 1;
-      result = memmem(current, len, "\r\n", 2);
-      if(result == NULL) {
-        *n = len;
-        return current;
-      }
-      *n = (char *)result - current;
-      return current;
-    }
-  }
-  return NULL;
-}
-
 void
 log_cb(void *userdata, const rustls_log_params *params)
 {
