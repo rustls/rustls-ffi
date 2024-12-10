@@ -4,9 +4,9 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
-use pki_types::{CertificateDer, UnixTime};
+use pki_types::{CertificateDer, EchConfigListBytes, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::ResolvesClientCert;
+use rustls::client::{EchConfig, EchGreaseConfig, EchMode, ResolvesClientCert};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
 use rustls::{
     sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error, KeyLog,
@@ -15,7 +15,7 @@ use rustls::{
 
 use crate::cipher::{rustls_certified_key, rustls_server_cert_verifier};
 use crate::connection::{rustls_connection, Connection};
-use crate::crypto_provider::rustls_crypto_provider;
+use crate::crypto_provider::{rustls_crypto_provider, rustls_hpke};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, map_error, rustls_result};
 use crate::keylog::{rustls_keylog_log_callback, rustls_keylog_will_log_callback, CallbackKeyLog};
@@ -52,6 +52,27 @@ pub(crate) struct ClientConfigBuilder {
     enable_sni: bool,
     cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
     key_log: Option<Arc<dyn KeyLog>>,
+    ech_mode: Option<EchMode>,
+}
+
+impl Default for ClientConfigBuilder {
+    fn default() -> Self {
+        Self {
+            provider: None,
+            // Note: we populate default versions at build-time with the Rustls defaults.
+            // We leave it empty for the default builder to be able to distinguish when
+            // a caller has customized w/ `rustls_client_config_builder_new_custom`.
+            versions: Vec::new(),
+            verifier: None,
+            alpn_protocols: Vec::new(),
+            // Note: we don't derive Default for this struct because we want to enable SNI
+            // by default.
+            enable_sni: true,
+            cert_resolver: None,
+            key_log: None,
+            ech_mode: None,
+        }
+    }
 }
 
 arc_castable! {
@@ -81,12 +102,7 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let builder = ClientConfigBuilder {
                 provider: crypto_provider::get_default_or_install_from_crate_features(),
-                versions: rustls::DEFAULT_VERSIONS.to_vec(),
-                verifier: None,
-                cert_resolver: None,
-                alpn_protocols: vec![],
-                enable_sni: true,
-                key_log: None,
+                ..ClientConfigBuilder::default()
             };
             to_boxed_mut_ptr(builder)
         }
@@ -136,153 +152,14 @@ impl rustls_client_config_builder {
             let config_builder = ClientConfigBuilder {
                 provider: Some(provider),
                 versions,
-                verifier: None,
-                cert_resolver: None,
-                alpn_protocols: vec![],
-                enable_sni: true,
-                key_log: None,
+                ..ClientConfigBuilder::default()
             };
 
             set_boxed_mut_ptr(builder_out, config_builder);
             rustls_result::Ok
         }
     }
-}
 
-/// Input to a custom certificate verifier callback.
-///
-/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
-///
-/// server_name can contain a hostname, an IPv4 address in textual form, or an
-/// IPv6 address in textual form.
-#[allow(non_camel_case_types)]
-#[repr(C)]
-pub struct rustls_verify_server_cert_params<'a> {
-    pub end_entity_cert_der: rustls_slice_bytes<'a>,
-    pub intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
-    pub server_name: rustls_str<'a>,
-    pub ocsp_response: rustls_slice_bytes<'a>,
-}
-
-/// User-provided input to a custom certificate verifier callback.
-///
-/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
-#[allow(non_camel_case_types)]
-pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
-
-// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
-// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
-// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
-// So we use Option<...> here. This is the type that is passed from C code.
-#[allow(non_camel_case_types)]
-pub type rustls_verify_server_cert_callback = Option<
-    unsafe extern "C" fn(
-        userdata: rustls_verify_server_cert_user_data,
-        params: *const rustls_verify_server_cert_params,
-    ) -> u32,
->;
-
-// This is the same as a rustls_verify_server_cert_callback after unwrapping
-// the Option (which is equivalent to checking for null).
-type VerifyCallback = unsafe extern "C" fn(
-    userdata: rustls_verify_server_cert_user_data,
-    params: *const rustls_verify_server_cert_params,
-) -> u32;
-
-// An implementation of rustls::ServerCertVerifier based on a C callback.
-struct Verifier {
-    provider: Arc<CryptoProvider>,
-    callback: VerifyCallback,
-}
-
-/// Safety: Verifier is Send because we don't allocate or deallocate any of its
-/// fields.
-unsafe impl Send for Verifier {}
-
-/// Safety: Verifier is Sync if the C code that passes us a callback that
-/// obeys the concurrency safety requirements documented in
-/// rustls_client_config_builder_dangerous_set_certificate_verifier.
-unsafe impl Sync for Verifier {}
-
-impl ServerCertVerifier for Verifier {
-    fn verify_server_cert(
-        &self,
-        end_entity: &CertificateDer,
-        intermediates: &[CertificateDer],
-        server_name: &pki_types::ServerName<'_>,
-        ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> Result<ServerCertVerified, Error> {
-        let cb = self.callback;
-        let server_name = server_name.to_str();
-        let server_name = match server_name.as_ref().try_into() {
-            Ok(r) => r,
-            Err(NulByte {}) => return Err(Error::General("NUL byte in SNI".to_string())),
-        };
-
-        let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
-
-        let intermediates = rustls_slice_slice_bytes {
-            inner: &intermediates,
-        };
-
-        let params = rustls_verify_server_cert_params {
-            end_entity_cert_der: end_entity.as_ref().into(),
-            intermediate_certs_der: &intermediates,
-            server_name,
-            ocsp_response: ocsp_response.into(),
-        };
-        let userdata = userdata_get()
-            .map_err(|_| Error::General("internal error with thread-local storage".to_string()))?;
-        let result = unsafe { cb(userdata, &params) };
-        match rustls_result::from(result) {
-            rustls_result::Ok => Ok(ServerCertVerified::assertion()),
-            r => Err(error::cert_result_to_error(r)),
-        }
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, Error> {
-        verify_tls12_signature(
-            message,
-            cert,
-            dss,
-            &self.provider.signature_verification_algorithms,
-        )
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, Error> {
-        verify_tls13_signature(
-            message,
-            cert,
-            dss,
-            &self.provider.signature_verification_algorithms,
-        )
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.provider
-            .signature_verification_algorithms
-            .supported_schemes()
-    }
-}
-
-impl Debug for Verifier {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Verifier").finish()
-    }
-}
-
-impl rustls_client_config_builder {
     /// Set a custom server certificate verifier using the builder crypto provider.
     /// Returns rustls_result::NoDefaultCryptoProvider if no process default crypto
     /// provider has been set, and the builder was not constructed with an explicit
@@ -491,34 +368,105 @@ impl rustls_client_config_builder {
             rustls_result::Ok
         }
     }
-}
 
-/// Always send the same client certificate.
-#[derive(Debug)]
-struct ResolvesClientCertFromChoices {
-    keys: Vec<Arc<CertifiedKey>>,
-}
+    /// Configure the client for Encrypted Client Hello (ECH).
+    ///
+    /// This requires providing a TLS encoded list of ECH configurations that should
+    /// have been retrieved from the DNS HTTPS record for the domain you intend to connect to.
+    /// This should be done using DNS-over-HTTPS to avoid leaking the domain name you are
+    /// connecting to ahead of the TLS handshake.
+    ///
+    /// At least one of the ECH configurations must be compatible with the provided `rustls_hpke`
+    /// instance. See `rustls_supported_hpke()` for more information.
+    ///
+    /// Calling this function will replace any existing ECH configuration set by
+    /// previous calls to `rustls_client_config_builder_enable_ech()` or
+    /// `rustls_client_config_builder_enable_ech_grease()`.
+    ///
+    /// The provided `ech_config_list_bytes` and `rustls_hpke` must not be NULL or an
+    /// error will be returned. The caller maintains ownership of the ECH config list TLS bytes
+    /// and `rustls_hpke` instance.
+    ///
+    /// A `RUSTLS_RESULT_BUILDER_INCOMPATIBLE_TLS_VERSIONS` error is returned if the builder's
+    /// TLS versions have been customized via `rustls_client_config_builder_new_custom()`
+    /// and the customization isn't "only TLS 1.3". ECH may only be used with TLS 1.3.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_enable_ech(
+        builder: *mut rustls_client_config_builder,
+        ech_config_list_bytes: *const u8,
+        ech_config_list_bytes_size: size_t,
+        hpke: *const rustls_hpke,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder = try_mut_from_ptr!(builder);
+            let ech_config_list_bytes =
+                try_slice!(ech_config_list_bytes, ech_config_list_bytes_size);
+            let hpke = try_ref_from_ptr!(hpke);
 
-impl ResolvesClientCert for ResolvesClientCertFromChoices {
-    fn resolve(
-        &self,
-        _acceptable_issuers: &[&[u8]],
-        sig_schemes: &[SignatureScheme],
-    ) -> Option<Arc<CertifiedKey>> {
-        for key in self.keys.iter() {
-            if key.key.choose_scheme(sig_schemes).is_some() {
-                return Some(key.clone());
+            // If the builder's TLS versions have been customized, and the customization
+            // isn't "only TLS 1.3", return an error.
+            if !builder.versions.is_empty() && builder.versions != [&rustls::version::TLS13] {
+                return rustls_result::BuilderIncompatibleTlsVersions;
             }
+
+            // Construct an ECH config given the config list DER and our supported suites, or an
+            // error result if the ECH config is no good, or we don't have an HPKE suite that's
+            // compatible with any of the ECH configs in the list.
+            builder.ech_mode = match EchConfig::new(
+                EchConfigListBytes::from(ech_config_list_bytes),
+                hpke.suites,
+            ) {
+                Ok(ech_config) => Some(ech_config.into()),
+                Err(err) => {
+                    return map_error(err);
+                }
+            };
+
+            rustls_result::Ok
         }
-        None
     }
 
-    fn has_certs(&self) -> bool {
-        !self.keys.is_empty()
-    }
-}
+    /// Configure the client for GREASE Encrypted Client Hello (ECH).
+    ///
+    /// This is a feature to prevent ossification of the TLS handshake by acting as though
+    /// ECH were configured for an imaginary ECH config generated with one of the
+    /// `rustls_hpke` supported suites, chosen at random.
+    ///
+    /// The provided `rustls_client_config_builder` and `rustls_hpke` must not be NULL or an
+    /// error will be returned. The caller maintains ownership of both the
+    /// `rustls_client_config_builder` and the `rustls_hpke` instance.
+    ///
+    /// Calling this function will replace any existing ECH configuration set by
+    /// previous calls to `rustls_client_config_builder_enable_ech()` or
+    /// `rustls_client_config_builder_enable_ech_grease()`.
+    ///
+    /// A `RUSTLS_RESULT_BUILDER_INCOMPATIBLE_TLS_VERSIONS` error is returned if the builder's
+    /// TLS versions have been customized via `rustls_client_config_builder_new_custom()`
+    /// and the customization isn't "only TLS 1.3". ECH may only be used with TLS 1.3.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_enable_ech_grease(
+        builder: *mut rustls_client_config_builder,
+        hpke: *const rustls_hpke,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let builder = try_mut_from_ptr!(builder);
+            let hpke = try_ref_from_ptr!(hpke);
 
-impl rustls_client_config_builder {
+            let Some((suite, placeholder_pk)) = hpke.grease_public_key() else {
+                return rustls_result::HpkeError;
+            };
+
+            // If the builder's TLS versions have been customized, and the customization
+            // isn't "only TLS 1.3", return an error.
+            if !builder.versions.is_empty() && builder.versions != [&rustls::version::TLS13] {
+                return rustls_result::BuilderIncompatibleTlsVersions;
+            }
+            builder.ech_mode = Some(EchMode::Grease(EchGreaseConfig::new(suite, placeholder_pk)));
+
+            rustls_result::Ok
+        }
+    }
+
     /// Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
     /// (read-only).
     #[no_mangle]
@@ -540,14 +488,32 @@ impl rustls_client_config_builder {
                 None => return rustls_result::NoServerCertVerifier,
             };
 
-            let config = match ClientConfig::builder_with_provider(provider)
-                .with_protocol_versions(&builder.versions)
-            {
-                Ok(c) => c,
-                Err(err) => return map_error(err),
-            };
+            let config = ClientConfig::builder_with_provider(provider);
 
-            let config = config
+            // ECH configuration is mutually exclusive with customizing protocol versions.
+            //
+            // The upstream builder API is written such that calling `with_ech()` transitions
+            // the builder directly to `WantsVerifier`, skipping protocol customization to
+            // ensure the protocols are compatible with the ECH mode. C makes it harder to
+            // express that, so we enforce this at the time of populating `builder.ech_mode`.
+            let wants_verifier;
+            if let Some(ech_mode) = builder.ech_mode {
+                wants_verifier = match config.with_ech(ech_mode) {
+                    Ok(config) => config,
+                    Err(err) => return map_error(err),
+                }
+            } else {
+                let versions = match builder.versions.is_empty() {
+                    true => rustls::DEFAULT_VERSIONS,
+                    false => builder.versions.as_slice(),
+                };
+                wants_verifier = match config.with_protocol_versions(versions) {
+                    Ok(config) => config,
+                    Err(err) => return map_error(err),
+                };
+            }
+
+            let config = wants_verifier
                 .dangerous()
                 .with_custom_certificate_verifier(verifier);
             let mut config = match builder.cert_resolver {
@@ -578,6 +544,164 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             free_box(config);
         }
+    }
+}
+
+/// Input to a custom certificate verifier callback.
+///
+/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
+///
+/// server_name can contain a hostname, an IPv4 address in textual form, or an
+/// IPv6 address in textual form.
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct rustls_verify_server_cert_params<'a> {
+    pub end_entity_cert_der: rustls_slice_bytes<'a>,
+    pub intermediate_certs_der: &'a rustls_slice_slice_bytes<'a>,
+    pub server_name: rustls_str<'a>,
+    pub ocsp_response: rustls_slice_bytes<'a>,
+}
+
+/// User-provided input to a custom certificate verifier callback.
+///
+/// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
+#[allow(non_camel_case_types)]
+pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
+
+// According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
+// > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
+// > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
+// So we use Option<...> here. This is the type that is passed from C code.
+#[allow(non_camel_case_types)]
+pub type rustls_verify_server_cert_callback = Option<
+    unsafe extern "C" fn(
+        userdata: rustls_verify_server_cert_user_data,
+        params: *const rustls_verify_server_cert_params,
+    ) -> u32,
+>;
+
+// This is the same as a rustls_verify_server_cert_callback after unwrapping
+// the Option (which is equivalent to checking for null).
+type VerifyCallback = unsafe extern "C" fn(
+    userdata: rustls_verify_server_cert_user_data,
+    params: *const rustls_verify_server_cert_params,
+) -> u32;
+
+// An implementation of rustls::ServerCertVerifier based on a C callback.
+struct Verifier {
+    provider: Arc<CryptoProvider>,
+    callback: VerifyCallback,
+}
+
+/// Safety: Verifier is Send because we don't allocate or deallocate any of its
+/// fields.
+unsafe impl Send for Verifier {}
+
+/// Safety: Verifier is Sync if the C code that passes us a callback that
+/// obeys the concurrency safety requirements documented in
+/// rustls_client_config_builder_dangerous_set_certificate_verifier.
+unsafe impl Sync for Verifier {}
+
+impl ServerCertVerifier for Verifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer,
+        intermediates: &[CertificateDer],
+        server_name: &pki_types::ServerName<'_>,
+        ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, Error> {
+        let cb = self.callback;
+        let server_name = server_name.to_str();
+        let server_name = match server_name.as_ref().try_into() {
+            Ok(r) => r,
+            Err(NulByte {}) => return Err(Error::General("NUL byte in SNI".to_string())),
+        };
+
+        let intermediates: Vec<_> = intermediates.iter().map(|cert| cert.as_ref()).collect();
+
+        let intermediates = rustls_slice_slice_bytes {
+            inner: &intermediates,
+        };
+
+        let params = rustls_verify_server_cert_params {
+            end_entity_cert_der: end_entity.as_ref().into(),
+            intermediate_certs_der: &intermediates,
+            server_name,
+            ocsp_response: ocsp_response.into(),
+        };
+        let userdata = userdata_get()
+            .map_err(|_| Error::General("internal error with thread-local storage".to_string()))?;
+        let result = unsafe { cb(userdata, &params) };
+        match rustls_result::from(result) {
+            rustls_result::Ok => Ok(ServerCertVerified::assertion()),
+            r => Err(error::cert_result_to_error(r)),
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.provider.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, Error> {
+        verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.provider.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
+    }
+}
+
+impl Debug for Verifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Verifier").finish()
+    }
+}
+
+/// Always send the same client certificate.
+#[derive(Debug)]
+struct ResolvesClientCertFromChoices {
+    keys: Vec<Arc<CertifiedKey>>,
+}
+
+impl ResolvesClientCert for ResolvesClientCertFromChoices {
+    fn resolve(
+        &self,
+        _acceptable_issuers: &[&[u8]],
+        sig_schemes: &[SignatureScheme],
+    ) -> Option<Arc<CertifiedKey>> {
+        for key in self.keys.iter() {
+            if key.key.choose_scheme(sig_schemes).is_some() {
+                return Some(key.clone());
+            }
+        }
+        None
+    }
+
+    fn has_certs(&self) -> bool {
+        !self.keys.is_empty()
     }
 }
 

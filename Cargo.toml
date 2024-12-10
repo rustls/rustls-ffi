@@ -34,6 +34,7 @@ webpki = { package = "rustls-webpki", version = "0.102.0", default-features = fa
 libc = "0.2"
 log = "0.4.22"
 rustls-platform-verifier = "0.4"
+rand = "0.8"
 
 [lib]
 name = "rustls_ffi"
@@ -42,6 +43,8 @@ crate-type = ["lib", "staticlib"]
 [dev-dependencies]
 regex = "1.9.6"
 toml = { version = "0.6.0", default-features = false, features = ["parse"] }
+hickory-resolver = { version = "=0.25.0-alpha.3", features = ["dns-over-https-rustls", "webpki-roots"] }
+tokio = { version = "1.34.0", features = ["io-util", "macros", "net", "rt"] }
 
 [package.metadata.capi.header]
 name = "rustls"
@@ -59,3 +62,11 @@ filename = "rustls"
 
 [package.metadata.capi.install.include]
 asset = [{ from = "src/rustls.h", to = "" }]
+
+# The ech_fetch test is a utility to fetch ECH configurations from DNS
+# to use with the client.c example. We disable the harness to be able
+# to parse CLI args.
+[[test]]
+name = "ech_fetch"
+harness = false
+test = false

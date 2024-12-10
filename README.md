@@ -21,7 +21,7 @@ to provide the cryptographic primitives.
 
 # Build
 
-You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.71
+You'll need to [install the Rust toolchain](https://rustup.rs/) (version 1.73
 or above) and a C compiler (`gcc` and `clang` should both work).
 
 ## Cryptography provider
