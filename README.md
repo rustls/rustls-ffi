@@ -23,7 +23,7 @@ to provide the cryptographic primitives.
 
 To build rustls-ffi as a static or shared library you'll need to [install the
 Rust toolchain](https://rustup.rs/) (version 1.71 or above) as well as 
-[cargo c](https://github.com/lu-zero/cargo-c).
+[cargo-c].
 
 The [cargo-c] tool can be installed from 
 [your package manager](https://github.com/lu-zero/cargo-c?tab=readme-ov-file#availability)
@@ -32,6 +32,8 @@ or using Cargo with `cargo install cargo-c`.
 If you plan to build the `client` and `server` [C examples](#example-applications) 
 you will also need `cmake` and a C compiler (`gcc` and `clang` should both work, 
 as well as MSVC on Windows).
+
+[cargo-c]: https://github.com/lu-zero/cargo-c
 
 ## Building and Installing
 
@@ -42,7 +44,7 @@ sudo cargo capi install --release
 ```
 
 If you receive a message like "error: no such command capi" you need to install
-[cargo c] from your package manager, or using `cargo install cargo-c`.
+[cargo-c] from your package manager, or using `cargo install cargo-c`.
 
 To change where the library is installed, use `--prefix` like:
 
