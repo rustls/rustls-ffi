@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: Build+test
+    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.rust }}, ${{ matrix.crypto }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -25,14 +25,41 @@ jobs:
           - nightly
           # MSRV - keep in sync with what rustls and rustls-platform-verifier
           # consider MSRV
-          - 1.71.0
+          - "1.71"
         os: [ ubuntu-latest ]
-        # but only stable, clang, and aws-lc-rs on macos (slower platform)
+        # Include a few MacOS and cert-compression builds to ensure they're tested without
+        # bloating the matrix or slowing down CI.
         include:
+          # Linux dyn link build
+          - os: ubuntu-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            dyn_link: on
+          # Linux cert compression build
+          - os: ubuntu-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            cert_compression: on
+          # MacOS standard build
           - os: macos-latest
             cc: clang
             crypto: aws-lc-rs
             rust: stable
+            cert_compression: off
+          # MacOS dyn link build
+          - os: macos-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            dyn_link: on
+          # MacOS cert compression build
+          - os: macos-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            cert_compression: on
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -43,33 +70,64 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - name: Unit tests
+
+      - name: Install cargo-c (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         env:
-          CARGO_UNSTABLE_HTTP_REGISTRY: true
-        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} test
+          # Version picked for MSRV compat.
+          LINK: https://github.com/lu-zero/cargo-c/releases/download/v0.10.0
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Install cargo-c (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          # Version picked for MSRV compat.
+          LINK: https://github.com/lu-zero/cargo-c/releases/download/v0.10.0
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
+
+      - name: Setup cmake build
+        run: |
+          CC=${{matrix.cc}} \
+          CXX=${{matrix.cc}} \
+          cmake \
+            -DCRYPTO_PROVIDER=${{matrix.crypto}} \
+            -DCERT_COMPRESSION=${{matrix.cert_compression}} \
+            -DDYN_LINK=${{matrix.dyn_link}} \
+            -DCMAKE_BUILD_TYPE=Debug \
+            ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
+            -S . -B build
+
+      - name: Build
+        run: cmake --build build
+
       - name: Platform verifier connect test
-        run: make PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} connect-test
+        run: cmake --build build --target connect-test
+
       - name: Integration tests
-        env:
-          CARGO_UNSTABLE_HTTP_REGISTRY: true
-        # Note: we run this after the connect-tests because the static libs test rebuilds the crate
-        #       squashing whatever RUSTFLAGS the Makefile has set and producing a librustls_ffi.a
-        #       for the default build config.
-        run: make CC=${{ matrix.cc }} PROFILE=debug CRYPTO_PROVIDER=${{ matrix.crypto }} integration
+        run: cmake --build build --target integration-test
+
       - name: Verify debug builds were using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
-          nm target/client | grep '__asan_init'
-          nm target/server | grep '__asan_init'
+          nm build/tests/client | grep '__asan_init'
+          nm build/tests/server | grep '__asan_init'
+
       - name: Build release binaries
         run: |
-          make clean
-          make CC=${{ matrix.cc }} CRYPTO_PROVIDER=${{ matrix.crypto }} PROFILE=release test
+          cmake --build build -- clean
+          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S . -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
       - name: Verify release builds were not using ASAN
         if: runner.os == 'Linux' # For 'nm'
         run: |
-          nm target/client | grep -v '__asan_init'
-          nm target/server | grep -v '__asan_init'
+          ! nm build/tests/client | grep '__asan_init' 
+          ! nm build/tests/server | grep '__asan_init' 
 
   valgrind:
     name: Valgrind
@@ -78,26 +136,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
-      - run: VALGRIND=valgrind make PROFILE=release test integration
 
-  cert-compression:
-    name: Certificate Compression
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Unit tests
-        run: make PROFILE=debug CERT_COMPRESSION=true test
-      - name: Integration tests
-        run: make PROFILE=debug CERT_COMPRESSION=true integration
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Setup cmake build
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release # No ASAN w/ Valgrind
+
+      - run: VALGRIND=valgrind cmake --build build --target integration-test
 
   # TODO(@cpu): MacOS and Windows FIPS test coverage
   fips:
@@ -107,86 +160,83 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
-      - name: Unit tests
-        run: make FIPS=true test
-      - name: Integration tests
-        run: make FIPS=true integration
 
-  test-windows-cmake-debug:
-    name: Windows CMake, Debug configuration
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Setup cmake build
+        run: |
+          cmake \
+            -DFIPS=true \
+            -DCMAKE_BUILD_TYPE=Release \
+            -S . -B build
+
+      - name: Integration tests
+        run: cmake --build build --target integration-test
+
+  test-windows:
+    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: windows-latest
     strategy:
       matrix:
         crypto: [ aws-lc-rs, ring ]
+        config: [ Debug, Release ]
+        cert_compression: [ off ]
+        dyn_link: [ off ]
+        include:
+          # One build with dynamic linking.
+          - crypto: aws-lc-rs
+            config: Release
+            dyn_link: on
+          # One build with cert_compression.
+          - crypto: aws-lc-rs
+            config: Release
+            cert_compression: on
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
       # For Debug builds we use ASAN, which requires a modern MSVC on $PATH
       # to provide the ASAN clang_rt.asan_*.dll runtime deps or
-      # the built client/server binary will exit immediately with 
+      # the built client/server binary will exit immediately with
       # exit code -1073741515
       - name: Setup MSVC
         uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: x64
-      - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
-      - name: Build, debug configuration
-        run: cmake --build build --config Debug
-      - name: Integration test, debug configuration
-        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
-        env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Debug\server.exe
 
-  test-windows-cmake-release:
-    name: Windows CMake, Release configuration
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        crypto: [ aws-lc-rs, ring ]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -S . -B build
-      - name: Build, release configuration
-        run: cmake --build build --config Release
-      - name: Integration test, release configuration
-        run: cargo test --no-default-features --features="${{ matrix.crypto }}" --locked --test client_server client_server_integration -- --ignored --exact
+      # Note: must use cargo-c 0.10.7+ for dynamic linking support on Windows.
+      - name: Install cargo-c
         env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-windows-msvc.zip
+        run: |
+          curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
+          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
 
-  test-windows-cmake-compression:
-    name: Windows CMake, Cert. Compression
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-      - name: Configure CMake enabling cert compression
-        run: cmake -DCERT_COMPRESSION="true" -S . -B build
-      - name: Build, release configuration, compression
-        run: cmake --build build --config Release
-      - name: Integration test, release configuration, compression
-        run: cargo test --features=cert_compression --locked --test client_server client_server_integration -- --ignored --exact
-        env:
-          CLIENT_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\client.exe
-          SERVER_BINARY: D:\a\rustls-ffi\rustls-ffi\build\tests\Release\server.exe
+      - name: Configure CMake
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S . -B build
+
+      - name: Build
+        run: cmake --build build --config "${{ matrix.config }}"
+
+      - name: Integration test
+        run: cmake --build build --config "${{matrix.config}}" --target integration-test
 
   ensure-header-updated:
     runs-on: ubuntu-latest
@@ -194,17 +244,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install nightly rust toolchain
         uses: dtolnay/rust-toolchain@nightly
+
       - name: Install cbindgen
         # Pin the installed version of cbindgen so that local usage can be
         # reliably matched to CI. There can be non-semantic differences in
         # output between point releases of cbindgen that will fail this check
         # otherwise.
         run: cargo install cbindgen --force --version 0.27.0
+
       - run: touch src/lib.rs
+
       - run: cbindgen --version
+
       - run: make src/rustls.h
+
       - run: git diff --exit-code
 
   docs:
@@ -236,9 +292,6 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Build client/server binaries
-        run: make target/client target/server
-
       - name: cargo test (debug; default features; -Z minimal-versions)
         run: cargo -Z minimal-versions test --locked
 
@@ -253,15 +306,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.67.1
+          toolchain: "1.71"
           components: rustfmt
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-      - name: Check C formatting
-        run: make format-check
+
+      - name: Install Gersemi
+        run: pip install gersemi
+
+      - name: Setup cmake build
+        run: cmake -S . -B build
+
+      - name: Check formatting
+        run: cmake --build build --target format-check
 
   clippy:
     name: Clippy
@@ -271,16 +330,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
       - name: Check clippy (default features)
         # We allow unknown lints here because sometimes the nightly job
         # (below) will have a new lint that we want to suppress.
         # If we suppress (e.g. #![allow(clippy::arc_with_non_send_sync)]),
         # we would get an unknown-lint error from older clippy versions.
         run: cargo clippy --locked --workspace --all-targets -- -D warnings -A unknown-lints
+
       - name: Check clippy (ring)
         run: cargo clippy --locked --workspace --all-targets --no-default-features --features=ring -- -D warnings -A unknown-lints
 
@@ -292,14 +354,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
+
       - name: Check clippy (default features)
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
       - name: Check clippy (ring)
         run: cargo clippy --locked --workspace --all-targets --no-default-features --features=ring -- -D warnings
+
       - name: Check clippy (all features)
         # We only test --all-features on nightly, because two of the features
         # (read_buf, core_io_borrowed_buf) require nightly.
@@ -313,6 +379,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Clang tidy
         run: clang-tidy tests/*.c -- -I src/
 
@@ -327,6 +394,9 @@ jobs:
 
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@nightly
+
       - run: rustup override set "nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/miri)"
+
       - run: rustup component add miri
+
       - run: cargo miri test
