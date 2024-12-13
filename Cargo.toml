@@ -43,7 +43,7 @@ crate-type = ["lib", "staticlib"]
 [dev-dependencies]
 regex = "1.9.6"
 toml = { version = "0.6.0", default-features = false, features = ["parse"] }
-hickory-resolver = { version = "=0.25.0-alpha.3", features = ["dns-over-https-rustls", "webpki-roots"] }
+hickory-resolver = { version = "=0.25.0-alpha.4", features = ["dns-over-https-rustls", "webpki-roots"] }
 tokio = { version = "1.42.0", features = ["io-util", "macros", "net", "rt"] }
 
 [package.metadata.capi.header]
