@@ -44,7 +44,7 @@ crate-type = ["lib", "staticlib"]
 regex = "1.9.6"
 toml = { version = "0.6.0", default-features = false, features = ["parse"] }
 hickory-resolver = { version = "=0.25.0-alpha.3", features = ["dns-over-https-rustls", "webpki-roots"] }
-tokio = { version = "1.34.0", features = ["io-util", "macros", "net", "rt"] }
+tokio = { version = "1.42.0", features = ["io-util", "macros", "net", "rt"] }
 
 [package.metadata.capi.header]
 name = "rustls"
