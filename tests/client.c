@@ -474,7 +474,9 @@ main(int argc, const char **argv)
     config_builder = rustls_client_config_builder_new();
   }
 
-  if(getenv("RUSTLS_ECH_GREASE")) {
+  const char *rustls_ech_grease = getenv("RUSTLS_ECH_GREASE");
+  const char *rustls_ech_config_list = getenv("RUSTLS_ECH_CONFIG_LIST");
+  if(rustls_ech_grease) {
     const rustls_hpke *hpke = rustls_supported_hpke();
     if(hpke == NULL) {
       fprintf(stderr, "client: no HPKE suites for ECH available\n");
@@ -489,39 +491,82 @@ main(int argc, const char **argv)
     }
     fprintf(stderr, "configured for ECH GREASE\n");
   }
-  else if(getenv("RUSTLS_ECH_CONFIG_LIST")) {
+  else if(rustls_ech_config_list) {
     const rustls_hpke *hpke = rustls_supported_hpke();
     if(hpke == NULL) {
       fprintf(stderr, "client: no HPKE suites for ECH available\n");
       goto cleanup;
     }
 
-    char ech_config_list_buf[10000];
-    size_t ech_config_list_len;
-
-    unsigned int read_result = read_file(getenv("RUSTLS_ECH_CONFIG_LIST"),
-                                         ech_config_list_buf,
-                                         sizeof(ech_config_list_buf),
-                                         &ech_config_list_len);
-    if(read_result != DEMO_OK) {
-      fprintf(stderr,
-              "client: failed to read ECH config list file: '%s'\n",
-              getenv("RUSTLS_ECH_CONFIG_LIST"));
-      goto cleanup;
-    }
-    result =
-      rustls_client_config_builder_enable_ech(config_builder,
-                                              (uint8_t *)ech_config_list_buf,
-                                              ech_config_list_len,
-                                              hpke);
-    if(result != RUSTLS_RESULT_OK) {
-      fprintf(stderr, "client: failed to configure ECH");
+    // Duplicate the ENV var value - calling STRTOK_R will modify the string
+    // to add null terminators between tokens.
+    char *ech_config_list_copy = strdup(rustls_ech_config_list);
+    if(!ech_config_list_copy) {
+      LOG_SIMPLE("failed to allocate memory for ECH config list");
       goto cleanup;
     }
 
-    fprintf(stderr,
-            "client: using ECH with config list from '%s'\n",
-            getenv("RUSTLS_ECH_CONFIG_LIST"));
+    bool ech_configured = false;
+    // Tokenize the ech_config_list_copy by comma. The first invocation takes
+    // ech_config_list_copy. This is reentrant by virtue of saving state to
+    // saveptr. Only the _first_ invocation is given the original string.
+    // Subsequent calls should pass NULL and the same delim/saveptr.
+    const char *delim = ",";
+    char *saveptr = NULL;
+    char *ech_config_list_path =
+      STRTOK_R(ech_config_list_copy, delim, &saveptr);
+
+    while(ech_config_list_path) {
+      // Skip leading spaces
+      while(*ech_config_list_path == ' ') {
+        ech_config_list_path++;
+      }
+
+      // Try to read the token as a file path to an ECH config list.
+      char ech_config_list_buf[10000];
+      size_t ech_config_list_len;
+      const enum demo_result read_result =
+        read_file(ech_config_list_path,
+                  ech_config_list_buf,
+                  sizeof(ech_config_list_buf),
+                  &ech_config_list_len);
+
+      // If we can't read the file, warn and continue
+      if(read_result != DEMO_OK) {
+        // Continue to the next token.
+        LOG("unable to read ECH config list from '%s'", ech_config_list_path);
+        ech_config_list_path = STRTOK_R(NULL, delim, &saveptr);
+        continue;
+      }
+
+      // Try to enable ECH with the config list. This may error if none
+      // of the ECH configs are valid/compatible.
+      result =
+        rustls_client_config_builder_enable_ech(config_builder,
+                                                (uint8_t *)ech_config_list_buf,
+                                                ech_config_list_len,
+                                                hpke);
+
+      // If we successfully configured ECH with the config list then break.
+      if(result == RUSTLS_RESULT_OK) {
+        LOG("using ECH with config list from '%s'", ech_config_list_path);
+        ech_configured = true;
+        break;
+      }
+
+      // Otherwise continue to the next token.
+      LOG("no compatible/valid ECH configs found in '%s'",
+          ech_config_list_path);
+      ech_config_list_path = STRTOK_R(NULL, delim, &saveptr);
+    }
+
+    // Free the copy of the env var we made.
+    free(ech_config_list_copy);
+
+    if(!ech_configured) {
+      LOG_SIMPLE("failed to configure ECH with any provided config files");
+      goto cleanup;
+    }
   }
 
   if(getenv("RUSTLS_PLATFORM_VERIFIER")) {

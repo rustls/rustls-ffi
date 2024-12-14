@@ -11,7 +11,7 @@ use std::io::Write;
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 use hickory_resolver::proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
 use hickory_resolver::proto::rr::{RData, RecordType};
-use hickory_resolver::{Resolver, TokioResolver};
+use hickory_resolver::{ResolveError, Resolver, TokioResolver};
 
 use rustls::pki_types::EchConfigListBytes;
 
@@ -24,27 +24,60 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or(format!("testdata/{}.ech.configs.bin", domain));
 
     let resolver = Resolver::tokio(ResolverConfig::google_https(), ResolverOpts::default());
-    let tls_encoded_list = lookup_ech(&resolver, &domain).await;
 
-    let mut encoded_list_file = File::create(output_path)?;
-    encoded_list_file.write_all(&tls_encoded_list)?;
+    let all_lists = lookup_ech_configs(&resolver, &domain).await?;
+
+    // If there was only one HTTPS record with an ech config, write it to the output file.
+    if all_lists.len() == 1 {
+        let mut encoded_list_file = File::create(&output_path)?;
+        encoded_list_file.write_all(&all_lists.first().unwrap())?;
+        println!("{output_path}");
+    } else {
+        // Otherwise write each to its own file with a numeric suffix
+        for (i, ech_config_lists) in all_lists.iter().enumerate() {
+            let mut encoded_list_file = File::create(format!("{output_path}.{}", i + 1))?;
+            encoded_list_file.write_all(&ech_config_lists)?;
+        }
+        // And print a comma separated list of the file paths.
+        let paths = (1..=all_lists.len())
+            .map(|i| format!("{}.{}", output_path, i))
+            .collect::<Vec<_>>()
+            .join(",");
+        println!("{paths}")
+    }
 
     Ok(())
 }
 
-async fn lookup_ech(resolver: &TokioResolver, domain: &str) -> EchConfigListBytes<'static> {
-    resolver
-        .lookup(domain, RecordType::HTTPS)
-        .await
-        .expect("failed to lookup HTTPS record type")
-        .record_iter()
-        .find_map(|r| match r.data() {
-            RData::HTTPS(svcb) => svcb.svc_params().iter().find_map(|sp| match sp {
-                (SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(e)) => Some(e.clone().0),
-                _ => None,
-            }),
+/// Collect up all `EchConfigListBytes` found in the HTTPS record(s) for a given domain name.
+///
+/// Assumes the port will be 443. For a more complete example see the Rustls' ech-client.rs
+/// example's `lookup_ech_configs` function.
+///
+/// The domain name should be the **inner** name used for Encrypted Client Hello (ECH). The
+/// lookup is done using DNS-over-HTTPS to protect that inner name from being disclosed in
+/// plaintext ahead of the TLS handshake that negotiates ECH for the inner name.
+///
+/// Returns an empty vec if no HTTPS records with ECH configs are found.
+async fn lookup_ech_configs(
+    resolver: &TokioResolver,
+    domain: &str,
+) -> Result<Vec<EchConfigListBytes<'static>>, ResolveError> {
+    let lookup = resolver.lookup(domain, RecordType::HTTPS).await?;
+
+    let mut ech_config_lists = Vec::new();
+    for r in lookup.record_iter() {
+        let RData::HTTPS(svcb) = r.data() else {
+            continue;
+        };
+
+        ech_config_lists.extend(svcb.svc_params().iter().find_map(|sp| match sp {
+            (SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(e)) => {
+                Some(EchConfigListBytes::from(e.clone().0))
+            }
             _ => None,
-        })
-        .expect("missing expected HTTPS SvcParam EchConfig record")
-        .into()
+        }))
+    }
+
+    Ok(ech_config_lists)
 }
