@@ -23,6 +23,12 @@ const char *ws_strerror(int err);
 #endif /* !STDOUT_FILENO */
 #endif /* _WIN32 */
 
+#if defined(_MSC_VER)
+#define STRTOK_R strtok_s
+#else
+#define STRTOK_R strtok_r
+#endif
+
 enum demo_result
 {
   DEMO_OK,
