@@ -13,7 +13,7 @@ use rustls::server::{
 use rustls::sign::CertifiedKey;
 use rustls::{KeyLog, KeyLogFile, ProtocolVersion, SignatureScheme, SupportedProtocolVersion};
 
-use crate::cipher::{rustls_certified_key, rustls_client_cert_verifier};
+use crate::certificate::rustls_certified_key;
 use crate::connection::{rustls_connection, Connection};
 use crate::crypto_provider::rustls_crypto_provider;
 use crate::error::rustls_result::NullParameter;
@@ -23,6 +23,7 @@ use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_slice_u
 use crate::session::{
     rustls_session_store_get_callback, rustls_session_store_put_callback, SessionStoreBroker,
 };
+use crate::verifier::rustls_client_cert_verifier;
 use crate::{
     arc_castable, box_castable, crypto_provider, ffi_panic_boundary, free_arc, free_box,
     set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc,

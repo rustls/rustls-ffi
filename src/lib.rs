@@ -24,6 +24,7 @@ use std::mem;
 use std::sync::Arc;
 
 pub mod acceptor;
+pub mod certificate;
 pub mod cipher;
 pub mod client;
 pub mod connection;
@@ -37,6 +38,7 @@ mod panic;
 pub mod rslice;
 pub mod server;
 pub mod session;
+pub mod verifier;
 
 pub use error::rustls_result;
 pub use error::*;
