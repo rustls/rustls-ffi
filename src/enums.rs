@@ -1,6 +1,6 @@
 use rustls::{HandshakeKind, ProtocolVersion, SupportedProtocolVersion};
 
-use crate::ffi_panic_boundary;
+use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_str;
 
 #[derive(Debug, Default)]

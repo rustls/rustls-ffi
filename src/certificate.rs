@@ -11,13 +11,14 @@ use rustls::RootCertStore;
 
 use crate::crypto_provider::{self, rustls_signing_key};
 use crate::error::{map_error, rustls_result};
+use crate::ffi::{
+    arc_castable, box_castable, free_arc, free_box, ref_castable, set_arc_mut_ptr,
+    to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
+    try_ref_from_ptr_ptr, try_slice, try_take,
+};
+use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_slice_bytes;
 use crate::rustls_result::{AlreadyUsed, NullParameter};
-use crate::{
-    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, ref_castable,
-    set_arc_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_mut_from_ptr,
-    try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_take,
-};
 
 ref_castable! {
     /// An X.509 certificate, as used in rustls.

@@ -2,7 +2,7 @@ use libc::c_void;
 use log::Level;
 
 #[cfg(not(feature = "no_log_capture"))]
-use crate::log_callback_get;
+use crate::userdata::log_callback_get;
 
 use crate::rslice::rustls_str;
 

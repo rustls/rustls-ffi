@@ -9,7 +9,7 @@ use rustls::{
     InvalidMessage,
 };
 
-use crate::ffi_panic_boundary;
+use crate::panic::ffi_panic_boundary;
 
 /// A return value for a function that may return either success (0) or a
 /// non-zero value representing an error.

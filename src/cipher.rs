@@ -1,8 +1,9 @@
 use rustls::SupportedCipherSuite;
 
 use crate::enums::rustls_tls_version;
+use crate::ffi::{ref_castable, try_ref_from_ptr};
+use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_str;
-use crate::{ffi_panic_boundary, ref_castable, try_ref_from_ptr};
 
 ref_castable! {
     /// A cipher suite supported by rustls.
