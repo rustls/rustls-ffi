@@ -18,7 +18,6 @@ use crate::ffi::{
 };
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_slice_bytes;
-use crate::rustls_result::{AlreadyUsed, NullParameter};
 
 ref_castable! {
     /// An X.509 certificate, as used in rustls.
@@ -38,7 +37,7 @@ pub extern "C" fn rustls_certificate_get_der(
     ffi_panic_boundary! {
         let cert = try_ref_from_ptr!(cert);
         if out_der_data.is_null() || out_der_len.is_null() {
-            return NullParameter;
+            return rustls_result::NullParameter;
         }
         let der = cert.as_ref();
         unsafe {
@@ -220,7 +219,7 @@ impl rustls_certified_key {
             let cloned_key_out = unsafe {
                 match cloned_key_out.as_mut() {
                     Some(c) => c,
-                    None => return NullParameter,
+                    None => return rustls_result::NullParameter,
                 }
             };
             let certified_key = try_ref_from_ptr!(certified_key);
@@ -321,7 +320,7 @@ impl rustls_root_cert_store_builder {
             let certs_pem = try_slice!(pem, pem_len);
             let builder = try_mut_from_ptr!(builder);
             let builder = match builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(b) => b,
             };
 
@@ -364,13 +363,13 @@ impl rustls_root_cert_store_builder {
         ffi_panic_boundary! {
             let builder = try_mut_from_ptr!(builder);
             let builder = match builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(b) => b,
             };
 
             let filename = unsafe {
                 if filename.is_null() {
-                    return NullParameter;
+                    return rustls_result::NullParameter;
                 }
                 CStr::from_ptr(filename)
             };

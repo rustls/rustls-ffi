@@ -22,7 +22,6 @@ use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_str;
 use crate::userdata::userdata_push;
-use rustls_result::NullParameter;
 
 pub(crate) struct Connection {
     conn: rustls::Connection,
@@ -507,7 +506,7 @@ impl rustls_connection {
             let conn = try_mut_from_ptr!(conn);
             let write_buf = try_slice!(buf, count);
             if out_n.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
             let n_written = match conn.writer().write(write_buf) {
                 Ok(n) => n,
@@ -542,10 +541,10 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if buf.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
             if out_n.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
 
             // Safety: the memory pointed at by buf must be initialized
@@ -593,7 +592,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if buf.is_null() || out_n.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
             let mut read_buf: std::io::BorrowedBuf<'_> = try_slice_mut!(buf, count).into();
 

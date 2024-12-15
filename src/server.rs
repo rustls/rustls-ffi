@@ -16,7 +16,6 @@ use rustls::{KeyLog, KeyLogFile, ProtocolVersion, SignatureScheme, SupportedProt
 use crate::certificate::rustls_certified_key;
 use crate::connection::{rustls_connection, Connection};
 use crate::crypto_provider::{self, rustls_crypto_provider};
-use crate::error::rustls_result::NullParameter;
 use crate::error::{map_error, rustls_result};
 use crate::ffi::{
     arc_castable, box_castable, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr,
@@ -220,7 +219,7 @@ impl rustls_server_config_builder {
             let builder = try_mut_from_ptr!(builder);
             let log_cb = match log_cb {
                 Some(cb) => cb,
-                None => return NullParameter,
+                None => return rustls_result::NullParameter,
             };
 
             builder.key_log = Some(Arc::new(CallbackKeyLog {
@@ -425,7 +424,7 @@ impl rustls_server_config {
     ) -> rustls_result {
         ffi_panic_boundary! {
             if conn_out.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
             let config = try_clone_arc!(config);
             let conn_out = try_mut_from_ptr_ptr!(conn_out);
@@ -465,10 +464,10 @@ pub extern "C" fn rustls_server_connection_get_server_name(
     ffi_panic_boundary! {
         let conn = try_ref_from_ptr!(conn);
         if buf.is_null() {
-            return NullParameter;
+            return rustls_result::NullParameter;
         }
         if out_n.is_null() {
-            return NullParameter;
+            return rustls_result::NullParameter;
         }
         let server_connection = match conn.as_server() {
             Some(s) => s,
@@ -680,7 +679,7 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let callback = match callback {
                 Some(cb) => cb,
-                None => return NullParameter,
+                None => return rustls_result::NullParameter,
             };
             let builder = try_mut_from_ptr!(builder);
             builder.cert_resolver = Some(Arc::new(ClientHelloResolver::new(callback)));
@@ -723,7 +722,7 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
             hello.signature_schemes.len
         ));
         if out_key.is_null() {
-            return NullParameter;
+            return rustls_result::NullParameter;
         }
         let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
@@ -756,11 +755,11 @@ impl rustls_server_config_builder {
         ffi_panic_boundary! {
             let get_cb = match get_cb {
                 Some(cb) => cb,
-                None => return NullParameter,
+                None => return rustls_result::NullParameter,
             };
             let put_cb = match put_cb {
                 Some(cb) => cb,
-                None => return NullParameter,
+                None => return rustls_result::NullParameter,
             };
             let builder = try_mut_from_ptr!(builder);
             builder.session_storage = Some(Arc::new(SessionStoreBroker::new(get_cb, put_cb)));

@@ -14,13 +14,12 @@ use webpki::{ExpirationPolicy, RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::certificate::rustls_root_cert_store;
 use crate::crypto_provider::{self, rustls_crypto_provider};
-use crate::error;
+use crate::error::{self, rustls_result};
 use crate::ffi::{
     box_castable, free_box, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr,
     try_mut_from_ptr_ptr, try_slice, try_take,
 };
 use crate::panic::ffi_panic_boundary;
-use crate::rustls_result::{self, AlreadyUsed};
 
 box_castable! {
     /// A built client certificate verifier that can be provided to a `rustls_server_config_builder`
@@ -175,7 +174,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -208,7 +207,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -229,7 +228,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -247,7 +246,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -269,7 +268,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
         ffi_panic_boundary! {
             let client_verifier_builder = try_mut_from_ptr!(builder);
             let client_verifier_builder = match client_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -292,7 +291,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
     ) -> rustls_result {
         let client_verifier_builder = try_mut_from_ptr!(builder);
         let client_verifier_builder = match client_verifier_builder {
-            None => return AlreadyUsed,
+            None => return rustls_result::AlreadyUsed,
             Some(v) => v,
         };
 
@@ -489,7 +488,7 @@ impl ServerCertVerifierBuilder {
         ffi_panic_boundary! {
             let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -523,7 +522,7 @@ impl ServerCertVerifierBuilder {
         ffi_panic_boundary! {
             let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -544,7 +543,7 @@ impl ServerCertVerifierBuilder {
         ffi_panic_boundary! {
             let server_verifier_builder = try_mut_from_ptr!(builder);
             let server_verifier_builder = match server_verifier_builder {
-                None => return AlreadyUsed,
+                None => return rustls_result::AlreadyUsed,
                 Some(v) => v,
             };
 
@@ -563,7 +562,7 @@ impl ServerCertVerifierBuilder {
     ) -> rustls_result {
         let server_verifier_builder = try_mut_from_ptr!(builder);
         let server_verifier_builder = match server_verifier_builder {
-            None => return AlreadyUsed,
+            None => return rustls_result::AlreadyUsed,
             Some(v) => v,
         };
 

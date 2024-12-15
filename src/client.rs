@@ -16,7 +16,6 @@ use rustls::{
 use crate::certificate::rustls_certified_key;
 use crate::connection::{rustls_connection, Connection};
 use crate::crypto_provider::{self, rustls_crypto_provider, rustls_hpke};
-use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, map_error, rustls_result};
 use crate::ffi::{
     arc_castable, box_castable, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr,
@@ -198,7 +197,7 @@ impl rustls_client_config_builder {
             let config_builder = try_mut_from_ptr!(config_builder);
             let callback = match callback {
                 Some(cb) => cb,
-                None => return InvalidParameter,
+                None => return rustls_result::InvalidParameter,
             };
 
             let provider = match &config_builder.provider {
@@ -359,7 +358,7 @@ impl rustls_client_config_builder {
             let builder = try_mut_from_ptr!(builder);
             let log_cb = match log_cb {
                 Some(cb) => cb,
-                None => return NullParameter,
+                None => return rustls_result::NullParameter,
             };
 
             builder.key_log = Some(Arc::new(CallbackKeyLog {
@@ -758,11 +757,11 @@ impl rustls_client_config {
     ) -> rustls_result {
         ffi_panic_boundary! {
             if conn_out.is_null() {
-                return NullParameter;
+                return rustls_result::NullParameter;
             }
             let server_name = unsafe {
                 if server_name.is_null() {
-                    return NullParameter;
+                    return rustls_result::NullParameter;
                 }
                 CStr::from_ptr(server_name)
             };
