@@ -15,13 +15,13 @@ use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
 
 use crate::cipher::rustls_supported_ciphersuite;
-use crate::error::map_error;
-use crate::{
-    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, ref_castable,
-    rustls_result, set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc,
-    try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
-    try_slice_mut, try_take,
+use crate::error::{map_error, rustls_result};
+use crate::ffi::{
+    arc_castable, box_castable, free_arc, free_box, ref_castable, set_arc_mut_ptr,
+    set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
+    try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_slice_mut, try_take,
 };
+use crate::panic::ffi_panic_boundary;
 
 box_castable! {
     /// A `rustls_crypto_provider` builder.

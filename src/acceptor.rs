@@ -3,14 +3,14 @@ use rustls::server::{Accepted, AcceptedAlert, Acceptor};
 
 use crate::connection::rustls_connection;
 use crate::error::{map_error, rustls_io_result, rustls_result};
+use crate::ffi::{
+    box_castable, free_box, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr, try_callback,
+    try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_take,
+};
 use crate::io::{rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter};
+use crate::panic::ffi_panic_boundary;
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;
-use crate::{
-    box_castable, ffi_panic_boundary, free_box, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr,
-    try_callback, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr,
-    try_take,
-};
 
 box_castable! {
     /// A buffer and parser for ClientHello bytes.
