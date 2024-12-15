@@ -13,12 +13,11 @@ use rustls::{DistinguishedName, RootCertStore};
 use webpki::{ExpirationPolicy, RevocationCheckDepth, UnknownStatusPolicy};
 
 use crate::certificate::rustls_root_cert_store;
-use crate::crypto_provider::rustls_crypto_provider;
-use crate::rustls_result::AlreadyUsed;
+use crate::crypto_provider::{self, rustls_crypto_provider};
+use crate::rustls_result::{self, AlreadyUsed};
 use crate::{
-    box_castable, crypto_provider, error, ffi_panic_boundary, free_box, rustls_result,
-    set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
-    try_slice, try_take,
+    box_castable, error, ffi_panic_boundary, free_box, set_boxed_mut_ptr, to_boxed_mut_ptr,
+    try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_slice, try_take,
 };
 
 box_castable! {

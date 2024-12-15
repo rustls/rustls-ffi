@@ -1,6 +1,7 @@
+use rustls::{HandshakeKind, ProtocolVersion, SupportedProtocolVersion};
+
 use crate::ffi_panic_boundary;
 use crate::rslice::rustls_str;
-use rustls::{HandshakeKind, ProtocolVersion, SupportedProtocolVersion};
 
 #[derive(Debug, Default)]
 #[repr(C)]
@@ -114,9 +115,9 @@ impl From<HandshakeKind> for rustls_handshake_kind {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use rustls::{ALL_VERSIONS, DEFAULT_VERSIONS};
+
+    use super::*;
 
     #[test]
     fn all_versions_arrays() {

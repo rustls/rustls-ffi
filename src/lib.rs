@@ -17,11 +17,15 @@
 //!
 //! [You may also want to read the rustls-ffi README](https://github.com/rustls/rustls-ffi#rustls-ffi-bindings).
 
-use crate::rslice::rustls_str;
-use libc::c_void;
 use std::cell::RefCell;
 use std::mem;
 use std::sync::Arc;
+
+use libc::c_void;
+
+use crate::log::rustls_log_callback;
+use crate::panic::PanicOrDefault;
+use crate::rslice::rustls_str;
 
 pub mod acceptor;
 pub mod certificate;
@@ -42,9 +46,6 @@ pub mod verifier;
 
 pub use error::rustls_result;
 pub use error::*;
-
-use crate::log::rustls_log_callback;
-use crate::panic::PanicOrDefault;
 
 // version.rs gets written at compile time by build.rs
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
@@ -728,8 +729,9 @@ pub extern "C" fn rustls_version() -> rustls_str<'static> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::thread;
+
+    use super::*;
 
     #[test]
     fn guard_try_pop() {

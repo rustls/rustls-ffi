@@ -8,10 +8,9 @@ use rand::seq::SliceRandom;
 
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
-use rustls::crypto::hpke;
 #[cfg(feature = "ring")]
 use rustls::crypto::ring;
-use rustls::crypto::CryptoProvider;
+use rustls::crypto::{hpke, CryptoProvider};
 use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
 
@@ -581,8 +580,9 @@ fn provider_from_crate_features() -> Option<CryptoProvider> {
 mod tests {
     use std::ptr;
 
+    use crate::rustls_result;
+
     use super::*;
-    use rustls_result;
 
     /// Simple smoketest of CSRNG fill with specific provider.
     #[test]

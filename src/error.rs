@@ -2,13 +2,14 @@ use std::cmp::min;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use crate::ffi_panic_boundary;
 use libc::{c_char, c_uint, size_t};
 use rustls::server::VerifierBuilderError;
 use rustls::{
     CertRevocationListError, CertificateError, EncryptedClientHelloError, Error, InconsistentKeys,
     InvalidMessage,
 };
+
+use crate::ffi_panic_boundary;
 
 /// A return value for a function that may return either success (0) or a
 /// non-zero value representing an error.

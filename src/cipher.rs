@@ -60,12 +60,12 @@ pub extern "C" fn rustls_supported_ciphersuite_protocol_version(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use crate::crypto_provider::{
         rustls_default_crypto_provider_ciphersuites_get,
         rustls_default_crypto_provider_ciphersuites_len,
     };
+
+    use super::*;
 
     #[test]
     fn default_cipher_suites() {

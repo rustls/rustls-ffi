@@ -15,7 +15,7 @@ use rustls::{
 
 use crate::certificate::rustls_certified_key;
 use crate::connection::{rustls_connection, Connection};
-use crate::crypto_provider::{rustls_crypto_provider, rustls_hpke};
+use crate::crypto_provider::{self, rustls_crypto_provider, rustls_hpke};
 use crate::error::rustls_result::{InvalidParameter, NullParameter};
 use crate::error::{self, map_error, rustls_result};
 use crate::keylog::{rustls_keylog_log_callback, rustls_keylog_will_log_callback, CallbackKeyLog};
@@ -23,10 +23,9 @@ use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};
 use crate::verifier::rustls_server_cert_verifier;
 use crate::{
-    arc_castable, box_castable, crypto_provider, ffi_panic_boundary, free_arc, free_box,
-    set_arc_mut_ptr, set_boxed_mut_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc,
-    try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
-    userdata_get,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, set_arc_mut_ptr,
+    set_boxed_mut_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, userdata_get,
 };
 
 box_castable! {

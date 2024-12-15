@@ -1,10 +1,10 @@
+use std::ptr::{null, null_mut};
+
 use libc::EINVAL;
 
 use crate::enums::{rustls_handshake_kind, rustls_tls_version};
 use crate::error::{rustls_io_result, rustls_result};
 use crate::rslice::{rustls_slice_bytes, rustls_str};
-
-use std::ptr::{null, null_mut};
 
 // We wrap all function calls in an ffi_panic_boundary! macro, which catches
 // panics and early-returns from the function. For functions that return
