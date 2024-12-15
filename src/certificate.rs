@@ -9,15 +9,14 @@ use pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
 use rustls::RootCertStore;
 
-use crate::crypto_provider::rustls_signing_key;
-use crate::error::map_error;
+use crate::crypto_provider::{self, rustls_signing_key};
+use crate::error::{map_error, rustls_result};
 use crate::rslice::rustls_slice_bytes;
 use crate::rustls_result::{AlreadyUsed, NullParameter};
 use crate::{
-    arc_castable, box_castable, crypto_provider, ffi_panic_boundary, free_arc, free_box,
-    ref_castable, rustls_result, set_arc_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr,
-    try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
-    try_take,
+    arc_castable, box_castable, ffi_panic_boundary, free_arc, free_box, ref_castable,
+    set_arc_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_mut_from_ptr,
+    try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_take,
 };
 
 ref_castable! {

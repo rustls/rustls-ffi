@@ -1,9 +1,8 @@
-use libc::{c_char, size_t};
-use std::fmt;
 use std::marker::PhantomData;
 use std::ptr::null;
-use std::slice;
-use std::str;
+use std::{fmt, slice, str};
+
+use libc::{c_char, size_t};
 
 /// A read-only view on a Rust byte slice.
 ///
