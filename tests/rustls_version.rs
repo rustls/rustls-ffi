@@ -1,3 +1,4 @@
+#![cfg(not(feature = "capi"))]
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
