@@ -576,7 +576,7 @@ fn provider_from_crate_features() -> Option<CryptoProvider> {
     None
 }
 
-#[cfg(all(test, not(miri)))]
+#[cfg(all(test, not(miri), any(feature = "aws-lc-rs", feature = "ring")))]
 mod tests {
     use std::ptr;
 
@@ -622,8 +622,8 @@ mod tests {
         assert_ne!(buff, vec![0; 32]);
     }
 
-    #[cfg(feature = "aws-lc-rs")]
     #[test]
+    #[cfg(feature = "aws-lc-rs")]
     fn test_hpke_aws_lc_rs() {
         let hpke = rustls_supported_hpke();
         assert!(!hpke.is_null());
@@ -636,8 +636,8 @@ mod tests {
         let (_, _) = suite.setup_sealer(&[0xC0, 0xFF, 0xEE], &pk).unwrap();
     }
 
-    #[cfg(not(feature = "aws-lc-rs"))]
     #[test]
+    #[cfg(not(feature = "aws-lc-rs"))]
     fn test_hpke_not_aws_lc_rs() {
         assert!(rustls_supported_hpke().is_null());
     }

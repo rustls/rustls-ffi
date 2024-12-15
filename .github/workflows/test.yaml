@@ -129,6 +129,12 @@ jobs:
           ! nm build/tests/client | grep '__asan_init' 
           ! nm build/tests/server | grep '__asan_init' 
 
+      # Our integration tests rely on a built-in provider being enabled.
+      # Double-check the library/unit tests work without any providers to
+      # support downstream use-cases that bring their own external one.
+      - name: Test no built-in provider build
+        run: cargo test --no-default-features --locked
+
   valgrind:
     name: Valgrind
     runs-on: ubuntu-latest
