@@ -7,7 +7,8 @@ use pki_types::CertificateDer;
 use rustls::CipherSuite::TLS_NULL_WITH_NULL_NULL;
 use rustls::{ClientConnection, ServerConnection};
 
-use crate::cipher::rustls_certificate;
+use crate::certificate::rustls_certificate;
+use crate::enums::rustls_handshake_kind;
 use crate::error::{map_error, rustls_io_result, rustls_result};
 use crate::io::{
     rustls_read_callback, rustls_write_callback, rustls_write_vectored_callback, CallbackReader,
@@ -19,8 +20,6 @@ use crate::{
     box_castable, ffi_panic_boundary, free_box, try_callback, try_mut_from_ptr, try_ref_from_ptr,
     try_slice, try_slice_mut, userdata_push,
 };
-
-use crate::enums::rustls_handshake_kind;
 use rustls_result::NullParameter;
 
 pub(crate) struct Connection {

@@ -520,9 +520,10 @@ mod tests {
     use rustls::internal::msgs::enums::AlertLevel;
     use rustls::{AlertDescription, ContentType, ProtocolVersion, SignatureScheme};
 
-    use crate::cipher::{rustls_certified_key, rustls_server_cert_verifier};
+    use crate::certificate::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
     use crate::server::rustls_server_config_builder;
+    use crate::verifier::rustls_server_cert_verifier;
 
     use super::*;
 
