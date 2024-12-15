@@ -74,7 +74,7 @@ implementing the cryptography required for TLS. By default, both will use
 [`aws-lc-rs`][], but [`*ring*`][] is available as an opt-in choice.
 
 It is **not** presently supported to build with both cryptography providers
-activated, or with neither provider activated.
+activated.
 
 Select the cryptography provider using `--no-default-features` and `--features`:
 
@@ -82,6 +82,7 @@ Select the cryptography provider using `--no-default-features` and `--features`:
 cargo capi install                                       # aws-lc-rs default
 cargo capi install --features=aws-lc-rs                  # aws-lc-rs explicit
 cargo capi install --no-default-features --features=ring # ring
+cargo capi install --no-default-features                 # no built-in provider
 ```
 
 ##### Cryptography Provider build requirements

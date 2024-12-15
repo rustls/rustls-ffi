@@ -508,7 +508,7 @@ impl rustls_accepted_alert {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "ring", feature = "aws-lc-rs")))]
 mod tests {
     use std::cmp::min;
     use std::collections::VecDeque;
@@ -752,7 +752,7 @@ mod tests {
         // Sort to ensure consistent comparison
         signature_schemes.sort();
 
-        #[cfg_attr(feature = "ring", allow(unused_mut))]
+        #[cfg_attr(not(feature = "aws-lc-rs"), allow(unused_mut))]
         let mut expected_schemes = vec![
             SignatureScheme::RSA_PKCS1_SHA256,
             SignatureScheme::ECDSA_NISTP256_SHA256,

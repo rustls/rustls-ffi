@@ -787,7 +787,7 @@ impl rustls_client_config {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "ring", feature = "aws-lc-rs")))]
 mod tests {
     use std::ptr::{null, null_mut};
 

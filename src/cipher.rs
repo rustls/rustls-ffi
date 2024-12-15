@@ -59,7 +59,7 @@ pub extern "C" fn rustls_supported_ciphersuite_protocol_version(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "ring", feature = "aws-lc-rs")))]
 mod tests {
     use crate::crypto_provider::{
         rustls_default_crypto_provider_ciphersuites_get,
