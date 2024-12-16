@@ -1,0 +1,121 @@
+name: binary artifacts
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows-binaries:
+    name: Windows (x86_64 MSVC)
+    runs-on: windows-2022 # x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-windows-msvc.zip
+        run: |
+          curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
+          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+
+      - name: Build rusts-ffi
+        run: |
+          cargo cinstall --locked --target x86_64-pc-windows-msvc --features cert_compression --release --prefix dist 
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-x86_64-windows
+          path: dist
+
+  linux-binaries:
+    name: Linux (x86_64 GNU)
+    runs-on: ubuntu-20.04 # x86_64. Using older Ubuntu for greater GLIBC compat.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Build rusts-ffi
+        # The Ubuntu 20.04 GCC is too old to build aws-lc.
+        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189.
+        env:
+          CC: clang
+          CXX: clang
+        run: |
+          cargo cinstall --locked --target x86_64-unknown-linux-gnu --features cert_compression --release --prefix dist
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-x86_64-linux-gnu
+          path: dist
+
+  macos-binaries:
+    name: MacOS (Arm64 and x86_64)
+    runs-on: macos-14 # arm64.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # Install both the arm64 and x86_64 targets.
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
+
+      - name: Build rusts-ffi (arm64)
+        run: |
+          cargo cinstall --target aarch64-apple-darwin --locked --features cert_compression --release --prefix arm64-dist
+
+      - name: Fix rpath (arm64)
+        run: |
+          install_name_tool -id @rpath/librustls.dylib arm64-dist/lib/librustls.dylib
+
+      - name: Upload binaries (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-arm64-macos
+          path: arm64-dist
+
+      - name: Build rusts-ffi (x86_64)
+        run: |
+          cargo cinstall --target x86_64-apple-darwin --locked --features cert_compression --release --prefix x86-dist
+
+      - name: Fix rpath (x86_64)
+        run: |
+          install_name_tool -id @rpath/librustls.dylib x86-dist/lib/librustls.dylib
+
+      - name: Upload binaries (x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-x86_64-macos
+          path: x86-dist
