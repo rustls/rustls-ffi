@@ -385,7 +385,8 @@ impl rustls_client_config_builder {
     ///
     /// The provided `ech_config_list_bytes` and `rustls_hpke` must not be NULL or an
     /// error will be returned. The caller maintains ownership of the ECH config list TLS bytes
-    /// and `rustls_hpke` instance.
+    /// and `rustls_hpke` instance. This function does not retain any reference to
+    /// `ech_config_list_bytes`.
     ///
     /// A `RUSTLS_RESULT_BUILDER_INCOMPATIBLE_TLS_VERSIONS` error is returned if the builder's
     /// TLS versions have been customized via `rustls_client_config_builder_new_custom()`
