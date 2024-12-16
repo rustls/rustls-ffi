@@ -1,0 +1,92 @@
+name: binary artifacts
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows-binaries:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-windows-msvc.zip
+        run: |
+          curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
+          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+
+      - name: Build rusts-ffi
+        run: |
+          cargo cinstall --features cert_compression --release --prefix target/rustls-ffi
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-x86_64-windows
+          path: target/rustls-ffi
+
+  linux-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c (Ubuntu)
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Build rusts-ffi
+        run: |
+          cargo cinstall --features cert_compression --release --prefix target/rustls-ffi
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-x86_64-linux-gnu
+          path: target/rustls-ffi
+
+  macos-binaries:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c (macOS)
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
+
+      - name: Build rusts-ffi
+        run: |
+          cargo cinstall --features cert_compression --release --prefix target/rustls-ffi
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustls-ffi-arm64-macos
+          path: target/rustls-ffi
