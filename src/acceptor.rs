@@ -533,10 +533,6 @@ mod tests {
         rustls_acceptor::rustls_acceptor_free(acceptor);
     }
 
-    fn make_acceptor() -> *mut rustls_acceptor {
-        rustls_acceptor::rustls_acceptor_new()
-    }
-
     unsafe extern "C" fn vecdeque_read(
         userdata: *mut c_void,
         buf: *mut u8,
@@ -570,7 +566,7 @@ mod tests {
     // Send junk data to a rustls_acceptor, expect MessageInvalidContentType from accept().
     #[test]
     fn test_acceptor_corrupt_message() {
-        let acceptor = make_acceptor();
+        let acceptor = rustls_acceptor::rustls_acceptor_new();
 
         let mut accepted = null_mut();
         let mut accepted_alert = null_mut();
@@ -712,7 +708,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     #[test]
     fn test_acceptor_success() {
-        let acceptor = make_acceptor();
+        let acceptor = rustls_acceptor::rustls_acceptor_new();
 
         let mut accepted = null_mut();
         let mut accepted_alert = null_mut();
