@@ -4,8 +4,8 @@ use std::ptr::null;
 use std::slice;
 
 use libc::{c_char, size_t};
-use pki_types::pem::PemObject;
-use pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
 use rustls::RootCertStore;
 

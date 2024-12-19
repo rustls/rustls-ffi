@@ -4,10 +4,10 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
-use pki_types::{CertificateDer, EchConfigListBytes, UnixTime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{EchConfig, EchGreaseConfig, EchMode, ResolvesClientCert};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
+use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
 use rustls::{
     sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error, KeyLog,
     KeyLogFile, ProtocolVersion, SignatureScheme, SupportedProtocolVersion,
@@ -609,7 +609,7 @@ impl ServerCertVerifier for Verifier {
         &self,
         end_entity: &CertificateDer,
         intermediates: &[CertificateDer],
-        server_name: &pki_types::ServerName<'_>,
+        server_name: &ServerName<'_>,
         ocsp_response: &[u8],
         _now: UnixTime,
     ) -> Result<ServerCertVerified, Error> {

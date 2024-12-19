@@ -3,7 +3,7 @@ use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{size_t, EINVAL, EIO};
-use pki_types::CertificateDer;
+use rustls::pki_types::CertificateDer;
 use rustls::CipherSuite::TLS_NULL_WITH_NULL_NULL;
 use rustls::{ClientConnection, ServerConnection};
 

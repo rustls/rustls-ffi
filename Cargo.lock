@@ -1231,7 +1231,6 @@ dependencies = [
  "rand",
  "regex",
  "rustls",
- "rustls-pki-types",
  "rustls-platform-verifier",
  "rustls-webpki",
  "tokio",
