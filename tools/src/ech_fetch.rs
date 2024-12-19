@@ -33,13 +33,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // If there was only one HTTPS record with an ech config, write it to the output file.
     if all_lists.len() == 1 {
         let mut encoded_list_file = File::create(&output_path)?;
-        encoded_list_file.write_all(&all_lists.first().unwrap())?;
+        encoded_list_file.write_all(all_lists.first().unwrap())?;
         println!("{output_path}");
     } else {
         // Otherwise write each to its own file with a numeric suffix
         for (i, ech_config_lists) in all_lists.iter().enumerate() {
             let mut encoded_list_file = File::create(format!("{output_path}.{}", i + 1))?;
-            encoded_list_file.write_all(&ech_config_lists)?;
+            encoded_list_file.write_all(ech_config_lists)?;
         }
         // And print a comma separated list of the file paths.
         let paths = (1..=all_lists.len())
