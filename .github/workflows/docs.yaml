@@ -1,0 +1,59 @@
+name: documentation
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 18 * * *'
+
+jobs:
+  generate:
+    name: Generate API documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install zola
+        uses: taiki-e/install-action@v2
+        with:
+          tool: zola@0.19.1 # Matched to rustls repo
+
+      - name: Generate API JSON data
+        run:
+          cargo run -p rustls-ffi-tools --bin docgen > website/static/api.json
+
+      - name: Generate site pages
+        run: |
+          cd website && zola build --output-dir ../target/website/
+
+      - name: Package and upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./target/website/
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.repository == 'rustls/rustls-ffi'
+    needs: generate
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
