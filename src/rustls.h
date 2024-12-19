@@ -425,27 +425,6 @@ typedef struct rustls_web_pki_client_cert_verifier_builder rustls_web_pki_client
 typedef struct rustls_web_pki_server_cert_verifier_builder rustls_web_pki_server_cert_verifier_builder;
 
 /**
- * A read-only view on a Rust `&str`.
- *
- * The contents are guaranteed to be valid UTF-8.
- *
- * As an additional guarantee on top of Rust's normal UTF-8 guarantee,
- * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
- * safe to interpolate into a C string or compare using strncmp. Keep in mind
- * that it is not NUL-terminated.
- *
- * The memory exposed is available as specified by the function
- * using this in its signature. For instance, when this is a parameter to a
- * callback, the lifetime will usually be the duration of the callback.
- * Functions that receive one of these must not dereference the data pointer
- * beyond the allowed lifetime.
- */
-typedef struct rustls_str {
-  const char *data;
-  size_t len;
-} rustls_str;
-
-/**
  * A return value for a function that may return either success (0) or a
  * non-zero value representing an error.
  *
@@ -480,6 +459,27 @@ typedef rustls_io_result (*rustls_read_callback)(void *userdata,
                                                  uint8_t *buf,
                                                  size_t n,
                                                  size_t *out_n);
+
+/**
+ * A read-only view on a Rust `&str`.
+ *
+ * The contents are guaranteed to be valid UTF-8.
+ *
+ * As an additional guarantee on top of Rust's normal UTF-8 guarantee,
+ * a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
+ * safe to interpolate into a C string or compare using strncmp. Keep in mind
+ * that it is not NUL-terminated.
+ *
+ * The memory exposed is available as specified by the function
+ * using this in its signature. For instance, when this is a parameter to a
+ * callback, the lifetime will usually be the duration of the callback.
+ * Functions that receive one of these must not dereference the data pointer
+ * beyond the allowed lifetime.
+ */
+typedef struct rustls_str {
+  const char *data;
+  size_t len;
+} rustls_str;
 
 /**
  * A read-only view on a Rust byte slice.
@@ -773,13 +773,6 @@ extern const uint16_t RUSTLS_DEFAULT_VERSIONS[2];
  * The length of the array `RUSTLS_DEFAULT_VERSIONS`.
  */
 extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
-
-/**
- * Returns a static string containing the rustls-ffi version as well as the
- * rustls version. The string is alive for the lifetime of the program and does
- * not need to be freed.
- */
-struct rustls_str rustls_version(void);
 
 /**
  * Create and return a new rustls_acceptor.
@@ -1079,30 +1072,6 @@ rustls_result rustls_certificate_get_der(const struct rustls_certificate *cert,
                                          size_t *out_der_len);
 
 /**
- * Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
- * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
- *
- * The bytes from the assignment are interpreted in network order.
- */
-uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
-
-/**
- * Returns the name of the ciphersuite as a `rustls_str`.
- *
- * If the provided ciphersuite is invalid, the `rustls_str` will contain the
- * empty string. The lifetime of the `rustls_str` is the lifetime of the program,
- * it does not need to be freed.
- */
-struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
-
-/**
- * Returns the `rustls_tls_version` of the ciphersuite.
- *
- * See also `RUSTLS_ALL_VERSIONS`.
- */
-enum rustls_tls_version rustls_supported_ciphersuite_protocol_version(const struct rustls_supported_ciphersuite *supported_ciphersuite);
-
-/**
  * Build a `rustls_certified_key` from a certificate chain and a private key
  * and the default process-wide crypto provider.
  *
@@ -1294,288 +1263,28 @@ void rustls_root_cert_store_builder_free(struct rustls_root_cert_store_builder *
 void rustls_root_cert_store_free(const struct rustls_root_cert_store *store);
 
 /**
- * Free a `rustls_client_cert_verifier` previously returned from
- * `rustls_client_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
- * called twice with the same value.
+ * Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
+ * <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+ *
+ * The bytes from the assignment are interpreted in network order.
  */
-void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
+uint16_t rustls_supported_ciphersuite_get_suite(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
- * Create a `rustls_web_pki_client_cert_verifier_builder` using the process-wide default
- * cryptography provider.
+ * Returns the name of the ciphersuite as a `rustls_str`.
  *
- * Caller owns the memory and may eventually call `rustls_web_pki_client_cert_verifier_builder_free`
- * to free it, whether or not `rustls_web_pki_client_cert_verifier_builder_build` was called.
- *
- * Without further modification the builder will produce a client certificate verifier that
- * will require a client present a client certificate that chains to one of the trust anchors
- * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
- *
- * Revocation checking will not be performed unless
- * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
- * for the entire certificate chain unless
- * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
- * revocation status for certificates considered for revocation status will be treated as
- * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
- * used.
- *
- * Unauthenticated clients will not be permitted unless
- * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
- *
- * This copies the contents of the `rustls_root_cert_store`. It does not take
- * ownership of the pointed-to data.
+ * If the provided ciphersuite is invalid, the `rustls_str` will contain the
+ * empty string. The lifetime of the `rustls_str` is the lifetime of the program,
+ * it does not need to be freed.
  */
-struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
- * Create a `rustls_web_pki_client_cert_verifier_builder` using the specified
- * cryptography provider.
+ * Returns the `rustls_tls_version` of the ciphersuite.
  *
- * Caller owns the memory and may eventually call
- * `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
- * not `rustls_web_pki_client_cert_verifier_builder_build` was called.
- *
- * Without further modification the builder will produce a client certificate verifier that
- * will require a client present a client certificate that chains to one of the trust anchors
- * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
- *
- * Revocation checking will not be performed unless
- * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
- * for the entire certificate chain unless
- * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
- * revocation status for certificates considered for revocation status will be treated as
- * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
- * used.
- *
- * Unauthenticated clients will not be permitted unless
- * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
- *
- * This copies the contents of the `rustls_root_cert_store`. It does not take
- * ownership of the pointed-to data.
+ * See also `RUSTLS_ALL_VERSIONS`.
  */
-struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
-                                                                                                                  const struct rustls_root_cert_store *store);
-
-/**
- * Add one or more certificate revocation lists (CRLs) to the client certificate verifier
- * builder by reading the CRL content from the provided buffer of PEM encoded content.
- *
- * By default revocation checking will be performed on the entire certificate chain. To only
- * check the revocation status of the end entity certificate, use
- * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
- *
- * This function returns an error if the provided buffer is not valid PEM encoded content.
- */
-rustls_result rustls_web_pki_client_cert_verifier_builder_add_crl(struct rustls_web_pki_client_cert_verifier_builder *builder,
-                                                                  const uint8_t *crl_pem,
-                                                                  size_t crl_pem_len);
-
-/**
- * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, only
- * check the revocation status of end entity certificates, ignoring any intermediate certificates
- * in the chain.
- */
-rustls_result rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_client_cert_verifier_builder *builder);
-
-/**
- * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, and it
- * isn't possible to determine the revocation status of a considered certificate, do not treat
- * it as an error condition.
- *
- * Overrides the default behavior where unknown revocation status is considered an error.
- */
-rustls_result rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_client_cert_verifier_builder *builder);
-
-/**
- * Allow unauthenticated anonymous clients in addition to those that present a client
- * certificate that chains to one of the verifier's configured trust anchors.
- */
-rustls_result rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated(struct rustls_web_pki_client_cert_verifier_builder *builder);
-
-/**
- * Clear the list of trust anchor hint subjects.
- *
- * By default, the client cert verifier will use the subjects provided by the root cert
- * store configured for client authentication. Calling this function will remove these
- * hint subjects, indicating the client should make a free choice of which certificate
- * to send.
- */
-rustls_result rustls_web_pki_client_cert_verifier_clear_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder);
-
-/**
- * Add additional distinguished names to the list of trust anchor hint subjects.
- *
- * By default, the client cert verifier will use the subjects provided by the root cert
- * store configured for client authentication. Calling this function will add to these
- * existing hint subjects. Calling this function with an empty `store` will have no
- * effect, use `rustls_web_pki_client_cert_verifier_clear_root_hint_subjects` to clear
- * the subject hints.
- */
-rustls_result rustls_web_pki_client_cert_verifier_add_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder,
-                                                                         const struct rustls_root_cert_store *store);
-
-/**
- * Create a new client certificate verifier from the builder.
- *
- * The builder is consumed and cannot be used again, but must still be freed.
- *
- * The verifier can be used in several `rustls_server_config` instances and must be
- * freed by the application when no longer needed. See the documentation of
- * `rustls_web_pki_client_cert_verifier_builder_free` for details about lifetime.
- */
-rustls_result rustls_web_pki_client_cert_verifier_builder_build(struct rustls_web_pki_client_cert_verifier_builder *builder,
-                                                                struct rustls_client_cert_verifier **verifier_out);
-
-/**
- * Free a `rustls_client_cert_verifier_builder` previously returned from
- * `rustls_client_cert_verifier_builder_new`.
- *
- * Calling with NULL is fine. Must not be called twice with the same value.
- */
-void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_client_cert_verifier_builder *builder);
-
-/**
- * Create a `rustls_web_pki_server_cert_verifier_builder` using the process-wide default
- * crypto provider. Caller owns the memory and may free it with
- *
- * Caller owns the memory and may free it with `rustls_web_pki_server_cert_verifier_builder_free`,
- * regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
- *
- * Without further modification the builder will produce a server certificate verifier that
- * will require a server present a certificate that chains to one of the trust anchors
- * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
- *
- * Revocation checking will not be performed unless
- * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
- * for the entire certificate chain unless
- * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
- * revocation status for certificates considered for revocation status will be treated as
- * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
- * used.
- *
- * This copies the contents of the `rustls_root_cert_store`. It does not take
- * ownership of the pointed-to data.
- */
-struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
-
-/**
- * Create a `rustls_web_pki_server_cert_verifier_builder` using the specified
- * crypto provider. Caller owns the memory and may free it with
- * `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
- * `rustls_web_pki_server_cert_verifier_builder_build` was called.
- *
- * Without further modification the builder will produce a server certificate verifier that
- * will require a server present a certificate that chains to one of the trust anchors
- * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
- *
- * Revocation checking will not be performed unless
- * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
- * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
- * for the entire certificate chain unless
- * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
- * revocation status for certificates considered for revocation status will be treated as
- * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
- * used. Expired CRLs will not be treated as an error unless
- * `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry` is used.
- *
- * This copies the contents of the `rustls_root_cert_store`. It does not take
- * ownership of the pointed-to data.
- */
-struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
-                                                                                                                  const struct rustls_root_cert_store *store);
-
-/**
- * Add one or more certificate revocation lists (CRLs) to the server certificate verifier
- * builder by reading the CRL content from the provided buffer of PEM encoded content.
- *
- * By default revocation checking will be performed on the entire certificate chain. To only
- * check the revocation status of the end entity certificate, use
- * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
- *
- * This function returns an error if the provided buffer is not valid PEM encoded content.
- */
-rustls_result rustls_web_pki_server_cert_verifier_builder_add_crl(struct rustls_web_pki_server_cert_verifier_builder *builder,
-                                                                  const uint8_t *crl_pem,
-                                                                  size_t crl_pem_len);
-
-/**
- * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, only
- * check the revocation status of end entity certificates, ignoring any intermediate certificates
- * in the chain.
- */
-rustls_result rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_server_cert_verifier_builder *builder);
-
-/**
- * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and it
- * isn't possible to determine the revocation status of a considered certificate, do not treat
- * it as an error condition.
- *
- * Overrides the default behavior where unknown revocation status is considered an error.
- */
-rustls_result rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_server_cert_verifier_builder *builder);
-
-/**
- * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and the
- * CRL nextUpdate field is in the past, treat it as an error condition.
- *
- * Overrides the default behavior where CRL expiration is ignored.
- */
-rustls_result rustls_web_pki_server_cert_verifier_enforce_revocation_expiry(struct rustls_web_pki_server_cert_verifier_builder *builder);
-
-/**
- * Create a new server certificate verifier from the builder.
- *
- * The builder is consumed and cannot be used again, but must still be freed.
- *
- * The verifier can be used in several `rustls_client_config` instances and must be
- * freed by the application when no longer needed. See the documentation of
- * `rustls_web_pki_server_cert_verifier_builder_free` for details about lifetime.
- */
-rustls_result rustls_web_pki_server_cert_verifier_builder_build(struct rustls_web_pki_server_cert_verifier_builder *builder,
-                                                                struct rustls_server_cert_verifier **verifier_out);
-
-/**
- * Free a `rustls_server_cert_verifier_builder` previously returned from
- * `rustls_server_cert_verifier_builder_new`.
- *
- * Calling with NULL is fine. Must not be called twice with the same value.
- */
-void rustls_web_pki_server_cert_verifier_builder_free(struct rustls_web_pki_server_cert_verifier_builder *builder);
-
-/**
- * Create a verifier that uses the default behavior for the current platform.
- *
- * This uses [`rustls-platform-verifier`][].
- *
- * The verifier can be used in several `rustls_client_config` instances and must be freed by
- * the application using `rustls_server_cert_verifier_free` when no longer needed.
- *
- * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
- */
-rustls_result rustls_platform_server_cert_verifier(struct rustls_server_cert_verifier **verifier_out);
-
-/**
- * Create a verifier that uses the default behavior for the current platform.
- *
- * This uses [`rustls-platform-verifier`][] and the specified crypto provider.
- *
- * The verifier can be used in several `rustls_client_config` instances and must be freed by
- * the application using `rustls_server_cert_verifier_free` when no longer needed.
- *
- * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
- */
-struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_provider(const struct rustls_crypto_provider *provider);
-
-/**
- * Free a `rustls_server_cert_verifier` previously returned from
- * `rustls_server_cert_verifier_builder_build` or `rustls_platform_server_cert_verifier`.
- *
- * Calling with NULL is fine. Must not be called twice with the same value.
- */
-void rustls_server_cert_verifier_free(struct rustls_server_cert_verifier *verifier);
+enum rustls_tls_version rustls_supported_ciphersuite_protocol_version(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
  * Create a rustls_client_config_builder using the process default crypto provider.
@@ -2726,5 +2435,296 @@ rustls_result rustls_client_hello_select_certified_key(const struct rustls_clien
 rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
                                                            rustls_session_store_get_callback get_cb,
                                                            rustls_session_store_put_callback put_cb);
+
+/**
+ * Free a `rustls_client_cert_verifier` previously returned from
+ * `rustls_client_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
+ * called twice with the same value.
+ */
+void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
+
+/**
+ * Create a `rustls_web_pki_client_cert_verifier_builder` using the process-wide default
+ * cryptography provider.
+ *
+ * Caller owns the memory and may eventually call `rustls_web_pki_client_cert_verifier_builder_free`
+ * to free it, whether or not `rustls_web_pki_client_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a client certificate verifier that
+ * will require a client present a client certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+ * used.
+ *
+ * Unauthenticated clients will not be permitted unless
+ * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Create a `rustls_web_pki_client_cert_verifier_builder` using the specified
+ * cryptography provider.
+ *
+ * Caller owns the memory and may eventually call
+ * `rustls_web_pki_client_cert_verifier_builder_free` to free it, whether or
+ * not `rustls_web_pki_client_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a client certificate verifier that
+ * will require a client present a client certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_client_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder. If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status` is
+ * used.
+ *
+ * Unauthenticated clients will not be permitted unless
+ * `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_client_cert_verifier_builder *rustls_web_pki_client_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
+                                                                                                                  const struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the client certificate verifier
+ * builder by reading the CRL content from the provided buffer of PEM encoded content.
+ *
+ * By default revocation checking will be performed on the entire certificate chain. To only
+ * check the revocation status of the end entity certificate, use
+ * `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
+ *
+ * This function returns an error if the provided buffer is not valid PEM encoded content.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_builder_add_crl(struct rustls_web_pki_client_cert_verifier_builder *builder,
+                                                                  const uint8_t *crl_pem,
+                                                                  size_t crl_pem_len);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, only
+ * check the revocation status of end entity certificates, ignoring any intermediate certificates
+ * in the chain.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_client_cert_verifier_builder_add_crl`, and it
+ * isn't possible to determine the revocation status of a considered certificate, do not treat
+ * it as an error condition.
+ *
+ * Overrides the default behavior where unknown revocation status is considered an error.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Allow unauthenticated anonymous clients in addition to those that present a client
+ * certificate that chains to one of the verifier's configured trust anchors.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Clear the list of trust anchor hint subjects.
+ *
+ * By default, the client cert verifier will use the subjects provided by the root cert
+ * store configured for client authentication. Calling this function will remove these
+ * hint subjects, indicating the client should make a free choice of which certificate
+ * to send.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_clear_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Add additional distinguished names to the list of trust anchor hint subjects.
+ *
+ * By default, the client cert verifier will use the subjects provided by the root cert
+ * store configured for client authentication. Calling this function will add to these
+ * existing hint subjects. Calling this function with an empty `store` will have no
+ * effect, use `rustls_web_pki_client_cert_verifier_clear_root_hint_subjects` to clear
+ * the subject hints.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_add_root_hint_subjects(struct rustls_web_pki_client_cert_verifier_builder *builder,
+                                                                         const struct rustls_root_cert_store *store);
+
+/**
+ * Create a new client certificate verifier from the builder.
+ *
+ * The builder is consumed and cannot be used again, but must still be freed.
+ *
+ * The verifier can be used in several `rustls_server_config` instances and must be
+ * freed by the application when no longer needed. See the documentation of
+ * `rustls_web_pki_client_cert_verifier_builder_free` for details about lifetime.
+ */
+rustls_result rustls_web_pki_client_cert_verifier_builder_build(struct rustls_web_pki_client_cert_verifier_builder *builder,
+                                                                struct rustls_client_cert_verifier **verifier_out);
+
+/**
+ * Free a `rustls_client_cert_verifier_builder` previously returned from
+ * `rustls_client_cert_verifier_builder_new`.
+ *
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_web_pki_client_cert_verifier_builder_free(struct rustls_web_pki_client_cert_verifier_builder *builder);
+
+/**
+ * Create a `rustls_web_pki_server_cert_verifier_builder` using the process-wide default
+ * crypto provider. Caller owns the memory and may free it with
+ *
+ * Caller owns the memory and may free it with `rustls_web_pki_server_cert_verifier_builder_free`,
+ * regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a server certificate verifier that
+ * will require a server present a certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+ * used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new(const struct rustls_root_cert_store *store);
+
+/**
+ * Create a `rustls_web_pki_server_cert_verifier_builder` using the specified
+ * crypto provider. Caller owns the memory and may free it with
+ * `rustls_web_pki_server_cert_verifier_builder_free`, regardless of whether
+ * `rustls_web_pki_server_cert_verifier_builder_build` was called.
+ *
+ * Without further modification the builder will produce a server certificate verifier that
+ * will require a server present a certificate that chains to one of the trust anchors
+ * in the provided `rustls_root_cert_store`. The root cert store must not be empty.
+ *
+ * Revocation checking will not be performed unless
+ * `rustls_web_pki_server_cert_verifier_builder_add_crl` is used to add certificate revocation
+ * lists (CRLs) to the builder.  If CRLs are added, revocation checking will be performed
+ * for the entire certificate chain unless
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation` is used. Unknown
+ * revocation status for certificates considered for revocation status will be treated as
+ * an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
+ * used. Expired CRLs will not be treated as an error unless
+ * `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry` is used.
+ *
+ * This copies the contents of the `rustls_root_cert_store`. It does not take
+ * ownership of the pointed-to data.
+ */
+struct rustls_web_pki_server_cert_verifier_builder *rustls_web_pki_server_cert_verifier_builder_new_with_provider(const struct rustls_crypto_provider *provider,
+                                                                                                                  const struct rustls_root_cert_store *store);
+
+/**
+ * Add one or more certificate revocation lists (CRLs) to the server certificate verifier
+ * builder by reading the CRL content from the provided buffer of PEM encoded content.
+ *
+ * By default revocation checking will be performed on the entire certificate chain. To only
+ * check the revocation status of the end entity certificate, use
+ * `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
+ *
+ * This function returns an error if the provided buffer is not valid PEM encoded content.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_builder_add_crl(struct rustls_web_pki_server_cert_verifier_builder *builder,
+                                                                  const uint8_t *crl_pem,
+                                                                  size_t crl_pem_len);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, only
+ * check the revocation status of end entity certificates, ignoring any intermediate certificates
+ * in the chain.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and it
+ * isn't possible to determine the revocation status of a considered certificate, do not treat
+ * it as an error condition.
+ *
+ * Overrides the default behavior where unknown revocation status is considered an error.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * When CRLs are provided with `rustls_web_pki_server_cert_verifier_builder_add_crl`, and the
+ * CRL nextUpdate field is in the past, treat it as an error condition.
+ *
+ * Overrides the default behavior where CRL expiration is ignored.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_enforce_revocation_expiry(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * Create a new server certificate verifier from the builder.
+ *
+ * The builder is consumed and cannot be used again, but must still be freed.
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be
+ * freed by the application when no longer needed. See the documentation of
+ * `rustls_web_pki_server_cert_verifier_builder_free` for details about lifetime.
+ */
+rustls_result rustls_web_pki_server_cert_verifier_builder_build(struct rustls_web_pki_server_cert_verifier_builder *builder,
+                                                                struct rustls_server_cert_verifier **verifier_out);
+
+/**
+ * Free a `rustls_server_cert_verifier_builder` previously returned from
+ * `rustls_server_cert_verifier_builder_new`.
+ *
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_web_pki_server_cert_verifier_builder_free(struct rustls_web_pki_server_cert_verifier_builder *builder);
+
+/**
+ * Create a verifier that uses the default behavior for the current platform.
+ *
+ * This uses [`rustls-platform-verifier`][].
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be freed by
+ * the application using `rustls_server_cert_verifier_free` when no longer needed.
+ *
+ * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+ */
+rustls_result rustls_platform_server_cert_verifier(struct rustls_server_cert_verifier **verifier_out);
+
+/**
+ * Create a verifier that uses the default behavior for the current platform.
+ *
+ * This uses [`rustls-platform-verifier`][] and the specified crypto provider.
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be freed by
+ * the application using `rustls_server_cert_verifier_free` when no longer needed.
+ *
+ * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+ */
+struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_provider(const struct rustls_crypto_provider *provider);
+
+/**
+ * Free a `rustls_server_cert_verifier` previously returned from
+ * `rustls_server_cert_verifier_builder_build` or `rustls_platform_server_cert_verifier`.
+ *
+ * Calling with NULL is fine. Must not be called twice with the same value.
+ */
+void rustls_server_cert_verifier_free(struct rustls_server_cert_verifier *verifier);
+
+/**
+ * Returns a static string containing the rustls-ffi version as well as the
+ * rustls version. The string is alive for the lifetime of the program and does
+ * not need to be freed.
+ */
+struct rustls_str rustls_version(void);
 
 #endif  /* RUSTLS_H */
