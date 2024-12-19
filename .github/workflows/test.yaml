@@ -265,7 +265,7 @@ jobs:
 
       - run: cbindgen --version
 
-      - run: make src/rustls.h
+      - run: cbindgen > src/rustls.h
 
       - run: git diff --exit-code
 
