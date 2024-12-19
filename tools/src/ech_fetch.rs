@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let domain = args.next().unwrap_or("research.cloudflare.com".to_string());
     let output_path = args
         .next()
-        .unwrap_or(format!("testdata/{}.ech.configs.bin", domain));
+        .unwrap_or(format!("{}.ech.configs.bin", domain));
 
     let resolver = Resolver::tokio(ResolverConfig::google_https(), ResolverOpts::default());
 

@@ -42,8 +42,6 @@ crate-type = ["lib", "staticlib"]
 [dev-dependencies]
 regex = { workspace = true }
 toml = { workspace = true }
-hickory-resolver = { workspace = true }
-tokio = { workspace = true }
 
 [package.metadata.capi.header]
 name = "rustls"
@@ -61,11 +59,3 @@ filename = "rustls"
 
 [package.metadata.capi.install.include]
 asset = [{ from = "src/rustls.h", to = "" }]
-
-# The ech_fetch test is a utility to fetch ECH configurations from DNS
-# to use with the client.c example. We disable the harness to be able
-# to parse CLI args.
-[[test]]
-name = "ech_fetch"
-harness = false
-test = false
