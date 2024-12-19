@@ -2,11 +2,11 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
-use pki_types::pem::PemObject;
-use pki_types::CertificateRevocationListDer;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::client::WebPkiServerVerifier;
 use rustls::crypto::CryptoProvider;
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::CertificateRevocationListDer;
 use rustls::server::danger::ClientCertVerifier;
 use rustls::server::WebPkiClientVerifier;
 use rustls::{DistinguishedName, RootCertStore};

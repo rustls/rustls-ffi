@@ -2,8 +2,6 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
-use pki_types::pem::PemObject;
-use pki_types::PrivateKeyDer;
 use rand::seq::SliceRandom;
 
 #[cfg(feature = "aws-lc-rs")]
@@ -11,6 +9,8 @@ use rustls::crypto::aws_lc_rs;
 #[cfg(feature = "ring")]
 use rustls::crypto::ring;
 use rustls::crypto::{hpke, CryptoProvider};
+use rustls::pki_types::pem::PemObject;
+use rustls::pki_types::PrivateKeyDer;
 use rustls::sign::SigningKey;
 use rustls::SupportedCipherSuite;
 

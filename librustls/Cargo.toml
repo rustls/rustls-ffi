@@ -29,7 +29,6 @@ fips = ["aws-lc-rs", "rustls/fips"]
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
 rustls = { version = "0.23.18", default-features = false, features = ["std", "tls12"] }
-pki-types = { workspace = true }
 webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
