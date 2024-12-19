@@ -25,11 +25,11 @@
 const char *programname;
 
 void
-print_error(const char *prefix, rustls_result result)
+print_error(const char *prefix, const rustls_result rr)
 {
   char buf[256];
   size_t n;
-  rustls_error(result, buf, sizeof(buf), &n);
+  rustls_error(rr, buf, sizeof(buf), &n);
   LOG("%s: %.*s", prefix, (int)n, buf);
 }
 
@@ -53,7 +53,7 @@ ws_strerror(int err)
  *
  * Returns DEMO_OK on success, DEMO_ERROR on error.
  */
-enum demo_result
+demo_result
 nonblock(int sockfd)
 {
 #ifdef _WIN32
@@ -64,8 +64,7 @@ nonblock(int sockfd)
     return DEMO_ERROR;
   }
 #else
-  int flags;
-  flags = fcntl(sockfd, F_GETFL, 0);
+  int flags = fcntl(sockfd, F_GETFL, 0);
   if(flags < 0) {
     perror("getting socket flags");
     return DEMO_ERROR;
@@ -80,10 +79,10 @@ nonblock(int sockfd)
 }
 
 int
-read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
+read_cb(void *userdata, unsigned char *buf, const size_t len, size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
-  ssize_t n = recv(conn->fd, buf, len, 0);
+  const conndata *conn = (struct conndata *)userdata;
+  const ssize_t n = recv(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -94,11 +93,12 @@ read_cb(void *userdata, unsigned char *buf, size_t len, size_t *out_n)
 }
 
 int
-write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
+write_cb(void *userdata, const unsigned char *buf, const size_t len,
+         size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
+  const conndata *conn = (struct conndata *)userdata;
 
-  ssize_t n = send(conn->fd, buf, len, 0);
+  const ssize_t n = send(conn->fd, buf, len, 0);
   if(n < 0) {
     return errno;
   }
@@ -108,33 +108,17 @@ write_cb(void *userdata, const unsigned char *buf, size_t len, size_t *out_n)
   return 0;
 }
 
-rustls_io_result
-write_tls(struct rustls_connection *rconn, struct conndata *conn, size_t *n)
-{
-#ifdef _WIN32
-  return rustls_connection_write_tls(rconn, write_cb, conn, n);
-#else
-  if(getenv("VECTORED_IO")) {
-    return rustls_connection_write_tls_vectored(
-      rconn, write_vectored_cb, conn, n);
-  }
-  else {
-    return rustls_connection_write_tls(rconn, write_cb, conn, n);
-  }
-#endif /* _WIN32 */
-}
-
 #ifndef _WIN32
 rustls_io_result
-write_vectored_cb(void *userdata, const struct rustls_iovec *iov, size_t count,
+write_vectored_cb(void *userdata, const rustls_iovec *iov, size_t count,
                   size_t *out_n)
 {
-  struct conndata *conn = (struct conndata *)userdata;
+  const conndata *conn = (struct conndata *)userdata;
 
   // safety: narrowing conversion from `size_t count` to `int` is safe because
   // writev return -1 and sets errno to EINVAL on out of range input (<0 || >
   // IOV_MAX).
-  ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int)count);
+  const ssize_t n = writev(conn->fd, (const struct iovec *)iov, (int)count);
   if(n < 0) {
     return errno;
   }
@@ -144,19 +128,19 @@ write_vectored_cb(void *userdata, const struct rustls_iovec *iov, size_t count,
 #endif /* _WIN32 */
 
 size_t
-bytevec_available(struct bytevec *vec)
+bytevec_available(const bytevec *vec)
 {
   return vec->capacity - vec->len;
 }
 
 char *
-bytevec_writeable(struct bytevec *vec)
+bytevec_writeable(const bytevec *vec)
 {
   return vec->data + vec->len;
 }
 
 void
-bytevec_consume(struct bytevec *vec, size_t n)
+bytevec_consume(bytevec *vec, const size_t n)
 {
   vec->len += n;
 }
@@ -164,20 +148,18 @@ bytevec_consume(struct bytevec *vec, size_t n)
 // Ensure there are at least n bytes available between vec->len and
 // vec->capacity. If this requires reallocating, this may return
 // DEMO_ERROR.
-enum demo_result
-bytevec_ensure_available(struct bytevec *vec, size_t n)
+demo_result
+bytevec_ensure_available(bytevec *vec, const size_t n)
 {
-  size_t available = vec->capacity - vec->len;
-  size_t newsize;
-  void *newdata;
+  const size_t available = vec->capacity - vec->len;
   if(available < n) {
-    newsize = vec->len + n;
+    size_t newsize = vec->len + n;
     if(newsize < vec->capacity * 2) {
       newsize = vec->capacity * 2;
     }
-    newdata = realloc(vec->data, newsize);
+    void *newdata = realloc(vec->data, newsize);
     if(newdata == NULL) {
-      fprintf(stderr, "out of memory trying to get %zu bytes\n", newsize);
+      LOG("out of memory trying to get %zu bytes", newsize);
       return DEMO_ERROR;
     }
     vec->data = newdata;
@@ -190,12 +172,11 @@ bytevec_ensure_available(struct bytevec *vec, size_t n)
  * Copy all available plaintext from rustls into our own buffer, growing
  * our buffer as much as needed.
  */
-int
-copy_plaintext_to_buffer(struct conndata *conn)
+demo_result
+copy_plaintext_to_buffer(conndata *conn)
 {
-  unsigned int result;
   size_t n;
-  struct rustls_connection *rconn = conn->rconn;
+  rustls_connection *rconn = conn->rconn;
 
   if(bytevec_ensure_available(&conn->data, 1024) != DEMO_OK) {
     return DEMO_ERROR;
@@ -203,18 +184,19 @@ copy_plaintext_to_buffer(struct conndata *conn)
 
   for(;;) {
     char *buf = bytevec_writeable(&conn->data);
-    size_t avail = bytevec_available(&conn->data);
-    result = rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
-    if(result == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
+    const size_t avail = bytevec_available(&conn->data);
+    const rustls_result rr =
+      rustls_connection_read(rconn, (uint8_t *)buf, avail, &n);
+    if(rr == RUSTLS_RESULT_PLAINTEXT_EMPTY) {
       /* This is expected. It just means "no more bytes for now." */
       return DEMO_OK;
     }
-    if(result != RUSTLS_RESULT_OK) {
-      print_error("error in rustls_connection_read", result);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("error in rustls_connection_read", rr);
       return DEMO_ERROR;
     }
     if(n == 0) {
-      fprintf(stderr, "got 0-byte read, cleanly ending connection\n");
+      LOG_SIMPLE("got 0-byte read, cleanly ending connection");
       return DEMO_EOF;
     }
     bytevec_consume(&conn->data, n);
@@ -254,13 +236,12 @@ memmem(const void *haystack, size_t haystacklen, const void *needle,
   const char *p = bf;
 
   while(needlelen <= (haystacklen - (p - bf))) {
-    if(NULL != (p = memchr(p, (int)(*pt), haystacklen - (p - bf)))) {
+    p = memchr(p, (int)(*pt), haystacklen - (p - bf));
+    if(NULL != p) {
       if(0 == memcmp(p, needle, needlelen)) {
         return (void *)p;
       }
-      else {
-        ++p;
-      }
+      ++p;
     }
     else {
       break;
@@ -270,64 +251,11 @@ memmem(const void *haystack, size_t haystacklen, const void *needle,
   return NULL;
 }
 
-char *
-body_beginning(struct bytevec *vec)
-{
-  const void *result = memmem(vec->data, vec->len, "\r\n\r\n", 4);
-  if(result == NULL) {
-    return NULL;
-  }
-  else {
-    return (char *)result + 4;
-  }
-}
-
-const char *
-get_first_header_value(const char *headers, size_t headers_len,
-                       const char *name, size_t name_len, size_t *n)
-{
-  const void *result;
-  const char *current = headers;
-  size_t len = headers_len;
-  size_t skipped;
-
-  // We use + 3 because there needs to be room for `:` and `\r\n` after the
-  // header name
-  while(len > name_len + 3) {
-    result = memmem(current, len, "\r\n", 2);
-    if(result == NULL) {
-      return NULL;
-    }
-    skipped = (char *)result - current + 2;
-    len -= skipped;
-    current += skipped;
-    /* Make sure there's enough room to conceivably contain the header name,
-     * a colon (:), and something after that.
-     */
-    if(len < name_len + 2) {
-      return NULL;
-    }
-    if(strncasecmp(name, current, name_len) == 0 && current[name_len] == ':') {
-      /* Found it! */
-      len -= name_len + 1;
-      current += name_len + 1;
-      result = memmem(current, len, "\r\n", 2);
-      if(result == NULL) {
-        *n = len;
-        return current;
-      }
-      *n = (char *)result - current;
-      return current;
-    }
-  }
-  return NULL;
-}
-
 void
-log_cb(void *userdata, const struct rustls_log_params *params)
+log_cb(void *userdata, const rustls_log_params *params)
 {
-  struct conndata *conn = (struct conndata *)userdata;
-  struct rustls_str level_str = rustls_log_level_str(params->level);
+  const conndata *conn = (struct conndata *)userdata;
+  const rustls_str level_str = rustls_log_level_str(params->level);
   LOG("[fd %d][%.*s]: %.*s",
       conn->fd,
       (int)level_str.len,
@@ -336,8 +264,8 @@ log_cb(void *userdata, const struct rustls_log_params *params)
       params->message.data);
 }
 
-enum demo_result
-read_file(const char *filename, char *buf, size_t buflen, size_t *n)
+demo_result
+read_file(const char *filename, char *buf, const size_t buflen, size_t *n)
 {
   FILE *f = fopen(filename, "r");
   if(f == NULL) {
@@ -354,7 +282,7 @@ read_file(const char *filename, char *buf, size_t buflen, size_t *n)
   return DEMO_OK;
 }
 
-const struct rustls_certified_key *
+const rustls_certified_key *
 load_cert_and_key(const char *certfile, const char *keyfile)
 {
   char certbuf[10000];
@@ -362,33 +290,33 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   char keybuf[10000];
   size_t keybuf_len;
 
-  unsigned int result =
-    read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
-  if(result != DEMO_OK) {
+  demo_result dr = read_file(certfile, certbuf, sizeof(certbuf), &certbuf_len);
+  if(dr != DEMO_OK) {
     return NULL;
   }
 
-  result = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
-  if(result != DEMO_OK) {
+  dr = read_file(keyfile, keybuf, sizeof(keybuf), &keybuf_len);
+  if(dr != DEMO_OK) {
     return NULL;
   }
 
-  const struct rustls_certified_key *certified_key;
-  result = rustls_certified_key_build((uint8_t *)certbuf,
-                                      certbuf_len,
-                                      (uint8_t *)keybuf,
-                                      keybuf_len,
-                                      &certified_key);
-  if(result != RUSTLS_RESULT_OK) {
-    print_error("parsing certificate and key", result);
+  const rustls_certified_key *certified_key;
+  rustls_result rr = rustls_certified_key_build((uint8_t *)certbuf,
+                                                certbuf_len,
+                                                (uint8_t *)keybuf,
+                                                keybuf_len,
+                                                &certified_key);
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("parsing certificate and key", rr);
     return NULL;
   }
 
-  if(rustls_certified_key_keys_match(certified_key) != RUSTLS_RESULT_OK) {
-    fprintf(stderr,
-            "private key %s does not match certificate %s public key\n",
-            keyfile,
-            certfile);
+  rr = rustls_certified_key_keys_match(certified_key);
+  if(rr != RUSTLS_RESULT_OK) {
+    LOG("private key %s does not match certificate %s public key",
+        keyfile,
+        certfile);
+    print_error("certified key mismatch", rr);
     rustls_certified_key_free(certified_key);
     return NULL;
   }
@@ -396,19 +324,20 @@ load_cert_and_key(const char *certfile, const char *keyfile)
   return certified_key;
 }
 
-const struct rustls_crypto_provider *
+const rustls_crypto_provider *
 default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
 {
-  const struct rustls_supported_ciphersuite *custom_ciphersuite = NULL;
+  const rustls_supported_ciphersuite *custom_ciphersuite = NULL;
   rustls_crypto_provider_builder *provider_builder = NULL;
-  const struct rustls_crypto_provider *custom_provider = NULL;
+  const rustls_crypto_provider *custom_provider = NULL;
 
-  size_t num_supported = rustls_default_crypto_provider_ciphersuites_len();
+  const size_t num_supported =
+    rustls_default_crypto_provider_ciphersuites_len();
   for(size_t i = 0; i < num_supported; i++) {
-    const struct rustls_supported_ciphersuite *suite =
+    const rustls_supported_ciphersuite *suite =
       rustls_default_crypto_provider_ciphersuites_get(i);
     if(suite == NULL) {
-      fprintf(stderr, "failed to get ciphersuite %zu\n", i);
+      LOG("failed to get ciphersuite %zu", i);
       goto cleanup;
     }
 
@@ -421,30 +350,28 @@ default_provider_with_custom_ciphersuite(const char *custom_ciphersuite_name)
   }
 
   if(custom_ciphersuite == NULL) {
-    fprintf(stderr,
-            "failed to select custom ciphersuite: %s\n",
-            custom_ciphersuite_name);
+    LOG("failed to select custom ciphersuite: %s", custom_ciphersuite_name);
     goto cleanup;
   }
 
-  rustls_result result =
+  rustls_result rr =
     rustls_crypto_provider_builder_new_from_default(&provider_builder);
-  if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to create provider builder\n");
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("failed to create provider builder", rr);
     goto cleanup;
   }
 
-  result = rustls_crypto_provider_builder_set_cipher_suites(
+  rr = rustls_crypto_provider_builder_set_cipher_suites(
     provider_builder, &custom_ciphersuite, 1);
-  if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to set custom ciphersuite\n");
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("failed to set custom ciphersuite", rr);
     goto cleanup;
   }
 
-  result =
+  rr =
     rustls_crypto_provider_builder_build(provider_builder, &custom_provider);
-  if(result != RUSTLS_RESULT_OK) {
-    fprintf(stderr, "failed to build custom provider\n");
+  if(rr != RUSTLS_RESULT_OK) {
+    print_error("failed to build custom provider", rr);
     goto cleanup;
   }
 
@@ -458,10 +385,10 @@ cleanup:
 //
 // Caller owns the returned buffer and must free it.
 static char *
-hex_encode(const unsigned char *data, size_t len)
+hex_encode(const unsigned char *data, const size_t len)
 {
   // Two output chars per input char, plus the NULL terminator.
-  char *hex_str = (char *)malloc((len * 2) + 1);
+  char *hex_str = malloc((len * 2) + 1);
   if(!hex_str) {
     return NULL;
   }
@@ -475,9 +402,9 @@ hex_encode(const unsigned char *data, size_t len)
 }
 
 void
-stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
-                  size_t client_random_len, const unsigned char *secret,
-                  size_t secret_len)
+stderr_key_log_cb(const rustls_str label, const unsigned char *client_random,
+                  const size_t client_random_len, const unsigned char *secret,
+                  const size_t secret_len)
 {
   char *client_random_str = NULL;
   char *secret_str = NULL;
@@ -492,12 +419,11 @@ stderr_key_log_cb(rustls_str label, const unsigned char *client_random,
     goto cleanup;
   }
 
-  fprintf(stderr,
-          "SSLKEYLOG: label=%.*s client_random=%s secret=%s\n",
-          (int)label.len,
-          label.data,
-          client_random_str,
-          secret_str);
+  LOG("SSLKEYLOG: label=%.*s client_random=%s secret=%s",
+      (int)label.len,
+      label.data,
+      client_random_str,
+      secret_str);
 
 cleanup:
   if(client_random_str != NULL) {
@@ -505,6 +431,60 @@ cleanup:
   }
   if(secret_str != NULL) {
     free(secret_str);
+  }
+}
+
+void
+log_connection_info(const rustls_connection *rconn)
+{
+  const rustls_handshake_kind hs_kind =
+    rustls_connection_handshake_kind(rconn);
+  const rustls_str hs_kind_name = rustls_handshake_kind_str(hs_kind);
+  LOG("handshake kind: %.*s", (int)hs_kind_name.len, hs_kind_name.data);
+
+  const int protocol = rustls_connection_get_protocol_version(rconn);
+  const char *protocol_name;
+  switch(protocol) {
+  case RUSTLS_TLS_VERSION_TLSV1_2:
+    protocol_name = "TLSv1.2";
+    break;
+  case RUSTLS_TLS_VERSION_TLSV1_3:
+    protocol_name = "TLSv1.3";
+    break;
+  default:
+    protocol_name = "Unknown";
+  }
+  LOG("negotiated protocol version: %s (%#x)", protocol_name, protocol);
+
+  const int ciphersuite_id =
+    rustls_connection_get_negotiated_ciphersuite(rconn);
+  const rustls_str ciphersuite_name =
+    rustls_connection_get_negotiated_ciphersuite_name(rconn);
+  LOG("negotiated ciphersuite: %.*s (%#x)",
+      (int)ciphersuite_name.len,
+      ciphersuite_name.data,
+      ciphersuite_id);
+
+  const int kex_id =
+    rustls_connection_get_negotiated_key_exchange_group(rconn);
+  const rustls_str kex_name =
+    rustls_connection_get_negotiated_key_exchange_group_name(rconn);
+  LOG("negotiated key exchange: %.*s (%#x)",
+      (int)kex_name.len,
+      kex_name.data,
+      kex_id);
+
+  const uint8_t *negotiated_alpn = NULL;
+  size_t negotiated_alpn_len;
+  rustls_connection_get_alpn_protocol(
+    rconn, &negotiated_alpn, &negotiated_alpn_len);
+  if(negotiated_alpn != NULL) {
+    LOG("negotiated ALPN protocol: '%.*s'",
+        (int)negotiated_alpn_len,
+        (const char *)negotiated_alpn);
+  }
+  else {
+    LOG_SIMPLE("negotiated ALPN protocol: none");
   }
 }
 
