@@ -1,7 +1,12 @@
-//! A simple test that updates the `research.cloudflare.com.ech.configs.der` test file
-//! with the ECH config for `research.cloudflare.com`, fetched with DNS-over-HTTPS.
+//! A simple utility for fetching TLS encoded ECH configs lists from a domain name's
+//! HTTPS records using DNS-over-HTTPS.
 //!
-//! This data file can be used with the `client.c` example to test ECH.
+//! Prints a comma separated list of the ECH config lists files that were fetched
+//! to stdout. This output can be used with the `librustls/tests/client.c` example's
+//! `ECH_CONFIG_LIST` environment variable to test ECH.
+//!
+//! Example:
+//!   cargo run --bin ech_fetch research.cloudflare.com
 
 use std::env;
 use std::error::Error;
@@ -19,9 +24,7 @@ use rustls::pki_types::EchConfigListBytes;
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     let domain = args.next().unwrap_or("research.cloudflare.com".to_string());
-    let output_path = args
-        .next()
-        .unwrap_or(format!("{}.ech.configs.bin", domain));
+    let output_path = args.next().unwrap_or(format!("{}.ech.configs.bin", domain));
 
     let resolver = Resolver::tokio(ResolverConfig::google_https(), ResolverOpts::default());
 
