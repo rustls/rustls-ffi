@@ -1,5 +1,6 @@
 target
 /build
+librustls/cmake-build*
 .idea
 .venv
 .vs
