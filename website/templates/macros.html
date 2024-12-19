@@ -1,0 +1,27 @@
+{% macro section_header(id, title) %}
+<h2>
+    <a href="#{{ id }}" class="anchor">#</a>
+    <a href="#{{ id }}" class="header-link">{{ title }}</a>
+</h2>
+{% endmacro section_header %}
+
+{% macro item_header(anchor, name) %}
+<h3>
+    <a href="#{{ anchor }}" class="anchor">#</a>
+    <a href="#{{ anchor }}" class="header-link">{{ name }}</a>
+</h3>
+{% endmacro item_header %}
+
+{% macro toc_list(items) %}
+<div class="toc">
+    <ul>
+        {% for item in items %}
+        <li><a href="#{{ item.anchor }}">{{ item.name }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+{% endmacro toc_list %}
+
+{% macro back_to_top() %}
+<p class="back-to-top"><a href="#top">Back to top ↑</a></p>
+{% endmacro back_to_top %}
