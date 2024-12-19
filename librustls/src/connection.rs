@@ -93,6 +93,7 @@ impl std::ops::DerefMut for Connection {
 }
 
 box_castable! {
+    /// A C representation of a Rustls `Connection`.
     pub struct rustls_connection(Connection);
 }
 
@@ -288,6 +289,7 @@ impl rustls_connection {
         }
     }
 
+    /// Returns a `rustls_handshake_kind` describing the `rustls_connection`.
     #[no_mangle]
     pub extern "C" fn rustls_connection_handshake_kind(
         conn: *const rustls_connection,
