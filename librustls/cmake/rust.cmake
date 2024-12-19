@@ -75,3 +75,26 @@ add_custom_command(
         client_server client_server_integration -- --ignored --exact
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_custom_target(ech-test DEPENDS client)
+
+if(WIN32 AND DYN_LINK)
+    add_custom_command(
+        TARGET ech-test
+        PRE_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/rust/bin/rustls.dll"
+            "${CMAKE_BINARY_DIR}\\tests\\$<CONFIG>\\"
+    )
+endif()
+
+add_custom_command(
+    TARGET ech-test
+    POST_BUILD
+    COMMAND cargo run --manifest-path=../Cargo.toml --bin ech_fetch
+    COMMAND
+        ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1 ${CMAKE_COMMAND} -E
+        env ECH_CONFIG_LIST="research.cloudflare.com.ech.configs.bin"
+        $<TARGET_FILE:client> cloudflare-ech.com 443 /cdn-cgi/trace
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
