@@ -1,11 +1,14 @@
 [workspace]
 members = [
     # FFI bindings for Rustls
-    "librustls"
+    "librustls",
+    # Admin tooling & test utilities for rustls-ffi developers
+    "tools"
 ]
 
 default-members = [
     "librustls",
+    "tools"
 ]
 resolver = "2"
 

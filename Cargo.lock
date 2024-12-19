@@ -1225,7 +1225,6 @@ dependencies = [
 name = "rustls-ffi"
 version = "0.15.0"
 dependencies = [
- "hickory-resolver",
  "libc",
  "log",
  "rand",
@@ -1233,8 +1232,16 @@ dependencies = [
  "rustls",
  "rustls-platform-verifier",
  "rustls-webpki",
- "tokio",
  "toml",
+]
+
+[[package]]
+name = "rustls-ffi-tools"
+version = "0.1.0"
+dependencies = [
+ "hickory-resolver",
+ "rustls",
+ "tokio",
 ]
 
 [[package]]
