@@ -100,7 +100,7 @@ jobs:
             -DDYN_LINK=${{matrix.dyn_link}} \
             -DCMAKE_BUILD_TYPE=Debug \
             ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
-            -S . -B build
+            -S librustls -B build
 
       - name: Build
         run: cmake --build build
@@ -120,7 +120,7 @@ jobs:
       - name: Build release binaries
         run: |
           cmake --build build -- clean
-          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S . -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DCMAKE_BUILD_TYPE=Release
+          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S librustls -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DCMAKE_BUILD_TYPE=Release
           cmake --build build
 
       - name: Verify release builds were not using ASAN
@@ -154,7 +154,7 @@ jobs:
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
       - name: Setup cmake build
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release # No ASAN w/ Valgrind
+        run: cmake -S librustls -B build -DCMAKE_BUILD_TYPE=Release # No ASAN w/ Valgrind
 
       - run: VALGRIND=valgrind cmake --build build --target integration-test
 
@@ -186,7 +186,7 @@ jobs:
           cmake \
             -DFIPS=true \
             -DCMAKE_BUILD_TYPE=Release \
-            -S . -B build
+            -S librustls -B build
 
       - name: Integration tests
         run: cmake --build build --target integration-test
@@ -236,7 +236,7 @@ jobs:
           powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
 
       - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S . -B build
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S librustls -B build
 
       - name: Build
         run: cmake --build build --config "${{ matrix.config }}"
@@ -246,6 +246,9 @@ jobs:
 
   ensure-header-updated:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: librustls
     steps:
       - uses: actions/checkout@v4
         with:
@@ -323,7 +326,7 @@ jobs:
         run: pip install gersemi
 
       - name: Setup cmake build
-        run: cmake -S . -B build
+        run: cmake -S librustls -B build
 
       - name: Check formatting
         run: cmake --build build --target format-check
@@ -387,7 +390,7 @@ jobs:
           persist-credentials: false
 
       - name: Clang tidy
-        run: clang-tidy tests/*.c -- -I src/
+        run: clang-tidy librustls/tests/*.c -- -I librustls/src/
 
   miri:
     name: Miri
