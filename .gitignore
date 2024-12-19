@@ -4,3 +4,5 @@ librustls/cmake-build*
 .idea
 .venv
 .vs
+/website/static/api.json
+/website/public

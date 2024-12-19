@@ -1,0 +1,15 @@
+<html>
+  <head>
+    <title>rustls: {{ page.title | default (value="C FFI bindings for Rustls") }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ get_url(path="style.css") }}">
+  </head>
+  <body>
+    <a href="{{ config.base_url }}">
+      <img id="baby-logo" src="{{ get_url(path="rustls-ferris.png") }}">
+    </a>
+    {% block lede %} {% endblock %}
+    {% block content %} {% endblock %}
+  </body>
+</html>
