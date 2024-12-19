@@ -29,22 +29,22 @@ fips = ["aws-lc-rs", "rustls/fips"]
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
 rustls = { version = "0.23.18", default-features = false, features = ["std", "tls12"] }
-pki-types = { package = "rustls-pki-types", version = "1.10", features = ["std"] }
-webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = ["std"] }
-libc = "0.2"
-log = "0.4.22"
-rustls-platform-verifier = "0.5"
-rand = "0.8"
+pki-types = { workspace = true }
+webpki  = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true }
+rustls-platform-verifier = { workspace = true }
+rand = { workspace = true }
 
 [lib]
 name = "rustls_ffi"
 crate-type = ["lib", "staticlib"]
 
 [dev-dependencies]
-regex = "1.9.6"
-toml = { version = "0.6.0", default-features = false, features = ["parse"] }
-hickory-resolver = { version = "=0.25.0-alpha.4", features = ["dns-over-https-rustls", "webpki-roots"] }
-tokio = { version = "1.42.0", features = ["io-util", "macros", "net", "rt"] }
+regex = { workspace = true }
+toml = { workspace = true }
+hickory-resolver = { workspace = true }
+tokio = { workspace = true }
 
 [package.metadata.capi.header]
 name = "rustls"
