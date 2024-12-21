@@ -104,9 +104,9 @@ You can optionally enable [RFC 8879](https://www.rfc-editor.org/rfc/rfc8879)
 certificate compression support with `--features=cert_compression`. 
 
 This is **disabled** by default. Enabling this feature will bring in additional
-dependencies (e.g. `zlib-rs`, `brotli`) and requires an MSRV of 1.75. Once
-enabled support is handled transparently and no code changes are required in
-your application.
+dependencies (e.g. `zlib-rs`, `brotli`) and requires a minimum Rust version of 
+1.75+. Once enabled support is handled transparently and no code changes are 
+required in your application.
 
 ```bash
 cargo capi install                             # Without cert compression.
@@ -192,8 +192,12 @@ the built library should use the exact rustls-ffi version as the dynamic library
 
 The rustls-ffi repo includes two example C programs for Linux, MacOS and Windows:
 
-* [tests/client.c](tests/client.c) - a simple HTTPS client
-* [tests/server.c](tests/server.c) - a simple HTTPS server
+* [tests/client.c](librustls/tests/client.c) - a simple HTTPS client
+* [tests/server.c](librustls/tests/server.c) - a simple HTTPS server
+
+For a more realistic example of integrating rustls-ffi into a pre-existing
+C project see the [rustls-ffi vtls
+backend](https://github.com/curl/curl/blob/master/lib/vtls/rustls.c) in `curl`.
 
 ## Building the Examples
 
@@ -205,7 +209,7 @@ Windows).
 
 ```
 # Configure your build directory
-cmake -S . -B build -DCMAKE_BUILD_TYPE=release
+cmake -S librustls -B build -DCMAKE_BUILD_TYPE=release
 
 # Build the client/server examples
 cmake --build build
@@ -234,7 +238,7 @@ of `-DCMAKE_BUILD_TYPE`:
 
 ```
 # Configure your build directory
-cmake -S . -B build
+cmake -S librustls -B build
 
 # Build the client/server examples
 cmake --build build --config Release
@@ -247,7 +251,7 @@ compression, the ring cryptography provider, and `clang` as the compiler on
 a Linux system in a `my-clang-build` build directory:
 
 ```
-CC=clang CXX=clang cmake -S . -B my-clang-build -DCMAKE_BUILD_TYPE=Debug -DCERT_COMPRESSION=on
+CC=clang CXX=clang cmake -S librustls -B my-clang-build -DCMAKE_BUILD_TYPE=Debug -DCERT_COMPRESSION=on
 -DCRYPTO_PROVIDER=ring
 cmake --build my-clang-build --target integration-test
 ```
@@ -376,7 +380,7 @@ need further evaluation and will most likely change significantly in the future.
 The `rustls_server_config_builder_set_hello_callback` and its provided information
 in `rustls_client_hello` will change. The current design is a snapshot of the
 implementation efforts in
-[mod_tls](https://httpd.apache.org/docs/2.4/mod/mod_tls.html) to provide
+[mod_tls](https://github.com/icing/mod_tls) to provide
 `rustls`-based TLS as module for the Apache webserver.
 
 For a webserver hosting multiple domains on the same endpoint, it is highly desirable
