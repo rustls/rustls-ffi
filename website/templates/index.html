@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% import "macros.html" as macros %}
+{% import "_api_section.html" as api_section %}
+
+{% block content %}
+{% set data = load_data(path="static/api.json") %}
+{% set section_ids = ["structs", "functions", "callbacks", "enums", "externs", "aliases"] %}
+{% set section_titles = ["Structs", "Functions", "Callbacks", "Enums", "Externs", "Type Aliases"] %}
+
+<div class="container">
+    <h1>rustls-ffi API Documentation</h1>
+
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ul>
+            {% for id in section_ids %}
+                {% if data[id] %}
+                <li><a href="#{{ id }}">{{ section_titles[loop.index0] }}</a></li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% for id in section_ids %}
+        {% if data[id] %}
+        {{ api_section::render_section(
+            section_id=id,
+            title=section_titles[loop.index0],
+            items=data[id])
+        }}
+        {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

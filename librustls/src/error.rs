@@ -46,6 +46,7 @@ macro_rules! u32_enum_builder {
 }
 
 u32_enum_builder! {
+    /// Numeric error codes returned from rustls-ffi API functions.
     EnumName: rustls_result;
     EnumDefault: InvalidParameter;
     EnumVal{
@@ -242,6 +243,7 @@ impl rustls_result {
         }
     }
 
+    /// Returns true if the `result` is a certificate related error.
     #[no_mangle]
     pub extern "C" fn rustls_result_is_cert_error(result: c_uint) -> bool {
         use rustls_result::*;

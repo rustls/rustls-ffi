@@ -1,0 +1,32 @@
+{% macro render_section(section_id, title, items) %}
+<section id="{{ section_id }}" class="section">
+    {{ macros::section_header(id=section_id, title=title) }}
+    {{ macros::toc_list(items=items) }}
+
+    {% for item in items %}
+    <div id="{{ item.anchor }}" class="item">
+        {{ macros::item_header(anchor=item.anchor, name=item.name) }}
+
+        {{ item.comment | markdown | safe }}
+
+        {% if section_id == "enums" %}
+        {% for variant in item.variants %}
+        <div id="{{ variant.anchor }}" class="variant">
+            {% if variant.comment %}
+            {{ variant.comment | markdown | safe }}
+            {% endif %}
+            <a href="#{{ variant.anchor }}" class="anchor">#</a>
+            <a href="#{{ variant.anchor }}" class="header-link">
+                <pre class="variant">{{ variant.name }} = {{ variant.value }}</pre>
+            </a>
+        </div>
+        {% endfor %}
+        {% else %}
+        {{ item.text | markdown | safe }}
+        {% endif %}
+
+        {{ macros::back_to_top() }}
+    </div>
+    {% endfor %}
+</section>
+{% endmacro render_section %}

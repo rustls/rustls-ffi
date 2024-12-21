@@ -130,7 +130,8 @@ jobs:
           ! nm build/tests/server | grep '__asan_init'
 
       - name: Run ECH connect test
-        if: matrix.crypto == 'aws-lc-rs' # No HPKE in ring
+        # No HPKE in ring, tools package w/ ech-fetch util needs higher MSRV.
+        if: matrix.crypto == 'aws-lc-rs' && matrix.rust != '1.73'
         run: |
           cmake --build build --target ech-test > ech-test.log
           grep 'sni=encrypted' ech-test.log

@@ -42,6 +42,10 @@ pub(crate) fn ensure_log_registered() {
     log::set_max_level(log::LevelFilter::Debug)
 }
 
+/// Numeric representation of a log level.
+///
+/// Passed as a field of the `rustls_log_params` passed to a log callback.
+/// Use with `rustls_log_level_str` to convert to a string label.
 pub type rustls_log_level = usize;
 
 /// Return a rustls_str containing the stringified version of a log level.
@@ -58,12 +62,16 @@ pub extern "C" fn rustls_log_level_str(level: rustls_log_level) -> rustls_str<'s
     rustls_str::from_str_unchecked(s)
 }
 
+/// Parameter structure passed to a `rustls_log_callback`.
 #[repr(C)]
 pub struct rustls_log_params<'a> {
+    /// The log level the message was logged at.
     pub level: rustls_log_level,
+    /// The message that was logged.
     pub message: rustls_str<'a>,
 }
 
+/// A callback that is invoked for messages logged by rustls.
 #[allow(non_camel_case_types)]
 pub type rustls_log_callback =
     Option<unsafe extern "C" fn(userdata: *mut c_void, params: *const rustls_log_params)>;
