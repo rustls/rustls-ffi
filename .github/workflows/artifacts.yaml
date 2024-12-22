@@ -70,6 +70,33 @@ jobs:
           name: rustls-ffi-x86_64-linux-gnu
           path: dist
 
+  linux-deb:
+    name: Linux (x86-64 GNU Deb)
+    runs-on: ubuntu-20.04 # x86_64. Using older Ubuntu for greater GLIBC compat.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Build deb
+        run: ./debian/build.sh
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: librustls_0.15.0_amd64.deb
+          path: librustls_0.15.0_amd64.deb
+
   macos-binaries:
     name: MacOS (Arm64 and x86_64)
     runs-on: macos-14 # arm64.
