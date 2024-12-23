@@ -443,55 +443,34 @@ impl rustls_server_config {
     }
 }
 
-/// Copy the server name from the server name indication (SNI) extension to `buf`.
+
+/// Returns a `rustls_str` reference to the server name sent by the client in a server name
+/// indication (SNI) extension.
 ///
-/// `buf` can hold up  to `count` bytes, and the length of that server name in `out_n`.
+/// The returned `rustls_str` is valid until the next mutating function call affecting the
+/// connection. A mutating function call is one where the first argument has type
+/// `struct rustls_connection *` (as opposed to `const struct rustls_connection *`). The caller
+/// does not need to free the `rustls_str`.
 ///
-/// The string is stored in UTF-8 with no terminating NUL byte.
+/// Returns a zero-length `rustls_str` if:
 ///
-/// Returns RUSTLS_RESULT_INSUFFICIENT_SIZE if the SNI hostname is longer than `count`.
-///
-/// Returns Ok with *out_n == 0 if there is no SNI hostname available on this connection
-/// because it hasn't been processed yet, or because the client did not send SNI.
-/// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConnection.html#method.server_name>
+/// - the connection is not a server connection.
+/// - the connection is a server connection but the SNI extension in the client hello has not
+///   been processed during the handshake yet. Check `rustls_connection_is_handshaking`.
+/// - the SNI value contains null bytes.
 #[no_mangle]
 pub extern "C" fn rustls_server_connection_get_server_name(
     conn: *const rustls_connection,
-    buf: *mut u8,
-    count: size_t,
-    out_n: *mut size_t,
-) -> rustls_result {
+) -> rustls_str<'static> {
     ffi_panic_boundary! {
-        let conn = try_ref_from_ptr!(conn);
-        if buf.is_null() {
-            return rustls_result::NullParameter;
-        }
-        if out_n.is_null() {
-            return rustls_result::NullParameter;
-        }
-        let server_connection = match conn.as_server() {
-            Some(s) => s,
-            _ => return rustls_result::InvalidParameter,
+        let Some(server_connection) = try_ref_from_ptr!(conn).as_server() else {
+            return rustls_str::default();
         };
-        let sni_hostname = match server_connection.server_name() {
-            Some(sni_hostname) => sni_hostname,
-            None => {
-                unsafe {
-                    *out_n = 0;
-                }
-                return rustls_result::Ok;
-            }
+        let Some(sni_hostname) = server_connection.server_name() else {
+            return rustls_str::default();
         };
-        let len = sni_hostname.len();
-        if len > count {
-            unsafe { *out_n = 0 }
-            return rustls_result::InsufficientSize;
-        }
-        unsafe {
-            std::ptr::copy_nonoverlapping(sni_hostname.as_ptr(), buf, len);
-            *out_n = len;
-        }
-        rustls_result::Ok
+        let res = rustls_str::try_from(sni_hostname).unwrap_or_default();
+        unsafe { res.into_static() }
     }
 }
 
