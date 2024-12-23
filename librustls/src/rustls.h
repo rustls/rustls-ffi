@@ -2428,13 +2428,16 @@ rustls_result rustls_client_hello_select_certified_key(const struct rustls_clien
  * keys and values are highly sensitive data, containing enough information
  * to break the security of the connections involved.
  *
+ * If `builder`, `get_cb`, or `put_cb` are NULL, this function will return
+ * immediately without doing anything.
+ *
  * If `userdata` has been set with rustls_connection_set_userdata, it
  * will be passed to the callbacks. Otherwise the userdata param passed to
  * the callbacks will be NULL.
  */
-rustls_result rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
-                                                           rustls_session_store_get_callback get_cb,
-                                                           rustls_session_store_put_callback put_cb);
+void rustls_server_config_builder_set_persistence(struct rustls_server_config_builder *builder,
+                                                  rustls_session_store_get_callback get_cb,
+                                                  rustls_session_store_put_callback put_cb);
 
 /**
  * Free a `rustls_client_cert_verifier` previously returned from

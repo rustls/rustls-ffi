@@ -443,7 +443,6 @@ impl rustls_server_config {
     }
 }
 
-
 /// Returns a `rustls_str` reference to the server name sent by the client in a server name
 /// indication (SNI) extension.
 ///
@@ -722,6 +721,9 @@ impl rustls_server_config_builder {
     /// keys and values are highly sensitive data, containing enough information
     /// to break the security of the connections involved.
     ///
+    /// If `builder`, `get_cb`, or `put_cb` are NULL, this function will return
+    /// immediately without doing anything.
+    ///
     /// If `userdata` has been set with rustls_connection_set_userdata, it
     /// will be passed to the callbacks. Otherwise the userdata param passed to
     /// the callbacks will be NULL.
@@ -730,19 +732,17 @@ impl rustls_server_config_builder {
         builder: *mut rustls_server_config_builder,
         get_cb: rustls_session_store_get_callback,
         put_cb: rustls_session_store_put_callback,
-    ) -> rustls_result {
+    ) {
         ffi_panic_boundary! {
-            let get_cb = match get_cb {
-                Some(cb) => cb,
-                None => return rustls_result::NullParameter,
+            let Some(get_cb) = get_cb else {
+                return;
             };
-            let put_cb = match put_cb {
-                Some(cb) => cb,
-                None => return rustls_result::NullParameter,
+            let Some(put_cb) = put_cb else {
+                return;
             };
-            let builder = try_mut_from_ptr!(builder);
-            builder.session_storage = Some(Arc::new(SessionStoreBroker::new(get_cb, put_cb)));
-            rustls_result::Ok
+
+            try_mut_from_ptr!(builder).session_storage =
+                Some(Arc::new(SessionStoreBroker::new(get_cb, put_cb)));
         }
     }
 }
