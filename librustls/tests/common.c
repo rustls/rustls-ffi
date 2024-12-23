@@ -486,6 +486,14 @@ log_connection_info(const rustls_connection *rconn)
   else {
     LOG_SIMPLE("negotiated ALPN protocol: none");
   }
+
+  // We can unconditionally call this function whether we have a server
+  // or client connection, as it will return an empty rustls_str if it was a
+  // client connection.
+  const rustls_str sni = rustls_server_connection_get_server_name(rconn);
+  if(sni.len > 0) {
+    LOG("client SNI: '%.*s'", (int)sni.len, sni.data);
+  }
 }
 
 // TLS 1.2 and TLS 1.3, matching Rustls default.
