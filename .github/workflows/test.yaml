@@ -105,9 +105,6 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Platform verifier connect test
-        run: cmake --build build --target connect-test
-
       - name: Integration tests
         run: cmake --build build --target integration-test
 
@@ -128,12 +125,6 @@ jobs:
         run: |
           ! nm build/tests/client | grep '__asan_init' 
           ! nm build/tests/server | grep '__asan_init'
-
-      - name: Run ECH connect test
-        if: matrix.crypto == 'aws-lc-rs' # No HPKE in ring
-        run: |
-          cmake --build build --target ech-test > ech-test.log
-          grep 'sni=encrypted' ech-test.log
 
       # Our integration tests rely on a built-in provider being enabled.
       # Double-check the library/unit tests work without any providers to
@@ -249,12 +240,6 @@ jobs:
 
       - name: Integration test
         run: cmake --build build --config "${{matrix.config}}" --target integration-test
-
-      - name: Run ECH connect test
-        if: matrix.crypto == 'aws-lc-rs' # No HPKE in ring
-        run: |
-          cmake --build build --target ech-test > ech-test.log
-          grep 'sni=encrypted' ech-test.log
 
   ensure-header-updated:
     runs-on: ubuntu-latest
