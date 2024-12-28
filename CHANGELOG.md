@@ -1,5 +1,150 @@
 # Changelog
 
+## 0.15.0 (2025-03-25)
+
+This release updates to [Rustls 0.23.25][] and increases the project minimum
+supported rust version (MSRV) from 1.71 to 1.74 to avoid a Rust compiler bug
+provoked by the ECH support in Rustls.
+
+[Rustls 0.23.25]: https://github.com/rustls/rustls/releases/tag/v%2F0.23.25
+
+### Added
+
+* Binary releases:
+  * Starting with the 0.15.0 release we now publish pre-built `.zip`s for:
+    Windows (`x86_64` MSVC), Linux (`x86_64` GNU libc), and Apple (`ARM64` and
+    `x86_64`) and a `.deb` for Debian/Ubuntu `x86_64`. These can be used to
+    build software using `rustls-ffi` without needing `cargo`/`cargo-c`/`rustc`.
+
+* API documentation is now available online at https://ffi.rustls.dev
+
+* Post-quantum key exchange with `X25519MLKEM768`.
+  * Enabled by default at a low priority. See the `prefer-post-quantum` feature
+    flag to change this behavior.
+
+* New opt-in feature flags:
+  * Optional support for making the post-quantum key exchange `X25519MLKEM768`
+    the most-preferred key exchange by enabling the `prefer-post-quantum`
+    feature flag. Requires the `aws-lc-rs` crypto provider.
+  * Optional support for [RFC 8879][] certificate compression by enabling the
+    `cert_compression` feature when building `rustls-ffi`. When enabled
+    connections will transparently use certificate compression with Brotli or
+    ZLib based on peer compatibility.
+  * Optional FIPS-140-3 support using the `aws-lc-rs` provider. Enabled with the
+    `fips` feature when building `rustls-ffi`. When enabled the `aws-lc-rs`
+    crypto provider is used in its FIPS compatible mode. See the [Rustls
+    project documentation][FIPS-docs] for more information on FIPS status.
+
+* Encrypted Client Hello (ECH) support for client connections.
+  * `rustls_hpke` struct for representing supported HPKE suites.
+  * `rustls_supported_hpke()` function for returning a const pointer to
+    a `rustls_hpke` instance if available. Only the `aws-lc-rs` backend returns
+    a non-`NULL` value at this time.
+  * `rustls_client_config_builder_enable_ech_grease()` client config
+    builder function for configuring ECH GREASE using a `rustls_hpke`. This
+    chooses a supported HPKE suite at random and is an anti-ossification
+    measure clients may opt-in to when not performing "real" ECH.
+  * `rustls_client_config_builder_enable_ech()` client config builder function
+    for configuring ECH using a `rustls_hpke` and a TLS encoded ECH config list.
+    The encoded ECH config list should be retrieved from DNS using a secure
+    transport, such as DNS-over-HTTPS. See the `librustls/tests/client.c`
+    example, and the `ech-fetch.rs` tool, for example usage.
+
+* Additional connection information APIs:
+  * Negotiated key exchange group, using
+    `rustls_connection_get_negotiated_key_exchange_group()` for the IANA
+    registered identifier, and
+    `rustls_connection_get_negotiated_key_exchange_group_name()` for the name as
+    a `rustls_str`.
+  * Determining whether the handshake was a full TLS handshake, a full TLS
+    handshake with an extra hello retry request (HRR) round-trip, a resumed TLS
+    or a handshake, using `rustls_connection_handshake_kind()`. This returns
+    a `rustls_handshake_kind` enum variant, which can be translated to
+    a `rustls_str` using `rustls_handshake_kind_str()`.
+
+* Support for checking whether a `rustls_certified_key`'s certificate matches
+  the corresponding private key using `rustls_certified_key_keys_match()`.
+
+* Support for queuing TLS 1.3 key updates using
+  `rustls_connection_refresh_traffic_keys()`.
+
+* Support for strict handling of CRL expiry using
+  `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry()` to customize
+  a `rustls_web_pki_server_cert_verifier_builder` builder instance to reject
+  CRLs with a next update in the past.
+
+* Support for building `rustls-ffi` without any built in cryptography providers.
+  This is mainly helpful for users that don't intend to use `aws-lc-rs` or
+  `*ring*` but instead will bring their own FFI-ready `rustls_crypto_provider`.
+
+* SSLKEYLOG support:
+  * For simple logging to a file, use
+    `rustls_server_config_builder_set_key_log_file()` or
+    `rustls_client_config_builder_set_key_log_file()` with a client/server
+    config builder to have the `SSLKEYLOGFILE` env var used to log an NSS
+    formatted key log file appropriate for use with Wireshark and other tools.
+  * For deeper integration, use `rustls_server_config_builder_set_key_log()` or
+    `rustls_client_config_builder_set_key_log()` to configure C callbacks to be
+    invoked to decide which secrets are logged and to do the logging.
+  * See `librustls/tests/client.c` and `librustls/tests/server.c` for example
+    usage.
+
+* FIPS-140-3 APIs:
+  * `rustls_default_fips_provider()` for instantiating a FIPS compatible
+    `rustls_crypto_provider` (requires "fips" feature enabled).
+  * `rustls_crypto_provider_fips()` for determining if a `rustls_crypto_provider`
+    is FIPS compatible or not.
+  * `rustls_client_config_fips()` for determining if a `rustls_client_config`
+    was built with a FIPS compatible `rustls_crypto_provider`.
+  * `rustls_server_config_fips()` for determining if a `rustls_server_config`
+    was built with a FIPS compatible `rustls_crypto_provider`.
+  * `rustls_connection_fips()` for determining if a `rustls_connection` was
+    created from a `rustls_client_config` or `rustls_server_config` that was
+    built with a FIPS compatible `rustls_crypto_provider`.
+
+* Additional `rustls_result` error variants:
+  * `RUSTLS_RESULT_CERT_EXPIRED_REVOCATION_LIST`,
+    `RUSTLS_RESULT_MESSAGE_CERTIFICATE_PAYLOAD_TOO_LARGE`,
+    `RUSTLS_RESULT_INCONSISTENT_KEYS_KEYS_MISMATCH`,
+    `RUSTLS_RESULT_INCONSISTENT_KEYS_UNKNOWN`,
+    `RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_INVALID_CONFIG_LIST`,
+    `RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_NO_COMPATIBLE_CONFIG`,
+    `RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_SNI_REQUIRED`.
+
+[RFC 8879]: https://www.rfc-editor.org/rfc/rfc8879
+[FIPS-docs]: https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
+
+### Changed
+
+* Calling `rustls_server_config_builder_build()` with no certificate/key
+  configured previously returned `RUSTLS_RESULT_GENERAL`, it now returns
+  `RUSTLS_RESULT_NO_CERT_RESOLVER`.
+
+* The `rustls_server_connection_get_server_name()` function now returns
+  a `rustls_str` instead of writing to a user provided buffer with out
+  parameters.
+
+* The `rustls_server_config_builder_set_persistence()` function is now `void`
+  instead of returning a `rustls_error`.
+
+* [cargo-c][] is now the only supported method for building `rustls-ffi`. It
+  supports building both static and shared libraries as well as making `.pc`
+  pkg-config files per-platform. The pre-existing GNU `Makefile` has been
+  removed in favour of `cargo-c`. See our README for more information.
+
+* Building the client/server **examples** now requires `cmake`. The GNU Makefile
+  has been removed in favour of unifying the example build system with `cmake`.
+  Users only interested in building `rustls-ffi` (not the example applications)
+  do not require `cmake` unless it is a requirement of their chosen cryptography
+  provider (e.g. `aws-lc-rs` in fips mode).
+
+[cargo-c]: https://github.com/lu-zero/cargo-c
+
+### Removed
+
+* N/A
+
+
 ## 0.14.1 (2024-11-22)
 
 This release updates to [Rustls 0.23.18][] and increases the project MSRV from
