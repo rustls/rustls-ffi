@@ -25,10 +25,12 @@ ring = ["rustls/ring", "webpki/ring"]
 aws-lc-rs = ["rustls/aws-lc-rs", "webpki/aws_lc_rs"]
 cert_compression = ["rustls/brotli", "rustls/zlib"]
 fips = ["aws-lc-rs", "rustls/fips"]
+post-quantum = ["aws-lc-rs", "rustls-post-quantum"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "0.23.18", default-features = false, features = ["std", "tls12"] }
+rustls = { version = "0.23.20", default-features = false, features = ["std", "tls12"] }
+rustls-post-quantum = { workspace = true, optional = true }
 webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }

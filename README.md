@@ -98,6 +98,22 @@ platforms see the upstream documentation:
 [`*ring*`]: https://crates.io/crates/ring
 [`*ring*` supported platforms]: https://github.com/briansmith/ring/blob/2e8363b433fa3b3962c877d9ed2e9145612f3160/include/ring-core/target.h#L18-L64
 
+#### Post-Quantum X25519MLKEM768 Key Exchange
+
+You can optionally enable use of a hybrid post-quantum secure key exchange ([X25519MLKEM768][]) with the 
+`--features=x25519mlkem768` flag.
+
+This feature is **disabled** by default. Enabling this feature will implicitly select `aws-lc-rs` as the
+cryptography provider since `*ring*` has no equivalent support at this time.
+
+When enabled the default provider will include support for the `X25519MLKEM768` key exchange. 
+A `rustls_crypto_provider` with support can also be constructed with `rustls_post_quantum_provider()`.
+
+If used with the [`fips`](#fips-140-3) feature, the `rustls_default_fips_provider()` function will 
+also return a FIPS-enabled provider with support for `X25519MLKEM768`.
+
+[X25519MLKEM768]: https://datatracker.ietf.org/doc/draft-kwiatkowski-tls-ecdhe-mlkem
+
 #### Certificate Compression
 
 You can optionally enable [RFC 8879](https://www.rfc-editor.org/rfc/rfc8879)
@@ -117,7 +133,8 @@ cargo capi install --features=cert_compression # With cert compression.
 
 You can optionally enable FIPS support via `--features=fips`. This implicitly
 enables the `aws-lc-rs` cryptography provider since `ring` does not have FIPS
-140-3 support at this time.
+140-3 support at this time. This feature can also be combined with the 
+[`post-quantum`](#post-quantum-x25519mlkem768-key-exchange) feature.
 
 Enabling FIPS mode adds several new build requirements depending on your
 platform. For example, all platforms will require `cmake` and `go`. Windows will
@@ -217,6 +234,8 @@ cmake --build build
 
 Use `-DCRYPTO_PROVIDER=ring` to select the cryptography provider for the
 examples explicitly.
+
+Use `-DPOST_QUANTUM=on` to enable post-quantum X25519MLKEM768 key exchange.
 
 Use `-DCERT_COMPRESSION=on` to enable certificate compression.
 
