@@ -1972,12 +1972,32 @@ const struct rustls_crypto_provider *rustls_aws_lc_rs_crypto_provider(void);
  *
  * See the upstream [rustls FIPS documentation][FIPS] for more information.
  *
+ * If the `post-quantum` feature is also enabled, this function will return a provider
+ * that includes the FIPS approved post-quantum X25519MLKEM768 key exchange group.
+ *
  * The caller owns the returned `rustls_crypto_provider` and must free it using
  * `rustls_crypto_provider_free`.
  *
  * [FIPS]: https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
  */
 const struct rustls_crypto_provider *rustls_default_fips_provider(void);
+#endif
+
+#if defined(DEFINE_POST_QUANTUM)
+/**
+ * Return a post-quantum enabled `rustls_crypto_provider` backed by the `aws-lc-rs` cryptography
+ * library.
+ *
+ * This `rustls_crypto_provider` is the same as the one returned from
+ * `rustls_aws_lc_rs_crypto_provider()`, but includes the post-quantum X25519MLKEM768 key exchange
+ * algorithm.
+ *
+ * Requires the `post-quantum` feature be enabled.
+ *
+ * The caller owns the returned `rustls_crypto_provider` and must free it using
+ * `rustls_crypto_provider_free`.
+ */
+const struct rustls_crypto_provider *rustls_post_quantum_provider(void);
 #endif
 
 /**

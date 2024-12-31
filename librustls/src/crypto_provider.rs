@@ -256,6 +256,9 @@ pub extern "C" fn rustls_aws_lc_rs_crypto_provider() -> *const rustls_crypto_pro
 ///
 /// See the upstream [rustls FIPS documentation][FIPS] for more information.
 ///
+/// If the `post-quantum` feature is also enabled, this function will return a provider
+/// that includes the FIPS approved post-quantum X25519MLKEM768 key exchange group.
+///
 /// The caller owns the returned `rustls_crypto_provider` and must free it using
 /// `rustls_crypto_provider_free`.
 ///
@@ -264,8 +267,38 @@ pub extern "C" fn rustls_aws_lc_rs_crypto_provider() -> *const rustls_crypto_pro
 #[cfg(feature = "fips")]
 pub extern "C" fn rustls_default_fips_provider() -> *const rustls_crypto_provider {
     ffi_panic_boundary! {
-        Arc::into_raw(Arc::new(rustls::crypto::default_fips_provider()))
-            as *const rustls_crypto_provider
+        #[cfg(not(feature = "post-quantum"))]
+        {
+            Arc::into_raw(Arc::new(rustls::crypto::default_fips_provider()))
+                as *const rustls_crypto_provider
+        }
+        #[cfg(feature = "post-quantum")]
+        {
+            let mut fips_provider = rustls::crypto::default_fips_provider();
+            fips_provider
+                .kx_groups
+                .splice(0..0, vec![rustls_post_quantum::X25519MLKEM768]);
+            Arc::into_raw(Arc::new(fips_provider)) as *const rustls_crypto_provider
+        }
+    }
+}
+
+/// Return a post-quantum enabled `rustls_crypto_provider` backed by the `aws-lc-rs` cryptography
+/// library.
+///
+/// This `rustls_crypto_provider` is the same as the one returned from
+/// `rustls_aws_lc_rs_crypto_provider()`, but includes the post-quantum X25519MLKEM768 key exchange
+/// algorithm.
+///
+/// Requires the `post-quantum` feature be enabled.
+///
+/// The caller owns the returned `rustls_crypto_provider` and must free it using
+/// `rustls_crypto_provider_free`.
+#[no_mangle]
+#[cfg(feature = "post-quantum")]
+pub extern "C" fn rustls_post_quantum_provider() -> *const rustls_crypto_provider {
+    ffi_panic_boundary! {
+        Arc::into_raw(Arc::new(rustls_post_quantum::provider())) as *const rustls_crypto_provider
     }
 }
 
@@ -559,9 +592,18 @@ pub(crate) fn get_default_or_install_from_crate_features() -> Option<Arc<CryptoP
 
 fn provider_from_crate_features() -> Option<CryptoProvider> {
     // Provider default is unambiguously aws-lc-rs
-    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring")))]
+    #[cfg(all(
+        feature = "aws-lc-rs",
+        not(feature = "ring"),
+        not(feature = "post-quantum")
+    ))]
     {
         return Some(aws_lc_rs::default_provider());
+    }
+    // Provider default is unambiguously post-qc aws-lc-rs
+    #[cfg(all(feature = "aws-lc-rs", not(feature = "ring"), feature = "post-quantum"))]
+    {
+        return Some(rustls_post_quantum::provider());
     }
 
     // Provider default is unambiguously ring

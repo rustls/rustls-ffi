@@ -1204,8 +1204,7 @@ dependencies = [
 [[package]]
 name = "rustls"
 version = "0.23.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5065c3f250cbd332cd894be57c40fa52387247659b14a2d6041d121547903b1b"
+source = "git+https://github.com/cpu/rustls.git?rev=2008a03eff1f608467a70915109dc100129143d0#2008a03eff1f608467a70915109dc100129143d0"
 dependencies = [
  "aws-lc-rs",
  "brotli",
@@ -1231,6 +1230,7 @@ dependencies = [
  "regex",
  "rustls",
  "rustls-platform-verifier",
+ "rustls-post-quantum",
  "rustls-webpki",
  "toml",
 ]
@@ -1288,6 +1288,15 @@ name = "rustls-platform-verifier-android"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
+
+[[package]]
+name = "rustls-post-quantum"
+version = "0.2.2"
+source = "git+https://github.com/cpu/rustls.git?rev=2008a03eff1f608467a70915109dc100129143d0#2008a03eff1f608467a70915109dc100129143d0"
+dependencies = [
+ "aws-lc-rs",
+ "rustls",
+]
 
 [[package]]
 name = "rustls-webpki"
