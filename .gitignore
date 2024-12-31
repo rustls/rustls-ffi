@@ -6,3 +6,5 @@ librustls/cmake-build*
 .vs
 debian/usr
 debian/DEBIAN
+/website/static/api.json
+/website/public

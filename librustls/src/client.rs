@@ -570,6 +570,7 @@ pub struct rustls_verify_server_cert_params<'a> {
 #[allow(non_camel_case_types)]
 pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
 
+/// A callback that is invoked to verify a server certificate.
 // According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
 // > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
 // > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).

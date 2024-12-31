@@ -91,7 +91,7 @@ endif()
 add_custom_command(
     TARGET ech-test
     POST_BUILD
-    COMMAND cargo run --manifest-path=../Cargo.toml --bin ech_fetch
+    COMMAND cargo run -p rustls-ffi-tools --bin ech_fetch
     COMMAND
         ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1 ${CMAKE_COMMAND} -E
         env ECH_CONFIG_LIST="research.cloudflare.com.ech.configs.bin"

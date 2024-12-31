@@ -1,0 +1,43 @@
+{% macro render_section(section_id, title, items) %}
+<section id="{{ section_id }}" class="section">
+    {{ macros::section_header(id=section_id, title=title) }}
+    {{ macros::toc_list(items=items) }}
+
+    {% for item in items %}
+    <div id="{{ item.anchor }}" class="item">
+        {{ macros::item_header(anchor=item.anchor, name=item.name) }}
+
+        {% if item.feature %}
+        <div class="feature-box">
+            <svg class="feature-icon" viewBox="0 0 20 20" width="16" height="16">
+                <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="10" cy="6" r="1" fill="currentColor"/>
+                <path d="M10 9v7" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <span>Requires feature: <strong>{{ item.feature }}</strong></span>
+        </div>
+        {% endif %}
+
+        {{ item.comment | markdown | safe }}
+
+        {% if section_id == "enums" %}
+        {% for variant in item.variants %}
+        <div id="{{ variant.anchor }}" class="variant">
+            {% if variant.comment %}
+            {{ variant.comment | markdown | safe }}
+            {% endif %}
+            <a href="#{{ variant.anchor }}" class="anchor">#</a>
+            <a href="#{{ variant.anchor }}" class="header-link">
+                <pre class="variant">{{ variant.name }} = {{ variant.value }}</pre>
+            </a>
+        </div>
+        {% endfor %}
+        {% else %}
+        {{ item.text | markdown | safe }}
+        {% endif %}
+
+        {{ macros::back_to_top() }}
+    </div>
+    {% endfor %}
+</section>
+{% endmacro render_section %}
