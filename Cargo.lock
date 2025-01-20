@@ -1227,7 +1227,6 @@ version = "0.15.0"
 dependencies = [
  "libc",
  "log",
- "rand",
  "regex",
  "rustls",
  "rustls-platform-verifier",

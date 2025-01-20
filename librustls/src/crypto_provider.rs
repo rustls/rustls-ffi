@@ -2,7 +2,6 @@ use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
-use rand::seq::SliceRandom;
 
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
@@ -509,10 +508,28 @@ impl Hpke {
     ///
     /// Returns both the selected Rustls `hpke::Hpke` suite and the `hpke::HpkePublicKey`
     /// or `None` if an error occurs.
-    pub(crate) fn grease_public_key(&self) -> Option<(&dyn hpke::Hpke, hpke::HpkePublicKey)> {
-        let suite = self.suites.choose(&mut rand::thread_rng())?;
+    pub(crate) fn grease_public_key(
+        &self,
+        provider: &CryptoProvider,
+    ) -> Option<(&dyn hpke::Hpke, hpke::HpkePublicKey)> {
+        let num_suites = self.suites.len();
+        if num_suites == 0 {
+            return None;
+        }
+        debug_assert!(num_suites < u32::MAX as usize);
+
+        let mut buf = [0u8; 4];
+        let threshold = u32::MAX - (u32::MAX % num_suites as u32);
+        let suite = loop {
+            provider.secure_random.fill(&mut buf).ok()?;
+            let value = u32::from_ne_bytes(buf);
+            if value < threshold {
+                break self.suites[value as usize / (threshold as usize / num_suites)];
+            }
+        };
+
         let pk = suite.generate_key_pair().map(|pair| pair.0).ok()?;
-        Some((*suite, pk))
+        Some((suite, pk))
     }
 }
 
@@ -625,13 +642,17 @@ mod tests {
     #[test]
     #[cfg(feature = "aws-lc-rs")]
     fn test_hpke_aws_lc_rs() {
+        let provider = rustls_crypto_provider_default();
+        assert!(!provider.is_null());
+        let provider = try_clone_arc!(provider);
+
         let hpke = rustls_supported_hpke();
         assert!(!hpke.is_null());
 
         let hpke = try_ref_from_ptr!(hpke);
 
         // We should be able to pick an HPKE suite and a pubkey for ECH GREASE.
-        let (suite, pk) = hpke.grease_public_key().unwrap();
+        let (suite, pk) = hpke.grease_public_key(&provider).unwrap();
         // The PK and the suite should be compatible. Setup a sealer to check.
         let (_, _) = suite.setup_sealer(&[0xC0, 0xFF, 0xEE], &pk).unwrap();
     }
