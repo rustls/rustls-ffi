@@ -175,10 +175,10 @@ jobs:
           - os: macos-13
             artifact: rustls-ffi-x86_64-macos
     steps:
-      - name: Checkout rustls-ffi-test sources
+      - name: Checkout sources
         uses: actions/checkout@v4
         with:
-          repository: 'cpu/rustls-ffi-test'
+          persist-credentials: false
       - name: Download rustls-ffi artifact
         uses: actions/download-artifact@v4
         with:
@@ -194,19 +194,29 @@ jobs:
       # the correct location that we extracted the archive. This seems more reliable
       # than using `--define-prefix` - it seems to tack an extra 'lib/' subcomponent
       # onto the include path that breaks the build.
-      - name: Fix pkg-config prefix
-        # We use bash shell explicitly to avoid PowerShell on Windows and to ensure we have 'sed'.
+      - name: Fix pkg-config prefix (UNIX)
+        if: matrix.os != 'windows-latest'
         shell: bash
         # For further fun, sed isn't consistent between macOS and Linux.
         run: |
           case "${{ runner.os }}" in
             "macOS")
-              sed -i '' "s|prefix=.*|prefix=${{ matrix.artifact }}|" ${{ matrix.artifact }}/lib/pkgconfig/rustls.pc
+              sed -i '' "s|prefix=.*|prefix=$(pwd)/${{ matrix.artifact }}|" ${{ matrix.artifact }}/lib/pkgconfig/rustls.pc
               ;;
             *)
-              sed -i "s|prefix=.*|prefix=${{ matrix.artifact }}|" ${{ matrix.artifact }}/lib/pkgconfig/rustls.pc
+              sed -i "s|prefix=.*|prefix=$(pwd)/${{ matrix.artifact }}|" ${{ matrix.artifact }}/lib/pkgconfig/rustls.pc
               ;;
           esac
+      - name: Fix pkg-config prefix (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $prefix = (Get-Location).Path + "/${{ matrix.artifact }}"
+          $prefix = $prefix -replace '\\', '/'
+          
+          $content = Get-Content "${{ matrix.artifact }}\lib\pkgconfig\rustls.pc"
+          $content = $content -replace "prefix=.*", "prefix=$prefix"
+          Set-Content "${{ matrix.artifact }}\lib\pkgconfig\rustls.pc" $content
       # Dump out what pkg-config says about the rustls package.
       - name: Debug pkg-config
         run: |
@@ -220,7 +230,7 @@ jobs:
         if: matrix.os != 'windows-latest'
         env:
           PKG_CONFIG_PATH: ${{ matrix.artifact }}/lib/pkgconfig
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S librustls -B build -DCMAKE_BUILD_TYPE=Release -DFORCE_SYSTEM_RUSTLS=ON
       # Set up the cmake build, overriding PKG_CONFIG_PATH to
       # point to the extracted rustls-ffi archive.
       #
@@ -230,26 +240,30 @@ jobs:
         if: matrix.os == 'windows-latest'
         env:
           PKG_CONFIG_PATH: ${{ matrix.artifact }}/lib/pkgconfig
-        run: cmake -DPKG_CONFIG_EXECUTABLE=C:\Strawberry\perl\bin\pkg-config.bat -S . -B build
-      # Build the rustls-ffi-test binary.
-      - name: Build rustls-ffi-test (UNIX)
+        run: cmake -DPKG_CONFIG_EXECUTABLE=C:\Strawberry\perl\bin\pkg-config.bat -DFORCE_SYSTEM_RUSTLS=ON -S librustls -B build
+      # Build the client and server binaries
+      - name: Build rustls-ffi client/server (UNIX)
         if: matrix.os != 'windows-latest'
         run: cmake --build build -v
-      # Build the rustls-ffi-test binary.
+      # Build the client and server binaries
       # On Windows we need to specify a configuration to avoid a warning about using the default
       # debug MSCRT runtime with a lib built with the release MSCRT runtime.
-      - name: Build rustls-ffi-test (Windows)
+      - name: Build rustls-ffi client/server (Windows)
         if: matrix.os == 'windows-latest'
         run: cmake --build build --config Release -v
-      # Run the rustls-ffi-test binary.
-      - name: Run rustls-ffi-test (UNIX)
+      # Run the rustls-ffi client binary.
+      - name: Run rustls-ffi client (UNIX)
         if: matrix.os != 'windows-latest'
-        run: ./build/rustls-ffi-test
+        env:
+          RUSTLS_PLATFORM_VERIFIER: 1
+        run: ./build/tests/client example.com 443 / 1
       # Run the rustls-ffi-test binary.
       # On Windows it's in a different output location under build.
-      - name: Run rustls-ffi-test (Windows)
+      - name: Run rustls-ffi client (Windows)
         if: matrix.os == 'windows-latest'
-        run: ./build/Release/rustls-ffi-test.exe
+        env:
+          RUSTLS_PLATFORM_VERIFIER: 1
+        run: .\build\tests\Release\client.exe example.com 443 / 1
 
   test-deb:
     name: "Test Linux Deb (${{ matrix.os }})"
@@ -259,10 +273,10 @@ jobs:
       matrix:
         os: [ ubuntu-latest, ubuntu-20.04 ]
     steps:
-      - name: Checkout rustls-ffi-test sources
+      - name: Checkout sources
         uses: actions/checkout@v4
         with:
-          repository: 'cpu/rustls-ffi-test'
+          persist-credentials: false
       - name: Download rustls-ffi deb artifact
         uses: actions/download-artifact@v4
         with:
@@ -278,10 +292,12 @@ jobs:
           pkg-config --libs rustls
       # Set up the cmake build, no pkg-config ENV overrides needed.
       - name: Setup cmake build
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      # Build the rustls-ffi-test binary.
-      - name: Build rustls-ffi-test
+        run: cmake -S librustls -B build -DCMAKE_BUILD_TYPE=Release -DFORCE_SYSTEM_RUSTLS=ON
+      # Build the client and server binaries
+      - name: Build rustls-ffi client/server
         run: cmake --build build -v
-      # Run the rustls-ffi-test binary.
-      - name: Run rustls-ffi-test
-        run: ./build/rustls-ffi-test
+      # Run the rustls-ffi client binary.
+      - name: Run rustls-ffi client
+        env:
+          RUSTLS_PLATFORM_VERIFIER: 1
+        run: ./build/tests/client example.com 443 / 1
