@@ -454,7 +454,12 @@ impl rustls_client_config_builder {
             let builder = try_mut_from_ptr!(builder);
             let hpke = try_ref_from_ptr!(hpke);
 
-            let Some((suite, placeholder_pk)) = hpke.grease_public_key() else {
+            let provider = match &builder.provider {
+                Some(provider) => provider,
+                None => return rustls_result::NoDefaultCryptoProvider,
+            };
+
+            let Some((suite, placeholder_pk)) = hpke.grease_public_key(provider) else {
                 return rustls_result::HpkeError;
             };
 

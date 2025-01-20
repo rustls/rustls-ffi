@@ -33,7 +33,6 @@ webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
 rustls-platform-verifier = { workspace = true }
-rand = { workspace = true }
 
 [lib]
 name = "rustls_ffi"
