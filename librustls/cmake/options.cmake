@@ -67,3 +67,10 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
         FORCE
     )
 endif()
+
+# Useful for testing the client/server examples with a pre-built rustls-ffi.
+option(
+    FORCE_SYSTEM_RUSTLS
+    "Require system-installed rustls-ffi, never build"
+    OFF
+)
