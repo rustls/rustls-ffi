@@ -46,62 +46,79 @@ endif()
 function(test_binary target_name)
     add_executable(${target_name})
     target_sources(${target_name} PRIVATE ${target_name}.c common.c common.h)
-    add_dependencies(${target_name} rustls-ffi)
-
-    target_include_directories(
-        ${target_name}
-        PRIVATE ${CMAKE_BINARY_DIR}/rust/include
-    )
 
     if(WIN32)
-        target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
         target_link_libraries(
             ${target_name}
-            "${CMAKE_BINARY_DIR}/rust/lib/rustls.${lib_extension}"
+            PRIVATE
+                advapi32.lib
+                bcrypt.lib
+                crypt32.lib
+                cryptnet.lib
+                kernel32.lib
+                ncrypt.lib
+                bcrypt.lib
+                advapi32.lib
+                legacy_stdio_definitions.lib
+                kernel32.lib
+                advapi32.lib
+                kernel32.lib
+                ntdll.lib
+                userenv.lib
+                ws2_32.lib
+                synchronization.lib
+                kernel32.lib
+                ws2_32.lib
+                kernel32.lib
+                msvcrt.lib
         )
-        target_link_libraries(
+    endif()
+
+    if(RUSTLS_FFI_FOUND)
+        target_include_directories(
             ${target_name}
-            advapi32.lib
-            bcrypt.lib
-            crypt32.lib
-            cryptnet.lib
-            kernel32.lib
-            ncrypt.lib
-            bcrypt.lib
-            advapi32.lib
-            legacy_stdio_definitions.lib
-            kernel32.lib
-            advapi32.lib
-            kernel32.lib
-            ntdll.lib
-            userenv.lib
-            ws2_32.lib
-            synchronization.lib
-            kernel32.lib
-            ws2_32.lib
-            kernel32.lib
-            msvcrt.lib
+            PRIVATE ${RUSTLS_FFI_INCLUDE_DIRS}
         )
-        set_property(
-            TARGET ${target_name}
-            PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL"
-        )
-    elseif(UNIX)
-        target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
-        target_link_options(${target_name} PRIVATE ${sanitizer_flags})
-        target_link_libraries(
+        target_link_directories(
             ${target_name}
-            "${CMAKE_BINARY_DIR}/rust/lib/librustls.${lib_extension}"
+            PRIVATE ${RUSTLS_FFI_LIBRARY_DIRS}
         )
-        if(CERT_COMPRESSION)
-            target_link_libraries(${target_name} m)
-        endif()
-        if(APPLE)
+        target_link_libraries(${target_name} PRIVATE ${RUSTLS_FFI_LIBRARIES})
+    else()
+        add_dependencies(${target_name} rustls-ffi)
+
+        target_include_directories(
+            ${target_name}
+            PRIVATE ${CMAKE_BINARY_DIR}/rust/include
+        )
+
+        if(WIN32)
+            target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
             target_link_libraries(
                 ${target_name}
-                "-framework Foundation"
-                "-framework Security"
+                PRIVATE "${CMAKE_BINARY_DIR}/rust/lib/rustls.${lib_extension}"
             )
+            set_property(
+                TARGET ${target_name}
+                PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL"
+            )
+        elseif(UNIX)
+            target_compile_options(${target_name} PRIVATE ${sanitizer_flags})
+            target_link_options(${target_name} PRIVATE ${sanitizer_flags})
+            target_link_libraries(
+                ${target_name}
+                "${CMAKE_BINARY_DIR}/rust/lib/librustls.${lib_extension}"
+            )
+            if(CERT_COMPRESSION)
+                target_link_libraries(${target_name} m)
+            endif()
+            if(APPLE)
+                target_link_libraries(
+                    ${target_name}
+                    "-framework Foundation"
+                    "-framework Security"
+                )
+            endif()
         endif()
     endif()
 endfunction()
