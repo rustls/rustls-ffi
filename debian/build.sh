@@ -17,11 +17,12 @@ DEB_ROOT="/tmp/deb"
 
 CC=clang CXX=clang cargo cinstall --locked --features cert_compression --release --prefix "${DIST_DIR}"
 
-mkdir -p "${DEB_ROOT}/usr/"{lib,include}
+mkdir -p "${DEB_ROOT}/usr/"{lib,include,share/doc/${PACKAGE}}
 mkdir -p "${DEB_ROOT}/DEBIAN"
 
 cp -r "${DIST_DIR}/lib/"* "${DEB_ROOT}/usr/lib/"
 cp -r "${DIST_DIR}/include/"* "${DEB_ROOT}/usr/include/"
+cat ../LICENSE* > "${DEB_ROOT}/usr/share/doc/${PACKAGE}/COPYRIGHT"
 
 sed -i "s|prefix=.*|prefix=/usr|" "${DEB_ROOT}/usr/lib/x86_64-linux-gnu/pkgconfig/rustls.pc"
 
