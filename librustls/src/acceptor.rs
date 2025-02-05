@@ -216,7 +216,7 @@ impl rustls_accepted {
     ///  - The SNI contains a NUL byte.
     ///  - The `accepted` parameter was NULL.
     ///  - The `accepted` parameter was already transformed into a connection
-    ///      with rustls_accepted_into_connection.
+    ///    with rustls_accepted_into_connection.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_server_name(
         accepted: *const rustls_accepted,
@@ -331,7 +331,7 @@ impl rustls_accepted {
     ///   - i is greater than the number of offered ALPN protocols.
     ///   - The client did not offer the ALPN extension.
     ///   - The `accepted` parameter was already transformed into a connection
-    ///      with rustls_accepted_into_connection.
+    ///     with rustls_accepted_into_connection.
     ///   
     /// The returned value is valid until rustls_accepted_into_connection or
     /// rustls_accepted_free is called on the same `accepted`. It is not owned
