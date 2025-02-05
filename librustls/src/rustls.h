@@ -919,7 +919,7 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
  *  - The SNI contains a NUL byte.
  *  - The `accepted` parameter was NULL.
  *  - The `accepted` parameter was already transformed into a connection
- *      with rustls_accepted_into_connection.
+ *    with rustls_accepted_into_connection.
  */
 struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
@@ -986,7 +986,7 @@ uint16_t rustls_accepted_cipher_suite(const struct rustls_accepted *accepted,
  *   - i is greater than the number of offered ALPN protocols.
  *   - The client did not offer the ALPN extension.
  *   - The `accepted` parameter was already transformed into a connection
- *      with rustls_accepted_into_connection.
+ *     with rustls_accepted_into_connection.
  *
  * The returned value is valid until rustls_accepted_into_connection or
  * rustls_accepted_free is called on the same `accepted`. It is not owned
