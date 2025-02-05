@@ -98,6 +98,17 @@ platforms see the upstream documentation:
 [`*ring*`]: https://crates.io/crates/ring
 [`*ring*` supported platforms]: https://github.com/briansmith/ring/blob/2e8363b433fa3b3962c877d9ed2e9145612f3160/include/ring-core/target.h#L18-L64
 
+#### Post-Quantum X25519MLKEM768 Key Exchange
+
+Post-quantum-secure key exchange using [X25519MLKEM768][] is supported when using the `aws-lc-rs` 
+cryptography provider. At this time default support places `X25519MLKEM768` at a lower negotiation priority. 
+
+By enabling the `prefer-post-quantum` feature flag the `X25519MLKEM768` key exchange will be used as the most
+preferred key exchange algorithm. We expect to add this feature to the crate's default features in a future
+release.
+
+[X25519MLKEM768]: https://datatracker.ietf.org/doc/draft-kwiatkowski-tls-ecdhe-mlkem
+
 #### Certificate Compression
 
 You can optionally enable [RFC 8879](https://www.rfc-editor.org/rfc/rfc8879)

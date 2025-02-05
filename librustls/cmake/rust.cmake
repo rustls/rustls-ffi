@@ -98,3 +98,24 @@ add_custom_command(
         $<TARGET_FILE:client> cloudflare-ech.com 443 /cdn-cgi/trace
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+
+add_custom_target(prefer-pq-test DEPENDS client)
+
+if(WIN32 AND DYN_LINK)
+    add_custom_command(
+        TARGET prefer-pq-test
+        PRE_BUILD
+        COMMAND
+            ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/rust/bin/rustls.dll"
+            "${CMAKE_BINARY_DIR}\\tests\\$<CONFIG>\\"
+    )
+endif()
+
+add_custom_command(
+    TARGET prefer-pq-test
+    POST_BUILD
+    COMMAND
+        ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1 $<TARGET_FILE:client>
+        pq.cloudflareresearch.com 443 /cdn-cgi/trace
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)

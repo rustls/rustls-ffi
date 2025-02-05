@@ -25,6 +25,7 @@ ring = ["rustls/ring", "webpki/ring"]
 aws-lc-rs = ["rustls/aws-lc-rs", "webpki/aws_lc_rs"]
 cert_compression = ["rustls/brotli", "rustls/zlib"]
 fips = ["aws-lc-rs", "rustls/fips"]
+prefer-post-quantum = ["aws-lc-rs", "rustls/prefer-post-quantum"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
