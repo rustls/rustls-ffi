@@ -130,3 +130,61 @@ jobs:
         shell: bash
         run: |
           grep 'sni=encrypted' ech-test.log
+
+  prefer-pq:
+    name: "Post-quantum (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-c (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+      - name: Install cargo-c (macOS)
+        if: matrix.os == 'macos-latest'
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-macos.zip
+        run: |
+          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
+          unzip cargo-c-macos.zip -d ~/.cargo/bin
+      - name: Install cargo-c (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-windows-msvc.zip
+        run: |
+          curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
+          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+      - name: Setup cmake build
+        run: |
+          cmake ${{ 
+            matrix.os != 'windows-latest' && '-DCMAKE_BUILD_TYPE=Release -DPREFER_POST_QUANTUM=on\' || '-DPREFER_POST_QUANTUM=on' 
+          }} ${{ 
+            matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' 
+          }} -S librustls -B build
+      - name: Run PQ connect test
+        # NOTE: uses bash as the shell to allow for easy no-powershell tee/grep pipeline.
+        shell: bash
+        run: |
+          cmake --build build --target prefer-pq-test ${{ 
+            matrix.os == 'windows-latest' && '--config Release' || '' 
+          }} | tee pq-test.log
+      - name: Verify PQ status
+        shell: bash
+        run: |
+          grep 'kex=X25519MLKEM768' pq-test.log

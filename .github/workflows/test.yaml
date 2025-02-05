@@ -12,7 +12,7 @@ on:
 
 jobs:
   build:
-    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.rust }}, ${{ matrix.crypto }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
+    name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.rust }}, ${{ matrix.crypto }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.prefer-pq == 'on' && ', prefer-post-quantum' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -42,6 +42,12 @@ jobs:
             crypto: aws-lc-rs
             rust: stable
             cert_compression: on
+          # Linux prefer-pq build
+          - os: ubuntu-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            prefer-pq: on
           # MacOS standard build
           - os: macos-latest
             cc: clang
@@ -60,6 +66,12 @@ jobs:
             crypto: aws-lc-rs
             rust: stable
             cert_compression: on
+          # MacOS prefer-pq build
+          - os: macos-latest
+            cc: clang
+            crypto: aws-lc-rs
+            rust: stable
+            prefer-pq: on
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -97,6 +109,7 @@ jobs:
           cmake \
             -DCRYPTO_PROVIDER=${{matrix.crypto}} \
             -DCERT_COMPRESSION=${{matrix.cert_compression}} \
+            -DPREFER_POST_QUANTUM=${{matrix.prefer-pq}} \
             -DDYN_LINK=${{matrix.dyn_link}} \
             -DCMAKE_BUILD_TYPE=Debug \
             ${{ matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' }} \
@@ -117,7 +130,7 @@ jobs:
       - name: Build release binaries
         run: |
           cmake --build build -- clean
-          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S librustls -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DCMAKE_BUILD_TYPE=Release
+          CC=${{matrix.cc}} CXX=${{matrix.cc}} cmake -S librustls -B build -DCRYPTO_PROVIDER=${{matrix.crypto}} -DPREFER_POST_QUANTUM=${{matrix.prefer-pq}} -DCMAKE_BUILD_TYPE=Release
           cmake --build build
 
       - name: Verify release builds were not using ASAN
@@ -189,7 +202,7 @@ jobs:
         run: cmake --build build --target integration-test
 
   test-windows:
-    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
+    name: "Windows (${{ matrix.crypto }}, ${{ matrix.config }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.prefer-pq == 'on' && ', prefer-post-quantum' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
     runs-on: windows-latest
     strategy:
       matrix:
@@ -206,6 +219,10 @@ jobs:
           - crypto: aws-lc-rs
             config: Release
             cert_compression: on
+          # One build with prefer-pq.
+          - crypto: aws-lc-rs
+            config: Release
+            prefer-pq: on
     steps:
       - uses: actions/checkout@v4
         with:
@@ -233,7 +250,7 @@ jobs:
           powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
 
       - name: Configure CMake
-        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S librustls -B build
+        run: cmake -DCRYPTO_PROVIDER="${{ matrix.crypto }}" -DCERT_COMPRESSION="${{ matrix.cert_compression }}" -DPREFER_POST_QUANTUM="${{ matrix.prefer-pq }}" -DDYN_LINK="${{ matrix.dyn_link }}" -S librustls -B build
 
       - name: Build
         run: cmake --build build --config "${{ matrix.config }}"

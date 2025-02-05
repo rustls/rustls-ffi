@@ -20,6 +20,11 @@ option(
 
 option(FIPS "Whether to enable aws-lc-rs and FIPS support")
 
+option(
+    PREFER_POST_QUANTUM
+    "Whether to enable aws-lc-rs and prefer post-quantum key exchange support"
+)
+
 option(DYN_LINK "Use dynamic linking for rustls library" OFF)
 
 if(DYN_LINK AND FIPS AND (APPLE OR WIN32))
@@ -43,6 +48,10 @@ endif()
 # See https://docs.rs/rustls/latest/rustls/manual/_06_fips/index.html
 if(FIPS)
     list(APPEND CARGO_FEATURES --features=fips)
+endif()
+
+if(PREFER_POST_QUANTUM)
+    list(APPEND CARGO_FEATURES --features=prefer-post-quantum)
 endif()
 
 # By default w/ Makefile or Ninja generators (e.g. Linux/MacOS CLI)
