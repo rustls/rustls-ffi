@@ -29,7 +29,10 @@ jobs:
 
       - name: Build rusts-ffi
         run: |
-          cargo cinstall --locked --target x86_64-pc-windows-msvc --features cert_compression --release --prefix dist 
+          cargo cinstall --locked --target x86_64-pc-windows-msvc --features cert_compression --release --prefix dist
+
+      - name: Copy in LICENSE files
+        run: cp LICENSE* dist
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
@@ -63,6 +66,9 @@ jobs:
           CXX: clang
         run: |
           cargo cinstall --locked --target x86_64-unknown-linux-gnu --features cert_compression --release --prefix dist
+
+      - name: Copy in LICENSE files
+        run: cp LICENSE* dist
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
@@ -127,6 +133,9 @@ jobs:
         run: |
           install_name_tool -id @rpath/librustls.dylib arm64-dist/lib/librustls.dylib
 
+      - name: Copy in LICENSE files (arm64)
+        run: cp LICENSE* arm64-dist
+
       - name: Upload binaries (arm64)
         uses: actions/upload-artifact@v4
         with:
@@ -140,6 +149,9 @@ jobs:
       - name: Fix rpath (x86_64)
         run: |
           install_name_tool -id @rpath/librustls.dylib x86-dist/lib/librustls.dylib
+
+      - name: Copy in LICENSE files (x86_64)
+        run: cp LICENSE* x86-dist
 
       - name: Upload binaries (x86_64)
         uses: actions/upload-artifact@v4
@@ -172,6 +184,12 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
+      - name: Verify license files are present
+        run: |
+          test -f ${{ matrix.artifact }}/LICENSE
+          test -f ${{ matrix.artifact }}/LICENSE-APACHE
+          test -f ${{ matrix.artifact }}/LICENSE-ISC
+          test -f ${{ matrix.artifact }}/LICENSE-MIT
       # .pc files aren't relocatable. We need to update the prefix to point to
       # the correct location that we extracted the archive. This seems more reliable
       # than using `--define-prefix` - it seems to tack an extra 'lib/' subcomponent
@@ -251,6 +269,8 @@ jobs:
           name: librustls_0.15.0_amd64.deb
       - name: Install deb
         run: sudo dpkg --install ./librustls_0.15.0_amd64.deb
+      - name: Check copyright exists
+        run: test -f /usr/share/doc/librustls/COPYRIGHT
       # Dump out what pkg-config says about the rustls package.
       - name: Debug pkg-config
         run: |
