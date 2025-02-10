@@ -195,7 +195,7 @@ jobs:
       # than using `--define-prefix` - it seems to tack an extra 'lib/' subcomponent
       # onto the include path that breaks the build.
       - name: Fix pkg-config prefix (UNIX)
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         shell: bash
         # For further fun, sed isn't consistent between macOS and Linux.
         run: |
@@ -208,7 +208,7 @@ jobs:
               ;;
           esac
       - name: Fix pkg-config prefix (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $prefix = (Get-Location).Path + "/${{ matrix.artifact }}"
@@ -227,7 +227,7 @@ jobs:
       # Set up the cmake build, overriding PKG_CONFIG_PATH to
       # point to the extracted rustls-ffi archive.
       - name: Setup cmake build (UNIX)
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         env:
           PKG_CONFIG_PATH: ${{ matrix.artifact }}/lib/pkgconfig
         run: cmake -S librustls -B build -DCMAKE_BUILD_TYPE=Release -DFORCE_SYSTEM_RUSTLS=ON
@@ -237,30 +237,30 @@ jobs:
       # For Windows cmake needs some help finding the strawberry perl pkg-config
       # that's installed in the runner's PATH.
       - name: Setup cmake build (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         env:
           PKG_CONFIG_PATH: ${{ matrix.artifact }}/lib/pkgconfig
         run: cmake -DPKG_CONFIG_EXECUTABLE=C:\Strawberry\perl\bin\pkg-config.bat -DFORCE_SYSTEM_RUSTLS=ON -S librustls -B build
       # Build the client and server binaries
       - name: Build rustls-ffi client/server (UNIX)
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         run: cmake --build build -v
       # Build the client and server binaries
       # On Windows we need to specify a configuration to avoid a warning about using the default
       # debug MSCRT runtime with a lib built with the release MSCRT runtime.
       - name: Build rustls-ffi client/server (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         run: cmake --build build --config Release -v
       # Run the rustls-ffi client binary.
       - name: Run rustls-ffi client (UNIX)
-        if: matrix.os != 'windows-latest'
+        if: runner.os != 'Windows'
         env:
           RUSTLS_PLATFORM_VERIFIER: 1
         run: ./build/tests/client example.com 443 / 1
       # Run the rustls-ffi-test binary.
       # On Windows it's in a different output location under build.
       - name: Run rustls-ffi client (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         env:
           RUSTLS_PLATFORM_VERIFIER: 1
         run: .\build\tests\Release\client.exe example.com 443 / 1
