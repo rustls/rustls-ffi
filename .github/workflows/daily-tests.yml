@@ -29,7 +29,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Install cargo-c (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
@@ -37,7 +37,7 @@ jobs:
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
       - name: Install cargo-c (macOS)
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-macos.zip
@@ -46,7 +46,7 @@ jobs:
           unzip cargo-c-macos.zip -d ~/.cargo/bin
 
       - name: Install cargo-c (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
@@ -57,15 +57,15 @@ jobs:
       - name: Setup cmake build
         run: |
           cmake ${{ 
-            matrix.os != 'windows-latest' && '-DCMAKE_BUILD_TYPE=Release \' || '' 
+            runner.os != 'Windows' && '-DCMAKE_BUILD_TYPE=Release \' || '' 
           }} ${{ 
-            matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' 
+            runner.os == 'macOS' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' 
           }} -S librustls -B build
 
       - name: Run platform-verifier connect test
         run: |
           cmake --build build --target connect-test ${{ 
-            matrix.os == 'windows-latest' && '--config Release' || '' 
+            runner.os == 'Windows' && '--config Release' || '' 
           }}
 
   ech:
@@ -85,7 +85,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Install cargo-c (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
@@ -93,7 +93,7 @@ jobs:
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
       - name: Install cargo-c (macOS)
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-macos.zip
@@ -102,7 +102,7 @@ jobs:
           unzip cargo-c-macos.zip -d ~/.cargo/bin
 
       - name: Install cargo-c (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
@@ -113,9 +113,9 @@ jobs:
       - name: Setup cmake build
         run: |
           cmake ${{ 
-            matrix.os != 'windows-latest' && '-DCMAKE_BUILD_TYPE=Release \' || '' 
+            runner.os != 'Windows' && '-DCMAKE_BUILD_TYPE=Release \' || '' 
           }} ${{ 
-            matrix.os == 'macos-latest' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' 
+            runner.os == 'macOS' && '-DCMAKE_OSX_DEPLOYMENT_TARGET=14.5' || '' 
           }} -S librustls -B build
 
       - name: Run ECH test
@@ -123,7 +123,7 @@ jobs:
         shell: bash
         run: |
           cmake --build build --target ech-test ${{ 
-            matrix.os == 'windows-latest' && '--config Release' || '' 
+            runner.os == 'Windows' && '--config Release' || '' 
           }} | tee ech-test.log
 
       - name: Verify ECH status
