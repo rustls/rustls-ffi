@@ -10,6 +10,10 @@ on:
   schedule:
     - cron: '15 12 * * 3'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: "Build+Test (${{ matrix.os }}, ${{ matrix.cc }}, ${{ matrix.rust }}, ${{ matrix.crypto }}${{ matrix.cert_compression == 'on' && ', cert compression' || '' }}${{ matrix.prefer-pq == 'on' && ', prefer-post-quantum' || '' }}${{ matrix.dyn_link == 'on' && ', dynamic linking' || '' }})"
