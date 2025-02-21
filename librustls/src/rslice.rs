@@ -97,7 +97,7 @@ pub extern "C" fn rustls_slice_slice_bytes_get(
                     data: null(),
                     len: 0,
                     phantom: PhantomData,
-                }
+                };
             }
         }
     };
@@ -329,7 +329,7 @@ pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t
                     data: null(),
                     len: 0,
                     phantom: PhantomData,
-                }
+                };
             }
         }
     };

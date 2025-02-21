@@ -2,9 +2,9 @@ use std::io::{ErrorKind, Read, Write};
 use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
 
-use libc::{size_t, EINVAL, EIO};
-use rustls::pki_types::CertificateDer;
+use libc::{EINVAL, EIO, size_t};
 use rustls::CipherSuite::TLS_NULL_WITH_NULL_NULL;
+use rustls::pki_types::CertificateDer;
 use rustls::{ClientConnection, ServerConnection};
 
 use crate::certificate::rustls_certificate;
@@ -15,8 +15,8 @@ use crate::ffi::{
     try_slice_mut,
 };
 use crate::io::{
-    rustls_read_callback, rustls_write_callback, rustls_write_vectored_callback, CallbackReader,
-    CallbackWriter, VectoredCallbackWriter,
+    CallbackReader, CallbackWriter, VectoredCallbackWriter, rustls_read_callback,
+    rustls_write_callback, rustls_write_vectored_callback,
 };
 use crate::log::{ensure_log_registered, rustls_log_callback};
 use crate::panic::ffi_panic_boundary;
@@ -556,10 +556,10 @@ impl rustls_connection {
             let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
-                    return rustls_result::UnexpectedEof
+                    return rustls_result::UnexpectedEof;
                 }
                 Err(e) if e.kind() == ErrorKind::WouldBlock => {
-                    return rustls_result::PlaintextEmpty
+                    return rustls_result::PlaintextEmpty;
                 }
                 Err(_) => return rustls_result::Io,
             };
@@ -601,10 +601,10 @@ impl rustls_connection {
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
-                    return rustls_result::UnexpectedEof
+                    return rustls_result::UnexpectedEof;
                 }
                 Err(e) if e.kind() == ErrorKind::WouldBlock => {
-                    return rustls_result::PlaintextEmpty
+                    return rustls_result::PlaintextEmpty;
                 }
                 Err(_) => return rustls_result::Io,
             };

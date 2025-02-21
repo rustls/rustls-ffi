@@ -6,15 +6,15 @@ use std::sync::Arc;
 use libc::{c_char, size_t};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{EchConfig, EchGreaseConfig, EchMode, ResolvesClientCert};
-use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
+use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
 use rustls::{
-    sign::CertifiedKey, ClientConfig, ClientConnection, DigitallySignedStruct, Error, KeyLog,
-    KeyLogFile, ProtocolVersion, SignatureScheme, SupportedProtocolVersion,
+    ClientConfig, ClientConnection, DigitallySignedStruct, Error, KeyLog, KeyLogFile,
+    ProtocolVersion, SignatureScheme, SupportedProtocolVersion, sign::CertifiedKey,
 };
 
 use crate::certificate::rustls_certified_key;
-use crate::connection::{rustls_connection, Connection};
+use crate::connection::{Connection, rustls_connection};
 use crate::crypto_provider::{self, rustls_crypto_provider, rustls_hpke};
 use crate::error::{self, map_error, rustls_result};
 use crate::ffi::{
@@ -22,7 +22,7 @@ use crate::ffi::{
     to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
     try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
 };
-use crate::keylog::{rustls_keylog_log_callback, rustls_keylog_will_log_callback, CallbackKeyLog};
+use crate::keylog::{CallbackKeyLog, rustls_keylog_log_callback, rustls_keylog_will_log_callback};
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::NulByte;
 use crate::rslice::{rustls_slice_bytes, rustls_slice_slice_bytes, rustls_str};

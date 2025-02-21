@@ -3,15 +3,15 @@ use std::sync::Arc;
 
 use libc::size_t;
 
+use rustls::SupportedCipherSuite;
 #[cfg(feature = "aws-lc-rs")]
 use rustls::crypto::aws_lc_rs;
 #[cfg(feature = "ring")]
 use rustls::crypto::ring;
-use rustls::crypto::{hpke, CryptoProvider};
-use rustls::pki_types::pem::PemObject;
+use rustls::crypto::{CryptoProvider, hpke};
 use rustls::pki_types::PrivateKeyDer;
+use rustls::pki_types::pem::PemObject;
 use rustls::sign::SigningKey;
-use rustls::SupportedCipherSuite;
 
 use crate::cipher::rustls_supported_ciphersuite;
 use crate::error::{map_error, rustls_result};
