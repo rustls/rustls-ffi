@@ -1,4 +1,4 @@
-use libc::{c_void, size_t, EINVAL, EIO};
+use libc::{EINVAL, EIO, c_void, size_t};
 use rustls::server::{Accepted, AcceptedAlert, Acceptor};
 
 use crate::connection::rustls_connection;
@@ -7,7 +7,7 @@ use crate::ffi::{
     box_castable, free_box, set_boxed_mut_ptr, to_box, to_boxed_mut_ptr, try_callback,
     try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr, try_ref_from_ptr, try_take,
 };
-use crate::io::{rustls_read_callback, rustls_write_callback, CallbackReader, CallbackWriter};
+use crate::io::{CallbackReader, CallbackWriter, rustls_read_callback, rustls_write_callback};
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::{rustls_slice_bytes, rustls_str};
 use crate::server::rustls_server_config;

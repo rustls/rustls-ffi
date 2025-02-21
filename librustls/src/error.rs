@@ -532,7 +532,10 @@ impl Display for rustls_result {
                 write!(f, "an error occurred with the selected HPKE suite")
             }
             BuilderIncompatibleTlsVersions => {
-                write!(f, "the client config builder specifies incompatible TLS versions for the requested feature")
+                write!(
+                    f,
+                    "the client config builder specifies incompatible TLS versions for the requested feature"
+                )
             }
 
             CertEncodingBad => Error::InvalidCertificate(CertificateError::BadEncoding).fmt(f),

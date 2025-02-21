@@ -4,10 +4,10 @@ use std::ptr::null;
 use std::slice;
 
 use libc::{c_char, size_t};
+use rustls::RootCertStore;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
-use rustls::RootCertStore;
 
 use crate::crypto_provider::{self, rustls_signing_key};
 use crate::error::{map_error, rustls_result};
