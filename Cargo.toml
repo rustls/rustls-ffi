@@ -13,10 +13,10 @@ resolver = "2"
 
 [workspace.dependencies]
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12"] }
-webpki = { package = "rustls-webpki", version = "0.102.0", default-features = false, features = ["std"] }
+webpki = { package = "rustls-webpki", version = "0.103", default-features = false, features = ["std"] }
 libc = "0.2"
 log = "0.4.22"
-rustls-platform-verifier = "0.5"
+rustls-platform-verifier = "0.5.1"
 regex = "1.9.6"
 toml = { version = "0.6.0", default-features = false, features = ["parse"] }
 hickory-resolver = { version = "=0.25.0-alpha.4", features = ["dns-over-https-rustls", "webpki-roots"] }
