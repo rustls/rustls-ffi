@@ -432,6 +432,8 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
         Error::InconsistentKeys(InconsistentKeys::KeyMismatch) => InconsistentKeysKeysMismatch,
         Error::InconsistentKeys(InconsistentKeys::Unknown) => InconsistentKeysUnknown,
 
+        Error::InvalidEncryptedClientHello(err) => map_ech_error(err),
+
         _ => General,
     }
 }
@@ -458,6 +460,21 @@ pub(crate) fn map_crl_error(err: CertRevocationListError) -> rustls_result {
             CertRevocationListUnsupportedRevocationReason
         }
         _ => CertRevocationListOtherError,
+    }
+}
+
+pub(crate) fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
+    use rustls_result::*;
+
+    match err {
+        EncryptedClientHelloError::InvalidConfigList => {
+            InvalidEncryptedClientHelloInvalidConfigList
+        }
+        EncryptedClientHelloError::NoCompatibleConfig => {
+            InvalidEncryptedClientHelloNoCompatibleConfig
+        }
+        EncryptedClientHelloError::SniRequired => InvalidEncryptedClientHelloSniRequired,
+        _ => General,
     }
 }
 
