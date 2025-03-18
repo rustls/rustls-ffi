@@ -265,201 +265,6 @@ impl rustls_result {
     }
 }
 
-/// For cert-related rustls_results, turn them into a rustls::Error.
-///
-/// For other inputs, including Ok, return rustls::Error::General.
-pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
-    use rustls::Error::*;
-    use rustls::OtherError;
-    use rustls_result::*;
-    match result {
-        CertEncodingBad => InvalidCertificate(CertificateError::BadEncoding),
-        CertExpired => InvalidCertificate(CertificateError::Expired),
-        CertNotYetValid => InvalidCertificate(CertificateError::NotValidYet),
-        CertRevoked => InvalidCertificate(CertificateError::Revoked),
-        CertUnhandledCriticalExtension => {
-            InvalidCertificate(CertificateError::UnhandledCriticalExtension)
-        }
-        CertUnknownIssuer => InvalidCertificate(CertificateError::UnknownIssuer),
-        CertBadSignature => InvalidCertificate(CertificateError::BadSignature),
-        CertNotValidForName => InvalidCertificate(CertificateError::NotValidForName),
-        CertInvalidPurpose => InvalidCertificate(CertificateError::InvalidPurpose),
-        CertApplicationVerificationFailure => {
-            InvalidCertificate(CertificateError::ApplicationVerificationFailure)
-        }
-        CertExpiredRevocationList => InvalidCertificate(CertificateError::ExpiredRevocationList),
-        CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
-            Box::from(""),
-        )))),
-        _ => Error::General("".into()),
-    }
-}
-
-pub(crate) fn map_error(input: Error) -> rustls_result {
-    use rustls::AlertDescription as alert;
-    use rustls_result::*;
-
-    match input {
-        Error::InappropriateMessage { .. } => InappropriateMessage,
-        Error::InappropriateHandshakeMessage { .. } => InappropriateHandshakeMessage,
-
-        Error::NoCertificatesPresented => NoCertificatesPresented,
-        Error::DecryptError => DecryptError,
-        Error::PeerIncompatible(_) => PeerIncompatibleError,
-        Error::PeerMisbehaved(_) => PeerMisbehavedError,
-        Error::UnsupportedNameType => UnsupportedNameType,
-        Error::EncryptError => EncryptError,
-
-        Error::InvalidMessage(e) => match e {
-            InvalidMessage::HandshakePayloadTooLarge => MessageHandshakePayloadTooLarge,
-            InvalidMessage::CertificatePayloadTooLarge => MessageCertificatePayloadTooLarge,
-            InvalidMessage::InvalidCcs => MessageInvalidCcs,
-            InvalidMessage::InvalidContentType => MessageInvalidContentType,
-            InvalidMessage::InvalidCertificateStatusType => MessageInvalidCertStatusType,
-            InvalidMessage::InvalidCertRequest => MessageInvalidCertRequest,
-            InvalidMessage::InvalidDhParams => MessageInvalidDhParams,
-            InvalidMessage::InvalidEmptyPayload => MessageInvalidEmptyPayload,
-            InvalidMessage::InvalidKeyUpdate => MessageInvalidKeyUpdate,
-            InvalidMessage::InvalidServerName => MessageInvalidServerName,
-            InvalidMessage::MessageTooLarge => MessageTooLarge,
-            InvalidMessage::MessageTooShort => MessageTooShort,
-            InvalidMessage::MissingData(_) => MessageMissingData,
-            InvalidMessage::MissingKeyExchange => MessageMissingKeyExchange,
-            InvalidMessage::NoSignatureSchemes => MessageNoSignatureSchemes,
-            InvalidMessage::TrailingData(_) => MessageTrailingData,
-            InvalidMessage::UnexpectedMessage(_) => MessageUnexpectedMessage,
-            InvalidMessage::UnknownProtocolVersion => MessageUnknownProtocolVersion,
-            InvalidMessage::UnsupportedCompression => MessageUnsupportedCompression,
-            InvalidMessage::UnsupportedCurveType => MessageUnsupportedCurveType,
-            InvalidMessage::UnsupportedKeyExchangeAlgorithm(_) => MessageUnsupportedCompression,
-            _ => MessageInvalidOther,
-        },
-
-        Error::FailedToGetCurrentTime => FailedToGetCurrentTime,
-        Error::FailedToGetRandomBytes => FailedToGetRandomBytes,
-        Error::HandshakeNotComplete => HandshakeNotComplete,
-        Error::PeerSentOversizedRecord => PeerSentOversizedRecord,
-        Error::NoApplicationProtocol => NoApplicationProtocol,
-        Error::BadMaxFragmentSize => BadMaxFragmentSize,
-
-        Error::InvalidCertificate(e) => match e {
-            CertificateError::BadEncoding => CertEncodingBad,
-            CertificateError::Expired => CertExpired,
-            CertificateError::NotValidYet => CertNotYetValid,
-            CertificateError::Revoked => CertRevoked,
-            CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
-            CertificateError::UnknownIssuer => CertUnknownIssuer,
-            CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
-            CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
-            CertificateError::BadSignature => CertBadSignature,
-            CertificateError::NotValidForName => CertNotValidForName,
-            CertificateError::InvalidPurpose => CertInvalidPurpose,
-            CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
-            _ => CertOtherError,
-        },
-
-        Error::General(_) => General,
-
-        Error::AlertReceived(e) => match e {
-            alert::CloseNotify => AlertCloseNotify,
-            alert::UnexpectedMessage => AlertUnexpectedMessage,
-            alert::BadRecordMac => AlertBadRecordMac,
-            alert::DecryptionFailed => AlertDecryptionFailed,
-            alert::RecordOverflow => AlertRecordOverflow,
-            alert::DecompressionFailure => AlertDecompressionFailure,
-            alert::HandshakeFailure => AlertHandshakeFailure,
-            alert::NoCertificate => AlertNoCertificate,
-            alert::BadCertificate => AlertBadCertificate,
-            alert::UnsupportedCertificate => AlertUnsupportedCertificate,
-            alert::CertificateRevoked => AlertCertificateRevoked,
-            alert::CertificateExpired => AlertCertificateExpired,
-            alert::CertificateUnknown => AlertCertificateUnknown,
-            alert::IllegalParameter => AlertIllegalParameter,
-            alert::UnknownCA => AlertUnknownCA,
-            alert::AccessDenied => AlertAccessDenied,
-            alert::DecodeError => AlertDecodeError,
-            alert::DecryptError => AlertDecryptError,
-            alert::ExportRestriction => AlertExportRestriction,
-            alert::ProtocolVersion => AlertProtocolVersion,
-            alert::InsufficientSecurity => AlertInsufficientSecurity,
-            alert::InternalError => AlertInternalError,
-            alert::InappropriateFallback => AlertInappropriateFallback,
-            alert::UserCanceled => AlertUserCanceled,
-            alert::NoRenegotiation => AlertNoRenegotiation,
-            alert::MissingExtension => AlertMissingExtension,
-            alert::UnsupportedExtension => AlertUnsupportedExtension,
-            alert::CertificateUnobtainable => AlertCertificateUnobtainable,
-            alert::UnrecognisedName => AlertUnrecognisedName,
-            alert::BadCertificateStatusResponse => AlertBadCertificateStatusResponse,
-            alert::BadCertificateHashValue => AlertBadCertificateHashValue,
-            alert::UnknownPSKIdentity => AlertUnknownPSKIdentity,
-            alert::CertificateRequired => AlertCertificateRequired,
-            alert::NoApplicationProtocol => AlertNoApplicationProtocol,
-            alert::Unknown(_) => AlertUnknown,
-            _ => AlertUnknown,
-        },
-
-        Error::InvalidCertRevocationList(e) => map_crl_error(e),
-
-        Error::InconsistentKeys(InconsistentKeys::KeyMismatch) => InconsistentKeysKeysMismatch,
-        Error::InconsistentKeys(InconsistentKeys::Unknown) => InconsistentKeysUnknown,
-
-        Error::InvalidEncryptedClientHello(err) => map_ech_error(err),
-
-        _ => General,
-    }
-}
-
-fn map_crl_error(err: CertRevocationListError) -> rustls_result {
-    use rustls_result::*;
-
-    match err {
-        CertRevocationListError::BadSignature => CertRevocationListBadSignature,
-        CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
-        CertRevocationListError::InvalidRevokedCertSerialNumber => {
-            CertRevocationListInvalidRevokedCertSerialNumber
-        }
-        CertRevocationListError::IssuerInvalidForCrl => CertRevocationListIssuerInvalidForCrl,
-        CertRevocationListError::Other(_) => CertRevocationListOtherError,
-        CertRevocationListError::ParseError => CertRevocationListParseError,
-        CertRevocationListError::UnsupportedCrlVersion => CertRevocationListUnsupportedCrlVersion,
-        CertRevocationListError::UnsupportedCriticalExtension => {
-            CertRevocationListUnsupportedCriticalExtension
-        }
-        CertRevocationListError::UnsupportedDeltaCrl => CertRevocationListUnsupportedDeltaCrl,
-        CertRevocationListError::UnsupportedIndirectCrl => CertRevocationListUnsupportedIndirectCrl,
-        CertRevocationListError::UnsupportedRevocationReason => {
-            CertRevocationListUnsupportedRevocationReason
-        }
-        _ => CertRevocationListOtherError,
-    }
-}
-
-fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
-    use rustls_result::*;
-
-    match err {
-        EncryptedClientHelloError::InvalidConfigList => {
-            InvalidEncryptedClientHelloInvalidConfigList
-        }
-        EncryptedClientHelloError::NoCompatibleConfig => {
-            InvalidEncryptedClientHelloNoCompatibleConfig
-        }
-        EncryptedClientHelloError::SniRequired => InvalidEncryptedClientHelloSniRequired,
-        _ => General,
-    }
-}
-
-pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_result {
-    match err {
-        VerifierBuilderError::NoRootAnchors => {
-            rustls_result::ClientCertVerifierBuilderNoRootAnchors
-        }
-        VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
-        _ => rustls_result::General,
-    }
-}
-
 impl Display for rustls_result {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use rustls::AlertDescription as alert;
@@ -739,6 +544,201 @@ impl Display for rustls_result {
                 Error::InvalidEncryptedClientHello(EncryptedClientHelloError::SniRequired).fmt(f)
             }
         }
+    }
+}
+
+/// For cert-related rustls_results, turn them into a rustls::Error.
+///
+/// For other inputs, including Ok, return rustls::Error::General.
+pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
+    use rustls::Error::*;
+    use rustls::OtherError;
+    use rustls_result::*;
+    match result {
+        CertEncodingBad => InvalidCertificate(CertificateError::BadEncoding),
+        CertExpired => InvalidCertificate(CertificateError::Expired),
+        CertNotYetValid => InvalidCertificate(CertificateError::NotValidYet),
+        CertRevoked => InvalidCertificate(CertificateError::Revoked),
+        CertUnhandledCriticalExtension => {
+            InvalidCertificate(CertificateError::UnhandledCriticalExtension)
+        }
+        CertUnknownIssuer => InvalidCertificate(CertificateError::UnknownIssuer),
+        CertBadSignature => InvalidCertificate(CertificateError::BadSignature),
+        CertNotValidForName => InvalidCertificate(CertificateError::NotValidForName),
+        CertInvalidPurpose => InvalidCertificate(CertificateError::InvalidPurpose),
+        CertApplicationVerificationFailure => {
+            InvalidCertificate(CertificateError::ApplicationVerificationFailure)
+        }
+        CertExpiredRevocationList => InvalidCertificate(CertificateError::ExpiredRevocationList),
+        CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
+            Box::from(""),
+        )))),
+        _ => Error::General("".into()),
+    }
+}
+
+pub(crate) fn map_error(input: Error) -> rustls_result {
+    use rustls::AlertDescription as alert;
+    use rustls_result::*;
+
+    match input {
+        Error::InappropriateMessage { .. } => InappropriateMessage,
+        Error::InappropriateHandshakeMessage { .. } => InappropriateHandshakeMessage,
+
+        Error::NoCertificatesPresented => NoCertificatesPresented,
+        Error::DecryptError => DecryptError,
+        Error::PeerIncompatible(_) => PeerIncompatibleError,
+        Error::PeerMisbehaved(_) => PeerMisbehavedError,
+        Error::UnsupportedNameType => UnsupportedNameType,
+        Error::EncryptError => EncryptError,
+
+        Error::InvalidMessage(e) => match e {
+            InvalidMessage::HandshakePayloadTooLarge => MessageHandshakePayloadTooLarge,
+            InvalidMessage::CertificatePayloadTooLarge => MessageCertificatePayloadTooLarge,
+            InvalidMessage::InvalidCcs => MessageInvalidCcs,
+            InvalidMessage::InvalidContentType => MessageInvalidContentType,
+            InvalidMessage::InvalidCertificateStatusType => MessageInvalidCertStatusType,
+            InvalidMessage::InvalidCertRequest => MessageInvalidCertRequest,
+            InvalidMessage::InvalidDhParams => MessageInvalidDhParams,
+            InvalidMessage::InvalidEmptyPayload => MessageInvalidEmptyPayload,
+            InvalidMessage::InvalidKeyUpdate => MessageInvalidKeyUpdate,
+            InvalidMessage::InvalidServerName => MessageInvalidServerName,
+            InvalidMessage::MessageTooLarge => MessageTooLarge,
+            InvalidMessage::MessageTooShort => MessageTooShort,
+            InvalidMessage::MissingData(_) => MessageMissingData,
+            InvalidMessage::MissingKeyExchange => MessageMissingKeyExchange,
+            InvalidMessage::NoSignatureSchemes => MessageNoSignatureSchemes,
+            InvalidMessage::TrailingData(_) => MessageTrailingData,
+            InvalidMessage::UnexpectedMessage(_) => MessageUnexpectedMessage,
+            InvalidMessage::UnknownProtocolVersion => MessageUnknownProtocolVersion,
+            InvalidMessage::UnsupportedCompression => MessageUnsupportedCompression,
+            InvalidMessage::UnsupportedCurveType => MessageUnsupportedCurveType,
+            InvalidMessage::UnsupportedKeyExchangeAlgorithm(_) => MessageUnsupportedCompression,
+            _ => MessageInvalidOther,
+        },
+
+        Error::FailedToGetCurrentTime => FailedToGetCurrentTime,
+        Error::FailedToGetRandomBytes => FailedToGetRandomBytes,
+        Error::HandshakeNotComplete => HandshakeNotComplete,
+        Error::PeerSentOversizedRecord => PeerSentOversizedRecord,
+        Error::NoApplicationProtocol => NoApplicationProtocol,
+        Error::BadMaxFragmentSize => BadMaxFragmentSize,
+
+        Error::InvalidCertificate(e) => match e {
+            CertificateError::BadEncoding => CertEncodingBad,
+            CertificateError::Expired => CertExpired,
+            CertificateError::NotValidYet => CertNotYetValid,
+            CertificateError::Revoked => CertRevoked,
+            CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
+            CertificateError::UnknownIssuer => CertUnknownIssuer,
+            CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
+            CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
+            CertificateError::BadSignature => CertBadSignature,
+            CertificateError::NotValidForName => CertNotValidForName,
+            CertificateError::InvalidPurpose => CertInvalidPurpose,
+            CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
+            _ => CertOtherError,
+        },
+
+        Error::General(_) => General,
+
+        Error::AlertReceived(e) => match e {
+            alert::CloseNotify => AlertCloseNotify,
+            alert::UnexpectedMessage => AlertUnexpectedMessage,
+            alert::BadRecordMac => AlertBadRecordMac,
+            alert::DecryptionFailed => AlertDecryptionFailed,
+            alert::RecordOverflow => AlertRecordOverflow,
+            alert::DecompressionFailure => AlertDecompressionFailure,
+            alert::HandshakeFailure => AlertHandshakeFailure,
+            alert::NoCertificate => AlertNoCertificate,
+            alert::BadCertificate => AlertBadCertificate,
+            alert::UnsupportedCertificate => AlertUnsupportedCertificate,
+            alert::CertificateRevoked => AlertCertificateRevoked,
+            alert::CertificateExpired => AlertCertificateExpired,
+            alert::CertificateUnknown => AlertCertificateUnknown,
+            alert::IllegalParameter => AlertIllegalParameter,
+            alert::UnknownCA => AlertUnknownCA,
+            alert::AccessDenied => AlertAccessDenied,
+            alert::DecodeError => AlertDecodeError,
+            alert::DecryptError => AlertDecryptError,
+            alert::ExportRestriction => AlertExportRestriction,
+            alert::ProtocolVersion => AlertProtocolVersion,
+            alert::InsufficientSecurity => AlertInsufficientSecurity,
+            alert::InternalError => AlertInternalError,
+            alert::InappropriateFallback => AlertInappropriateFallback,
+            alert::UserCanceled => AlertUserCanceled,
+            alert::NoRenegotiation => AlertNoRenegotiation,
+            alert::MissingExtension => AlertMissingExtension,
+            alert::UnsupportedExtension => AlertUnsupportedExtension,
+            alert::CertificateUnobtainable => AlertCertificateUnobtainable,
+            alert::UnrecognisedName => AlertUnrecognisedName,
+            alert::BadCertificateStatusResponse => AlertBadCertificateStatusResponse,
+            alert::BadCertificateHashValue => AlertBadCertificateHashValue,
+            alert::UnknownPSKIdentity => AlertUnknownPSKIdentity,
+            alert::CertificateRequired => AlertCertificateRequired,
+            alert::NoApplicationProtocol => AlertNoApplicationProtocol,
+            alert::Unknown(_) => AlertUnknown,
+            _ => AlertUnknown,
+        },
+
+        Error::InvalidCertRevocationList(e) => map_crl_error(e),
+
+        Error::InconsistentKeys(InconsistentKeys::KeyMismatch) => InconsistentKeysKeysMismatch,
+        Error::InconsistentKeys(InconsistentKeys::Unknown) => InconsistentKeysUnknown,
+
+        Error::InvalidEncryptedClientHello(err) => map_ech_error(err),
+
+        _ => General,
+    }
+}
+
+fn map_crl_error(err: CertRevocationListError) -> rustls_result {
+    use rustls_result::*;
+
+    match err {
+        CertRevocationListError::BadSignature => CertRevocationListBadSignature,
+        CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
+        CertRevocationListError::InvalidRevokedCertSerialNumber => {
+            CertRevocationListInvalidRevokedCertSerialNumber
+        }
+        CertRevocationListError::IssuerInvalidForCrl => CertRevocationListIssuerInvalidForCrl,
+        CertRevocationListError::Other(_) => CertRevocationListOtherError,
+        CertRevocationListError::ParseError => CertRevocationListParseError,
+        CertRevocationListError::UnsupportedCrlVersion => CertRevocationListUnsupportedCrlVersion,
+        CertRevocationListError::UnsupportedCriticalExtension => {
+            CertRevocationListUnsupportedCriticalExtension
+        }
+        CertRevocationListError::UnsupportedDeltaCrl => CertRevocationListUnsupportedDeltaCrl,
+        CertRevocationListError::UnsupportedIndirectCrl => CertRevocationListUnsupportedIndirectCrl,
+        CertRevocationListError::UnsupportedRevocationReason => {
+            CertRevocationListUnsupportedRevocationReason
+        }
+        _ => CertRevocationListOtherError,
+    }
+}
+
+fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
+    use rustls_result::*;
+
+    match err {
+        EncryptedClientHelloError::InvalidConfigList => {
+            InvalidEncryptedClientHelloInvalidConfigList
+        }
+        EncryptedClientHelloError::NoCompatibleConfig => {
+            InvalidEncryptedClientHelloNoCompatibleConfig
+        }
+        EncryptedClientHelloError::SniRequired => InvalidEncryptedClientHelloSniRequired,
+        _ => General,
+    }
+}
+
+pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_result {
+    match err {
+        VerifierBuilderError::NoRootAnchors => {
+            rustls_result::ClientCertVerifierBuilderNoRootAnchors
+        }
+        VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
+        _ => rustls_result::General,
     }
 }
 
