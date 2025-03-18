@@ -291,7 +291,7 @@ pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
         CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
             Box::from(""),
         )))),
-        _ => rustls::Error::General("".into()),
+        _ => Error::General("".into()),
     }
 }
 
@@ -467,7 +467,7 @@ impl Display for rustls_result {
 
         match self {
             // These variants are local to this glue layer.
-            rustls_result::Ok => write!(f, "OK"),
+            Ok => write!(f, "OK"),
             Io => write!(f, "I/O error"),
             NullParameter => write!(f, "a parameter was NULL"),
             InvalidDnsNameError => write!(
