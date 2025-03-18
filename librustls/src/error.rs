@@ -5,8 +5,8 @@ use std::sync::Arc;
 use libc::{c_char, c_uint, size_t};
 use rustls::server::VerifierBuilderError;
 use rustls::{
-    CertRevocationListError, CertificateError, EncryptedClientHelloError, Error, InconsistentKeys,
-    InvalidMessage,
+    AlertDescription, CertRevocationListError, CertificateError, EncryptedClientHelloError, Error,
+    InconsistentKeys, InvalidMessage,
 };
 
 use crate::panic::ffi_panic_boundary;
@@ -548,7 +548,6 @@ impl Display for rustls_result {
 }
 
 pub(crate) fn map_error(input: Error) -> rustls_result {
-    use rustls::AlertDescription as alert;
     use rustls_result::*;
 
     match input {
@@ -575,44 +574,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
 
         Error::General(_) => General,
 
-        Error::AlertReceived(e) => match e {
-            alert::CloseNotify => AlertCloseNotify,
-            alert::UnexpectedMessage => AlertUnexpectedMessage,
-            alert::BadRecordMac => AlertBadRecordMac,
-            alert::DecryptionFailed => AlertDecryptionFailed,
-            alert::RecordOverflow => AlertRecordOverflow,
-            alert::DecompressionFailure => AlertDecompressionFailure,
-            alert::HandshakeFailure => AlertHandshakeFailure,
-            alert::NoCertificate => AlertNoCertificate,
-            alert::BadCertificate => AlertBadCertificate,
-            alert::UnsupportedCertificate => AlertUnsupportedCertificate,
-            alert::CertificateRevoked => AlertCertificateRevoked,
-            alert::CertificateExpired => AlertCertificateExpired,
-            alert::CertificateUnknown => AlertCertificateUnknown,
-            alert::IllegalParameter => AlertIllegalParameter,
-            alert::UnknownCA => AlertUnknownCA,
-            alert::AccessDenied => AlertAccessDenied,
-            alert::DecodeError => AlertDecodeError,
-            alert::DecryptError => AlertDecryptError,
-            alert::ExportRestriction => AlertExportRestriction,
-            alert::ProtocolVersion => AlertProtocolVersion,
-            alert::InsufficientSecurity => AlertInsufficientSecurity,
-            alert::InternalError => AlertInternalError,
-            alert::InappropriateFallback => AlertInappropriateFallback,
-            alert::UserCanceled => AlertUserCanceled,
-            alert::NoRenegotiation => AlertNoRenegotiation,
-            alert::MissingExtension => AlertMissingExtension,
-            alert::UnsupportedExtension => AlertUnsupportedExtension,
-            alert::CertificateUnobtainable => AlertCertificateUnobtainable,
-            alert::UnrecognisedName => AlertUnrecognisedName,
-            alert::BadCertificateStatusResponse => AlertBadCertificateStatusResponse,
-            alert::BadCertificateHashValue => AlertBadCertificateHashValue,
-            alert::UnknownPSKIdentity => AlertUnknownPSKIdentity,
-            alert::CertificateRequired => AlertCertificateRequired,
-            alert::NoApplicationProtocol => AlertNoApplicationProtocol,
-            alert::Unknown(_) => AlertUnknown,
-            _ => AlertUnknown,
-        },
+        Error::AlertReceived(e) => map_alert_error(e),
 
         Error::InvalidCertRevocationList(e) => map_crl_error(e),
 
@@ -662,6 +624,49 @@ pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_re
         }
         VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
         _ => rustls_result::General,
+    }
+}
+
+fn map_alert_error(alert: AlertDescription) -> rustls_result {
+    use rustls_result::*;
+
+    match alert {
+        AlertDescription::CloseNotify => AlertCloseNotify,
+        AlertDescription::UnexpectedMessage => AlertUnexpectedMessage,
+        AlertDescription::BadRecordMac => AlertBadRecordMac,
+        AlertDescription::DecryptionFailed => AlertDecryptionFailed,
+        AlertDescription::RecordOverflow => AlertRecordOverflow,
+        AlertDescription::DecompressionFailure => AlertDecompressionFailure,
+        AlertDescription::HandshakeFailure => AlertHandshakeFailure,
+        AlertDescription::NoCertificate => AlertNoCertificate,
+        AlertDescription::BadCertificate => AlertBadCertificate,
+        AlertDescription::UnsupportedCertificate => AlertUnsupportedCertificate,
+        AlertDescription::CertificateRevoked => AlertCertificateRevoked,
+        AlertDescription::CertificateExpired => AlertCertificateExpired,
+        AlertDescription::CertificateUnknown => AlertCertificateUnknown,
+        AlertDescription::IllegalParameter => AlertIllegalParameter,
+        AlertDescription::UnknownCA => AlertUnknownCA,
+        AlertDescription::AccessDenied => AlertAccessDenied,
+        AlertDescription::DecodeError => AlertDecodeError,
+        AlertDescription::DecryptError => AlertDecryptError,
+        AlertDescription::ExportRestriction => AlertExportRestriction,
+        AlertDescription::ProtocolVersion => AlertProtocolVersion,
+        AlertDescription::InsufficientSecurity => AlertInsufficientSecurity,
+        AlertDescription::InternalError => AlertInternalError,
+        AlertDescription::InappropriateFallback => AlertInappropriateFallback,
+        AlertDescription::UserCanceled => AlertUserCanceled,
+        AlertDescription::NoRenegotiation => AlertNoRenegotiation,
+        AlertDescription::MissingExtension => AlertMissingExtension,
+        AlertDescription::UnsupportedExtension => AlertUnsupportedExtension,
+        AlertDescription::CertificateUnobtainable => AlertCertificateUnobtainable,
+        AlertDescription::UnrecognisedName => AlertUnrecognisedName,
+        AlertDescription::BadCertificateStatusResponse => AlertBadCertificateStatusResponse,
+        AlertDescription::BadCertificateHashValue => AlertBadCertificateHashValue,
+        AlertDescription::UnknownPSKIdentity => AlertUnknownPSKIdentity,
+        AlertDescription::CertificateRequired => AlertCertificateRequired,
+        AlertDescription::NoApplicationProtocol => AlertNoApplicationProtocol,
+        AlertDescription::Unknown(_) => AlertUnknown,
+        _ => AlertUnknown,
     }
 }
 
