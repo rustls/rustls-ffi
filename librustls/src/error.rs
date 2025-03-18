@@ -547,36 +547,6 @@ impl Display for rustls_result {
     }
 }
 
-/// For cert-related rustls_results, turn them into a rustls::Error.
-///
-/// For other inputs, including Ok, return rustls::Error::General.
-pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
-    use rustls::Error::*;
-    use rustls::OtherError;
-    use rustls_result::*;
-    match result {
-        CertEncodingBad => InvalidCertificate(CertificateError::BadEncoding),
-        CertExpired => InvalidCertificate(CertificateError::Expired),
-        CertNotYetValid => InvalidCertificate(CertificateError::NotValidYet),
-        CertRevoked => InvalidCertificate(CertificateError::Revoked),
-        CertUnhandledCriticalExtension => {
-            InvalidCertificate(CertificateError::UnhandledCriticalExtension)
-        }
-        CertUnknownIssuer => InvalidCertificate(CertificateError::UnknownIssuer),
-        CertBadSignature => InvalidCertificate(CertificateError::BadSignature),
-        CertNotValidForName => InvalidCertificate(CertificateError::NotValidForName),
-        CertInvalidPurpose => InvalidCertificate(CertificateError::InvalidPurpose),
-        CertApplicationVerificationFailure => {
-            InvalidCertificate(CertificateError::ApplicationVerificationFailure)
-        }
-        CertExpiredRevocationList => InvalidCertificate(CertificateError::ExpiredRevocationList),
-        CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
-            Box::from(""),
-        )))),
-        _ => Error::General("".into()),
-    }
-}
-
 pub(crate) fn map_error(input: Error) -> rustls_result {
     use rustls::AlertDescription as alert;
     use rustls_result::*;
@@ -692,6 +662,46 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
     }
 }
 
+/// For cert-related rustls_results, turn them into a rustls::Error.
+///
+/// For other inputs, including Ok, return rustls::Error::General.
+pub(crate) fn cert_result_to_error(result: rustls_result) -> Error {
+    use rustls::Error::*;
+    use rustls::OtherError;
+    use rustls_result::*;
+    match result {
+        CertEncodingBad => InvalidCertificate(CertificateError::BadEncoding),
+        CertExpired => InvalidCertificate(CertificateError::Expired),
+        CertNotYetValid => InvalidCertificate(CertificateError::NotValidYet),
+        CertRevoked => InvalidCertificate(CertificateError::Revoked),
+        CertUnhandledCriticalExtension => {
+            InvalidCertificate(CertificateError::UnhandledCriticalExtension)
+        }
+        CertUnknownIssuer => InvalidCertificate(CertificateError::UnknownIssuer),
+        CertBadSignature => InvalidCertificate(CertificateError::BadSignature),
+        CertNotValidForName => InvalidCertificate(CertificateError::NotValidForName),
+        CertInvalidPurpose => InvalidCertificate(CertificateError::InvalidPurpose),
+        CertApplicationVerificationFailure => {
+            InvalidCertificate(CertificateError::ApplicationVerificationFailure)
+        }
+        CertExpiredRevocationList => InvalidCertificate(CertificateError::ExpiredRevocationList),
+        CertOtherError => InvalidCertificate(CertificateError::Other(OtherError(Arc::from(
+            Box::from(""),
+        )))),
+        _ => Error::General("".into()),
+    }
+}
+
+pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_result {
+    match err {
+        VerifierBuilderError::NoRootAnchors => {
+            rustls_result::ClientCertVerifierBuilderNoRootAnchors
+        }
+        VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
+        _ => rustls_result::General,
+    }
+}
+
 fn map_crl_error(err: CertRevocationListError) -> rustls_result {
     use rustls_result::*;
 
@@ -729,16 +739,6 @@ fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
         }
         EncryptedClientHelloError::SniRequired => InvalidEncryptedClientHelloSniRequired,
         _ => General,
-    }
-}
-
-pub(crate) fn map_verifier_builder_error(err: VerifierBuilderError) -> rustls_result {
-    match err {
-        VerifierBuilderError::NoRootAnchors => {
-            rustls_result::ClientCertVerifierBuilderNoRootAnchors
-        }
-        VerifierBuilderError::InvalidCrl(crl_err) => map_crl_error(crl_err),
-        _ => rustls_result::General,
     }
 }
 
