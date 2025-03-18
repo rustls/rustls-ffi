@@ -438,7 +438,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
     }
 }
 
-pub(crate) fn map_crl_error(err: CertRevocationListError) -> rustls_result {
+fn map_crl_error(err: CertRevocationListError) -> rustls_result {
     use rustls_result::*;
 
     match err {
@@ -463,7 +463,7 @@ pub(crate) fn map_crl_error(err: CertRevocationListError) -> rustls_result {
     }
 }
 
-pub(crate) fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
+fn map_ech_error(err: EncryptedClientHelloError) -> rustls_result {
     use rustls_result::*;
 
     match err {
