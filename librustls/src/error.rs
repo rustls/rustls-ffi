@@ -729,15 +729,20 @@ fn map_invalid_certificate_error(err: CertificateError) -> rustls_result {
 
     match err {
         CertificateError::BadEncoding => CertEncodingBad,
-        CertificateError::Expired => CertExpired,
-        CertificateError::NotValidYet => CertNotYetValid,
+        CertificateError::Expired | CertificateError::ExpiredContext { .. } => CertExpired,
+        CertificateError::NotValidYet | CertificateError::NotValidYetContext { .. } => {
+            CertNotYetValid
+        }
         CertificateError::Revoked => CertRevoked,
         CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
         CertificateError::UnknownIssuer => CertUnknownIssuer,
         CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
-        CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
+        CertificateError::ExpiredRevocationList
+        | CertificateError::ExpiredRevocationListContext { .. } => CertExpiredRevocationList,
         CertificateError::BadSignature => CertBadSignature,
-        CertificateError::NotValidForName => CertNotValidForName,
+        CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => {
+            CertNotValidForName
+        }
         CertificateError::InvalidPurpose => CertInvalidPurpose,
         CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
         _ => CertOtherError,
