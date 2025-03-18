@@ -571,21 +571,7 @@ pub(crate) fn map_error(input: Error) -> rustls_result {
         Error::NoApplicationProtocol => NoApplicationProtocol,
         Error::BadMaxFragmentSize => BadMaxFragmentSize,
 
-        Error::InvalidCertificate(e) => match e {
-            CertificateError::BadEncoding => CertEncodingBad,
-            CertificateError::Expired => CertExpired,
-            CertificateError::NotValidYet => CertNotYetValid,
-            CertificateError::Revoked => CertRevoked,
-            CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
-            CertificateError::UnknownIssuer => CertUnknownIssuer,
-            CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
-            CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
-            CertificateError::BadSignature => CertBadSignature,
-            CertificateError::NotValidForName => CertNotValidForName,
-            CertificateError::InvalidPurpose => CertInvalidPurpose,
-            CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
-            _ => CertOtherError,
-        },
+        Error::InvalidCertificate(e) => map_invalid_certificate_error(e),
 
         Error::General(_) => General,
 
@@ -730,6 +716,26 @@ fn map_invalid_message_error(err: InvalidMessage) -> rustls_result {
         InvalidMessage::UnsupportedCurveType => MessageUnsupportedCurveType,
         InvalidMessage::UnsupportedKeyExchangeAlgorithm(_) => MessageUnsupportedCompression,
         _ => MessageInvalidOther,
+    }
+}
+
+fn map_invalid_certificate_error(err: CertificateError) -> rustls_result {
+    use rustls_result::*;
+
+    match err {
+        CertificateError::BadEncoding => CertEncodingBad,
+        CertificateError::Expired => CertExpired,
+        CertificateError::NotValidYet => CertNotYetValid,
+        CertificateError::Revoked => CertRevoked,
+        CertificateError::UnhandledCriticalExtension => CertUnhandledCriticalExtension,
+        CertificateError::UnknownIssuer => CertUnknownIssuer,
+        CertificateError::UnknownRevocationStatus => CertUnknownRevocationStatus,
+        CertificateError::ExpiredRevocationList => CertExpiredRevocationList,
+        CertificateError::BadSignature => CertBadSignature,
+        CertificateError::NotValidForName => CertNotValidForName,
+        CertificateError::InvalidPurpose => CertInvalidPurpose,
+        CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
+        _ => CertOtherError,
     }
 }
 
