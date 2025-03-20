@@ -13,7 +13,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 
-use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+use hickory_resolver::config::ResolverConfig;
+use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
 use hickory_resolver::proto::rr::{RData, RecordType};
 use hickory_resolver::{ResolveError, Resolver, TokioResolver};
@@ -26,7 +27,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let domain = args.next().unwrap_or("research.cloudflare.com".to_string());
     let output_path = args.next().unwrap_or(format!("{}.ech.configs.bin", domain));
 
-    let resolver = Resolver::tokio(ResolverConfig::google_https(), ResolverOpts::default());
+    let resolver = Resolver::builder_with_config(
+        ResolverConfig::google_https(),
+        TokioConnectionProvider::default(),
+    )
+    .build();
 
     let all_lists = lookup_ech_configs(&resolver, &domain).await?;
 
