@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::ffi::c_void;
+use std::ptr;
 
 use crate::log::rustls_log_callback;
 
@@ -75,7 +76,7 @@ impl UserdataGuard {
                     |mut v| {
                         let u = v.pop().ok_or(UserdataError::EmptyStack)?;
                         self.data = None;
-                        if u.userdata == expected_data {
+                        if ptr::eq(u.userdata, expected_data) {
                             Ok(())
                         } else {
                             Err(UserdataError::WrongData)
