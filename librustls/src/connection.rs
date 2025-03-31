@@ -653,7 +653,7 @@ impl rustls_connection {
                     conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::PlaintextEmpty;
                 }
-                Err(_) => {
+                Err(e) => {
                     conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::Io;
                 }
