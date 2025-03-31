@@ -1874,7 +1874,7 @@ bool rustls_connection_fips(const struct rustls_connection *conn);
  * returns `true`. If there is no last error message, stores 0 in *out_n
  * and returns `false`.
  */
-bool rustls_connection_last_error_msg(const struct rustls_connection *conn,
+bool rustls_connection_last_error_msg(struct rustls_connection *conn,
                                       uint8_t *buf,
                                       size_t count,
                                       size_t *out_n);

@@ -545,7 +545,7 @@ impl rustls_connection {
                 Ok(n) => n,
                 Err(e) => {
                     conn.last_error_msg = Some(format!("{}", e));
-                    return rustls_result::Io
+                    return rustls_result::Io;
                 }
             };
             unsafe {
