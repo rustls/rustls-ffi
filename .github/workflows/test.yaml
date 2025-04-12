@@ -280,7 +280,7 @@ jobs:
         # reliably matched to CI. There can be non-semantic differences in
         # output between point releases of cbindgen that will fail this check
         # otherwise.
-        run: cargo install cbindgen --force --version 0.27.0
+        run: cargo install cbindgen --force --version 0.28.0
 
       - run: touch src/lib.rs
 
