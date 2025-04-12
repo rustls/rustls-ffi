@@ -264,9 +264,6 @@ jobs:
 
   ensure-header-updated:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: librustls
     steps:
       - uses: actions/checkout@v4
         with:
@@ -282,11 +279,10 @@ jobs:
         # otherwise.
         run: cargo install cbindgen --force --version 0.28.0
 
-      - run: touch src/lib.rs
+      - name: Configure CMake
+        run: cmake -S librustls -B build
 
-      - run: cbindgen --version
-
-      - run: cbindgen > src/rustls.h
+      - run: cmake --build build --target cbindgen
 
       - run: git diff --exit-code
 
