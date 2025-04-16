@@ -46,7 +46,7 @@ jobs:
 
   linux-binaries:
     name: Linux (x86_64 GNU)
-    runs-on: ubuntu-20.04 # x86_64. Using older Ubuntu for greater GLIBC compat.
+    runs-on: ubuntu-22.04 # x86_64.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,11 +63,6 @@ jobs:
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
       - name: Build rustls-ffi
-        # The Ubuntu 20.04 GCC is too old to build aws-lc.
-        # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189.
-        env:
-          CC: clang
-          CXX: clang
         run: |
           cargo cinstall --locked --target x86_64-unknown-linux-gnu --features cert_compression --release --prefix dist
 
@@ -82,7 +77,7 @@ jobs:
 
   linux-deb:
     name: Linux (x86-64 GNU Deb)
-    runs-on: ubuntu-20.04 # x86_64. Using older Ubuntu for greater GLIBC compat.
+    runs-on: ubuntu-22.04 # x86_64.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -275,7 +270,7 @@ jobs:
     needs: [ linux-deb ]
     strategy:
       matrix:
-        os: [ ubuntu-latest, ubuntu-20.04 ]
+        os: [ ubuntu-latest, ubuntu-22.04 ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
