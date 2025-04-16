@@ -31,7 +31,7 @@ jobs:
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
           powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
 
-      - name: Build rusts-ffi
+      - name: Build rustls-ffi
         run: |
           cargo cinstall --locked --target x86_64-pc-windows-msvc --features cert_compression --release --prefix dist
 
@@ -62,7 +62,7 @@ jobs:
         run: |
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
-      - name: Build rusts-ffi
+      - name: Build rustls-ffi
         # The Ubuntu 20.04 GCC is too old to build aws-lc.
         # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189.
         env:
@@ -129,7 +129,7 @@ jobs:
           curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
           unzip cargo-c-macos.zip -d ~/.cargo/bin
 
-      - name: Build rusts-ffi (arm64)
+      - name: Build rustls-ffi (arm64)
         run: |
           cargo cinstall --target aarch64-apple-darwin --locked --features cert_compression --release --prefix arm64-dist
 
@@ -146,7 +146,7 @@ jobs:
           name: rustls-ffi-arm64-macos
           path: arm64-dist
 
-      - name: Build rusts-ffi (x86_64)
+      - name: Build rustls-ffi (x86_64)
         run: |
           cargo cinstall --target x86_64-apple-darwin --locked --features cert_compression --release --prefix x86-dist
 
