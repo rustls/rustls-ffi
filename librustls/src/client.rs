@@ -859,7 +859,7 @@ mod tests {
             &mut conn,
         );
         if !matches!(result, rustls_result::Ok) {
-            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+            panic!("expected RUSTLS_RESULT_OK, got {result:?}");
         }
         assert!(!rustls_connection::rustls_connection_wants_read(conn));
         assert!(rustls_connection::rustls_connection_wants_write(conn));
@@ -919,7 +919,7 @@ mod tests {
             &mut conn,
         );
         if !matches!(result, rustls_result::Ok) {
-            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+            panic!("expected RUSTLS_RESULT_OK, got {result:?}");
         }
         rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
     }

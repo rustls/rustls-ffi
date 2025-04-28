@@ -32,8 +32,7 @@ fn main() {
     let pkg_version = env!("CARGO_PKG_VERSION");
     writeln!(
         &mut f,
-        r#"const RUSTLS_FFI_VERSION: &str = "rustls-ffi/{}/rustls/{}/{}";"#,
-        pkg_version, RUSTLS_CRATE_VERSION, rustls_crypto_provider
+        r#"const RUSTLS_FFI_VERSION: &str = "rustls-ffi/{pkg_version}/rustls/{RUSTLS_CRATE_VERSION}/{rustls_crypto_provider}";"#,
     )
     .expect("Could not write file");
 
