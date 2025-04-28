@@ -777,10 +777,7 @@ mod tests {
             &mut certified_key,
         );
         if !matches!(result, rustls_result::Ok) {
-            panic!(
-                "expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {:?}",
-                result
-            );
+            panic!("expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {result:?}");
         }
         rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
             builder,
@@ -827,10 +824,7 @@ mod tests {
             &mut certified_key,
         );
         if !matches!(result, rustls_result::Ok) {
-            panic!(
-                "expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {:?}",
-                result
-            );
+            panic!("expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {result:?}");
         }
         rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
             builder,
@@ -847,7 +841,7 @@ mod tests {
         let mut conn = null_mut();
         let result = rustls_server_config::rustls_server_connection_new(config, &mut conn);
         if !matches!(result, rustls_result::Ok) {
-            panic!("expected RUSTLS_RESULT_OK, got {:?}", result);
+            panic!("expected RUSTLS_RESULT_OK, got {result:?}");
         }
         assert!(rustls_connection::rustls_connection_wants_read(conn));
         assert!(!rustls_connection::rustls_connection_wants_write(conn));

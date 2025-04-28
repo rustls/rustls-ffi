@@ -25,7 +25,7 @@ use rustls::pki_types::EchConfigListBytes;
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     let domain = args.next().unwrap_or("research.cloudflare.com".to_string());
-    let output_path = args.next().unwrap_or(format!("{}.ech.configs.bin", domain));
+    let output_path = args.next().unwrap_or(format!("{domain}.ech.configs.bin"));
 
     let resolver = Resolver::builder_with_config(
         ResolverConfig::google_https(),
@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         // And print a comma separated list of the file paths.
         let paths = (1..=all_lists.len())
-            .map(|i| format!("{}.{}", output_path, i))
+            .map(|i| format!("{output_path}.{i}"))
             .collect::<Vec<_>>()
             .join(",");
         println!("{paths}")

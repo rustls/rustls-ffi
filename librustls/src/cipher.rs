@@ -77,7 +77,7 @@ mod tests {
             let name = rustls_supported_ciphersuite_get_name(suite);
             let name = unsafe { name.to_str() };
             let proto = rustls_supported_ciphersuite_protocol_version(suite);
-            println!("{}: {} {:?}", i, name, proto);
+            println!("{i}: {name} {proto:?}");
         }
     }
 }

@@ -139,7 +139,7 @@ fn find_doc_items(root: Node, source_code: &[u8]) -> Result<ApiDocs, Box<dyn Err
         }
     }
     if errors > 0 {
-        return Err(format!("{} errors produced while documenting header file", errors).into());
+        return Err(format!("{errors} errors produced while documenting header file").into());
     }
 
     let mut api = ApiDocs::default();

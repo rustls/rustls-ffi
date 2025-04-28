@@ -8,7 +8,7 @@ const PORT: &str = "8443";
 #[test]
 #[ignore] // This test requires the client & server binaries be present.
 fn client_server_integration() {
-    let server_addr = format!("{}:{}", HOST, PORT);
+    let server_addr = format!("{HOST}:{PORT}");
     if TcpStream::connect(&server_addr).is_ok() {
         panic!("cannot run tests; something is already listening on {server_addr}");
     }
