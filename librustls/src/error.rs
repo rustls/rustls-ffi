@@ -743,7 +743,9 @@ fn map_invalid_certificate_error(err: CertificateError) -> rustls_result {
         CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => {
             CertNotValidForName
         }
-        CertificateError::InvalidPurpose => CertInvalidPurpose,
+        CertificateError::InvalidPurpose | CertificateError::InvalidPurposeContext { .. } => {
+            CertInvalidPurpose
+        }
         CertificateError::ApplicationVerificationFailure => CertApplicationVerificationFailure,
         _ => CertOtherError,
     }
