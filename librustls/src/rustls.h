@@ -1586,6 +1586,9 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
  * and must call `rustls_connection_free` when done with it.
  *
+ * Uses the `rustls_client_config` to determine ALPN protocol support. Prefer
+ * `rustls_client_connection_new_alpn` to customize this per-connection.
+ *
  * If this returns an error code, the memory pointed to by `conn_out` remains
  * unchanged.
  *
@@ -1596,6 +1599,39 @@ void rustls_client_config_free(const struct rustls_client_config *config);
 rustls_result rustls_client_connection_new(const struct rustls_client_config *config,
                                            const char *server_name,
                                            struct rustls_connection **conn_out);
+
+/**
+ * Create a new client `rustls_connection` with custom ALPN protocols.
+ *
+ * Operates the same as `rustls_client_connection_new`, but allows specifying
+ * custom per-connection ALPN protocols instead of inheriting ALPN protocols
+ * from the `rustls_clinet_config`.
+ *
+ * If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
+ * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
+ * and must call `rustls_connection_free` when done with it.
+ *
+ * If this returns an error code, the memory pointed to by `conn_out` remains
+ * unchanged.
+ *
+ * The `server_name` parameter can contain a hostname or an IP address in
+ * textual form (IPv4 or IPv6). This function will return an error if it
+ * cannot be parsed as one of those types.
+ *
+ * `alpn_protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
+ * with `alpn_protocols_len` elements. Each element of the buffer must be a `rustls_slice_bytes`
+ * whose data field points to a single ALPN protocol ID. This function makes a copy of the
+ * data in `alpn_protocols` and does not retain any pointers, so the caller can free the
+ * pointed-to memory after calling.
+ *
+ * Standard ALPN protocol IDs are defined at
+ * <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
+ */
+rustls_result rustls_client_connection_new_alpn(const struct rustls_client_config *config,
+                                                const char *server_name,
+                                                const struct rustls_slice_bytes *alpn_protocols,
+                                                size_t alpn_protocols_len,
+                                                struct rustls_connection **conn_out);
 
 /**
  * Set the userdata pointer associated with this connection. This will be passed
