@@ -101,11 +101,10 @@ platforms see the upstream documentation:
 #### Post-Quantum X25519MLKEM768 Key Exchange
 
 Post-quantum-secure key exchange using [X25519MLKEM768][] is supported when using the `aws-lc-rs` 
-cryptography provider. At this time default support places `X25519MLKEM768` at a lower negotiation priority. 
+cryptography provider and offered by default at the highest priority.
 
-By enabling the `prefer-post-quantum` feature flag the `X25519MLKEM768` key exchange will be used as the most
-preferred key exchange algorithm. We expect to add this feature to the crate's default features in a future
-release.
+By disabling the `prefer-post-quantum` feature flag the `X25519MLKEM768` key exchange will be
+offered at a lower negotiation priority.
 
 [X25519MLKEM768]: https://datatracker.ietf.org/doc/draft-kwiatkowski-tls-ecdhe-mlkem
 
