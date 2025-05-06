@@ -770,13 +770,12 @@ impl rustls_client_config {
             };
             let config = try_clone_arc!(config);
             let conn_out = try_mut_from_ptr_ptr!(conn_out);
-            let server_name = match server_name.to_str() {
-                Ok(s) => s,
-                Err(std::str::Utf8Error { .. }) => return rustls_result::InvalidDnsNameError,
+
+            let Ok(server_name) = server_name.to_str() else {
+                return rustls_result::InvalidDnsNameError;
             };
-            let server_name = match server_name.try_into() {
-                Ok(sn) => sn,
-                Err(_) => return rustls_result::InvalidDnsNameError,
+            let Ok(server_name) = server_name.try_into() else {
+                return rustls_result::InvalidDnsNameError;
             };
             let client = ClientConnection::new(config, server_name).unwrap();
 
