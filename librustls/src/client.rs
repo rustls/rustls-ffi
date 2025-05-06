@@ -768,22 +768,19 @@ impl rustls_client_config {
                 }
                 CStr::from_ptr(server_name)
             };
-            let config = try_clone_arc!(config);
-            let conn_out = try_mut_from_ptr_ptr!(conn_out);
-
             let Ok(server_name) = server_name.to_str() else {
                 return rustls_result::InvalidDnsNameError;
             };
             let Ok(server_name) = server_name.try_into() else {
                 return rustls_result::InvalidDnsNameError;
             };
-            let client = ClientConnection::new(config, server_name).unwrap();
 
-            // We've succeeded. Put the client on the heap, and transfer ownership
-            // to the caller. After this point, we must return rustls_result::Ok so the
-            // caller knows it is responsible for this memory.
-            let c = Connection::from_client(client);
-            set_boxed_mut_ptr(conn_out, c);
+            set_boxed_mut_ptr(
+                try_mut_from_ptr_ptr!(conn_out),
+                Connection::from_client(
+                    ClientConnection::new(try_clone_arc!(config), server_name).unwrap(),
+                ),
+            );
             rustls_result::Ok
         }
     }
