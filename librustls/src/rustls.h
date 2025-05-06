@@ -1580,17 +1580,16 @@ bool rustls_client_config_fips(const struct rustls_client_config *config);
 void rustls_client_config_free(const struct rustls_client_config *config);
 
 /**
- * Create a new rustls_connection containing a client connection and return
- * it in the output parameter `conn_out`.
+ * Create a new client `rustls_connection`.
+ *
+ * If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
+ * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
+ * and must call `rustls_connection_free` when done with it.
  *
  * If this returns an error code, the memory pointed to by `conn_out` remains
  * unchanged.
  *
- * If this returns a non-error, the memory pointed to by `conn_out`
- * is modified to point at a valid `rustls_connection`.  The caller now owns
- * the `rustls_connection` and must call `rustls_connection_free` when done with it.
- *
- * The server_name parameter can contain a hostname or an IP address in
+ * The `server_name` parameter can contain a hostname or an IP address in
  * textual form (IPv4 or IPv6). This function will return an error if it
  * cannot be parsed as one of those types.
  */
