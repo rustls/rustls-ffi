@@ -749,6 +749,9 @@ impl rustls_client_config {
     /// point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
     /// and must call `rustls_connection_free` when done with it.
     ///
+    /// Uses the `rustls_client_config` to determine ALPN protocol support. Prefer
+    /// `rustls_client_connection_new_alpn` to customize this per-connection.
+    ///
     /// If this returns an error code, the memory pointed to by `conn_out` remains
     /// unchanged.
     ///
@@ -762,27 +765,95 @@ impl rustls_client_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let server_name = unsafe {
-                if server_name.is_null() {
-                    return rustls_result::NullParameter;
-                }
-                CStr::from_ptr(server_name)
-            };
-            let Ok(server_name) = server_name.to_str() else {
-                return rustls_result::InvalidDnsNameError;
-            };
-            let Ok(server_name) = server_name.try_into() else {
-                return rustls_result::InvalidDnsNameError;
-            };
-
-            set_boxed_mut_ptr(
-                try_mut_from_ptr_ptr!(conn_out),
-                Connection::from_client(
-                    ClientConnection::new(try_clone_arc!(config), server_name).unwrap(),
-                ),
-            );
-            rustls_result::Ok
+            Self::rustls_client_connection_new_alpn_inner(
+                config,
+                server_name,
+                try_clone_arc!(config).alpn_protocols.clone(),
+                conn_out,
+            )
         }
+    }
+
+    /// Create a new client `rustls_connection` with custom ALPN protocols.
+    ///
+    /// Operates the same as `rustls_client_connection_new`, but allows specifying
+    /// custom per-connection ALPN protocols instead of inheriting ALPN protocols
+    /// from the `rustls_clinet_config`.
+    ///
+    /// If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
+    /// point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
+    /// and must call `rustls_connection_free` when done with it.
+    ///
+    /// If this returns an error code, the memory pointed to by `conn_out` remains
+    /// unchanged.
+    ///
+    /// The `server_name` parameter can contain a hostname or an IP address in
+    /// textual form (IPv4 or IPv6). This function will return an error if it
+    /// cannot be parsed as one of those types.
+    ///
+    /// `alpn_protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
+    /// with `alpn_protocols_len` elements. Each element of the buffer must be a `rustls_slice_bytes`
+    /// whose data field points to a single ALPN protocol ID. This function makes a copy of the
+    /// data in `alpn_protocols` and does not retain any pointers, so the caller can free the
+    /// pointed-to memory after calling.
+    ///
+    /// Standard ALPN protocol IDs are defined at
+    /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_connection_new_alpn(
+        config: *const rustls_client_config,
+        server_name: *const c_char,
+        alpn_protocols: *const rustls_slice_bytes,
+        alpn_protocols_len: size_t,
+        conn_out: *mut *mut rustls_connection,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let raw_protocols = try_slice!(alpn_protocols, alpn_protocols_len);
+            let mut alpn_protocols = Vec::with_capacity(raw_protocols.len());
+            for p in raw_protocols {
+                alpn_protocols.push(try_slice!(p.data, p.len).to_vec());
+            }
+
+            Self::rustls_client_connection_new_alpn_inner(
+                config,
+                server_name,
+                alpn_protocols,
+                conn_out,
+            )
+        }
+    }
+
+    fn rustls_client_connection_new_alpn_inner(
+        config: *const rustls_client_config,
+        server_name: *const c_char,
+        alpn_protocols: Vec<Vec<u8>>,
+        conn_out: *mut *mut rustls_connection,
+    ) -> rustls_result {
+        let server_name = unsafe {
+            if server_name.is_null() {
+                return rustls_result::NullParameter;
+            }
+            CStr::from_ptr(server_name)
+        };
+        let Ok(server_name) = server_name.to_str() else {
+            return rustls_result::InvalidDnsNameError;
+        };
+        let Ok(server_name) = server_name.try_into() else {
+            return rustls_result::InvalidDnsNameError;
+        };
+
+        set_boxed_mut_ptr(
+            try_mut_from_ptr_ptr!(conn_out),
+            Connection::from_client(
+                ClientConnection::new_with_alpn(
+                    try_clone_arc!(config),
+                    server_name,
+                    alpn_protocols,
+                )
+                .unwrap(),
+            ),
+        );
+        rustls_result::Ok
     }
 }
 
@@ -830,20 +901,8 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn test_client_connection_new() {
-        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
-        let mut verifier = null_mut();
-        let result =
-            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
-        assert_eq!(result, rustls_result::Ok);
-        assert!(!verifier.is_null());
-        rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
-            builder, verifier,
-        );
-        let mut config = null();
-        let result =
-            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
-        assert_eq!(result, rustls_result::Ok);
-        assert!(!config.is_null());
+        let (config, verifier) = test_config();
+
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
@@ -885,6 +944,53 @@ mod tests {
         );
         rustls_connection::rustls_connection_free(conn);
         rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
+    }
+
+    // Build a client connection w/ custom ALPN and ensure no error occurs.
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_client_connection_new_alpn() {
+        let (config, verifier) = test_config();
+        let alpn_protocols = [
+            rustls_slice_bytes::from(b"h2".as_ref()),
+            rustls_slice_bytes::from(b"http/1.1".as_ref()),
+        ];
+
+        let mut conn = null_mut();
+        let result = rustls_client_config::rustls_client_connection_new_alpn(
+            config,
+            "example.com\0".as_ptr() as *const c_char,
+            alpn_protocols.as_ptr(),
+            alpn_protocols.len() as size_t,
+            &mut conn,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK, got {result:?}");
+        }
+
+        rustls_connection::rustls_connection_free(conn);
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
+    }
+
+    fn test_config() -> (
+        *const rustls_client_config,
+        *mut rustls_server_cert_verifier,
+    ) {
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!verifier.is_null());
+        rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
+            builder, verifier,
+        );
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
+        (config, verifier)
     }
 
     #[test]
