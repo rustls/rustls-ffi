@@ -762,9 +762,6 @@ impl rustls_client_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            if conn_out.is_null() {
-                return rustls_result::NullParameter;
-            }
             let server_name = unsafe {
                 if server_name.is_null() {
                     return rustls_result::NullParameter;
