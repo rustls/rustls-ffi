@@ -16,7 +16,7 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 webpki = { package = "rustls-webpki", version = "0.103", default-features = false, features = ["std"] }
 libc = "0.2"
 log = "0.4.22"
-rustls-platform-verifier = "0.5.1"
+rustls-platform-verifier = "0.5.3"
 regex = "1.9.6"
 toml = { version = "0.6.0", default-features = false, features = ["parse"] }
 hickory-resolver = { version = "0.25", features = ["https-aws-lc-rs", "webpki-roots"] }
