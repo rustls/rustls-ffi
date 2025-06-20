@@ -106,7 +106,8 @@ u32_enum_builder! {
         CertApplicationVerificationFailure => 7130,
         CertOtherError => 7131,
         CertUnknownRevocationStatus => 7154,
-        CertExpiredRevocationList => 7156, // Last added.
+        CertExpiredRevocationList => 7156,
+        CertUnsupportedSignatureAlgorithm => 7157, // Last added.
 
         // From InvalidMessage, with fields that get flattened.
         // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
@@ -198,6 +199,7 @@ u32_enum_builder! {
         CertRevocationListUnsupportedDeltaCrl => 7408,
         CertRevocationListUnsupportedIndirectCrl => 7409,
         CertRevocationListUnsupportedRevocationReason => 7410,
+        CertRevocationListUnsupportedSignatureAlgorithm => 7411,
 
         // From ClientCertVerifierBuilderError, with fields that get flattened.
         ClientCertVerifierBuilderNoRootAnchors => 7500,
@@ -341,6 +343,9 @@ impl Display for rustls_result {
             }
             CertUnknownIssuer => Error::InvalidCertificate(CertificateError::UnknownIssuer).fmt(f),
             CertBadSignature => Error::InvalidCertificate(CertificateError::BadSignature).fmt(f),
+            CertUnsupportedSignatureAlgorithm => {
+                Error::InvalidCertificate(CertificateError::UnsupportedSignatureAlgorithm).fmt(f)
+            }
             CertNotValidForName => {
                 Error::InvalidCertificate(CertificateError::NotValidForName).fmt(f)
             }
@@ -487,6 +492,10 @@ impl Display for rustls_result {
             CertRevocationListBadSignature => {
                 Error::InvalidCertRevocationList(CertRevocationListError::BadSignature).fmt(f)
             }
+            CertRevocationListUnsupportedSignatureAlgorithm => Error::InvalidCertRevocationList(
+                CertRevocationListError::UnsupportedSignatureAlgorithm,
+            )
+            .fmt(f),
             CertRevocationListInvalidCrlNumber => {
                 Error::InvalidCertRevocationList(CertRevocationListError::InvalidCrlNumber).fmt(f)
             }
@@ -675,6 +684,9 @@ fn map_crl_error(err: CertRevocationListError) -> rustls_result {
 
     match err {
         CertRevocationListError::BadSignature => CertRevocationListBadSignature,
+        CertRevocationListError::UnsupportedSignatureAlgorithm => {
+            CertRevocationListUnsupportedSignatureAlgorithm
+        }
         CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
         CertRevocationListError::InvalidRevokedCertSerialNumber => {
             CertRevocationListInvalidRevokedCertSerialNumber
@@ -740,6 +752,7 @@ fn map_invalid_certificate_error(err: CertificateError) -> rustls_result {
         CertificateError::ExpiredRevocationList
         | CertificateError::ExpiredRevocationListContext { .. } => CertExpiredRevocationList,
         CertificateError::BadSignature => CertBadSignature,
+        CertificateError::UnsupportedSignatureAlgorithm => CertUnsupportedSignatureAlgorithm,
         CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => {
             CertNotValidForName
         }

@@ -90,6 +90,7 @@ enum rustls_result {
   RUSTLS_RESULT_CERT_OTHER_ERROR = 7131,
   RUSTLS_RESULT_CERT_UNKNOWN_REVOCATION_STATUS = 7154,
   RUSTLS_RESULT_CERT_EXPIRED_REVOCATION_LIST = 7156,
+  RUSTLS_RESULT_CERT_UNSUPPORTED_SIGNATURE_ALGORITHM = 7157,
   RUSTLS_RESULT_MESSAGE_HANDSHAKE_PAYLOAD_TOO_LARGE = 7133,
   RUSTLS_RESULT_MESSAGE_INVALID_CCS = 7134,
   RUSTLS_RESULT_MESSAGE_INVALID_CONTENT_TYPE = 7135,
@@ -163,6 +164,7 @@ enum rustls_result {
   RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_DELTA_CRL = 7408,
   RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_INDIRECT_CRL = 7409,
   RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_REVOCATION_REASON = 7410,
+  RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_SIGNATURE_ALGORITHM = 7411,
   RUSTLS_RESULT_CLIENT_CERT_VERIFIER_BUILDER_NO_ROOT_ANCHORS = 7500,
   RUSTLS_RESULT_INCONSISTENT_KEYS_KEYS_MISMATCH = 7600,
   RUSTLS_RESULT_INCONSISTENT_KEYS_UNKNOWN = 7601,
@@ -672,7 +674,13 @@ typedef struct rustls_slice_u16 {
  *
  * `signature_schemes` carries the values supplied by the client or, if the
  * client did not send this TLS extension, the default schemes in the rustls library. See:
- * <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+ * <https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html>.
+ *
+ * `named_groups` carries the values of the `named_groups` extension sent by the
+ * client. If the client did not send a `named_groups` extension, the length of
+ * this `rustls_slice_u16` will be 0. The meaning of this extension differ
+ * based on TLS version. See the Rustls documentation for more information:
+ * <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>
  *
  * `alpn` carries the list of ALPN protocol names that the client proposed to
  * the server. Again, the length of this list will be 0 if none were supplied.
@@ -687,6 +695,7 @@ typedef struct rustls_slice_u16 {
 typedef struct rustls_client_hello {
   struct rustls_str server_name;
   struct rustls_slice_u16 signature_schemes;
+  struct rustls_slice_u16 named_groups;
   const struct rustls_slice_slice_bytes *alpn;
 } rustls_client_hello;
 
@@ -1838,6 +1847,13 @@ uint16_t rustls_connection_get_negotiated_key_exchange_group(const struct rustls
  * need to be freed.
  */
 struct rustls_str rustls_connection_get_negotiated_key_exchange_group_name(const struct rustls_connection *conn);
+
+/**
+ * Retrieves the number of TLS 1.3 tickets that have been received by a client connection.
+ *
+ * This returns 0 if the `conn` is `NULL`, or a server connection.
+ */
+uint32_t rustls_connection_get_tls13_tickets_received(const struct rustls_connection *conn);
 
 /**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.

@@ -512,7 +512,13 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// `signature_schemes` carries the values supplied by the client or, if the
 /// client did not send this TLS extension, the default schemes in the rustls library. See:
-/// <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+/// <https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html>.
+///
+/// `named_groups` carries the values of the `named_groups` extension sent by the
+/// client. If the client did not send a `named_groups` extension, the length of
+/// this `rustls_slice_u16` will be 0. The meaning of this extension differ
+/// based on TLS version. See the Rustls documentation for more information:
+/// <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>
 ///
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
 /// the server. Again, the length of this list will be 0 if none were supplied.
@@ -527,6 +533,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 pub struct rustls_client_hello<'a> {
     server_name: rustls_str<'a>,
     signature_schemes: rustls_slice_u16<'a>,
+    named_groups: rustls_slice_u16<'a>,
     alpn: *const rustls_slice_slice_bytes<'a>,
 }
 
@@ -596,6 +603,10 @@ impl ResolvesServerCert for ClientHelloResolver {
             .iter()
             .map(|s| u16::from(*s))
             .collect();
+        let mapped_groups = match client_hello.named_groups() {
+            Some(groups) => groups.iter().map(|g| u16::from(*g)).collect(),
+            None => Vec::new(),
+        };
         // Unwrap the Option. None becomes an empty slice.
         let alpn = match client_hello.alpn() {
             Some(iter) => iter.collect(),
@@ -604,9 +615,11 @@ impl ResolvesServerCert for ClientHelloResolver {
 
         let alpn = rustls_slice_slice_bytes { inner: &alpn };
         let signature_schemes = (&*mapped_sigs).into();
+        let named_groups = (&*mapped_groups).into();
         let hello = rustls_client_hello {
             server_name,
             signature_schemes,
+            named_groups,
             alpn: &alpn,
         };
 
