@@ -491,6 +491,21 @@ impl rustls_connection {
         }
     }
 
+    /// Retrieves the number of TLS 1.3 tickets that have been received by a client connection.
+    ///
+    /// This returns 0 if the `conn` is `NULL`, or a server connection.
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_get_tls13_tickets_received(
+        conn: *const rustls_connection,
+    ) -> u32 {
+        ffi_panic_boundary! {
+            try_ref_from_ptr!(conn)
+                .as_client()
+                .map(|cc| cc.tls13_tickets_received())
+                .unwrap_or_default()
+        }
+    }
+
     /// Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
     /// This will increase the number of output bytes available to
     /// `rustls_connection_write_tls`.

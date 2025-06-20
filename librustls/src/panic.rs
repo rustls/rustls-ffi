@@ -30,6 +30,8 @@ pub(crate) trait Defaultable: Default {}
 
 impl Defaultable for u16 {}
 
+impl Defaultable for u32 {}
+
 impl Defaultable for usize {}
 
 impl Defaultable for bool {}
