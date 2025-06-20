@@ -1847,6 +1847,13 @@ uint16_t rustls_connection_get_negotiated_key_exchange_group(const struct rustls
 struct rustls_str rustls_connection_get_negotiated_key_exchange_group_name(const struct rustls_connection *conn);
 
 /**
+ * Retrieves the number of TLS 1.3 tickets that have been received by a client connection.
+ *
+ * This returns 0 if the `conn` is `NULL`, or a server connection.
+ */
+uint32_t rustls_connection_get_tls13_tickets_received(const struct rustls_connection *conn);
+
+/**
  * Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
  * This will increase the number of output bytes available to
  * `rustls_connection_write_tls`.
