@@ -672,7 +672,13 @@ typedef struct rustls_slice_u16 {
  *
  * `signature_schemes` carries the values supplied by the client or, if the
  * client did not send this TLS extension, the default schemes in the rustls library. See:
- * <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.SignatureScheme.html>.
+ * <https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html>.
+ *
+ * `named_groups` carries the values of the `named_groups` extension sent by the
+ * client. If the client did not send a `named_groups` extension, the length of
+ * this `rustls_slice_u16` will be 0. The meaning of this extension differ
+ * based on TLS version. See the Rustls documentation for more information:
+ * <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>
  *
  * `alpn` carries the list of ALPN protocol names that the client proposed to
  * the server. Again, the length of this list will be 0 if none were supplied.
@@ -687,6 +693,7 @@ typedef struct rustls_slice_u16 {
 typedef struct rustls_client_hello {
   struct rustls_str server_name;
   struct rustls_slice_u16 signature_schemes;
+  struct rustls_slice_u16 named_groups;
   const struct rustls_slice_slice_bytes *alpn;
 } rustls_client_hello;
 
