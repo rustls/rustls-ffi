@@ -199,6 +199,7 @@ u32_enum_builder! {
         CertRevocationListUnsupportedDeltaCrl => 7408,
         CertRevocationListUnsupportedIndirectCrl => 7409,
         CertRevocationListUnsupportedRevocationReason => 7410,
+        CertRevocationListUnsupportedSignatureAlgorithm => 7411,
 
         // From ClientCertVerifierBuilderError, with fields that get flattened.
         ClientCertVerifierBuilderNoRootAnchors => 7500,
@@ -491,6 +492,10 @@ impl Display for rustls_result {
             CertRevocationListBadSignature => {
                 Error::InvalidCertRevocationList(CertRevocationListError::BadSignature).fmt(f)
             }
+            CertRevocationListUnsupportedSignatureAlgorithm => Error::InvalidCertRevocationList(
+                CertRevocationListError::UnsupportedSignatureAlgorithm,
+            )
+            .fmt(f),
             CertRevocationListInvalidCrlNumber => {
                 Error::InvalidCertRevocationList(CertRevocationListError::InvalidCrlNumber).fmt(f)
             }
@@ -679,6 +684,9 @@ fn map_crl_error(err: CertRevocationListError) -> rustls_result {
 
     match err {
         CertRevocationListError::BadSignature => CertRevocationListBadSignature,
+        CertRevocationListError::UnsupportedSignatureAlgorithm => {
+            CertRevocationListUnsupportedSignatureAlgorithm
+        }
         CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
         CertRevocationListError::InvalidRevokedCertSerialNumber => {
             CertRevocationListInvalidRevokedCertSerialNumber
