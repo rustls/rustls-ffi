@@ -15,9 +15,9 @@ fully reviewed PR that passed tests.
 In README.md, under the "Conventions" section, are described the the API
 conventions we follow.
 
-All code must be rustfmt'ed, which we enforce in CI. Check
-.github/workflows/test.yml for the current Rust version against which we enforce
-rustfmt, since rustfmt's output sometimes changes between Rust versions.
+All code must be rustfmt'ed, which we enforce in CI. Note rustfmt's output
+sometimes changes between Rust versions, it's run in CI with the latest stable
+rust version.
 
 ## Dev dependencies
 
