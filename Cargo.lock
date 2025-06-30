@@ -1262,6 +1262,8 @@ dependencies = [
  "rustls-platform-verifier",
  "rustls-webpki",
  "toml",
+ "tree-sitter",
+ "tree-sitter-c",
 ]
 
 [[package]]

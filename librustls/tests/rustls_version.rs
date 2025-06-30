@@ -1,9 +1,11 @@
 #![cfg(not(feature = "capi"))]
 use std::fs::File;
+use std::fs::read_to_string;
 use std::io::Read;
 use std::path::PathBuf;
 
 use toml::Table;
+use tree_sitter::{Parser, Query, QueryCursor};
 
 use rustls_ffi::rustls_version;
 
@@ -12,8 +14,10 @@ use rustls_ffi::rustls_version;
 /// In particular this ensures that the Rustls version reported in the rustls-ffi version string
 /// matches the version of the Rustls dependency that rustls-ffi was built with.
 ///
+/// It also ensures that the correct version parts defines are in src/rustls.h
+///
 /// If this test starts to fail, you probably forgot to update `RUSTLS_CRATE_VERSION` in
-/// `build.rs`.
+/// `build.rs`, or forgot to update cbindgen.toml with new version parts (or run cbindgen again).
 #[cfg_attr(miri, ignore)] // Requires file I/O
 #[test]
 fn rustls_version_match() {
@@ -71,4 +75,45 @@ fn rustls_version_match() {
             rustls_crypto_provider,
         ]
     );
+    let version_in_header = version_in_header();
+    assert_eq!(crate_version, version_in_header, "Version in header (.h file) doesn't match version Cargo.toml");
+}
+
+#[cfg_attr(miri, ignore)] // Requires file I/O
+fn version_in_header() -> String {
+    // Create a C parser.
+    let mut parser = Parser::new();
+    let language = tree_sitter_c::LANGUAGE;
+    parser.set_language(&language.into()).unwrap();
+
+    // Parse the .h into an AST.
+    let header_file = read_to_string("src/rustls.h").expect("Couldn't read header file");
+
+    let header_file_bytes = header_file.as_bytes();
+    let tree = parser
+        .parse(&header_file, None)
+        .ok_or("no tree parsed from input")
+        .unwrap();
+    let root_node = tree.root_node();
+    let query = r#"( preproc_def name: (identifier) @define.name )"#;
+    let query = Query::new(&language.into(), query).unwrap();
+    let mut cursor = QueryCursor::new();
+    let matches = cursor.matches(&query, root_node, header_file_bytes);
+    let mut version_parts: [&str; 3] = Default::default();
+    for query_match in matches {
+        for preproc in query_match.nodes_for_capture_index(0) {
+            let parent = preproc.parent().unwrap();
+            if let Some(value_node) = parent.child_by_field_name("value") {
+                let key = preproc.utf8_text(header_file_bytes).unwrap();
+                let value = value_node.utf8_text(header_file_bytes).unwrap();
+                match key {
+                    "RUSTLS_VERSION_MAJOR" => { version_parts[0] = value; }
+                    "RUSTLS_VERSION_MINOR" => { version_parts[1] = value; }
+                    "RUSTLS_VERSION_PATCH" => { version_parts[2] = value; }
+                    _ => (),
+                }
+            }
+        }
+    }
+    return format!("{0}.{1}.{2}", version_parts[0], version_parts[1], version_parts[2]);
 }
