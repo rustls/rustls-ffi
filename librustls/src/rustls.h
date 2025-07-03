@@ -2795,6 +2795,9 @@ rustls_result rustls_platform_server_cert_verifier(struct rustls_server_cert_ver
  * The verifier can be used in several `rustls_client_config` instances and must be freed by
  * the application using `rustls_server_cert_verifier_free` when no longer needed.
  *
+ * If the initialization of `rustls-platform-verifier` fails, this function returns
+ * `NULL`.
+ *
  * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
  */
 struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_provider(const struct rustls_crypto_provider *provider);

@@ -414,6 +414,9 @@ jobs:
   miri:
     name: Miri
     runs-on: ubuntu-latest
+    env:
+      # allows platform-verifier initialisation to inspect filesystem
+      MIRIFLAGS: -Zmiri-disable-isolation
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
