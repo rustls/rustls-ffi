@@ -666,9 +666,11 @@ impl rustls_server_cert_verifier {
                 Some(provider) => provider,
                 None => return rustls_result::NoDefaultCryptoProvider,
             };
-            let verifier: Arc<dyn ServerCertVerifier> =
-                Arc::new(rustls_platform_verifier::Verifier::new().with_provider(provider));
-            set_boxed_mut_ptr(verifier_out, verifier);
+            let verifier = match rustls_platform_verifier::Verifier::new(provider) {
+                Ok(v) => v,
+                Err(e) => return error::map_error(e),
+            };
+            set_boxed_mut_ptr(verifier_out, Arc::new(verifier));
             rustls_result::Ok
         }
     }
@@ -680,6 +682,9 @@ impl rustls_server_cert_verifier {
     /// The verifier can be used in several `rustls_client_config` instances and must be freed by
     /// the application using `rustls_server_cert_verifier_free` when no longer needed.
     ///
+    /// If the initialization of `rustls-platform-verifier` fails, this function returns
+    /// `NULL`.
+    ///
     /// [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
     #[no_mangle]
     pub extern "C" fn rustls_platform_server_cert_verifier_with_provider(
@@ -688,7 +693,10 @@ impl rustls_server_cert_verifier {
         ffi_panic_boundary! {
             let provider = try_clone_arc!(provider);
             let verifier: Arc<dyn ServerCertVerifier> =
-                Arc::new(rustls_platform_verifier::Verifier::new().with_provider(provider));
+                match rustls_platform_verifier::Verifier::new(provider) {
+                    Ok(v) => Arc::new(v),
+                    Err(_) => return core::ptr::null_mut(),
+                };
             to_boxed_mut_ptr(verifier)
         }
     }
