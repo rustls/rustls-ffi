@@ -1,7 +1,19 @@
 include_guard = "RUSTLS_H"
 language = "C"
+after_includes = """
+#if defined(__clang__) || defined(__GNUC__)
+# define DEPRECATED_FUNC(why) __attribute__((deprecated(why)))
+#elif defined(_MSC_VER)
+# define DEPRECATED_FUNC(why) __declspec(deprecated(why))
+#else
+# define DEPRECATED_FUNC(why)
+#endif
+"""
 
 usize_is_size_t = true
+
+[fn]
+deprecated_with_note = "DEPRECATED_FUNC({})"
 
 [enum]
 prefix_with_name = true
