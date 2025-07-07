@@ -6,6 +6,14 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#if defined(__clang__) || defined(__GNUC__)
+# define DEPRECATED_FUNC(why) __attribute__((deprecated(why)))
+#elif defined(_MSC_VER)
+# define DEPRECATED_FUNC(why) __declspec(deprecated(why))
+#else
+# define DEPRECATED_FUNC(why)
+#endif
+
 
 /**
  * Describes which sort of handshake happened.
