@@ -2808,7 +2808,25 @@ rustls_result rustls_platform_server_cert_verifier(struct rustls_server_cert_ver
  *
  * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
  */
+DEPRECATED_FUNC("prefer to use rustls_platform_server_cert_verifier_try_with_provider")
 struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_provider(const struct rustls_crypto_provider *provider);
+
+/**
+ * Create a verifier that uses the default behavior for the current platform.
+ *
+ * This uses [`rustls-platform-verifier`][] and the specified crypto provider.
+ *
+ * If the initialization of `rustls-platform-verifier` fails, this function returns
+ * an error and `NULL` is written to `verifier_out`.  Otherwise it fills in `verifier_out`
+ * (whose ownership is transferred to the caller) and returns `RUSTLS_SUCCESS`.
+ *
+ * The verifier can be used in several `rustls_client_config` instances and must be freed by
+ * the application using `rustls_server_cert_verifier_free` when no longer needed.
+ *
+ * [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+ */
+rustls_result rustls_platform_server_cert_verifier_try_with_provider(const struct rustls_crypto_provider *provider,
+                                                                     struct rustls_server_cert_verifier **verifier_out);
 
 /**
  * Free a `rustls_server_cert_verifier` previously returned from

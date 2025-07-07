@@ -686,18 +686,47 @@ impl rustls_server_cert_verifier {
     /// `NULL`.
     ///
     /// [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+    // TODO: remove this function in the next breaking release
+    #[deprecated(note = "prefer to use rustls_platform_server_cert_verifier_try_with_provider")]
     #[no_mangle]
     pub extern "C" fn rustls_platform_server_cert_verifier_with_provider(
         provider: *const rustls_crypto_provider,
     ) -> *mut rustls_server_cert_verifier {
         ffi_panic_boundary! {
+            let mut out = core::ptr::null_mut();
+            Self::rustls_platform_server_cert_verifier_try_with_provider(provider, &mut out);
+            out
+        }
+    }
+
+    /// Create a verifier that uses the default behavior for the current platform.
+    ///
+    /// This uses [`rustls-platform-verifier`][] and the specified crypto provider.
+    ///
+    /// If the initialization of `rustls-platform-verifier` fails, this function returns
+    /// an error and `NULL` is written to `verifier_out`.  Otherwise it fills in `verifier_out`
+    /// (whose ownership is transferred to the caller) and returns `RUSTLS_SUCCESS`.
+    ///
+    /// The verifier can be used in several `rustls_client_config` instances and must be freed by
+    /// the application using `rustls_server_cert_verifier_free` when no longer needed.
+    ///
+    /// [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
+    #[no_mangle]
+    pub extern "C" fn rustls_platform_server_cert_verifier_try_with_provider(
+        provider: *const rustls_crypto_provider,
+        verifier_out: *mut *mut rustls_server_cert_verifier,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let verifier_out = try_mut_from_ptr_ptr!(verifier_out);
+            *verifier_out = core::ptr::null_mut();
             let provider = try_clone_arc!(provider);
             let verifier: Arc<dyn ServerCertVerifier> =
                 match rustls_platform_verifier::Verifier::new(provider) {
                     Ok(v) => Arc::new(v),
-                    Err(_) => return core::ptr::null_mut(),
+                    Err(e) => return error::map_error(e),
                 };
-            to_boxed_mut_ptr(verifier)
+            *verifier_out = to_boxed_mut_ptr(verifier);
+            rustls_result::Ok
         }
     }
 
