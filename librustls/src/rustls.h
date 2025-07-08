@@ -6,6 +6,19 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+#define RUSTLS_VERSION_MAJOR 0
+#define RUSTLS_VERSION_MINOR 15
+#define RUSTLS_VERSION_PATCH 0
+
+/**
+ * This gives each version part 8 bits, and leaves the 8 least significant bits
+ * empty for future additions, for example pre-release versions.
+ */
+#define RUSTLS_VERSION_NUMBER ((RUSTLS_VERSION_MAJOR << 24)   \
+                               |(RUSTLS_VERSION_MINOR << 16)  \
+                               |(RUSTLS_VERSION_MINOR << 8))
+
 #if defined(__clang__) || defined(__GNUC__)
 # define DEPRECATED_FUNC(why) __attribute__((deprecated(why)))
 #elif defined(_MSC_VER)
