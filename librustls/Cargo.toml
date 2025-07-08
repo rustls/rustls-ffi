@@ -1,5 +1,6 @@
 [package]
 name = "rustls-ffi"
+# Keep in sync with defines in cbindgen.toml
 version = "0.15.0"
 license = "Apache-2.0 OR ISC OR MIT"
 readme = "../README-crates.io.md"

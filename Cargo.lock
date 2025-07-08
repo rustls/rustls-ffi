@@ -1223,9 +1223,11 @@ version = "0.1.0"
 dependencies = [
  "hickory-resolver",
  "rustls",
+ "rustls-ffi",
  "serde",
  "serde_json",
  "tokio",
+ "toml",
  "tree-sitter",
  "tree-sitter-c",
  "tree-sitter-md",

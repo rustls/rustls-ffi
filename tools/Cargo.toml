@@ -6,8 +6,10 @@ publish = false
 
 [dependencies]
 rustls = { workspace = true }
+rustls-ffi = { path = "../librustls" }
 hickory-resolver = { workspace = true }
 tokio = { workspace = true }
+toml = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tree-sitter = { workspace = true }
