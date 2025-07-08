@@ -187,7 +187,16 @@ fn comment_and_requirement(
     node: Node,
     src: &[u8],
 ) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
-    let maybe_comment = Comment::new(node, src).ok();
+    let mut maybe_comment = Comment::new(node, src).ok();
+
+    // If node wasn't a comment, see if it was an expression_statement
+    // that itself was preceded by a comment.  This skips over
+    // expression-like preprocessor attributes on function decls.
+    if let (None, "expression_statement", Some(prev)) =
+        (&maybe_comment, node.kind(), node.prev_sibling())
+    {
+        maybe_comment = Comment::new(prev, src).ok();
+    }
 
     // If prev wasn't a comment, see if it was a feature requirement.
     if maybe_comment.is_none() {
