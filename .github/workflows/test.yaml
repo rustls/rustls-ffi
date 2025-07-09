@@ -327,6 +327,21 @@ jobs:
       - name: cargo test (debug; ring; -Z minimal-versions)
         run: cargo -Z minimal-versions test --no-default-features --features=ring --locked
 
+  tools:
+    name: Test rustls-ffi-tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Run tools unit tests
+        run: cargo test -p rustls-ffi-tools
+
   format:
     name: Format
     runs-on: ubuntu-latest
