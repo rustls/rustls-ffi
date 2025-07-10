@@ -179,7 +179,7 @@ fn process_doc_item(item: Node, src: &[u8]) -> Result<Option<Item>, Box<dyn Erro
         "type_definition" => process_typedef_item(comment, feat_requirement, item, src)?,
         "enum_specifier" => Item::from(EnumItem::new(comment, feat_requirement, item, src)?),
         "declaration" => process_declaration_item(comment, feat_requirement, item, src)?,
-        _ => return Err(format!("unexpected item kind: {}", item.kind()).into()),
+        _ => return Err(format!("unexpected item kind: {kind}").into()),
     }))
 }
 
