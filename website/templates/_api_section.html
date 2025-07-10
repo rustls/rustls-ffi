@@ -18,6 +18,12 @@
         </div>
         {% endif %}
 
+        {% if item.deprecation %}
+        <div class="deprecation-box">
+            <span><strong>⚠️ Deprecated:</strong> {{ item.deprecation }}</span>
+        </div>
+        {% endif %}
+
         {{ item.comment | markdown | safe }}
 
         {% if section_id == "enums" %}
