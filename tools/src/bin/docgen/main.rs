@@ -171,14 +171,16 @@ fn process_doc_item(item: Node, src: &[u8]) -> Result<Option<Item>, Box<dyn Erro
 
     // Try to turn the previous sibling into a comment node. Some items may
     // require this to be Some(_) while others may allow None.
-    let (comment, feat_requirement) = comment_and_requirement(prev, src)?;
+    let (comment, feat_requirement, deprecation) = comment_and_requirement(prev, src)?;
 
     let kind = item.kind();
     // Based on the node kind, convert it to an appropriate Item.
     Ok(Some(match kind {
         "type_definition" => process_typedef_item(comment, feat_requirement, item, src)?,
         "enum_specifier" => Item::from(EnumItem::new(comment, feat_requirement, item, src)?),
-        "declaration" => process_declaration_item(comment, feat_requirement, item, src)?,
+        "declaration" => {
+            process_declaration_item(comment, feat_requirement, deprecation, item, src)?
+        }
         _ => return Err(format!("unexpected item kind: {kind}").into()),
     }))
 }
@@ -186,30 +188,39 @@ fn process_doc_item(item: Node, src: &[u8]) -> Result<Option<Item>, Box<dyn Erro
 fn comment_and_requirement(
     node: Node,
     src: &[u8],
-) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
+) -> Result<(Option<Comment>, Option<Feature>, Option<Deprecation>), Box<dyn Error>> {
     // Node is a comment, potentially with a feature requirement ahead of it.
     if let Ok(comment) = Comment::new(node, src) {
         return Ok(match node.prev_named_sibling() {
-            Some(prev) => (Some(comment), Feature::new(prev, src).ok()),
-            None => (Some(comment), None)
+            Some(prev) => (Some(comment), Feature::new(prev, src).ok(), None),
+            None => (Some(comment), None, None),
         });
     }
 
-    // If node wasn't a comment, see if it was an expression_statement
-    // that itself was preceded by a comment.  This skips over
-    // expression-like preprocessor attributes on function decls.
-    if let ("expression_statement", Some(prev)) =
-        (node.kind(), node.prev_sibling()) {
-        return Ok(match prev.prev_named_sibling() {
-            // The comment may also be preceded by a feature requirement
-            Some(prev_prev) => (Comment::new(prev, src).ok(), Feature::new(prev_prev, src).ok()),
-            None => (Comment::new(prev, src).ok(), None),
+    // Node is a deprecation, optionally with a comment. If there was a comment, it
+    // may itself have a feature requirement ahead of it.
+    if let Ok(deprecation) = Deprecation::new(node, src) {
+        let Some(comment) = node
+            .prev_sibling()
+            .and_then(|prev| Comment::new(prev, src).ok())
+        else {
+            // Undocumented deprecation. Produce an error.
+            return Err(node_error("undocumented deprecated item", node, src).into());
+        };
+
+        return Ok(match node.prev_named_sibling() {
+            Some(prev) => (
+                Some(comment),
+                Feature::new(prev, src).ok(),
+                Some(deprecation),
+            ),
+            None => (Some(comment), None, Some(deprecation)),
         });
     }
 
     // Node wasn't a comment or preprocessor attribute, might be a
     // bare feature requirement.
-    Ok((None, Feature::new(node, src).ok()))
+    Ok((None, Feature::new(node, src).ok(), None))
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -329,6 +340,38 @@ impl Display for Comment {
     }
 }
 
+#[derive(Debug, Default, Serialize)]
+struct Deprecation(String);
+
+impl Deprecation {
+    fn new(node: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+        require_kind("expression_statement", node, src)?;
+
+        let query_str = r#"
+            (call_expression
+              function: (identifier) @func (#eq? @func "DEPRECATED_FUNC")
+              arguments: (argument_list
+                (string_literal (string_content) @content)
+              )
+            )
+        "#;
+
+        let mut query_cursor = QueryCursor::new();
+        let language = tree_sitter_c::LANGUAGE;
+        let query = Query::new(&language.into(), query_str)?;
+
+        let captures = query_cursor.captures(&query, node, src);
+        for (mat, _) in captures {
+            for capture in mat.captures {
+                if query.capture_names()[capture.index as usize] == "content" {
+                    return Ok(Self(node_text(capture.node, src)));
+                }
+            }
+        }
+
+        Err(node_error("DEPRECATED_FUNC call not found or malformed", node, src).into())
+    }
+}
 fn process_typedef_item(
     maybe_comment: Option<Comment>,
     maybe_feature: Option<Feature>,
@@ -410,6 +453,7 @@ fn process_typedef_item(
 fn process_declaration_item(
     comment: Option<Comment>,
     maybe_feature: Option<Feature>,
+    maybe_deprecation: Option<Deprecation>,
     item: Node,
     src: &[u8],
 ) -> Result<Item, Box<dyn Error>> {
@@ -429,6 +473,7 @@ fn process_declaration_item(
         Ok(Item::from(FunctionItem::new(
             comment,
             maybe_feature,
+            maybe_deprecation,
             item,
             src,
         )?))
@@ -664,6 +709,7 @@ struct FunctionItem {
     anchor: String,
     comment: Comment,
     feature: Option<Feature>,
+    deprecation: Option<Deprecation>,
     name: String,
     text: String,
 }
@@ -672,6 +718,7 @@ impl FunctionItem {
     fn new(
         comment: Comment,
         feature: Option<Feature>,
+        deprecation: Option<Deprecation>,
         decl_node: Node,
         src: &[u8],
     ) -> Result<Self, Box<dyn Error>> {
@@ -682,6 +729,7 @@ impl FunctionItem {
             anchor: name.replace('_', "-").to_ascii_lowercase(),
             comment,
             feature,
+            deprecation,
             name,
             text: markup_text(decl_node, src),
         })
