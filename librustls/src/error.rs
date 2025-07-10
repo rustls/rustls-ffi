@@ -344,7 +344,7 @@ impl Display for rustls_result {
             CertUnknownIssuer => Error::InvalidCertificate(CertificateError::UnknownIssuer).fmt(f),
             CertBadSignature => Error::InvalidCertificate(CertificateError::BadSignature).fmt(f),
             CertUnsupportedSignatureAlgorithm => {
-                Error::InvalidCertificate(CertificateError::UnsupportedSignatureAlgorithm).fmt(f)
+                write!(f, "unsupported certificate signature algorithm")
             }
             CertNotValidForName => {
                 Error::InvalidCertificate(CertificateError::NotValidForName).fmt(f)
@@ -492,10 +492,9 @@ impl Display for rustls_result {
             CertRevocationListBadSignature => {
                 Error::InvalidCertRevocationList(CertRevocationListError::BadSignature).fmt(f)
             }
-            CertRevocationListUnsupportedSignatureAlgorithm => Error::InvalidCertRevocationList(
-                CertRevocationListError::UnsupportedSignatureAlgorithm,
-            )
-            .fmt(f),
+            CertRevocationListUnsupportedSignatureAlgorithm => {
+                write!(f, "unsupported CRL signature algorithm")
+            }
             CertRevocationListInvalidCrlNumber => {
                 Error::InvalidCertRevocationList(CertRevocationListError::InvalidCrlNumber).fmt(f)
             }
@@ -684,7 +683,7 @@ fn map_crl_error(err: CertRevocationListError) -> rustls_result {
 
     match err {
         CertRevocationListError::BadSignature => CertRevocationListBadSignature,
-        CertRevocationListError::UnsupportedSignatureAlgorithm => {
+        CertRevocationListError::UnsupportedSignatureAlgorithmContext { .. } => {
             CertRevocationListUnsupportedSignatureAlgorithm
         }
         CertRevocationListError::InvalidCrlNumber => CertRevocationListInvalidCrlNumber,
@@ -752,7 +751,9 @@ fn map_invalid_certificate_error(err: CertificateError) -> rustls_result {
         CertificateError::ExpiredRevocationList
         | CertificateError::ExpiredRevocationListContext { .. } => CertExpiredRevocationList,
         CertificateError::BadSignature => CertBadSignature,
-        CertificateError::UnsupportedSignatureAlgorithm => CertUnsupportedSignatureAlgorithm,
+        CertificateError::UnsupportedSignatureAlgorithmContext { .. } => {
+            CertUnsupportedSignatureAlgorithm
+        }
         CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. } => {
             CertNotValidForName
         }
