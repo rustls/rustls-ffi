@@ -18,6 +18,17 @@
         </div>
         {% endif %}
 
+        {% if item.deprecation %}
+        <div class="deprecation-box">
+            <svg class="deprecation-icon" viewBox="0 0 20 20" width="16" height="16">
+                <path d="M10 2L18 16H2L10 2Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="10" cy="13" r="1" fill="currentColor"/>
+                <path d="M10 6v5" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+            <span><strong>Deprecated:</strong> {{ item.deprecation }}</span>
+        </div>
+        {% endif %}
+
         {{ item.comment | markdown | safe }}
 
         {% if section_id == "enums" %}
