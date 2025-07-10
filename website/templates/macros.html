@@ -16,7 +16,14 @@
 <div class="toc">
     <ul>
         {% for item in items %}
-        <li><a href="#{{ item.anchor }}">{{ item.name }}</a></li>
+        <li>
+            <a href="#{{ item.anchor }}">
+                {{ item.name }}
+            </a>
+            {% if item.deprecation %}
+            <span class="toc-deprecated">⚠️ deprecated</span>
+            {% endif %}
+        </li>
         {% endfor %}
     </ul>
 </div>
