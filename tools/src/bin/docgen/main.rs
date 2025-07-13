@@ -183,35 +183,49 @@ fn process_doc_item(item: Node, src: &[u8]) -> Result<Option<Item>, Box<dyn Erro
     }))
 }
 
+/// Convert the preceding sibling of a to-be-processed item into associated metadata
+///
+/// An item `Node` to be processed for documentation will typically have associated
+/// metadata `Node`s preceding it in the parse tree. This function returns an optional
+/// `Comment` and/or optional `Feature` from processing the sibling `prev` `Node`.
+///
+/// The potential cases we care about are:
+///   * `prev` is not a comment, and not a feature requirement.
+///   * `prev` is a Comment, and has no feature requirement before it.
+///   * `prev` is a Comment, and has a feature requirement before it.
+///   * `prev` is a bare feature requirement
+///
+/// cbindgen won't create a comment before a feature requirement so we don't have to
+/// consider that case.
 fn comment_and_requirement(
-    node: Node,
+    prev: Node,
     src: &[u8],
 ) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
-    let mut maybe_comment = Comment::new(node, src).ok();
+    let mut maybe_comment = Comment::new(prev, src).ok();
 
     // If node wasn't a comment, see if it was an expression_statement
     // that itself was preceded by a comment.  This skips over
     // expression-like preprocessor attributes on function decls.
-    if let (None, "expression_statement", Some(prev)) =
-        (&maybe_comment, node.kind(), node.prev_sibling())
+    if let (None, "expression_statement", Some(prev_prev)) =
+        (&maybe_comment, prev.kind(), prev.prev_sibling())
     {
-        maybe_comment = Comment::new(prev, src).ok();
+        maybe_comment = Comment::new(prev_prev, src).ok();
     }
 
     // If prev wasn't a comment, see if it was a feature requirement.
     if maybe_comment.is_none() {
-        return Ok(match Feature::new(node, src).ok() {
+        return Ok(match Feature::new(prev, src).ok() {
             Some(feat_req) => (None, Some(feat_req)),
             None => (None, None),
         });
     }
 
     // Otherwise, check the prev of the comment for a feature requirement
-    let Some(prev) = node.prev_named_sibling() else {
+    let Some(prev_prev) = prev.prev_named_sibling() else {
         return Ok((maybe_comment, None));
     };
 
-    Ok((maybe_comment, Feature::new(prev, src).ok()))
+    Ok((maybe_comment, Feature::new(prev_prev, src).ok()))
 }
 
 #[derive(Debug, Default, Serialize)]
