@@ -29,9 +29,14 @@ jobs:
         with:
           tool: zola@0.19.1 # Matched to rustls repo
 
-      - name: Generate API JSON data
-        run:
-          cargo run -p rustls-ffi-tools --bin docgen > website/static/api.json
+      - name: Verify API docs JSON data
+        run: |
+          if ! diff website/static/api.json <(cargo run -p rustls-ffi-tools --bin docgen 2>/dev/null); then
+            echo
+            echo "ERROR: Generated api.json differs from checked-in version"
+            echo "Run 'cargo run -p rustls-ffi-tools --bin docgen > website/static/api.json' and commit the changes"
+            exit 1
+          fi
 
       - name: Generate site pages
         run: |
