@@ -255,14 +255,14 @@ jobs:
         if: runner.os != 'Windows'
         env:
           RUSTLS_PLATFORM_VERIFIER: 1
-        run: ./build/tests/client example.com 443 / 1
+        run: ./build/tests/client cloudflare.com 443 / 1
       # Run the rustls-ffi-test binary.
       # On Windows it's in a different output location under build.
       - name: Run rustls-ffi client (Windows)
         if: runner.os == 'Windows'
         env:
           RUSTLS_PLATFORM_VERIFIER: 1
-        run: .\build\tests\Release\client.exe example.com 443 / 1
+        run: .\build\tests\Release\client.exe cloudflare.com 443 / 1
 
   test-deb:
     name: "Test Linux Deb (${{ matrix.os }})"
@@ -299,4 +299,4 @@ jobs:
       - name: Run rustls-ffi client
         env:
           RUSTLS_PLATFORM_VERIFIER: 1
-        run: ./build/tests/client example.com 443 / 1
+        run: ./build/tests/client cloudflare.com 443 / 1

@@ -63,7 +63,7 @@ add_custom_command(
     POST_BUILD
     COMMAND
         ${CMAKE_COMMAND} -E env RUSTLS_PLATFORM_VERIFIER=1
-        "$<TARGET_FILE:client>" example.com 443 /
+        "$<TARGET_FILE:client>" cloudflare.com 443 /
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
