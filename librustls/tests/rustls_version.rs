@@ -51,7 +51,8 @@ fn rustls_version_match() {
         // Handle the `rustls = "x.y.z"` case
         None => rustls_dep.as_str(),
     }
-    .expect("missing rustls dependency version");
+    .expect("missing rustls dependency version")
+    .trim_start_matches("=");
 
     // Assert that rustls_version() returns a string of the form:
     //   $CRATE_NAME/$CRATE_VERSION/rustls/$RUSTLS_VERSION
