@@ -242,7 +242,7 @@ jobs:
       # the built client/server binary will exit immediately with
       # exit code -1073741515
       - name: Setup MSVC
-        uses: TheMrMilchmann/setup-msvc-dev@v3
+        uses: TheMrMilchmann/setup-msvc-dev@v4
         with:
           arch: x64
 
