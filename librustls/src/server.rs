@@ -56,6 +56,7 @@ pub(crate) struct ServerConfigBuilder {
     alpn_protocols: Vec<Vec<u8>>,
     ignore_client_order: Option<bool>,
     key_log: Option<Arc<dyn KeyLog>>,
+    enable_secret_extraction: bool,
 }
 
 arc_castable! {
@@ -89,6 +90,7 @@ impl rustls_server_config_builder {
                 alpn_protocols: vec![],
                 ignore_client_order: None,
                 key_log: None,
+                enable_secret_extraction: false,
             };
             to_boxed_mut_ptr(builder)
         }
@@ -144,6 +146,7 @@ impl rustls_server_config_builder {
                 alpn_protocols: vec![],
                 ignore_client_order: None,
                 key_log: None,
+                enable_secret_extraction: false,
             };
             set_boxed_mut_ptr(builder_out, builder);
             rustls_result::Ok
@@ -228,6 +231,18 @@ impl rustls_server_config_builder {
             }));
 
             rustls_result::Ok
+        }
+    }
+
+    /// Enable or disable secret extraction, e.g. for kTLS.
+    #[no_mangle]
+    pub extern "C" fn rustls_server_config_builder_set_enable_secret_extraction(
+        config: *mut rustls_server_config_builder,
+        enable: bool,
+    ) {
+        ffi_panic_boundary! {
+            let config = try_mut_from_ptr!(config);
+            config.enable_secret_extraction = enable;
         }
     }
 
@@ -370,6 +385,8 @@ impl rustls_server_config_builder {
             if let Some(key_log) = builder.key_log {
                 config.key_log = key_log;
             }
+
+            config.enable_secret_extraction = builder.enable_secret_extraction;
 
             set_arc_mut_ptr(config_out, config);
             rustls_result::Ok

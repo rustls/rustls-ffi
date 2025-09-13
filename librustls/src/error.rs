@@ -211,7 +211,11 @@ u32_enum_builder! {
         // From InvalidEncryptedClientHello, with fields that get flattened.
         InvalidEncryptedClientHelloInvalidConfigList => 7700,
         InvalidEncryptedClientHelloNoCompatibleConfig => 7701,
-        InvalidEncryptedClientHelloSniRequired => 7702
+        InvalidEncryptedClientHelloSniRequired => 7702,
+
+        KtlsCompatibility => 7800,
+        KtlsUserCallback => 7801,
+        KtlsSecretExtractionDisabled => 7802
     }
 }
 
@@ -551,6 +555,9 @@ impl Display for rustls_result {
             InvalidEncryptedClientHelloSniRequired => {
                 Error::InvalidEncryptedClientHello(EncryptedClientHelloError::SniRequired).fmt(f)
             }
+            KtlsCompatibility => write!(f, "kTLS compatibility error"),
+            KtlsUserCallback => write!(f, "kTLS user callback"),
+            KtlsSecretExtractionDisabled => write!(f, "kTLS secret extraction disabled"),
         }
     }
 }

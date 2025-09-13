@@ -10,7 +10,7 @@ repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
 edition = "2021"
 links = "rustls_ffi"
-rust-version = "1.71"
+rust-version = "1.75"
 
 [features]
 default = ["aws-lc-rs", "prefer-post-quantum"]
@@ -27,6 +27,7 @@ aws-lc-rs = ["rustls/aws-lc-rs", "webpki/aws-lc-rs"]
 cert_compression = ["rustls/brotli", "rustls/zlib"]
 fips = ["rustls/fips", "webpki/aws-lc-rs-fips"]
 prefer-post-quantum = ["aws-lc-rs", "rustls/prefer-post-quantum"]
+ktls = []
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
@@ -35,6 +36,9 @@ webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
 rustls-platform-verifier = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ktls = "6.0.2"
 
 [lib]
 name = "rustls_ffi"

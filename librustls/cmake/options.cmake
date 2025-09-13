@@ -25,6 +25,15 @@ option(
     "Whether to enable aws-lc-rs and prefer post-quantum key exchange support"
 )
 
+option(KTLS "Whether to enable kTLS")
+
+if (KTLS AND (APPLE OR WIN32))
+    message(
+        FATAL_ERROR
+        "kTLS is not supported with MacOS or Windows"
+    )
+endif()
+
 option(DYN_LINK "Use dynamic linking for rustls library" OFF)
 
 if(DYN_LINK AND FIPS AND (APPLE OR WIN32))
@@ -52,6 +61,10 @@ endif()
 
 if(PREFER_POST_QUANTUM)
     list(APPEND CARGO_FEATURES --features=prefer-post-quantum)
+endif()
+
+if(KTLS)
+    list(APPEND CARGO_FEATURES --features=ktls)
 endif()
 
 # By default w/ Makefile or Ninja generators (e.g. Linux/MacOS CLI)
