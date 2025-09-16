@@ -192,6 +192,9 @@ enum rustls_result {
   RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_INVALID_CONFIG_LIST = 7700,
   RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_NO_COMPATIBLE_CONFIG = 7701,
   RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_SNI_REQUIRED = 7702,
+  RUSTLS_RESULT_KTLS_COMPATIBILITY = 7800,
+  RUSTLS_RESULT_KTLS_USER_CALLBACK = 7801,
+  RUSTLS_RESULT_KTLS_SECRET_EXTRACTION_DISABLED = 7802,
 };
 typedef uint32_t rustls_result;
 
@@ -662,6 +665,14 @@ typedef rustls_io_result (*rustls_write_vectored_callback)(void *userdata,
                                                            const struct rustls_iovec *iov,
                                                            size_t count,
                                                            size_t *out_n);
+
+#if defined(DEFINE_KTLS)
+typedef rustls_io_result (*rustls_ktls_secrets_callback)(void *userdata,
+                                                         const void *rx_buf,
+                                                         size_t rx_n,
+                                                         const void *tx_buf,
+                                                         size_t tx_n);
+#endif
 
 /**
  * Any context information the callback will receive when invoked.
@@ -1456,6 +1467,12 @@ void rustls_client_config_builder_set_enable_sni(struct rustls_client_config_bui
                                                  bool enable);
 
 /**
+ * Enable or disable secret extraction, e.g. for kTLS.
+ */
+void rustls_client_config_builder_set_enable_secret_extraction(struct rustls_client_config_builder *config,
+                                                               bool enable);
+
+/**
  * Provide the configuration a list of certificates where the connection
  * will select the first one that is compatible with the server's signature
  * verification capabilities.
@@ -1762,6 +1779,19 @@ bool rustls_connection_is_handshaking(const struct rustls_connection *conn);
  * Returns a `rustls_handshake_kind` describing the `rustls_connection`.
  */
 enum rustls_handshake_kind rustls_connection_handshake_kind(const struct rustls_connection *conn);
+
+#if defined(DEFINE_KTLS)
+/**
+ * Extract secrets and consume connection.  Must not be called twice
+ * with the same value.  Secrets are borrowed in `callback` and should
+ * not be retained across calls.  The `userdata` parameter is passed
+ * through directly to `callback`.  Note that this is distinct from the
+ * `userdata` parameter set with `rustls_connection_set_userdata`.
+ */
+rustls_result rustls_connection_ktls_secrets(struct rustls_connection *conn,
+                                             rustls_ktls_secrets_callback callback,
+                                             void *userdata);
+#endif
 
 /**
  * Sets a limit on the internal buffers used to buffer unsent plaintext (prior
@@ -2361,6 +2391,12 @@ rustls_result rustls_server_config_builder_set_key_log_file(struct rustls_server
 rustls_result rustls_server_config_builder_set_key_log(struct rustls_server_config_builder *builder,
                                                        rustls_keylog_log_callback log_cb,
                                                        rustls_keylog_will_log_callback will_log_cb);
+
+/**
+ * Enable or disable secret extraction, e.g. for kTLS.
+ */
+void rustls_server_config_builder_set_enable_secret_extraction(struct rustls_server_config_builder *config,
+                                                               bool enable);
 
 /**
  * "Free" a server_config_builder without building it into a rustls_server_config.

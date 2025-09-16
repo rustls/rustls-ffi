@@ -10,6 +10,8 @@ use rustls::{ClientConnection, ServerConnection};
 use crate::certificate::rustls_certificate;
 use crate::enums::rustls_handshake_kind;
 use crate::error::{map_error, rustls_io_result, rustls_result};
+#[cfg(feature = "ktls")]
+use crate::ffi::try_box_from_ptr;
 use crate::ffi::{
     box_castable, free_box, try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice,
     try_slice_mut,
@@ -96,6 +98,17 @@ box_castable! {
     /// A C representation of a Rustls `Connection`.
     pub struct rustls_connection(Connection);
 }
+
+#[cfg(feature = "ktls")]
+pub type rustls_ktls_secrets_callback = Option<
+    unsafe extern "C" fn(
+        userdata: *mut c_void,
+        rx_buf: *const c_void,
+        rx_n: size_t,
+        tx_buf: *const c_void,
+        tx_n: size_t,
+    ) -> rustls_io_result,
+>;
 
 impl rustls_connection {
     /// Set the userdata pointer associated with this connection. This will be passed
@@ -299,6 +312,47 @@ impl rustls_connection {
                 .handshake_kind()
                 .map(Into::into)
                 .unwrap_or(rustls_handshake_kind::Unknown)
+        }
+    }
+
+    /// Extract secrets and consume connection.  Must not be called twice
+    /// with the same value.  Secrets are borrowed in `callback` and should
+    /// not be retained across calls.  The `userdata` parameter is passed
+    /// through directly to `callback`.  Note that this is distinct from the
+    /// `userdata` parameter set with `rustls_connection_set_userdata`.
+    #[cfg(feature = "ktls")]
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_ktls_secrets(
+        conn: *mut rustls_connection,
+        callback: rustls_ktls_secrets_callback,
+        userdata: *mut c_void,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            if conn.is_null() {
+                return rustls_result::NullParameter;
+            }
+            let tls = try_box_from_ptr!(conn).conn;
+            let suite = tls.negotiated_cipher_suite().unwrap();
+            match tls.dangerous_extract_secrets() {
+                Ok(extracted_secrets) => {
+                    let Ok(rx) = ktls::CryptoInfo::from_rustls(suite, extracted_secrets.rx) else {
+                        return rustls_result::HandshakeNotComplete;
+                    };
+                    let Ok(tx) = ktls::CryptoInfo::from_rustls(suite, extracted_secrets.tx) else {
+                        return rustls_result::HandshakeNotComplete;
+                    };
+                    let callback = try_callback!(callback);
+                    let result = unsafe {
+                        callback(userdata, rx.as_ptr(), rx.size(), tx.as_ptr(), tx.size())
+                    };
+                    match result.0 {
+                        0 => rustls_result::Ok,
+                        _ => rustls_result::KtlsUserCallback,
+                    }
+                }
+                Err(rustls::Error::HandshakeNotComplete) => rustls_result::HandshakeNotComplete,
+                Err(_) => rustls_result::KtlsSecretExtractionDisabled,
+            }
         }
     }
 

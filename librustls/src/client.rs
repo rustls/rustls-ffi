@@ -54,6 +54,7 @@ pub(crate) struct ClientConfigBuilder {
     cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
     key_log: Option<Arc<dyn KeyLog>>,
     ech_mode: Option<EchMode>,
+    enable_secret_extraction: bool,
 }
 
 impl Default for ClientConfigBuilder {
@@ -72,6 +73,7 @@ impl Default for ClientConfigBuilder {
             cert_resolver: None,
             key_log: None,
             ech_mode: None,
+            enable_secret_extraction: false,
         }
     }
 }
@@ -269,6 +271,18 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let config = try_mut_from_ptr!(config);
             config.enable_sni = enable;
+        }
+    }
+
+    /// Enable or disable secret extraction, e.g. for kTLS.
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_set_enable_secret_extraction(
+        config: *mut rustls_client_config_builder,
+        enable: bool,
+    ) {
+        ffi_panic_boundary! {
+            let config = try_mut_from_ptr!(config);
+            config.enable_secret_extraction = enable;
         }
     }
 
@@ -529,6 +543,7 @@ impl rustls_client_config_builder {
             };
             config.alpn_protocols = builder.alpn_protocols;
             config.enable_sni = builder.enable_sni;
+            config.enable_secret_extraction = builder.enable_secret_extraction;
 
             if let Some(key_log) = builder.key_log {
                 config.key_log = key_log;
