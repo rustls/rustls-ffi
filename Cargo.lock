@@ -1210,7 +1210,6 @@ version = "0.15.0"
 dependencies = [
  "libc",
  "log",
- "regex",
  "rustls",
  "rustls-platform-verifier",
  "rustls-webpki",
