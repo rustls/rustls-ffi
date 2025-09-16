@@ -26,14 +26,6 @@ fn rustls_version_match() {
         .expect("failed to read Cargo.toml");
     let metadata = metadata_content.parse::<Table>().unwrap();
 
-    // Find the crate version specified in Cargo.toml
-    let package_metadata = metadata["package"]
-        .as_table()
-        .expect("missing package metadata");
-    let crate_version = package_metadata["version"]
-        .as_str()
-        .expect("missing crate version");
-
     let rustls_crypto_provider = {
         if cfg!(all(feature = "ring", not(feature = "aws-lc-rs"))) {
             "ring"
@@ -65,7 +57,7 @@ fn rustls_version_match() {
         rustls_ffi_version_parts,
         vec![
             env!("CARGO_PKG_NAME"),
-            crate_version,
+            env!("CARGO_PKG_VERSION"),
             "rustls",
             rustls_dep_version,
             rustls_crypto_provider,
