@@ -10,7 +10,7 @@ repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
 edition = "2021"
 links = "rustls_ffi"
-rust-version = "1.71"
+rust-version = "1.73"
 
 [features]
 default = ["aws-lc-rs", "prefer-post-quantum"]
