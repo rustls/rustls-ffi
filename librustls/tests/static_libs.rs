@@ -1,5 +1,5 @@
-use regex::Regex;
 use std::process::Command;
+use std::str;
 
 #[test]
 #[ignore] // This test recompiles the crate and can be slow (~5s).
@@ -13,19 +13,24 @@ fn verify_static_libs() {
     assert!(result.status.success());
 
     // Search for the expected native-static-libs output in the cargo stderr.
-    let re = Regex::new(r"note: native-static-libs: ([^\n]+)\n").unwrap();
-    let haystack = String::from_utf8_lossy(&result.stderr);
-    let native_libs = re
-        .captures(&haystack)
-        .expect("missing expected native-static-libs output")
-        .get(1)
-        .expect("missing expected native-static-libs output")
-        .as_str();
+    let mut native_libs = Vec::new();
+    for ln in result.stderr.split(|&b| b == b'\n') {
+        let Some(libs_str) = ln.strip_prefix(b"note: native-static-libs: ") else {
+            continue;
+        };
+
+        let libs_str = str::from_utf8(libs_str).unwrap().trim();
+        native_libs.extend(libs_str.split_whitespace().map(String::from));
+    }
+
+    assert!(
+        !native_libs.is_empty(),
+        "missing expected native-static-libs output"
+    );
 
     // We should find the expected native-static-libs output for the platform in question.
-    let actual_linker_parts: Vec<_> = native_libs.split_whitespace().collect();
     assert_eq!(
-        actual_linker_parts,
+        native_libs,
         expected_linker_parts(),
         "unexpected list of static libraries. Fix or update README"
     )

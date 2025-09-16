@@ -41,7 +41,6 @@ name = "rustls_ffi"
 crate-type = ["lib", "staticlib"]
 
 [dev-dependencies]
-regex = { workspace = true }
 toml = { workspace = true }
 
 [package.metadata.capi.header]
