@@ -220,13 +220,12 @@ fn comment_and_requirement(
         };
     };
 
-    let maybe_comment = Comment::new(prev, src).ok();
-    // Otherwise, check the prev of the comment for a feature requirement
-    let Some(prev_prev) = prev_prev else {
-        return Ok((maybe_comment, None));
-    };
-
-    Ok((maybe_comment, Feature::new(prev_prev, src).ok()))
+    // If `prev` wasn't a comment, or an expression_statement preceded by a comment,
+    // then it's either a bare feature requirement or we have no metadata to return.
+    Ok(match Feature::new(prev, src).ok() {
+        Some(feat_req) => (None, Some(feat_req)),
+        None => (None, None),
+    })
 }
 
 #[derive(Debug, Default, Serialize)]
