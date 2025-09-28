@@ -207,31 +207,35 @@ fn comment_and_requirement(
     src: &[u8],
 ) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
     let prev_prev = prev.prev_named_sibling();
-    let mut maybe_comment = Comment::new(prev, src).ok();
+    // In the simple case, `prev` is a comment and `prev_prev` may be a feature requirement.
+    if let Ok(comment) = Comment::new(prev, src) {
+        return Ok((
+            Some(comment),
+            prev_prev.and_then(|prev_prev| Feature::new(prev_prev, src).ok()),
+        ));
+    }
 
     // If node wasn't a comment, see if it was an expression_statement
     // that itself was preceded by a comment.  This skips over
     // expression-like preprocessor attributes on function decls.
-    if let (None, "expression_statement", Some(prev_prev)) =
-        (&maybe_comment, prev.kind(), prev_prev)
-    {
-        maybe_comment = Comment::new(prev_prev, src).ok();
+    if prev.kind() == "expression_statement" {
+        if let Some(prev_prev) = prev_prev {
+            if let Ok(comment) = Comment::new(prev_prev, src) {
+                return Ok((
+                    Some(comment),
+                    prev_prev
+                        .prev_named_sibling()
+                        .and_then(|p| Feature::new(p, src).ok()),
+                ));
+            }
+        }
     }
 
     // If prev wasn't a comment, see if it was a feature requirement.
-    if maybe_comment.is_none() {
-        return Ok(match Feature::new(prev, src).ok() {
-            Some(feat_req) => (None, Some(feat_req)),
-            None => (None, None),
-        });
-    }
-
-    // Otherwise, check the prev of the comment for a feature requirement
-    let Some(prev_prev) = prev_prev else {
-        return Ok((maybe_comment, None));
-    };
-
-    Ok((maybe_comment, Feature::new(prev_prev, src).ok()))
+    Ok(match Feature::new(prev, src).ok() {
+        Some(feat_req) => (None, Some(feat_req)),
+        None => (None, None),
+    })
 }
 
 #[derive(Debug, Default, Serialize)]
