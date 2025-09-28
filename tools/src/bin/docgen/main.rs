@@ -202,6 +202,14 @@ fn comment_and_requirement(
     src: &[u8],
 ) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
     let prev_prev = prev.prev_named_sibling();
+    // In the simple case, `prev` is a comment and `prev_prev` may be a feature requirement.
+    if let Ok(comment) = Comment::new(prev, src) {
+        return Ok((
+            Some(comment),
+            prev_prev.and_then(|prev_prev| Feature::new(prev_prev, src).ok()),
+        ));
+    }
+
     let mut maybe_comment = Comment::new(prev, src).ok();
 
     // If node wasn't a comment, see if it was an expression_statement
