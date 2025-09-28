@@ -60,16 +60,24 @@ impl ApiDocs {
 
         // For each item of each type, crosslink its comment.
         for s in &mut self.structs {
-            s.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut s.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
         }
         for f in &mut self.functions {
-            f.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut f.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
         }
         for cb in &mut self.callbacks {
-            cb.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut cb.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
         }
         for e in &mut self.enums {
-            e.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut e.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
             for v in &mut e.variants {
                 if let Some(comment) = &mut v.comment {
                     comment.crosslink(&anchor_set)?;
@@ -77,10 +85,14 @@ impl ApiDocs {
             }
         }
         for e in &mut self.externs {
-            e.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut e.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
         }
         for a in &mut self.aliases {
-            a.comment.crosslink(&anchor_set)?;
+            if let Some(comment) = &mut a.metadata.comment {
+                comment.crosslink(&anchor_set)?;
+            }
         }
 
         Ok(())
@@ -169,63 +181,70 @@ fn process_doc_item(item: Node, src: &[u8]) -> Result<Option<Item>, Box<dyn Erro
         return Ok(None);
     }
 
-    // Try to turn the previous sibling into a comment node. Some items may
-    // require this to be Some(_) while others may allow None.
-    let (comment, feat_requirement) = comment_and_requirement(prev, src)?;
+    // Try to turn the previous sibling into item metadata
+    let metadata = ItemMetadata::new(prev, src)?;
 
     let kind = item.kind();
     // Based on the node kind, convert it to an appropriate Item.
     Ok(Some(match kind {
-        "type_definition" => process_typedef_item(comment, feat_requirement, item, src)?,
-        "enum_specifier" => Item::from(EnumItem::new(comment, feat_requirement, item, src)?),
-        "declaration" => process_declaration_item(comment, feat_requirement, item, src)?,
+        "type_definition" => process_typedef_item(metadata, item, src)?,
+        "enum_specifier" => Item::from(EnumItem::new(metadata, item, src)?),
+        "declaration" => process_declaration_item(metadata, item, src)?,
         _ => return Err(format!("unexpected item kind: {kind}").into()),
     }))
 }
 
-/// Convert the preceding sibling of a to-be-processed item into associated metadata
-///
-/// An item `Node` to be processed for documentation will typically have associated
-/// metadata `Node`s preceding it in the parse tree. This function returns an optional
-/// `Comment` and/or optional `Feature` from processing the sibling `prev` `Node`.
-///
-/// The potential cases we care about are:
-///   * `prev` is not a comment, and not a feature requirement.
-///   * `prev` is a Comment, and has no feature requirement before it.
-///   * `prev` is a Comment, and has a feature requirement before it.
-///   * `prev` is a bare feature requirement
-///
-/// cbindgen won't create a comment before a feature requirement so we don't have to
-/// consider that case.
-fn comment_and_requirement(
-    prev: Node,
-    src: &[u8],
-) -> Result<(Option<Comment>, Option<Feature>), Box<dyn Error>> {
-    let prev_prev = prev.prev_named_sibling();
-    // In the simple case, `prev` is a comment and `prev_prev` may be a feature requirement.
-    if let Ok(comment) = Comment::new(prev, src) {
-        return Ok((
-            Some(comment),
-            prev_prev.and_then(|prev_prev| Feature::new(prev_prev, src).ok()),
-        ));
-    }
+/// Metadata common to documented items
+#[derive(Debug, Default, Serialize)]
+struct ItemMetadata {
+    /// A comment describing the item
+    comment: Option<Comment>,
+    /// A feature requirement that must be enabled for the item
+    feature: Option<Feature>,
+}
 
-    // If node wasn't a comment, see if it was an expression_statement
-    // that itself was preceded by a comment.  This skips over
-    // expression-like preprocessor attributes on function decls.
-    if prev.kind() == "expression_statement" {
-        return match prev_prev {
-            Some(prev_prev) => comment_and_requirement(prev_prev, src),
-            None => Ok((None, None)),
+impl ItemMetadata {
+    /// Convert the preceding sibling of a to-be-processed item into associated metadata
+    ///
+    /// An item `Node` to be processed for documentation will typically have associated
+    /// metadata `Node`s preceding it in the parse tree. This function returns the
+    /// `ItemMetadata` that could be found.
+    ///
+    /// The potential cases we care about are:
+    ///   * `prev` is not a comment, and not a feature requirement.
+    ///   * `prev` is a Comment, and has no feature requirement before it.
+    ///   * `prev` is a Comment, and has a feature requirement before it.
+    ///   * `prev` is a bare feature requirement
+    ///
+    /// cbindgen won't create a comment before a feature requirement so we don't have to
+    /// consider that case.
+    fn new(prev: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+        let prev_prev = prev.prev_named_sibling();
+        // In the simple case, `prev` is a comment and `prev_prev` may be a feature requirement.
+        if let Ok(comment) = Comment::new(prev, src) {
+            return Ok(Self {
+                comment: Some(comment),
+                feature: prev_prev.and_then(|prev_prev| Feature::new(prev_prev, src).ok()),
+            });
+        }
+
+        // If node wasn't a comment, see if it was an expression_statement
+        // that itself was preceded by a comment.  This skips over
+        // expression-like preprocessor attributes on function decls.
+        if prev.kind() == "expression_statement" {
+            return match prev_prev {
+                Some(prev_prev) => Self::new(prev_prev, src),
+                None => Ok(ItemMetadata::default()),
+            };
         };
-    };
 
-    // If `prev` wasn't a comment, or an expression_statement preceded by a comment,
-    // then it's either a bare feature requirement or we have no metadata to return.
-    Ok(match Feature::new(prev, src).ok() {
-        Some(feat_req) => (None, Some(feat_req)),
-        None => (None, None),
-    })
+        // If `prev` wasn't a comment, or an expression_statement preceded by a comment,
+        // then it's either a bare feature requirement or we have no metadata to return.
+        Ok(Self {
+            comment: None,
+            feature: Feature::new(prev, src).ok(),
+        })
+    }
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -346,8 +365,7 @@ impl Display for Comment {
 }
 
 fn process_typedef_item(
-    maybe_comment: Option<Comment>,
-    maybe_feature: Option<Feature>,
+    mut metadata: ItemMetadata,
     item: Node,
     src: &[u8],
 ) -> Result<Item, Box<dyn Error>> {
@@ -356,17 +374,19 @@ fn process_typedef_item(
     let typedef_node = item.child_by_field_name("type").unwrap();
     let typedef_kind = typedef_node.kind();
 
-    let comment = match (&maybe_comment, item.prev_named_sibling()) {
-        // We allow an uncommented type_definition if the previous node was a bare enum_specifier.
-        // This happens when an enum has a primitive type repr, like rustls_result. The enum
-        // appears without typedef (but with comment), and then a typedef uint32_t appears (without
-        // preceding comment). This is OK and doesn't count as an undocumented error.
-        //
-        // It's important we use prev_named_sibling() for finding the enum_specifier that precedes
-        // the typedef. Using prev_sibling() would return an anonymous ';' node.
-        (None, Some(sib)) if sib.kind() == "enum_specifier" => Comment::default(),
-        _ => require_documented(maybe_comment, item, src)?,
-    };
+    // We allow an uncommented type_definition if the previous node was a bare enum_specifier.
+    // This happens when an enum has a primitive type repr, like rustls_result. The enum
+    // appears without typedef (but with comment), and then a typedef uint32_t appears (without
+    // preceding comment). This is OK and doesn't count as an undocumented error.
+    //
+    // It's important we use prev_named_sibling() for finding the enum_specifier that precedes
+    // the typedef. Using prev_sibling() would return an anonymous ';' node.
+    match (metadata.comment.is_none(), item.prev_named_sibling()) {
+        (true, Some(sib)) if sib.kind() == "enum_specifier" => {
+            metadata.comment = Some(Comment::default());
+        }
+        _ => require_documented(&metadata, item, src)?,
+    }
 
     // Convert the particular item being typedef'd based on kind().
     // We treat function typedefs differently - we want those to be considered callbacks.
@@ -382,41 +402,28 @@ fn process_typedef_item(
         .unwrap_or_default();
     Ok(match typedef_kind {
         // e.g. `typedef enum rustls_handshake_kind { ... } rustls_handshake_kind;`
-        "enum_specifier" => Item::from(EnumItem::new(
-            Some(comment),
-            maybe_feature,
-            typedef_node,
-            src,
-        )?),
+        "enum_specifier" => Item::from(EnumItem::new(metadata, typedef_node, src)?),
 
         // e.g. `typedef uint32_t (*rustls_verify_server_cert_callback)(...);`
-        "primitive_type" if func_declarator => {
-            Item::from(CallbackItem::new(comment, maybe_feature, item, src)?)
-        }
+        "primitive_type" if func_declarator => Item::from(CallbackItem::new(metadata, item, src)?),
 
         // e.g. `typedef rustls_io_result (*rustls_read_callback)(...);`
-        "type_identifier" if func_declarator => {
-            Item::from(CallbackItem::new(comment, maybe_feature, item, src)?)
-        }
+        "type_identifier" if func_declarator => Item::from(CallbackItem::new(metadata, item, src)?),
 
         // e.g. `typedef const struct rustls_certified_key *(*rustls_client_hello_callback)(...);`
         "struct_specifier" if func_declarator => {
-            Item::from(CallbackItem::new(comment, maybe_feature, item, src)?)
+            Item::from(CallbackItem::new(metadata, item, src)?)
         }
 
         // e.g. `typedef struct rustls_accepted rustls_accepted;`
-        "struct_specifier" => {
-            Item::from(StructItem::new(comment, maybe_feature, typedef_node, src)?)
-        }
+        "struct_specifier" => Item::from(StructItem::new(metadata, typedef_node, src)?),
 
         // e.g. `typedef int rustls_io_result;`
-        "primitive_type" if !func_declarator => {
-            Item::from(TypeAliasItem::new(comment, maybe_feature, item, src))
-        }
+        "primitive_type" if !func_declarator => Item::from(TypeAliasItem::new(metadata, item, src)),
 
         // e.g. ... well, none so far - but something like `typedef rustls_io_result rustls_funtime_io_result;`.
         "type_identifier" if !func_declarator => {
-            Item::from(TypeAliasItem::new(comment, maybe_feature, item, src))
+            Item::from(TypeAliasItem::new(metadata, item, src))
         }
 
         _ => return Err(format!("unknown typedef kind: {typedef_kind:?}").into()),
@@ -424,31 +431,22 @@ fn process_typedef_item(
 }
 
 fn process_declaration_item(
-    comment: Option<Comment>,
-    maybe_feature: Option<Feature>,
+    metadata: ItemMetadata,
     item: Node,
     src: &[u8],
 ) -> Result<Item, Box<dyn Error>> {
     require_kind("declaration", item, src)?;
+    require_documented(&metadata, item, src)?;
 
-    let comment = require_documented(comment, item, src)?;
-    if item.child(0).unwrap().kind() == "storage_class_specifier" {
-        // extern is a storage_class_specifier.
-        Ok(Item::from(ExternItem::new(
-            comment,
-            maybe_feature,
-            item,
-            src,
-        )?))
-    } else {
-        // other non-extern declarations are functions.
-        Ok(Item::from(FunctionItem::new(
-            comment,
-            maybe_feature,
-            item,
-            src,
-        )?))
-    }
+    Ok(
+        if item.child(0).unwrap().kind() == "storage_class_specifier" {
+            // extern is a storage_class_specifier.
+            Item::from(ExternItem::new(metadata, item, src)?)
+        } else {
+            // other non-extern declarations are functions.
+            Item::from(FunctionItem::new(metadata, item, src)?)
+        },
+    )
 }
 
 /// An item to be documented from a C header file.
@@ -504,20 +502,15 @@ impl From<ExternItem> for Item {
 #[derive(Debug, Serialize)]
 struct EnumItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     variants: Vec<EnumVariantItem>,
 }
 
 impl EnumItem {
-    fn new(
-        comment: Option<Comment>,
-        feature: Option<Feature>,
-        enum_spec: Node,
-        src: &[u8],
-    ) -> Result<Self, Box<dyn Error>> {
-        let comment = require_documented(comment, enum_spec, src)?;
+    fn new(metadata: ItemMetadata, enum_spec: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+        require_documented(&metadata, enum_spec, src)?;
 
         let name = enum_spec
             .child_by_field_name("name")
@@ -535,8 +528,7 @@ impl EnumItem {
 
         Ok(Self {
             anchor: name.replace('_', "-").to_ascii_lowercase(),
-            comment,
-            feature,
+            metadata,
             name,
             variants,
         })
@@ -578,26 +570,20 @@ impl EnumVariantItem {
 #[derive(Debug, Serialize)]
 struct StructItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     text: String,
 }
 
 impl StructItem {
-    fn new(
-        comment: Comment,
-        feature: Option<Feature>,
-        struct_node: Node,
-        src: &[u8],
-    ) -> Result<Self, Box<dyn Error>> {
+    fn new(metadata: ItemMetadata, struct_node: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
         require_kind("struct_specifier", struct_node, src)?;
 
         let name = node_text(struct_node.child_by_field_name("name").unwrap(), src);
         Ok(Self {
             anchor: name.replace('_', "-").to_ascii_lowercase(),
-            comment,
-            feature,
+            metadata,
             name,
             text: markup_text(struct_node, src),
         })
@@ -610,14 +596,14 @@ impl StructItem {
 #[derive(Debug, Serialize)]
 struct TypeAliasItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     text: String,
 }
 
 impl TypeAliasItem {
-    fn new(comment: Comment, feature: Option<Feature>, item: Node, src: &[u8]) -> Self {
+    fn new(metadata: ItemMetadata, item: Node, src: &[u8]) -> Self {
         let language = tree_sitter_c::LANGUAGE;
         let query = Query::new(&language.into(), "(type_identifier) @name").unwrap();
         let mut cursor = QueryCursor::new();
@@ -633,8 +619,7 @@ impl TypeAliasItem {
             // anchors. One for the bare enum, and one for the typedef'd type.
             anchor: format!("alias-{}", name.replace("_", "-").to_ascii_lowercase()),
             name,
-            comment,
-            feature,
+            metadata,
             text: markup_text(item, src),
         }
     }
@@ -646,26 +631,20 @@ impl TypeAliasItem {
 #[derive(Debug, Serialize)]
 struct CallbackItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     text: String,
 }
 
 impl CallbackItem {
-    fn new(
-        comment: Comment,
-        feature: Option<Feature>,
-        typedef: Node,
-        src: &[u8],
-    ) -> Result<Self, Box<dyn Error>> {
+    fn new(metadata: ItemMetadata, typedef: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
         require_kind("type_definition", typedef, src)?;
 
         let name = function_identifier(typedef, src);
         Ok(Self {
             anchor: name.replace("_'", "-").to_ascii_lowercase(),
-            comment,
-            feature,
+            metadata,
             name,
             text: markup_text(typedef, src),
         })
@@ -678,26 +657,20 @@ impl CallbackItem {
 #[derive(Debug, Serialize)]
 struct FunctionItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     text: String,
 }
 
 impl FunctionItem {
-    fn new(
-        comment: Comment,
-        feature: Option<Feature>,
-        decl_node: Node,
-        src: &[u8],
-    ) -> Result<Self, Box<dyn Error>> {
+    fn new(metadata: ItemMetadata, decl_node: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
         require_kind("declaration", decl_node, src)?;
 
         let name = function_identifier(decl_node, src);
         Ok(Self {
             anchor: name.replace('_', "-").to_ascii_lowercase(),
-            comment,
-            feature,
+            metadata,
             name,
             text: markup_text(decl_node, src),
         })
@@ -710,19 +683,14 @@ impl FunctionItem {
 #[derive(Debug, Serialize)]
 struct ExternItem {
     anchor: String,
-    comment: Comment,
-    feature: Option<Feature>,
+    #[serde(flatten)]
+    metadata: ItemMetadata,
     name: String,
     text: String,
 }
 
 impl ExternItem {
-    fn new(
-        comment: Comment,
-        feature: Option<Feature>,
-        decl_node: Node,
-        src: &[u8],
-    ) -> Result<Self, Box<dyn Error>> {
+    fn new(metadata: ItemMetadata, decl_node: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
         require_kind("declaration", decl_node, src)?;
 
         // Query for the first identifier kind child node.
@@ -737,8 +705,7 @@ impl ExternItem {
 
         Ok(Self {
             anchor: name.replace('_', "-").to_ascii_lowercase(),
-            comment,
-            feature,
+            metadata,
             name,
             text: markup_text(decl_node, src),
         })
@@ -800,23 +767,24 @@ fn require_kind(kind: &str, node: Node, src: &[u8]) -> Result<(), Box<dyn Error>
     }
 }
 
-/// Unwrap a required CommentNode or return an error.
+/// Return an error if `ItemMetadat` doesn't contain a `Comment`
 ///
 /// The error will describe the kind of node that was missing a documentation comment, as well
 /// as its location (line/col) in the source code.
 fn require_documented(
-    comment: Option<Comment>,
+    metadata: &ItemMetadata,
     item: Node,
     src: &[u8],
-) -> Result<Comment, Box<dyn Error>> {
-    comment.ok_or(
-        node_error(
+) -> Result<(), Box<dyn Error>> {
+    if metadata.comment.is_none() {
+        return Err(node_error(
             format!("undocumented {kind}", kind = item.kind()),
             item,
             src,
         )
-        .into(),
-    )
+        .into());
+    }
+    Ok(())
 }
 
 fn node_error(prefix: impl Display, n: Node, src: &[u8]) -> String {
