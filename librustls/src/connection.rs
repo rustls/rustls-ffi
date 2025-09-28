@@ -11,7 +11,7 @@ use crate::certificate::rustls_certificate;
 use crate::enums::rustls_handshake_kind;
 use crate::error::{map_error, rustls_io_result, rustls_result};
 use crate::ffi::{
-    box_castable, free_box, try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice,
+    Castable, OwnershipBox, free_box, try_callback, try_mut_from_ptr, try_ref_from_ptr, try_slice,
     try_slice_mut,
 };
 use crate::io::{
@@ -92,9 +92,14 @@ impl std::ops::DerefMut for Connection {
     }
 }
 
-box_castable! {
-    /// A C representation of a Rustls `Connection`.
-    pub struct rustls_connection(Connection);
+/// A C representation of a Rustls `Connection`.
+pub struct rustls_connection {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_connection {
+    type Ownership = OwnershipBox;
+    type RustType = Connection;
 }
 
 impl rustls_connection {

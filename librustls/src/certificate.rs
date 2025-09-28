@@ -12,18 +12,24 @@ use rustls::sign::CertifiedKey;
 use crate::crypto_provider::{self, rustls_signing_key};
 use crate::error::{map_error, rustls_result};
 use crate::ffi::{
-    arc_castable, box_castable, free_arc, free_box, ref_castable, set_arc_mut_ptr,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef, free_arc, free_box, set_arc_mut_ptr,
     to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
     try_ref_from_ptr_ptr, try_slice, try_take,
 };
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_slice_bytes;
 
-ref_castable! {
-    /// An X.509 certificate, as used in rustls.
-    /// Corresponds to `CertificateDer` in the Rust pki-types API.
-    /// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
-    pub struct rustls_certificate(CertificateDer<'a>);
+/// An X.509 certificate, as used in rustls.
+/// Corresponds to `CertificateDer` in the Rust pki-types API.
+/// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
+pub struct rustls_certificate<'a> {
+    _private: [u8; 0],
+    _marker: PhantomData<&'a ()>,
+}
+
+impl<'a> Castable for rustls_certificate<'a> {
+    type Ownership = OwnershipRef;
+    type RustType = CertificateDer<'a>;
 }
 
 /// Get the DER data of the certificate itself.
@@ -48,13 +54,18 @@ pub extern "C" fn rustls_certificate_get_der(
     }
 }
 
-arc_castable! {
-    /// The complete chain of certificates to send during a TLS handshake,
-    /// plus a private key that matches the end-entity (leaf) certificate.
-    ///
-    /// Corresponds to `CertifiedKey` in the Rust API.
-    /// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
-    pub struct rustls_certified_key(CertifiedKey);
+/// The complete chain of certificates to send during a TLS handshake,
+/// plus a private key that matches the end-entity (leaf) certificate.
+///
+/// Corresponds to `CertifiedKey` in the Rust API.
+/// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
+pub struct rustls_certified_key {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_certified_key {
+    type Ownership = OwnershipArc;
+    type RustType = CertifiedKey;
 }
 
 impl rustls_certified_key {
@@ -270,14 +281,19 @@ impl rustls_certified_key {
     }
 }
 
-box_castable! {
-    /// A `rustls_root_cert_store` being constructed.
-    ///
-    /// A builder can be modified by adding trust anchor root certificates with
-    /// `rustls_root_cert_store_builder_add_pem`. Once you're done adding root certificates,
-    /// call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
-    /// This object is not safe for concurrent mutation.
-    pub struct rustls_root_cert_store_builder(Option<RootCertStoreBuilder>);
+/// A `rustls_root_cert_store` being constructed.
+///
+/// A builder can be modified by adding trust anchor root certificates with
+/// `rustls_root_cert_store_builder_add_pem`. Once you're done adding root certificates,
+/// call `rustls_root_cert_store_builder_build` to turn it into a `rustls_root_cert_store`.
+/// This object is not safe for concurrent mutation.
+pub struct rustls_root_cert_store_builder {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_root_cert_store_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<RootCertStoreBuilder>;
 }
 
 pub(crate) struct RootCertStoreBuilder {
@@ -440,10 +456,15 @@ impl rustls_root_cert_store_builder {
     }
 }
 
-arc_castable! {
-    /// A root certificate store.
-    /// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
-    pub struct rustls_root_cert_store(RootCertStore);
+/// A root certificate store.
+/// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
+pub struct rustls_root_cert_store {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_root_cert_store {
+    type Ownership = OwnershipArc;
+    type RustType = RootCertStore;
 }
 
 impl rustls_root_cert_store {

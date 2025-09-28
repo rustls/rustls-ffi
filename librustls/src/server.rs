@@ -18,7 +18,7 @@ use crate::connection::{Connection, rustls_connection};
 use crate::crypto_provider::{self, rustls_crypto_provider};
 use crate::error::{map_error, rustls_result};
 use crate::ffi::{
-    Castable, OwnershipRef, arc_castable, box_castable, free_arc, free_box, set_arc_mut_ptr,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef, free_arc, free_box, set_arc_mut_ptr,
     set_boxed_mut_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr,
     try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
 };
@@ -31,20 +31,25 @@ use crate::session::{
 use crate::userdata::userdata_get;
 use crate::verifier::rustls_client_cert_verifier;
 
-box_castable! {
-    /// A server config being constructed.
-    ///
-    /// A builder can be modified by,
-    /// e.g. rustls_server_config_builder_load_native_roots. Once you're
-    /// done configuring settings, call rustls_server_config_builder_build
-    /// to turn it into a *const rustls_server_config.
-    ///
-    /// Alternatively, if an error occurs or, you don't wish to build a config,
-    /// call `rustls_server_config_builder_free` to free the builder directly.
-    ///
-    /// This object is not safe for concurrent mutation.
-    /// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
-    pub struct rustls_server_config_builder(ServerConfigBuilder);
+/// A server config being constructed.
+///
+/// A builder can be modified by,
+/// e.g. rustls_server_config_builder_load_native_roots. Once you're
+/// done configuring settings, call rustls_server_config_builder_build
+/// to turn it into a *const rustls_server_config.
+///
+/// Alternatively, if an error occurs or, you don't wish to build a config,
+/// call `rustls_server_config_builder_free` to free the builder directly.
+///
+/// This object is not safe for concurrent mutation.
+/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
+pub struct rustls_server_config_builder {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_server_config_builder {
+    type Ownership = OwnershipBox;
+    type RustType = ServerConfigBuilder;
 }
 
 pub(crate) struct ServerConfigBuilder {
@@ -58,12 +63,17 @@ pub(crate) struct ServerConfigBuilder {
     key_log: Option<Arc<dyn KeyLog>>,
 }
 
-arc_castable! {
-    /// A server config that is done being constructed and is now read-only.
-    ///
-    /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
-    /// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
-    pub struct rustls_server_config(ServerConfig);
+/// A server config that is done being constructed and is now read-only.
+///
+/// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
+/// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
+pub struct rustls_server_config {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_server_config {
+    type Ownership = OwnershipArc;
+    type RustType = ServerConfig;
 }
 
 impl rustls_server_config_builder {
