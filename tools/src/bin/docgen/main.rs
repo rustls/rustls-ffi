@@ -144,6 +144,8 @@ struct ItemMetadata {
     comment: Option<Comment>,
     /// A feature requirement that must be enabled for the item
     feature: Option<Feature>,
+    /// A deprecation message for the item
+    deprecation: Option<Deprecation>,
 }
 
 impl ItemMetadata {
@@ -157,35 +159,50 @@ impl ItemMetadata {
     ///   * `prev` is not a comment, and not a feature requirement.
     ///   * `prev` is a Comment, and has no feature requirement before it.
     ///   * `prev` is a Comment, and has a feature requirement before it.
+    ///   * `prev` is a Deprecation, and has a comment and feature requirement before it.
+    ///   * `prev` is a Deprecation, and has a comment and no feature requirement before it.
     ///   * `prev` is a bare feature requirement
     ///
-    /// cbindgen won't create a comment before a feature requirement so we don't have to
-    /// consider that case.
+    /// cbindgen won't create other permutations (e.g. comment before a feature requirement, or
+    /// a deprecation before a feature requirement) so we don't have to consider those cases.
     fn new(prev: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
         let prev_prev = prev.prev_named_sibling();
         // In the simple case, `prev` is a comment and `prev_prev` may be a feature requirement.
+        // Deprecations aren't in play in this case based on how cbindgen works.
         if let Ok(comment) = Comment::new(prev, src) {
             return Ok(Self {
                 comment: Some(comment),
                 feature: prev_prev.and_then(|prev_prev| Feature::new(prev_prev, src).ok()),
+                deprecation: None,
             });
         }
 
-        // If node wasn't a comment, see if it was an expression_statement
-        // that itself was preceded by a comment.  This skips over
-        // expression-like preprocessor attributes on function decls.
-        if prev.kind() == "expression_statement" {
-            return match prev_prev {
-                Some(prev_prev) => Self::new(prev_prev, src),
-                None => Ok(ItemMetadata::default()),
+        // `prev` is a deprecation, `prev_prev` may be a comment, and `prev_prev_prev`
+        // may be a feature requirement.
+        if let Ok(deprecation) = Deprecation::new(prev, src) {
+            let (comment, feature) = match prev_prev {
+                Some(prev_prev) => (
+                    Comment::new(prev_prev, src).ok(),
+                    prev_prev
+                        .prev_named_sibling()
+                        .and_then(|prev_prev_prev| Feature::new(prev_prev_prev, src).ok()),
+                ),
+                None => (None, None),
             };
-        };
+            return Ok(ItemMetadata {
+                comment,
+                feature,
+                deprecation: Some(deprecation),
+            });
+        }
 
         // If `prev` wasn't a comment, or an expression_statement preceded by a comment,
-        // then it's either a bare feature requirement or we have no metadata to return.
+        // then it's either a bare feature requirement without a deprecation or we have no
+        // metadata to return.
         Ok(Self {
             comment: None,
             feature: Feature::new(prev, src).ok(),
+            deprecation: None,
         })
     }
 
@@ -312,6 +329,39 @@ impl Comment {
 impl Display for Comment {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+#[derive(Debug, Default, Serialize)]
+struct Deprecation(String);
+
+impl Deprecation {
+    fn new(node: Node, src: &[u8]) -> Result<Self, Box<dyn Error>> {
+        require_kind("expression_statement", node, src)?;
+
+        let query_str = r#"
+            (call_expression
+              function: (identifier) @func (#eq? @func "DEPRECATED_FUNC")
+              arguments: (argument_list
+                (string_literal (string_content) @content)
+              )
+            )
+        "#;
+
+        let mut query_cursor = QueryCursor::new();
+        let language = tree_sitter_c::LANGUAGE;
+        let query = Query::new(&language.into(), query_str)?;
+
+        let captures = query_cursor.captures(&query, node, src);
+        for (mat, _) in captures {
+            for capture in mat.captures {
+                if query.capture_names()[capture.index as usize] == "content" {
+                    return Ok(Self(node_text(capture.node, src)));
+                }
+            }
+        }
+
+        Err(node_error("DEPRECATED_FUNC call not found or malformed", node, src).into())
     }
 }
 
