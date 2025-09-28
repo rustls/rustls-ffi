@@ -27,10 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Collect up all items we want to document. Returns an error if any
     // items we expect to be documented are missing associated block comments.
-    let mut docs = find_doc_items(root, header_file_bytes)?;
-
-    // Cross-link items in comments.
-    docs.crosslink_comments()?;
+    let docs = find_doc_items(root, header_file_bytes)?;
 
     // Render JSON data.
     println!("{}", serde_json::to_string_pretty(&docs)?);
@@ -46,69 +43,6 @@ struct ApiDocs {
     enums: Vec<EnumItem>,
     externs: Vec<ExternItem>,
     aliases: Vec<TypeAliasItem>,
-}
-
-impl ApiDocs {
-    fn crosslink_comments(&mut self) -> Result<(), Box<dyn Error>> {
-        // Put all anchors into a set. Error for any duplicates.
-        let mut anchor_set = HashSet::new();
-        for a in self.all_anchors() {
-            if !anchor_set.insert(a.to_string()) {
-                return Err(format!("duplicate anchor: {a}").into());
-            }
-        }
-
-        // For each item of each type, crosslink its comment.
-        for s in &mut self.structs {
-            if let Some(comment) = &mut s.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-        }
-        for f in &mut self.functions {
-            if let Some(comment) = &mut f.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-        }
-        for cb in &mut self.callbacks {
-            if let Some(comment) = &mut cb.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-        }
-        for e in &mut self.enums {
-            if let Some(comment) = &mut e.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-            for v in &mut e.variants {
-                if let Some(comment) = &mut v.comment {
-                    comment.crosslink(&anchor_set)?;
-                }
-            }
-        }
-        for e in &mut self.externs {
-            if let Some(comment) = &mut e.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-        }
-        for a in &mut self.aliases {
-            if let Some(comment) = &mut a.metadata.comment {
-                comment.crosslink(&anchor_set)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn all_anchors(&self) -> impl Iterator<Item = &str> {
-        // return all item anchors as a chained iterator
-        self.structs
-            .iter()
-            .map(|s| s.anchor.as_str())
-            .chain(self.functions.iter().map(|f| f.anchor.as_str()))
-            .chain(self.callbacks.iter().map(|cb| cb.anchor.as_str()))
-            .chain(self.enums.iter().map(|e| e.anchor.as_str()))
-            .chain(self.externs.iter().map(|e| e.anchor.as_str()))
-            .chain(self.aliases.iter().map(|a| a.anchor.as_str()))
-    }
 }
 
 fn find_doc_items(root: Node, source_code: &[u8]) -> Result<ApiDocs, Box<dyn Error>> {
@@ -154,8 +88,17 @@ fn find_doc_items(root: Node, source_code: &[u8]) -> Result<ApiDocs, Box<dyn Err
         return Err(format!("{errors} errors produced while documenting header file").into());
     }
 
+    // Put all anchors into a set. Error for any duplicates.
+    let mut anchor_set = HashSet::new();
+    for item in &items {
+        if !anchor_set.insert(item.anchor().to_string()) {
+            return Err(format!("duplicate anchor: {}", item.anchor()).into());
+        }
+    }
+
     let mut api = ApiDocs::default();
-    for item in items {
+    for mut item in items {
+        item.metadata_mut().crosslink(&anchor_set)?;
         match item {
             Item::Enum(e) => api.enums.push(e),
             Item::Struct(s) => api.structs.push(s),
@@ -244,6 +187,14 @@ impl ItemMetadata {
             comment: None,
             feature: Feature::new(prev, src).ok(),
         })
+    }
+
+    // If the metadata has a comment, update the content with crosslinks using the provided anchors
+    fn crosslink(&mut self, anchors: &HashSet<String>) -> Result<(), Box<dyn Error>> {
+        match &mut self.comment {
+            Some(comment) => comment.crosslink(anchors),
+            None => Ok(()),
+        }
     }
 }
 
@@ -458,6 +409,30 @@ enum Item {
     Callback(CallbackItem),
     Function(FunctionItem),
     Extern(ExternItem),
+}
+
+impl Item {
+    fn anchor(&self) -> &str {
+        match self {
+            Item::Enum(item) => &item.anchor,
+            Item::Struct(item) => &item.anchor,
+            Item::TypeAlias(item) => &item.anchor,
+            Item::Callback(item) => &item.anchor,
+            Item::Function(item) => &item.anchor,
+            Item::Extern(item) => &item.anchor,
+        }
+    }
+
+    fn metadata_mut(&mut self) -> &mut ItemMetadata {
+        match self {
+            Item::Enum(item) => &mut item.metadata,
+            Item::Struct(item) => &mut item.metadata,
+            Item::TypeAlias(item) => &mut item.metadata,
+            Item::Callback(item) => &mut item.metadata,
+            Item::Function(item) => &mut item.metadata,
+            Item::Extern(item) => &mut item.metadata,
+        }
+    }
 }
 
 impl From<EnumItem> for Item {
