@@ -210,25 +210,17 @@ fn comment_and_requirement(
         ));
     }
 
-    let mut maybe_comment = Comment::new(prev, src).ok();
-
     // If node wasn't a comment, see if it was an expression_statement
     // that itself was preceded by a comment.  This skips over
     // expression-like preprocessor attributes on function decls.
-    if let (None, "expression_statement", Some(prev_prev)) =
-        (&maybe_comment, prev.kind(), prev_prev)
-    {
-        maybe_comment = Comment::new(prev_prev, src).ok();
-    }
+    if prev.kind() == "expression_statement" {
+        return match prev_prev {
+            Some(prev_prev) => comment_and_requirement(prev_prev, src),
+            None => Ok((None, None)),
+        };
+    };
 
-    // If prev wasn't a comment, see if it was a feature requirement.
-    if maybe_comment.is_none() {
-        return Ok(match Feature::new(prev, src).ok() {
-            Some(feat_req) => (None, Some(feat_req)),
-            None => (None, None),
-        });
-    }
-
+    let maybe_comment = Comment::new(prev, src).ok();
     // Otherwise, check the prev of the comment for a feature requirement
     let Some(prev_prev) = prev_prev else {
         return Ok((maybe_comment, None));
