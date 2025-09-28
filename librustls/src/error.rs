@@ -20,198 +20,307 @@ use crate::panic::ffi_panic_boundary;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
 
-macro_rules! u32_enum_builder {
-    (
-    $(#[$comment:meta])*
-        EnumName: $enum_name: ident;
-        EnumDefault: $enum_default: ident;
-        EnumVal { $( $enum_var: ident => $enum_val: expr ),* }
-    ) => {
-        $(#[$comment])*
-        #[allow(dead_code)]
-        #[repr(u32)]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-        pub enum $enum_name {
-            $( $enum_var = $enum_val),*
-        }
-        impl From<u32> for $enum_name {
-            fn from(x: u32) -> Self {
-                match x {
-                    $($enum_val => $enum_name::$enum_var),*
-                    , _ => $enum_name::$enum_default,
-                }
-            }
-        }
-    };
+/// Numeric error codes returned from rustls-ffi API functions.
+#[allow(dead_code)]
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum rustls_result {
+    Ok = 7000,
+    Io = 7001,
+    NullParameter = 7002,
+    InvalidDnsNameError = 7003,
+    Panic = 7004,
+    CertificateParseError = 7005,
+    PrivateKeyParseError = 7006,
+    InsufficientSize = 7007,
+    NotFound = 7008,
+    InvalidParameter = 7009,
+    UnexpectedEof = 7010,
+    PlaintextEmpty = 7011,
+    AcceptorNotReady = 7012,
+    AlreadyUsed = 7013,
+    CertificateRevocationListParseError = 7014,
+    NoServerCertVerifier = 7015,
+    NoDefaultCryptoProvider = 7016,
+    GetRandomFailed = 7017,
+    NoCertResolver = 7018,
+    HpkeError = 7019,
+    BuilderIncompatibleTlsVersions = 7020,
+
+    // From https://docs.rs/rustls/latest/rustls/enum.Error.html
+    NoCertificatesPresented = 7101,
+    DecryptError = 7102,
+    FailedToGetCurrentTime = 7103,
+    FailedToGetRandomBytes = 7113,
+    HandshakeNotComplete = 7104,
+    PeerSentOversizedRecord = 7105,
+    NoApplicationProtocol = 7106,
+    BadMaxFragmentSize = 7114,
+    UnsupportedNameType = 7115,
+    EncryptError = 7116,
+
+    // Reserved from previous use pre rustls-ffi <0.21.0
+    //  CorruptMessage => 7100,
+    //  CorruptMessagePayload => 7111,
+    //  CertInvalidEncoding => 7117,
+    //  CertInvalidSignatureType => 7118,
+    //  CertInvalidSignature => 7119,
+    //  CertInvalidData => 7120,
+
+    // From InvalidCertificate, with fields that get flattened.
+    // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidCertificate
+    CertEncodingBad = 7121,
+    CertExpired = 7122,
+    CertNotYetValid = 7123,
+    CertRevoked = 7124,
+    CertUnhandledCriticalExtension = 7125,
+    CertUnknownIssuer = 7126,
+    CertBadSignature = 7127,
+    CertNotValidForName = 7128,
+    CertInvalidPurpose = 7129,
+    CertApplicationVerificationFailure = 7130,
+    CertOtherError = 7131,
+    CertUnknownRevocationStatus = 7154,
+    CertExpiredRevocationList = 7156,
+    CertUnsupportedSignatureAlgorithm = 7157, // Last added.
+
+    // From InvalidMessage, with fields that get flattened.
+    // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
+    MessageHandshakePayloadTooLarge = 7133,
+    MessageInvalidCcs = 7134,
+    MessageInvalidContentType = 7135,
+    MessageInvalidCertStatusType = 7136,
+    MessageInvalidCertRequest = 7137,
+    MessageInvalidDhParams = 7138,
+    MessageInvalidEmptyPayload = 7139,
+    MessageInvalidKeyUpdate = 7140,
+    MessageInvalidServerName = 7141,
+    MessageTooLarge = 7142,
+    MessageTooShort = 7143,
+    MessageMissingData = 7144,
+    MessageMissingKeyExchange = 7145,
+    MessageNoSignatureSchemes = 7146,
+    MessageTrailingData = 7147,
+    MessageUnexpectedMessage = 7148,
+    MessageUnknownProtocolVersion = 7149,
+    MessageUnsupportedCompression = 7150,
+    MessageUnsupportedCurveType = 7151,
+    MessageUnsupportedKeyExchangeAlgorithm = 7152,
+    MessageInvalidOther = 7153,
+    MessageCertificatePayloadTooLarge = 7155,
+
+    // From Error, with fields that get dropped.
+    PeerIncompatibleError = 7107,
+    PeerMisbehavedError = 7108,
+    InappropriateMessage = 7109,
+    InappropriateHandshakeMessage = 7110,
+    General = 7112,
+
+    // From Error, with fields that get flattened.
+    // https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.AlertDescription.html
+    AlertCloseNotify = 7200,
+    AlertUnexpectedMessage = 7201,
+    AlertBadRecordMac = 7202,
+    AlertDecryptionFailed = 7203,
+    AlertRecordOverflow = 7204,
+    AlertDecompressionFailure = 7205,
+    AlertHandshakeFailure = 7206,
+    AlertNoCertificate = 7207,
+    AlertBadCertificate = 7208,
+    AlertUnsupportedCertificate = 7209,
+    AlertCertificateRevoked = 7210,
+    AlertCertificateExpired = 7211,
+    AlertCertificateUnknown = 7212,
+    AlertIllegalParameter = 7213,
+    AlertUnknownCA = 7214,
+    AlertAccessDenied = 7215,
+    AlertDecodeError = 7216,
+    AlertDecryptError = 7217,
+    AlertExportRestriction = 7218,
+    AlertProtocolVersion = 7219,
+    AlertInsufficientSecurity = 7220,
+    AlertInternalError = 7221,
+    AlertInappropriateFallback = 7222,
+    AlertUserCanceled = 7223,
+    AlertNoRenegotiation = 7224,
+    AlertMissingExtension = 7225,
+    AlertUnsupportedExtension = 7226,
+    AlertCertificateUnobtainable = 7227,
+    AlertUnrecognisedName = 7228,
+    AlertBadCertificateStatusResponse = 7229,
+    AlertBadCertificateHashValue = 7230,
+    AlertUnknownPSKIdentity = 7231,
+    AlertCertificateRequired = 7232,
+    AlertNoApplicationProtocol = 7233,
+    AlertUnknown = 7234,
+
+    // Reserved from previous use pre rustls-ffi <0.22.0
+    // CertSCTMalformed => 7319,
+    // CertSCTInvalidSignature => 7320,
+    // CertSCTTimestampInFuture => 7321,
+    // CertSCTUnsupportedVersion => 7322,
+    // CertSCTUnknownLog => 7323,
+
+    // From InvalidCertRevocationList, with fields that get flattened.
+    // https://docs.rs/rustls/0.21.6/rustls/enum.Error.html#variant.InvalidCertRevocationList
+    CertRevocationListBadSignature = 7400,
+    CertRevocationListInvalidCrlNumber = 7401,
+    CertRevocationListInvalidRevokedCertSerialNumber = 7402,
+    CertRevocationListIssuerInvalidForCrl = 7403,
+    CertRevocationListOtherError = 7404,
+    CertRevocationListParseError = 7405,
+    CertRevocationListUnsupportedCrlVersion = 7406,
+    CertRevocationListUnsupportedCriticalExtension = 7407,
+    CertRevocationListUnsupportedDeltaCrl = 7408,
+    CertRevocationListUnsupportedIndirectCrl = 7409,
+    CertRevocationListUnsupportedRevocationReason = 7410,
+    CertRevocationListUnsupportedSignatureAlgorithm = 7411,
+
+    // From ClientCertVerifierBuilderError, with fields that get flattened.
+    ClientCertVerifierBuilderNoRootAnchors = 7500,
+
+    // From InconsistentKeys, with fields that get flattened.
+    InconsistentKeysKeysMismatch = 7600,
+    InconsistentKeysUnknown = 7601,
+
+    // From InvalidEncryptedClientHello, with fields that get flattened.
+    InvalidEncryptedClientHelloInvalidConfigList = 7700,
+    InvalidEncryptedClientHelloNoCompatibleConfig = 7701,
+    InvalidEncryptedClientHelloSniRequired = 7702,
 }
 
-u32_enum_builder! {
-    /// Numeric error codes returned from rustls-ffi API functions.
-    EnumName: rustls_result;
-    EnumDefault: InvalidParameter;
-    EnumVal{
-        Ok => 7000,
-        Io => 7001,
-        NullParameter => 7002,
-        InvalidDnsNameError => 7003,
-        Panic => 7004,
-        CertificateParseError => 7005,
-        PrivateKeyParseError => 7006,
-        InsufficientSize => 7007,
-        NotFound => 7008,
-        InvalidParameter => 7009,
-        UnexpectedEof => 7010,
-        PlaintextEmpty => 7011,
-        AcceptorNotReady => 7012,
-        AlreadyUsed => 7013,
-        CertificateRevocationListParseError => 7014,
-        NoServerCertVerifier => 7015,
-        NoDefaultCryptoProvider => 7016,
-        GetRandomFailed => 7017,
-        NoCertResolver => 7018,
-        HpkeError => 7019,
-        BuilderIncompatibleTlsVersions => 7020,
+impl From<u32> for rustls_result {
+    fn from(x: u32) -> Self {
+        use rustls_result::*;
 
-        // From https://docs.rs/rustls/latest/rustls/enum.Error.html
-        NoCertificatesPresented => 7101,
-        DecryptError => 7102,
-        FailedToGetCurrentTime => 7103,
-        FailedToGetRandomBytes => 7113,
-        HandshakeNotComplete => 7104,
-        PeerSentOversizedRecord => 7105,
-        NoApplicationProtocol => 7106,
-        BadMaxFragmentSize => 7114,
-        UnsupportedNameType => 7115,
-        EncryptError => 7116,
-
-        // Reserved from previous use pre rustls-ffi <0.21.0
-        //  CorruptMessage => 7100,
-        //  CorruptMessagePayload => 7111,
-        //  CertInvalidEncoding => 7117,
-        //  CertInvalidSignatureType => 7118,
-        //  CertInvalidSignature => 7119,
-        //  CertInvalidData => 7120,
-
-        // From InvalidCertificate, with fields that get flattened.
-        // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidCertificate
-        CertEncodingBad => 7121,
-        CertExpired => 7122,
-        CertNotYetValid => 7123,
-        CertRevoked => 7124,
-        CertUnhandledCriticalExtension => 7125,
-        CertUnknownIssuer => 7126,
-        CertBadSignature => 7127,
-        CertNotValidForName => 7128,
-        CertInvalidPurpose => 7129,
-        CertApplicationVerificationFailure => 7130,
-        CertOtherError => 7131,
-        CertUnknownRevocationStatus => 7154,
-        CertExpiredRevocationList => 7156,
-        CertUnsupportedSignatureAlgorithm => 7157, // Last added.
-
-        // From InvalidMessage, with fields that get flattened.
-        // https://docs.rs/rustls/0.21.0/rustls/enum.Error.html#variant.InvalidMessage
-        MessageHandshakePayloadTooLarge => 7133,
-        MessageInvalidCcs => 7134,
-        MessageInvalidContentType => 7135,
-        MessageInvalidCertStatusType => 7136,
-        MessageInvalidCertRequest => 7137,
-        MessageInvalidDhParams => 7138,
-        MessageInvalidEmptyPayload => 7139,
-        MessageInvalidKeyUpdate => 7140,
-        MessageInvalidServerName => 7141,
-        MessageTooLarge => 7142,
-        MessageTooShort => 7143,
-        MessageMissingData => 7144,
-        MessageMissingKeyExchange => 7145,
-        MessageNoSignatureSchemes => 7146,
-        MessageTrailingData => 7147,
-        MessageUnexpectedMessage => 7148,
-        MessageUnknownProtocolVersion => 7149,
-        MessageUnsupportedCompression => 7150,
-        MessageUnsupportedCurveType => 7151,
-        MessageUnsupportedKeyExchangeAlgorithm => 7152,
-        MessageInvalidOther => 7153,
-        MessageCertificatePayloadTooLarge => 7155,
-
-        // From Error, with fields that get dropped.
-        PeerIncompatibleError => 7107,
-        PeerMisbehavedError => 7108,
-        InappropriateMessage => 7109,
-        InappropriateHandshakeMessage => 7110,
-        General => 7112,
-
-        // From Error, with fields that get flattened.
-        // https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.AlertDescription.html
-        AlertCloseNotify => 7200,
-        AlertUnexpectedMessage => 7201,
-        AlertBadRecordMac => 7202,
-        AlertDecryptionFailed => 7203,
-        AlertRecordOverflow => 7204,
-        AlertDecompressionFailure => 7205,
-        AlertHandshakeFailure => 7206,
-        AlertNoCertificate => 7207,
-        AlertBadCertificate => 7208,
-        AlertUnsupportedCertificate => 7209,
-        AlertCertificateRevoked => 7210,
-        AlertCertificateExpired => 7211,
-        AlertCertificateUnknown => 7212,
-        AlertIllegalParameter => 7213,
-        AlertUnknownCA => 7214,
-        AlertAccessDenied => 7215,
-        AlertDecodeError => 7216,
-        AlertDecryptError => 7217,
-        AlertExportRestriction => 7218,
-        AlertProtocolVersion => 7219,
-        AlertInsufficientSecurity => 7220,
-        AlertInternalError => 7221,
-        AlertInappropriateFallback => 7222,
-        AlertUserCanceled => 7223,
-        AlertNoRenegotiation => 7224,
-        AlertMissingExtension => 7225,
-        AlertUnsupportedExtension => 7226,
-        AlertCertificateUnobtainable => 7227,
-        AlertUnrecognisedName => 7228,
-        AlertBadCertificateStatusResponse => 7229,
-        AlertBadCertificateHashValue => 7230,
-        AlertUnknownPSKIdentity => 7231,
-        AlertCertificateRequired => 7232,
-        AlertNoApplicationProtocol => 7233,
-        AlertUnknown => 7234,
-
-        // Reserved from previous use pre rustls-ffi <0.22.0
-        // CertSCTMalformed => 7319,
-        // CertSCTInvalidSignature => 7320,
-        // CertSCTTimestampInFuture => 7321,
-        // CertSCTUnsupportedVersion => 7322,
-        // CertSCTUnknownLog => 7323,
-
-        // From InvalidCertRevocationList, with fields that get flattened.
-        // https://docs.rs/rustls/0.21.6/rustls/enum.Error.html#variant.InvalidCertRevocationList
-        CertRevocationListBadSignature => 7400,
-        CertRevocationListInvalidCrlNumber => 7401,
-        CertRevocationListInvalidRevokedCertSerialNumber => 7402,
-        CertRevocationListIssuerInvalidForCrl => 7403,
-        CertRevocationListOtherError => 7404,
-        CertRevocationListParseError => 7405,
-        CertRevocationListUnsupportedCrlVersion => 7406,
-        CertRevocationListUnsupportedCriticalExtension => 7407,
-        CertRevocationListUnsupportedDeltaCrl => 7408,
-        CertRevocationListUnsupportedIndirectCrl => 7409,
-        CertRevocationListUnsupportedRevocationReason => 7410,
-        CertRevocationListUnsupportedSignatureAlgorithm => 7411,
-
-        // From ClientCertVerifierBuilderError, with fields that get flattened.
-        ClientCertVerifierBuilderNoRootAnchors => 7500,
-
-        // From InconsistentKeys, with fields that get flattened.
-        InconsistentKeysKeysMismatch => 7600,
-        InconsistentKeysUnknown => 7601,
-
-        // From InvalidEncryptedClientHello, with fields that get flattened.
-        InvalidEncryptedClientHelloInvalidConfigList => 7700,
-        InvalidEncryptedClientHelloNoCompatibleConfig => 7701,
-        InvalidEncryptedClientHelloSniRequired => 7702
+        match x {
+            7000 => Ok,
+            7001 => Io,
+            7002 => NullParameter,
+            7003 => InvalidDnsNameError,
+            7004 => Panic,
+            7005 => CertificateParseError,
+            7006 => PrivateKeyParseError,
+            7007 => InsufficientSize,
+            7008 => NotFound,
+            7009 => InvalidParameter,
+            7010 => UnexpectedEof,
+            7011 => PlaintextEmpty,
+            7012 => AcceptorNotReady,
+            7013 => AlreadyUsed,
+            7014 => CertificateRevocationListParseError,
+            7015 => NoServerCertVerifier,
+            7016 => NoDefaultCryptoProvider,
+            7017 => GetRandomFailed,
+            7018 => NoCertResolver,
+            7019 => HpkeError,
+            7020 => BuilderIncompatibleTlsVersions,
+            7101 => NoCertificatesPresented,
+            7102 => DecryptError,
+            7103 => FailedToGetCurrentTime,
+            7113 => FailedToGetRandomBytes,
+            7104 => HandshakeNotComplete,
+            7105 => PeerSentOversizedRecord,
+            7106 => NoApplicationProtocol,
+            7114 => BadMaxFragmentSize,
+            7115 => UnsupportedNameType,
+            7116 => EncryptError,
+            7121 => CertEncodingBad,
+            7122 => CertExpired,
+            7123 => CertNotYetValid,
+            7124 => CertRevoked,
+            7125 => CertUnhandledCriticalExtension,
+            7126 => CertUnknownIssuer,
+            7127 => CertBadSignature,
+            7128 => CertNotValidForName,
+            7129 => CertInvalidPurpose,
+            7130 => CertApplicationVerificationFailure,
+            7131 => CertOtherError,
+            7154 => CertUnknownRevocationStatus,
+            7156 => CertExpiredRevocationList,
+            7157 => CertUnsupportedSignatureAlgorithm,
+            7133 => MessageHandshakePayloadTooLarge,
+            7134 => MessageInvalidCcs,
+            7135 => MessageInvalidContentType,
+            7136 => MessageInvalidCertStatusType,
+            7137 => MessageInvalidCertRequest,
+            7138 => MessageInvalidDhParams,
+            7139 => MessageInvalidEmptyPayload,
+            7140 => MessageInvalidKeyUpdate,
+            7141 => MessageInvalidServerName,
+            7142 => MessageTooLarge,
+            7143 => MessageTooShort,
+            7144 => MessageMissingData,
+            7145 => MessageMissingKeyExchange,
+            7146 => MessageNoSignatureSchemes,
+            7147 => MessageTrailingData,
+            7148 => MessageUnexpectedMessage,
+            7149 => MessageUnknownProtocolVersion,
+            7150 => MessageUnsupportedCompression,
+            7151 => MessageUnsupportedCurveType,
+            7152 => MessageUnsupportedKeyExchangeAlgorithm,
+            7153 => MessageInvalidOther,
+            7155 => MessageCertificatePayloadTooLarge,
+            7107 => PeerIncompatibleError,
+            7108 => PeerMisbehavedError,
+            7109 => InappropriateMessage,
+            7110 => InappropriateHandshakeMessage,
+            7112 => General,
+            7200 => AlertCloseNotify,
+            7201 => AlertUnexpectedMessage,
+            7202 => AlertBadRecordMac,
+            7203 => AlertDecryptionFailed,
+            7204 => AlertRecordOverflow,
+            7205 => AlertDecompressionFailure,
+            7206 => AlertHandshakeFailure,
+            7207 => AlertNoCertificate,
+            7208 => AlertBadCertificate,
+            7209 => AlertUnsupportedCertificate,
+            7210 => AlertCertificateRevoked,
+            7211 => AlertCertificateExpired,
+            7212 => AlertCertificateUnknown,
+            7213 => AlertIllegalParameter,
+            7214 => AlertUnknownCA,
+            7215 => AlertAccessDenied,
+            7216 => AlertDecodeError,
+            7217 => AlertDecryptError,
+            7218 => AlertExportRestriction,
+            7219 => AlertProtocolVersion,
+            7220 => AlertInsufficientSecurity,
+            7221 => AlertInternalError,
+            7222 => AlertInappropriateFallback,
+            7223 => AlertUserCanceled,
+            7224 => AlertNoRenegotiation,
+            7225 => AlertMissingExtension,
+            7226 => AlertUnsupportedExtension,
+            7227 => AlertCertificateUnobtainable,
+            7228 => AlertUnrecognisedName,
+            7229 => AlertBadCertificateStatusResponse,
+            7230 => AlertBadCertificateHashValue,
+            7231 => AlertUnknownPSKIdentity,
+            7232 => AlertCertificateRequired,
+            7233 => AlertNoApplicationProtocol,
+            7234 => AlertUnknown,
+            7400 => CertRevocationListBadSignature,
+            7401 => CertRevocationListInvalidCrlNumber,
+            7402 => CertRevocationListInvalidRevokedCertSerialNumber,
+            7403 => CertRevocationListIssuerInvalidForCrl,
+            7404 => CertRevocationListOtherError,
+            7405 => CertRevocationListParseError,
+            7406 => CertRevocationListUnsupportedCrlVersion,
+            7407 => CertRevocationListUnsupportedCriticalExtension,
+            7408 => CertRevocationListUnsupportedDeltaCrl,
+            7409 => CertRevocationListUnsupportedIndirectCrl,
+            7410 => CertRevocationListUnsupportedRevocationReason,
+            7411 => CertRevocationListUnsupportedSignatureAlgorithm,
+            7500 => ClientCertVerifierBuilderNoRootAnchors,
+            7600 => InconsistentKeysKeysMismatch,
+            7601 => InconsistentKeysUnknown,
+            7700 => InvalidEncryptedClientHelloInvalidConfigList,
+            7701 => InvalidEncryptedClientHelloNoCompatibleConfig,
+            7702 => InvalidEncryptedClientHelloSniRequired,
+            _ => InvalidParameter,
+        }
     }
 }
 
