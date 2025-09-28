@@ -16,15 +16,20 @@ use rustls::sign::SigningKey;
 use crate::cipher::rustls_supported_ciphersuite;
 use crate::error::{map_error, rustls_result};
 use crate::ffi::{
-    arc_castable, box_castable, free_arc, free_box, ref_castable, set_arc_mut_ptr,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef, free_arc, free_box, set_arc_mut_ptr,
     set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
     try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_slice_mut, try_take,
 };
 use crate::panic::ffi_panic_boundary;
 
-box_castable! {
-    /// A `rustls_crypto_provider` builder.
-    pub struct rustls_crypto_provider_builder(Option<CryptoProviderBuilder>);
+/// A `rustls_crypto_provider` builder.
+pub struct rustls_crypto_provider_builder {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_crypto_provider_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<CryptoProviderBuilder>;
 }
 
 /// A builder for customizing a `CryptoProvider`. Can be used to install a process-wide default.
@@ -284,9 +289,14 @@ pub extern "C" fn rustls_crypto_provider_default() -> *const rustls_crypto_provi
     }
 }
 
-arc_castable! {
-    /// A C representation of a Rustls [`CryptoProvider`].
-    pub struct rustls_crypto_provider(CryptoProvider);
+/// A C representation of a Rustls [`CryptoProvider`].
+pub struct rustls_crypto_provider {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_crypto_provider {
+    type Ownership = OwnershipArc;
+    type RustType = CryptoProvider;
 }
 
 /// Returns the number of ciphersuites the `rustls_crypto_provider` supports.
@@ -471,12 +481,17 @@ pub extern "C" fn rustls_default_crypto_provider_random(
     }
 }
 
-box_castable! {
-    /// A signing key that can be used to construct a certified key.
-    // NOTE: we box cast an arc over the dyn trait per the pattern described
-    //   in our docs[0] for dynamically sized types.
-    //   [0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
-    pub struct rustls_signing_key(Arc<dyn SigningKey>);
+/// A signing key that can be used to construct a certified key.
+// NOTE: we box cast an arc over the dyn trait per the pattern described
+//   in our docs[0] for dynamically sized types.
+//   [0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+pub struct rustls_signing_key {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_signing_key {
+    type Ownership = OwnershipBox;
+    type RustType = Arc<dyn SigningKey>;
 }
 
 impl rustls_signing_key {
@@ -490,13 +505,18 @@ impl rustls_signing_key {
     }
 }
 
-ref_castable! {
-    /// A collection of supported Hybrid Public Key Encryption (HPKE) suites.
-    ///
-    /// `rustls_hpke` can be provided to `rustls_client_config_builder_enable_ech` and
-    /// `rustls_client_config_builder_enable_ech_grease()` to customize a
-    /// `rustls_client_config_builder` to use Encrypted Client Hello (ECH).
-    pub struct rustls_hpke(Hpke);
+/// A collection of supported Hybrid Public Key Encryption (HPKE) suites.
+///
+/// `rustls_hpke` can be provided to `rustls_client_config_builder_enable_ech` and
+/// `rustls_client_config_builder_enable_ech_grease()` to customize a
+/// `rustls_client_config_builder` to use Encrypted Client Hello (ECH).
+pub struct rustls_hpke {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_hpke {
+    type Ownership = OwnershipRef;
+    type RustType = Hpke;
 }
 
 pub(crate) struct Hpke {
