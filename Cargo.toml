@@ -26,5 +26,5 @@ serde_json = "1"
 #   This is blocked on a tree-sitter-md release for the tree-sitter 0.24 update
 #   presently unreleased on upstream main.
 tree-sitter = "0.23"
-tree-sitter-c = "0.23"
+tree-sitter-c = "0.24"
 tree-sitter-md = "0.3"
