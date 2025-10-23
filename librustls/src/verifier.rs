@@ -16,20 +16,25 @@ use crate::certificate::rustls_root_cert_store;
 use crate::crypto_provider::{self, rustls_crypto_provider};
 use crate::error::{self, rustls_result};
 use crate::ffi::{
-    box_castable, free_box, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc, try_mut_from_ptr,
-    try_mut_from_ptr_ptr, try_slice, try_take,
+    Castable, OwnershipBox, free_box, set_boxed_mut_ptr, to_boxed_mut_ptr, try_clone_arc,
+    try_mut_from_ptr, try_mut_from_ptr_ptr, try_slice, try_take,
 };
 use crate::panic::ffi_panic_boundary;
 
-box_castable! {
-    /// A built client certificate verifier that can be provided to a `rustls_server_config_builder`
-    /// with `rustls_server_config_builder_set_client_verifier`.
-    //
-    // Rustls' ConfigBuilder requires an `Arc<dyn ClientCertVerifier>` here, meaning we
-    // must follow the pattern described in CONTRIBUTING.md[^0] for handling dynamically sized
-    // types (DSTs) across the FFI boundary.
-    // [^0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
-    pub struct rustls_client_cert_verifier(Arc<dyn ClientCertVerifier>);
+/// A built client certificate verifier that can be provided to a `rustls_server_config_builder`
+/// with `rustls_server_config_builder_set_client_verifier`.
+//
+// Rustls' ConfigBuilder requires an `Arc<dyn ClientCertVerifier>` here, meaning we
+// must follow the pattern described in CONTRIBUTING.md[^0] for handling dynamically sized
+// types (DSTs) across the FFI boundary.
+// [^0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+pub struct rustls_client_cert_verifier {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_client_cert_verifier {
+    type Ownership = OwnershipBox;
+    type RustType = Arc<dyn ClientCertVerifier>;
 }
 
 impl rustls_client_cert_verifier {
@@ -54,19 +59,24 @@ pub(crate) struct ClientCertVerifierBuilder {
     allow_unauthenticated: bool,
 }
 
-box_castable! {
-    /// A client certificate verifier being constructed.
-    ///
-    /// A builder can be modified by, e.g. `rustls_web_pki_client_cert_verifier_builder_add_crl`.
-    ///
-    /// Once you're done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
-    /// to turn it into a `rustls_client_cert_verifier`.
-    ///
-    /// This object is not safe for concurrent mutation.
-    ///
-    /// See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>
-    /// for more information.
-    pub struct rustls_web_pki_client_cert_verifier_builder(Option<ClientCertVerifierBuilder>);
+/// A client certificate verifier being constructed.
+///
+/// A builder can be modified by, e.g. `rustls_web_pki_client_cert_verifier_builder_add_crl`.
+///
+/// Once you're done configuring settings, call `rustls_web_pki_client_cert_verifier_builder_build`
+/// to turn it into a `rustls_client_cert_verifier`.
+///
+/// This object is not safe for concurrent mutation.
+///
+/// See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>
+/// for more information.
+pub struct rustls_web_pki_client_cert_verifier_builder {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_web_pki_client_cert_verifier_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<ClientCertVerifierBuilder>;
 }
 
 impl rustls_web_pki_client_cert_verifier_builder {
@@ -370,17 +380,22 @@ impl rustls_web_pki_client_cert_verifier_builder {
     }
 }
 
-box_castable! {
-    /// A server certificate verifier being constructed.
-    ///
-    /// A builder can be modified by, e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`.
-    ///
-    /// Once you're done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
-    /// to turn it into a `rustls_server_cert_verifier`. This object is not safe for concurrent mutation.
-    ///
-    /// See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>
-    /// for more information.
-    pub struct rustls_web_pki_server_cert_verifier_builder(Option<ServerCertVerifierBuilder>);
+/// A server certificate verifier being constructed.
+///
+/// A builder can be modified by, e.g. `rustls_web_pki_server_cert_verifier_builder_add_crl`.
+///
+/// Once you're done configuring settings, call `rustls_web_pki_server_cert_verifier_builder_build`
+/// to turn it into a `rustls_server_cert_verifier`. This object is not safe for concurrent mutation.
+///
+/// See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>
+/// for more information.
+pub struct rustls_web_pki_server_cert_verifier_builder {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_web_pki_server_cert_verifier_builder {
+    type Ownership = OwnershipBox;
+    type RustType = Option<ServerCertVerifierBuilder>;
 }
 
 pub(crate) struct ServerCertVerifierBuilder {
@@ -636,15 +651,20 @@ impl ServerCertVerifierBuilder {
     }
 }
 
-box_castable! {
-    /// A built server certificate verifier that can be provided to a `rustls_client_config_builder`
-    /// with `rustls_client_config_builder_set_server_verifier`.
-    //
-    // Rustls' ConfigBuilder requires an `Arc<dyn ServerCertVerifier>` here, meaning we
-    // must follow the pattern described in CONTRIBUTING.md[^0] for handling dynamically sized
-    // types (DSTs) across the FFI boundary.
-    // [^0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
-    pub struct rustls_server_cert_verifier(Arc<dyn ServerCertVerifier>);
+/// A built server certificate verifier that can be provided to a `rustls_client_config_builder`
+/// with `rustls_client_config_builder_set_server_verifier`.
+//
+// Rustls' ConfigBuilder requires an `Arc<dyn ServerCertVerifier>` here, meaning we
+// must follow the pattern described in CONTRIBUTING.md[^0] for handling dynamically sized
+// types (DSTs) across the FFI boundary.
+// [^0]: <https://github.com/rustls/rustls-ffi/blob/main/CONTRIBUTING.md#dynamically-sized-types>
+pub struct rustls_server_cert_verifier {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_server_cert_verifier {
+    type Ownership = OwnershipBox;
+    type RustType = Arc<dyn ServerCertVerifier>;
 }
 
 impl rustls_server_cert_verifier {

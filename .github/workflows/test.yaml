@@ -271,12 +271,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install nightly rust toolchain
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          # TODO(XXX): remove toolchain pinning once upstream issue is resolved:
-          # https://github.com/rust-lang/rust/issues/139715
-          toolchain: nightly-2025-03-25
+      - name: Install stable rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install cbindgen
         # Pin the installed version of cbindgen so that local usage can be

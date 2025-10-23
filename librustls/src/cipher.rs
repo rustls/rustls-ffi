@@ -1,13 +1,18 @@
 use rustls::SupportedCipherSuite;
 
 use crate::enums::rustls_tls_version;
-use crate::ffi::{ref_castable, try_ref_from_ptr};
+use crate::ffi::{Castable, OwnershipRef, try_ref_from_ptr};
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_str;
 
-ref_castable! {
-    /// A cipher suite supported by rustls.
-    pub struct rustls_supported_ciphersuite(SupportedCipherSuite);
+/// A cipher suite supported by rustls.
+pub struct rustls_supported_ciphersuite {
+    _private: [u8; 0],
+}
+
+impl Castable for rustls_supported_ciphersuite {
+    type Ownership = OwnershipRef;
+    type RustType = SupportedCipherSuite;
 }
 
 impl rustls_supported_ciphersuite {
