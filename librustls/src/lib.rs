@@ -40,3 +40,6 @@ pub mod version;
 pub use error::rustls_result;
 pub use error::*;
 pub use version::rustls_version;
+
+#[macro_use]
+extern crate macro_rules_attribute;

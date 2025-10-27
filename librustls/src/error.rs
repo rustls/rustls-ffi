@@ -20,10 +20,30 @@ use crate::panic::ffi_panic_boundary;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct rustls_io_result(pub libc::c_int);
 
+/// Derive From<u32> for our result enum.
+macro_rules! ResultFromU32 {
+    (
+        $( #[$attr:meta] )*
+        $pub:vis enum $NewType:ident {
+            $($Item:ident = $Value:literal,)*
+            $(,)?
+        }
+    ) => {
+        impl From<u32> for $NewType {
+            fn from(x: u32) -> Self {
+                match x {
+                    $($Value => Self::$Item,)*
+                    _ => Self::InvalidParameter,
+                }
+            }
+        }
+    };
+}
+
 /// Numeric error codes returned from rustls-ffi API functions.
 #[allow(dead_code)]
 #[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ResultFromU32!)]
 pub enum rustls_result {
     Ok = 7000,
     Io = 7001,
@@ -187,141 +207,6 @@ pub enum rustls_result {
     InvalidEncryptedClientHelloInvalidConfigList = 7700,
     InvalidEncryptedClientHelloNoCompatibleConfig = 7701,
     InvalidEncryptedClientHelloSniRequired = 7702,
-}
-
-impl From<u32> for rustls_result {
-    fn from(x: u32) -> Self {
-        use rustls_result::*;
-
-        match x {
-            7000 => Ok,
-            7001 => Io,
-            7002 => NullParameter,
-            7003 => InvalidDnsNameError,
-            7004 => Panic,
-            7005 => CertificateParseError,
-            7006 => PrivateKeyParseError,
-            7007 => InsufficientSize,
-            7008 => NotFound,
-            7009 => InvalidParameter,
-            7010 => UnexpectedEof,
-            7011 => PlaintextEmpty,
-            7012 => AcceptorNotReady,
-            7013 => AlreadyUsed,
-            7014 => CertificateRevocationListParseError,
-            7015 => NoServerCertVerifier,
-            7016 => NoDefaultCryptoProvider,
-            7017 => GetRandomFailed,
-            7018 => NoCertResolver,
-            7019 => HpkeError,
-            7020 => BuilderIncompatibleTlsVersions,
-            7101 => NoCertificatesPresented,
-            7102 => DecryptError,
-            7103 => FailedToGetCurrentTime,
-            7113 => FailedToGetRandomBytes,
-            7104 => HandshakeNotComplete,
-            7105 => PeerSentOversizedRecord,
-            7106 => NoApplicationProtocol,
-            7114 => BadMaxFragmentSize,
-            7115 => UnsupportedNameType,
-            7116 => EncryptError,
-            7121 => CertEncodingBad,
-            7122 => CertExpired,
-            7123 => CertNotYetValid,
-            7124 => CertRevoked,
-            7125 => CertUnhandledCriticalExtension,
-            7126 => CertUnknownIssuer,
-            7127 => CertBadSignature,
-            7128 => CertNotValidForName,
-            7129 => CertInvalidPurpose,
-            7130 => CertApplicationVerificationFailure,
-            7131 => CertOtherError,
-            7154 => CertUnknownRevocationStatus,
-            7156 => CertExpiredRevocationList,
-            7157 => CertUnsupportedSignatureAlgorithm,
-            7133 => MessageHandshakePayloadTooLarge,
-            7134 => MessageInvalidCcs,
-            7135 => MessageInvalidContentType,
-            7136 => MessageInvalidCertStatusType,
-            7137 => MessageInvalidCertRequest,
-            7138 => MessageInvalidDhParams,
-            7139 => MessageInvalidEmptyPayload,
-            7140 => MessageInvalidKeyUpdate,
-            7141 => MessageInvalidServerName,
-            7142 => MessageTooLarge,
-            7143 => MessageTooShort,
-            7144 => MessageMissingData,
-            7145 => MessageMissingKeyExchange,
-            7146 => MessageNoSignatureSchemes,
-            7147 => MessageTrailingData,
-            7148 => MessageUnexpectedMessage,
-            7149 => MessageUnknownProtocolVersion,
-            7150 => MessageUnsupportedCompression,
-            7151 => MessageUnsupportedCurveType,
-            7152 => MessageUnsupportedKeyExchangeAlgorithm,
-            7153 => MessageInvalidOther,
-            7155 => MessageCertificatePayloadTooLarge,
-            7107 => PeerIncompatibleError,
-            7108 => PeerMisbehavedError,
-            7109 => InappropriateMessage,
-            7110 => InappropriateHandshakeMessage,
-            7112 => General,
-            7200 => AlertCloseNotify,
-            7201 => AlertUnexpectedMessage,
-            7202 => AlertBadRecordMac,
-            7203 => AlertDecryptionFailed,
-            7204 => AlertRecordOverflow,
-            7205 => AlertDecompressionFailure,
-            7206 => AlertHandshakeFailure,
-            7207 => AlertNoCertificate,
-            7208 => AlertBadCertificate,
-            7209 => AlertUnsupportedCertificate,
-            7210 => AlertCertificateRevoked,
-            7211 => AlertCertificateExpired,
-            7212 => AlertCertificateUnknown,
-            7213 => AlertIllegalParameter,
-            7214 => AlertUnknownCA,
-            7215 => AlertAccessDenied,
-            7216 => AlertDecodeError,
-            7217 => AlertDecryptError,
-            7218 => AlertExportRestriction,
-            7219 => AlertProtocolVersion,
-            7220 => AlertInsufficientSecurity,
-            7221 => AlertInternalError,
-            7222 => AlertInappropriateFallback,
-            7223 => AlertUserCanceled,
-            7224 => AlertNoRenegotiation,
-            7225 => AlertMissingExtension,
-            7226 => AlertUnsupportedExtension,
-            7227 => AlertCertificateUnobtainable,
-            7228 => AlertUnrecognisedName,
-            7229 => AlertBadCertificateStatusResponse,
-            7230 => AlertBadCertificateHashValue,
-            7231 => AlertUnknownPSKIdentity,
-            7232 => AlertCertificateRequired,
-            7233 => AlertNoApplicationProtocol,
-            7234 => AlertUnknown,
-            7400 => CertRevocationListBadSignature,
-            7401 => CertRevocationListInvalidCrlNumber,
-            7402 => CertRevocationListInvalidRevokedCertSerialNumber,
-            7403 => CertRevocationListIssuerInvalidForCrl,
-            7404 => CertRevocationListOtherError,
-            7405 => CertRevocationListParseError,
-            7406 => CertRevocationListUnsupportedCrlVersion,
-            7407 => CertRevocationListUnsupportedCriticalExtension,
-            7408 => CertRevocationListUnsupportedDeltaCrl,
-            7409 => CertRevocationListUnsupportedIndirectCrl,
-            7410 => CertRevocationListUnsupportedRevocationReason,
-            7411 => CertRevocationListUnsupportedSignatureAlgorithm,
-            7500 => ClientCertVerifierBuilderNoRootAnchors,
-            7600 => InconsistentKeysKeysMismatch,
-            7601 => InconsistentKeysUnknown,
-            7700 => InvalidEncryptedClientHelloInvalidConfigList,
-            7701 => InvalidEncryptedClientHelloNoCompatibleConfig,
-            7702 => InvalidEncryptedClientHelloSniRequired,
-            _ => InvalidParameter,
-        }
-    }
 }
 
 impl rustls_result {

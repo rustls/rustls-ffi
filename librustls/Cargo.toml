@@ -35,6 +35,7 @@ webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
 rustls-platform-verifier = { workspace = true }
+macro_rules_attribute = "0.2.2"
 
 [lib]
 name = "rustls_ffi"
