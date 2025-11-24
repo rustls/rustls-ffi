@@ -16,7 +16,7 @@ jobs:
     name: Windows (x86_64 MSVC)
     runs-on: windows-2022 # x86_64
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -48,7 +48,7 @@ jobs:
     name: Linux (x86_64 GNU)
     runs-on: ubuntu-22.04 # x86_64.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -79,7 +79,7 @@ jobs:
     name: Linux (x86-64 GNU Deb)
     runs-on: ubuntu-22.04 # x86_64.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -106,7 +106,7 @@ jobs:
     name: MacOS (Arm64 and x86_64)
     runs-on: macos-14 # arm64.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -175,7 +175,7 @@ jobs:
             artifact: rustls-ffi-x86_64-macos
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Download rustls-ffi artifact
@@ -273,7 +273,7 @@ jobs:
         os: [ ubuntu-latest, ubuntu-22.04 ]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Download rustls-ffi deb artifact
