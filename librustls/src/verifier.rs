@@ -409,7 +409,7 @@ pub(crate) struct ServerCertVerifierBuilder {
 
 impl ServerCertVerifierBuilder {
     /// Create a `rustls_web_pki_server_cert_verifier_builder` using the process-wide default
-    /// crypto provider. Caller owns the memory and may free it with
+    /// crypto provider.
     ///
     /// Caller owns the memory and may free it with `rustls_web_pki_server_cert_verifier_builder_free`,
     /// regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
