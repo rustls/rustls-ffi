@@ -169,9 +169,9 @@ jobs:
             artifact: rustls-ffi-x86_64-windows
           - os: ubuntu-latest
             artifact: rustls-ffi-x86_64-linux-gnu
-          - os: macos-14
+          - os: macos-15
             artifact: rustls-ffi-arm64-macos
-          - os: macos-13
+          - os: macos-15-intel
             artifact: rustls-ffi-x86_64-macos
     steps:
       - name: Checkout sources
