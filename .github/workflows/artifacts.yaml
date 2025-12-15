@@ -24,12 +24,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install cargo-c
+        shell: pwsh
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
         run: |
+          $ErrorActionPreference = 'Stop'
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
-          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force
 
       - name: Build rustls-ffi
         run: |
