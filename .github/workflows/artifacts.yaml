@@ -179,7 +179,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Download rustls-ffi artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
@@ -277,7 +277,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Download rustls-ffi deb artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: librustls_0.15.0_amd64.deb
       - name: Install deb
