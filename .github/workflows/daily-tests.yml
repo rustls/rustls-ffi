@@ -47,12 +47,14 @@ jobs:
 
       - name: Install cargo-c (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
         run: |
+          $ErrorActionPreference = 'Stop'
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
-          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force
 
       - name: Setup cmake build
         run: |
@@ -103,12 +105,14 @@ jobs:
 
       - name: Install cargo-c (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
         run: |
+          $ErrorActionPreference = 'Stop'
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
-          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force
 
       - name: Setup cmake build
         run: |
@@ -164,12 +168,14 @@ jobs:
           unzip cargo-c-macos.zip -d ~/.cargo/bin
       - name: Install cargo-c (Windows)
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-windows-msvc.zip
         run: |
+          $ErrorActionPreference = 'Stop'
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
-          powershell -Command "Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force"
+          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force
       - name: Setup cmake build
         run: |
           cmake ${{ 
