@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 
 use serde::Serialize;
-use tree_sitter::{Node, Parser, Query, QueryCursor};
+use tree_sitter::{Node, Parser, Query, QueryCursor, StreamingIterator};
 use tree_sitter_md::MarkdownParser;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -122,11 +122,16 @@ fn find_doc_items(root: Node, source_code: &[u8]) -> Result<ApiDocs, Box<dyn Err
     let query = Query::new(&language.into(), query)?;
 
     let mut cursor = QueryCursor::new();
-    let matches = cursor.matches(&query, root, source_code);
+    let mut matches = cursor.matches(&query, root, source_code);
 
     let mut items = Vec::default();
     let mut errors = 0;
-    for query_match in matches {
+    loop {
+        matches.advance();
+        let Some(query_match) = matches.get() else {
+            break;
+        };
+
         for doc_item_node in query_match.nodes_for_capture_index(0) {
             match process_doc_item(doc_item_node, source_code) {
                 Ok(Some(item)) => items.push(item),

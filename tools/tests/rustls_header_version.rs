@@ -4,7 +4,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 use toml::Table;
-use tree_sitter::{Parser, Query, QueryCursor};
+use tree_sitter::{Parser, Query, QueryCursor, StreamingIterator};
 
 /// Ensure that the correct version part defines are in src/rustls.h
 ///
@@ -61,9 +61,14 @@ fn version_in_header() -> String {
         )"#;
     let query = Query::new(&language.into(), query).unwrap();
     let mut cursor = QueryCursor::new();
-    let matches = cursor.matches(&query, tree.root_node(), header_file_bytes);
+    let mut matches = cursor.matches(&query, tree.root_node(), header_file_bytes);
     let mut version_parts: [&str; 3] = Default::default();
-    for query_match in matches {
+    loop {
+        matches.advance();
+        let Some(query_match) = matches.get() else {
+            break;
+        };
+
         for preproc in query_match.nodes_for_capture_index(0) {
             let Some(value_node) = preproc.parent().unwrap().child_by_field_name("value") else {
                 continue;
