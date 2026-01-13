@@ -6,8 +6,9 @@ permissions:
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: ['main', 'rel-*', 'ci/*']
+  pull_request:
+  merge_group:
   schedule:
     - cron: '0 18 * * *'
 
@@ -29,23 +30,29 @@ jobs:
         with:
           tool: zola@0.19.1 # Matched to rustls repo
 
-      - name: Generate API JSON data
-        run:
-          cargo run -p rustls-ffi-tools --bin docgen > website/static/api.json
+      - name: Verify API docs JSON data
+        run: |
+          if ! diff website/static/api.json <(cargo run -p rustls-ffi-tools --bin docgen 2>/dev/null); then
+            echo
+            echo "ERROR: Generated api.json differs from checked-in version"
+            echo "Run 'cargo run -p rustls-ffi-tools --bin docgen > website/static/api.json' and commit the changes"
+            exit 1
+          fi
 
       - name: Generate site pages
         run: |
           cd website && zola build --output-dir ../target/website/
 
       - name: Package and upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
         with:
           path: ./target/website/
 
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    if: github.repository == 'rustls/rustls-ffi'
+    if: github.repository == 'rustls/rustls-ffi' && github.ref == 'refs/heads/main'
     needs: generate
     permissions:
       pages: write
