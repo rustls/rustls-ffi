@@ -30,7 +30,7 @@ prefer-post-quantum = ["aws-lc-rs", "rustls/prefer-post-quantum"]
 
 [dependencies]
 # Keep in sync with RUSTLS_CRATE_VERSION in build.rs
-rustls = { version = "=0.23.33", default-features = false, features = ["std", "tls12"] }
+rustls = { version = "=0.23.36", default-features = false, features = ["std", "tls12"] }
 webpki  = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
