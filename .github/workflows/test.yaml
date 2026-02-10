@@ -29,9 +29,6 @@ jobs:
           - stable
           - beta
           - nightly
-          # MSRV - keep in sync with what rustls and rustls-platform-verifier
-          # consider MSRV
-          - "1.73"
         os: [ ubuntu-latest ]
         # Include a few MacOS and cert-compression builds to ensure they're tested without
         # bloating the matrix or slowing down CI.
@@ -386,6 +383,21 @@ jobs:
 
       - name: Check clippy (ring)
         run: cargo clippy --locked --workspace --all-targets --no-default-features --features=ring -- -D warnings -A unknown-lints
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@1.73.0
+
+      - name: Test MSRV
+        run: cargo check --manifest-path librustls/Cargo.toml --locked --lib --features=aws-lc-rs
 
   clippy-nightly-optional:
     name: Clippy nightly (optional)
