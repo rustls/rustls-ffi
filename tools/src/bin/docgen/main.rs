@@ -219,16 +219,10 @@ fn comment_and_requirement(
     // that itself was preceded by a comment.  This skips over
     // expression-like preprocessor attributes on function decls.
     if prev.kind() == "expression_statement" {
-        if let Some(prev_prev) = prev_prev {
-            if let Ok(comment) = Comment::new(prev_prev, src) {
-                return Ok((
-                    Some(comment),
-                    prev_prev
-                        .prev_named_sibling()
-                        .and_then(|p| Feature::new(p, src).ok()),
-                ));
-            }
-        }
+        return match prev_prev {
+            Some(prev_prev) => comment_and_requirement(prev_prev, src),
+            None => Ok((None, None)),
+        };
     }
 
     // If prev wasn't a comment, see if it was a feature requirement.
