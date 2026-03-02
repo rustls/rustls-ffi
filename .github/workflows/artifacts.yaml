@@ -41,7 +41,7 @@ jobs:
         run: cp LICENSE* dist
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rustls-ffi-x86_64-windows
           path: dist
@@ -72,7 +72,7 @@ jobs:
         run: cp LICENSE* dist
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rustls-ffi-x86_64-linux-gnu
           path: dist
@@ -99,7 +99,7 @@ jobs:
         run: ./debian/build.sh
 
       - name: Upload deb
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: librustls_0.15.0_amd64.deb
           path: librustls_0.15.0_amd64.deb
@@ -138,7 +138,7 @@ jobs:
         run: cp LICENSE* arm64-dist
 
       - name: Upload binaries (arm64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rustls-ffi-arm64-macos
           path: arm64-dist
@@ -155,7 +155,7 @@ jobs:
         run: cp LICENSE* x86-dist
 
       - name: Upload binaries (x86_64)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rustls-ffi-x86_64-macos
           path: x86-dist
