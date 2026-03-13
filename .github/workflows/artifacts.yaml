@@ -80,6 +80,8 @@ jobs:
   linux-deb:
     name: Linux (x86-64 GNU Deb)
     runs-on: ubuntu-22.04 # x86_64.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -95,14 +97,20 @@ jobs:
         run: |
           curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
 
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(cargo pkgid -p rustls-ffi | sed 's/.*@//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Build deb
         run: ./debian/build.sh
 
       - name: Upload deb
         uses: actions/upload-artifact@v7
         with:
-          name: librustls_0.15.0_amd64.deb
-          path: librustls_0.15.0_amd64.deb
+          name: librustls_${{ steps.version.outputs.version }}_amd64.deb
+          path: librustls_${{ steps.version.outputs.version }}_amd64.deb
 
   macos-binaries:
     name: MacOS (Arm64 and x86_64)
@@ -281,9 +289,9 @@ jobs:
       - name: Download rustls-ffi deb artifact
         uses: actions/download-artifact@v8
         with:
-          name: librustls_0.15.0_amd64.deb
+          name: librustls_${{ needs.linux-deb.outputs.version }}_amd64.deb
       - name: Install deb
-        run: sudo dpkg --install ./librustls_0.15.0_amd64.deb
+        run: sudo dpkg --install ./librustls_${{ needs.linux-deb.outputs.version }}_amd64.deb
       - name: Check copyright exists
         run: test -f /usr/share/doc/librustls/COPYRIGHT
       # Dump out what pkg-config says about the rustls package.
