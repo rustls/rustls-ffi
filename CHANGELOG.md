@@ -1,5 +1,95 @@
 # Changelog
 
+## 0.15.1 (2026-03-13)
+
+This is a minor release with one security fix. It updates `rustls` to
+[0.23.37](https://github.com/rustls/rustls/releases/tag/v%2F0.23.37).
+
+### Security
+
+Updates `rustls-webpki` to
+[0.103.10](https://github.com/rustls/webpki/releases/tag/v%2F0.103.10):
+
+This update addresses
+[RUSTSEC-2026-0049](https://rustsec.org/advisories/RUSTSEC-2026-0049.html);
+a security issue affecting CRL revocation checking.
+
+This low-impact vulnerability affects users of the
+`rustls_web_pki_[server|client]_cert_verifier_builder` APIs that populated CRLs
+with `rustls_web_pki_server_cert_verifier_builder_add_crl()`. If a certificate
+signed by a trusted certificate authority contained multiple CRL distribution
+points, only the first was checked against the CRL's issuing distribution point.
+
+In a default configuration this oversight meant that revocation checking would
+fail-closed with an incorrect, but safe, `RUSTLS_RESULT_CERT_UNKNOWN_ISSUER`
+error.
+
+If configured with
+`rustls_web_pki_client_cert_verifier_allow_unknown_revocation_status()`, then
+revocation checking would fail-open, potentially allowing use of certificate
+revoked by the CRL.
+
+Inducing this bug requires a trusted certificate issuer to be compromised, which
+can result in more serious revocation bypasses and security issues.
+
+### Added
+
+* version detection macros in the C header
+  (https://github.com/rustls/rustls-ffi/pull/576): 
+  * `RUSTLS_VERSION_MAJOR`, `RUSTLS_VERSION_MINOR`, `RUSTLS_VERSION_PATCH`
+    individual version components as integers.
+  * `RUSTLS_VERSION_NUMBER` - a single number encoding the version as
+    `(major << 16 | minor << 8 | patch)`.
+
+* additional error variants (https://github.com/rustls/rustls-ffi/pull/574):
+  * `RUSTLS_RESULT_CERT_REVOCATION_LIST_UNSUPPORTED_SIGNATURE_ALGORITHM` - for
+    CRL signature algorithm errors.
+  * `RUSTLS_RESULT_CERT_UNSUPPORTED_SIGNATURE_ALGORITHM` - for certificate
+    signature algorithm errors.
+
+* `rustls_platform_server_cert_verifier_try_with_provider()`
+  (https://github.com/rustls/rustls-ffi/pull/574):
+  * A safer alternative to `rustls_platform_server_cert_verifier_with_provider`
+    with better error reporting. The older function for constructing a server
+    cert verifier backed by the platform verifier is now deprecated.
+
+* `rustls_connection_get_tls13_tickets_received()`
+  (https://github.com/rustls/rustls-ffi/pull/574):
+  * Returns the number of TLS 1.3 tickets received by a client connection. This
+    is FFI for the Rustls `ClientConnection::tls13_tickets_received()` API.
+
+* `rustls_client_connection_new_alpn()`
+  (https://github.com/rustls/rustls-ffi/pull/566):
+  * constructs a client `rustls_connection` with custom ALPN protocol support
+    that differs from the base `rustls_client_config`.
+
+### Deprecated
+
+* Deprecated functions are now visually annotated on the [documentation
+  website](https://ffi.rustls.dev).
+  (https://github.com/rustls/rustls-ffi/pull/584) and in the header file using
+  the appropriate clang/GCC/MSVC attributes
+  (https://github.com/rustls/rustls-ffi/pull/579).
+
+* Platform server cert verifier creation is now fallible, returning
+  a `rustls_result` that must be handled appropriately.
+
+  The pre-existing `rustls_platform_server_cert_verifier_with_provider()` is
+  now deprecated in favor of
+  `rustls_platform_server_cert_verifier_try_with_provider()`.
+
+### Changed
+
+* Post-quantum key exchange (`X25519MLKEM768`) is now preferred by default
+  matching upstream rustls (https://github.com/rustls/rustls-ffi/pull/566)
+
+* An additional field is now exposed in `rustls_client_hello`
+  (https://github.com/rustls/rustls-ffi/pull/574):
+  * `named_groups` - the supported key exchange groups advertised by the client.
+  * This is a breaking change, but limited to the server-side
+    `rustls_server_config_builder_set_hello_callback` APIs that are documented
+    as **experimental**.
+
 ## 0.15.0 (2025-03-25)
 
 This release updates to [Rustls 0.23.25][] and increases the project minimum
@@ -184,7 +274,7 @@ requirements.
   * Ciphersuites supported by a specific `rustls_crypto_provider` can be retrieved with
     `rustls_crypto_provider_ciphersuites_len()` and `rustls_crypto_provider_ciphersuites_get()`.
   * Ciphersuites supported by the current process-wide default crypto provider (if any) can
-    be retrieved with `rustls_default_crypto_provider_ciphersuites_len()` and 
+    be retrieved with `rustls_default_crypto_provider_ciphersuites_len()` and
     `rustls_default_crypto_provider_ciphersuites_get()`.
   * A buffer can be filled with cryptographically secure random data from
     a specific `rustls_crypto_provider` using `rustls_crypto_provider_random()`,
@@ -201,7 +291,7 @@ requirements.
      based on the current process-wide default.
    * `rustls_crypto_provider_builder_new_with_base` will construct a builder
      based on a specified `rustls_crypto_provider`.
-   * Customization of supported ciphersuites can be achieved with 
+   * Customization of supported ciphersuites can be achieved with
      `rustls_crypto_provider_builder_set_cipher_suites()`.
    * The default process-wide provider can be installed from a builder using
      `rustls_crypto_provider_builder_build_as_default()`, if it has not already
@@ -231,7 +321,7 @@ requirements.
   more information on supported platforms.
     * Use `rustls_platform_server_cert_verifier()` to construct a platform verifier
       that uses the default crypto provider.
-    * Use `rustls_platform_server_cert_verifier_with_provider()` to construct a 
+    * Use `rustls_platform_server_cert_verifier_with_provider()` to construct a
       platform verifier that uses the specified `rustls_crypto_provider`.
     * The returned `rustls_server_cert_verifier` can be used with
       a `rustls_client_config_builder` with
@@ -264,7 +354,7 @@ requirements.
 
 * `rustls_server_config_builder_build()` and
   `rustls_client_config_builder_build()` now use out-parameters for the
-  `rustls_server_config` or `rustls_client_config`, and return a `rustls_result`. 
+  `rustls_server_config` or `rustls_client_config`, and return a `rustls_result`.
   This allows returning an error if the build operation fails because a suitable
   crypto provider was not available.
 
@@ -286,7 +376,7 @@ requirements.
   functions (`rustls_all_ciphersuites_len()`,
   `rustls_all_ciphersuites_get_entry()`, `rustls_default_ciphersuites_len()` and
   `rustls_default_ciphersuites_get_entry()`) have been
-  removed. Ciphersuite support is dictated by the `rustls_crypto_provider`. 
+  removed. Ciphersuite support is dictated by the `rustls_crypto_provider`.
   * Use `rustls_default_supported_ciphersuites()` to retrieve
     a `rustls_supported_ciphersuites` for the default `rustls_crypto_provider`.
   * Use `rustls_crypto_provider_ciphersuites()` to retrieve a
@@ -307,7 +397,7 @@ only cryptographic provider.
 * A new `rustls_accepted_alert` type is added. Calling
   `rustls_accepted_alert_bytes` on this type produces TLS data to write
   in the case where a server acceptor encountered an error accepting a client.
-  The returned TLS data should be written to the connection before freeing 
+  The returned TLS data should be written to the connection before freeing
   the `rustls_accepted_alert` by calling `rustls_accepted_alert_write_tls` with
   a `rustls_write_callback` implementation.
 
@@ -367,19 +457,19 @@ and 0.12.0 continues to use `*ring*` as the only cryptographic provider.
   `rustls_root_cert_store_builder_add_pem` and
   `rustls_root_cert_store_builder_load_roots_from_file`.
 * The client verifier builders (
-  `rustls_allow_any_anonymous_or_authenticated_client_builder`, and 
+  `rustls_allow_any_anonymous_or_authenticated_client_builder`, and
   `rustls_allow_any_authenticated_client_builder`) as well as the client
-  verifier types (`rustls_allow_any_anonymous_or_authenticated_client_verifier`, 
+  verifier types (`rustls_allow_any_anonymous_or_authenticated_client_verifier`,
   `rustls_allow_any_authenticated_client_verifier`) have been replaced with
   `rustls_web_pki_client_cert_verifier_builder` and `rustls_client_cert_verifier`.
-* The server config client verifier setters 
+* The server config client verifier setters
   (`rustls_server_config_builder_set_client_verifier` and
   `rustls_server_config_builder_set_client_verifier_optional`) have been
   replaced with `rustls_server_config_builder_set_client_verifier`.
-* The client config builder functions for specifying root trust anchors 
+* The client config builder functions for specifying root trust anchors
   (`rustls_client_config_builder_use_roots` and
   `rustls_client_config_builder_load_roots_from_file`) have been replaced
-  with a server certificate verifier builder 
+  with a server certificate verifier builder
   (`rustls_web_pki_server_cert_verifier_builder`) constructed with
   `rustls_web_pki_server_cert_verifier_builder_new` and
   a `rustls_root_cert_store`. The built `rustls_web_pki_server_cert_verifier`
