@@ -1,7 +1,7 @@
 [package]
 name = "rustls-ffi"
 # Keep in sync with defines in cbindgen.toml
-version = "0.15.0"
+version = "0.15.1"
 license = "Apache-2.0 OR ISC OR MIT"
 readme = "../README-crates.io.md"
 description = "Rustls bindings for non-Rust languages"
