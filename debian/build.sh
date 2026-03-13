@@ -4,7 +4,7 @@ set -x
 
 cd "$(dirname "$0")"
 
-VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' ../librustls/Cargo.toml)
+VERSION=$(cargo pkgid -p rustls-ffi | sed 's/.*@//')
 if [ -z "$VERSION" ]; then
     echo "Failed to extract version from Cargo.toml" >&2
     exit 1
