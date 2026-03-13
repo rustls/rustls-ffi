@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.15.1 (2026-03-13)
+
+This is a minor release, updating rustls to 0.23.37 and updating other dependencies.
+
+* Build artifacts on ubuntu-22 by @ctz in https://github.com/rustls/rustls-ffi/pull/561
+* rustls 0.23.25 -> 0.23.27 by @cpu in https://github.com/rustls/rustls-ffi/pull/566
+* Update rustls 0.23.27 -> 0.23.28, expose new API surface & errors by @cpu in https://github.com/rustls/rustls-ffi/pull/574
+* website: Remove backdrop-filter: blur from items by @yedayak in https://github.com/rustls/rustls-ffi/pull/577
+* docgen: skip over cpp attributes before decl by @ctz in https://github.com/rustls/rustls-ffi/pull/581
+* cbindgen: Add version defines by @yedayak in https://github.com/rustls/rustls-ffi/pull/576
+* librustls: rustls 0.23.28 -> 0.23.29 by @cpu in https://github.com/rustls/rustls-ffi/pull/583
+* librustls: update rustls 0.23.29 -> 0.23.31 by @cpu in https://github.com/rustls/rustls-ffi/pull/589
+* Bump rust-version to 1.73 by @djc in https://github.com/rustls/rustls-ffi/pull/607
+* upgrade rustls 0.23.31 -> 0.23.33 by @cpu in https://github.com/rustls/rustls-ffi/pull/614
+* error: use decl+proc macro to generate u32 mapping  by @ctz in https://github.com/rustls/rustls-ffi/pull/618
+* librustls: fix typo in server cert verifier builder docs by @cpu in https://github.com/rustls/rustls-ffi/pull/620
+* Bump macos versions for artifacts by @ctz in https://github.com/rustls/rustls-ffi/pull/623
+* docgen/website: show deprecated function warnings on docs website by @cpu in https://github.com/rustls/rustls-ffi/pull/584
+
 ## 0.15.0 (2025-03-25)
 
 This release updates to [Rustls 0.23.25][] and increases the project minimum
@@ -184,7 +203,7 @@ requirements.
   * Ciphersuites supported by a specific `rustls_crypto_provider` can be retrieved with
     `rustls_crypto_provider_ciphersuites_len()` and `rustls_crypto_provider_ciphersuites_get()`.
   * Ciphersuites supported by the current process-wide default crypto provider (if any) can
-    be retrieved with `rustls_default_crypto_provider_ciphersuites_len()` and 
+    be retrieved with `rustls_default_crypto_provider_ciphersuites_len()` and
     `rustls_default_crypto_provider_ciphersuites_get()`.
   * A buffer can be filled with cryptographically secure random data from
     a specific `rustls_crypto_provider` using `rustls_crypto_provider_random()`,
@@ -201,7 +220,7 @@ requirements.
      based on the current process-wide default.
    * `rustls_crypto_provider_builder_new_with_base` will construct a builder
      based on a specified `rustls_crypto_provider`.
-   * Customization of supported ciphersuites can be achieved with 
+   * Customization of supported ciphersuites can be achieved with
      `rustls_crypto_provider_builder_set_cipher_suites()`.
    * The default process-wide provider can be installed from a builder using
      `rustls_crypto_provider_builder_build_as_default()`, if it has not already
@@ -231,7 +250,7 @@ requirements.
   more information on supported platforms.
     * Use `rustls_platform_server_cert_verifier()` to construct a platform verifier
       that uses the default crypto provider.
-    * Use `rustls_platform_server_cert_verifier_with_provider()` to construct a 
+    * Use `rustls_platform_server_cert_verifier_with_provider()` to construct a
       platform verifier that uses the specified `rustls_crypto_provider`.
     * The returned `rustls_server_cert_verifier` can be used with
       a `rustls_client_config_builder` with
@@ -264,7 +283,7 @@ requirements.
 
 * `rustls_server_config_builder_build()` and
   `rustls_client_config_builder_build()` now use out-parameters for the
-  `rustls_server_config` or `rustls_client_config`, and return a `rustls_result`. 
+  `rustls_server_config` or `rustls_client_config`, and return a `rustls_result`.
   This allows returning an error if the build operation fails because a suitable
   crypto provider was not available.
 
@@ -286,7 +305,7 @@ requirements.
   functions (`rustls_all_ciphersuites_len()`,
   `rustls_all_ciphersuites_get_entry()`, `rustls_default_ciphersuites_len()` and
   `rustls_default_ciphersuites_get_entry()`) have been
-  removed. Ciphersuite support is dictated by the `rustls_crypto_provider`. 
+  removed. Ciphersuite support is dictated by the `rustls_crypto_provider`.
   * Use `rustls_default_supported_ciphersuites()` to retrieve
     a `rustls_supported_ciphersuites` for the default `rustls_crypto_provider`.
   * Use `rustls_crypto_provider_ciphersuites()` to retrieve a
@@ -307,7 +326,7 @@ only cryptographic provider.
 * A new `rustls_accepted_alert` type is added. Calling
   `rustls_accepted_alert_bytes` on this type produces TLS data to write
   in the case where a server acceptor encountered an error accepting a client.
-  The returned TLS data should be written to the connection before freeing 
+  The returned TLS data should be written to the connection before freeing
   the `rustls_accepted_alert` by calling `rustls_accepted_alert_write_tls` with
   a `rustls_write_callback` implementation.
 
@@ -367,19 +386,19 @@ and 0.12.0 continues to use `*ring*` as the only cryptographic provider.
   `rustls_root_cert_store_builder_add_pem` and
   `rustls_root_cert_store_builder_load_roots_from_file`.
 * The client verifier builders (
-  `rustls_allow_any_anonymous_or_authenticated_client_builder`, and 
+  `rustls_allow_any_anonymous_or_authenticated_client_builder`, and
   `rustls_allow_any_authenticated_client_builder`) as well as the client
-  verifier types (`rustls_allow_any_anonymous_or_authenticated_client_verifier`, 
+  verifier types (`rustls_allow_any_anonymous_or_authenticated_client_verifier`,
   `rustls_allow_any_authenticated_client_verifier`) have been replaced with
   `rustls_web_pki_client_cert_verifier_builder` and `rustls_client_cert_verifier`.
-* The server config client verifier setters 
+* The server config client verifier setters
   (`rustls_server_config_builder_set_client_verifier` and
   `rustls_server_config_builder_set_client_verifier_optional`) have been
   replaced with `rustls_server_config_builder_set_client_verifier`.
-* The client config builder functions for specifying root trust anchors 
+* The client config builder functions for specifying root trust anchors
   (`rustls_client_config_builder_use_roots` and
   `rustls_client_config_builder_load_roots_from_file`) have been replaced
-  with a server certificate verifier builder 
+  with a server certificate verifier builder
   (`rustls_web_pki_server_cert_verifier_builder`) constructed with
   `rustls_web_pki_server_cert_verifier_builder_new` and
   a `rustls_root_cert_store`. The built `rustls_web_pki_server_cert_verifier`
