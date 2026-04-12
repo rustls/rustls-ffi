@@ -916,7 +916,7 @@ mod tests {
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
-            "example.com\0".as_ptr() as *const c_char,
+            c"example.com".as_ptr() as *const c_char,
             &mut conn,
         );
         if !matches!(result, rustls_result::Ok) {
@@ -969,7 +969,7 @@ mod tests {
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new_alpn(
             config,
-            "example.com\0".as_ptr() as *const c_char,
+            c"example.com".as_ptr() as *const c_char,
             alpn_protocols.as_ptr(),
             alpn_protocols.len() as size_t,
             &mut conn,
@@ -1023,7 +1023,7 @@ mod tests {
         let mut conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
-            "198.51.100.198\0".as_ptr() as *const c_char,
+            c"198.51.100.198".as_ptr() as *const c_char,
             &mut conn,
         );
         if !matches!(result, rustls_result::Ok) {
