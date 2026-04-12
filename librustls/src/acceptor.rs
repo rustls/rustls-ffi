@@ -342,7 +342,7 @@ impl rustls_accepted {
     ///   - The client did not offer the ALPN extension.
     ///   - The `accepted` parameter was already transformed into a connection
     ///     with rustls_accepted_into_connection.
-    ///   
+    ///
     /// The returned value is valid until rustls_accepted_into_connection or
     /// rustls_accepted_free is called on the same `accepted`. It is not owned
     /// by the caller and does not need to be freed.
@@ -669,7 +669,7 @@ mod tests {
         let mut client_conn = null_mut();
         let result = rustls_client_config::rustls_client_connection_new(
             config,
-            "example.com\0".as_ptr() as *const c_char,
+            c"example.com".as_ptr() as *const c_char,
             &mut client_conn,
         );
         assert_eq!(result, rustls_result::Ok);
