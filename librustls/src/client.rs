@@ -55,6 +55,7 @@ pub(crate) struct ClientConfigBuilder {
     versions: Vec<&'static SupportedProtocolVersion>,
     verifier: Option<Arc<dyn ServerCertVerifier>>,
     alpn_protocols: Vec<Vec<u8>>,
+    check_selected_alpn: bool,
     enable_sni: bool,
     cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
     key_log: Option<Arc<dyn KeyLog>>,
@@ -71,6 +72,7 @@ impl Default for ClientConfigBuilder {
             versions: Vec::new(),
             verifier: None,
             alpn_protocols: Vec::new(),
+            check_selected_alpn: true,
             // Note: we don't derive Default for this struct because we want to enable SNI
             // by default.
             enable_sni: true,
@@ -266,6 +268,22 @@ impl rustls_client_config_builder {
             }
             config.alpn_protocols = vv;
             rustls_result::Ok
+        }
+    }
+
+    /// Enable or disable verifying the selected ALPN was offered.
+    ///
+    /// The default is `true`.
+    ///
+    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn>
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_set_check_selected_alpn(
+        config: *mut rustls_client_config_builder,
+        enable: bool,
+    ) {
+        ffi_panic_boundary! {
+            let config = try_mut_from_ptr!(config);
+            config.check_selected_alpn = enable;
         }
     }
 

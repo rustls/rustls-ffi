@@ -1449,6 +1449,16 @@ rustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_clie
                                                               size_t len);
 
 /**
+ * Enable or disable verifying the selected ALPN was offered.
+ *
+ * The default is `true`.
+ *
+ * <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn>
+ */
+void rustls_client_config_builder_set_check_selected_alpn(struct rustls_client_config_builder *config,
+                                                          bool enable);
+
+/**
  * Enable or disable SNI.
  * <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>
  */
