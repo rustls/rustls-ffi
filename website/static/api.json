@@ -507,6 +507,14 @@
       "text": "```c\nrustls_result rustls_client_config_builder_set_alpn_protocols(struct rustls_client_config_builder *builder,\n                                                              const struct rustls_slice_bytes *protocols,\n                                                              size_t len);\n```"
     },
     {
+      "anchor": "rustls-client-config-builder-set-check-selected-alpn",
+      "comment": "Enable or disable verifying the selected ALPN was offered.\n\n The default is `true`.\n\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn>",
+      "feature": null,
+      "deprecation": null,
+      "name": "rustls_client_config_builder_set_check_selected_alpn",
+      "text": "```c\nvoid rustls_client_config_builder_set_check_selected_alpn(struct rustls_client_config_builder *config,\n                                                          bool enable);\n```"
+    },
+    {
       "anchor": "rustls-client-config-builder-set-enable-sni",
       "comment": "Enable or disable SNI.\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>",
       "feature": null,
