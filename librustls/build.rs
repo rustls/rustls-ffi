@@ -37,4 +37,4 @@ fn main() {
 // because doing so would require a heavy-weight deserialization lib dependency
 // (and it couldn't be a _dev_ dep for use in a build script) or doing brittle
 // by-hand parsing.
-const RUSTLS_CRATE_VERSION: &str = "0.23.37";
+const RUSTLS_CRATE_VERSION: &str = "0.23.38";
