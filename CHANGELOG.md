@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.15.2 (2026-04-15)
+
+This is a minor release with two security fixes. It also updates `rustls` to
+[0.23.38](https://github.com/rustls/rustls/releases/tag/v%2F0.23.38).
+
+### Security
+
+This update addresses
+[RUSTSEC-2026-0098](https://rustsec.org/advisories/RUSTSEC-2026-0098.html) and 
+[RUSTSEC-2026-0099](https://rustsec.org/advisories/RUSTSEC-2026-0099.html);
+two security issues affecting name constraint checking with the webpki
+certificate verifiers. Both issues are reachable only after signature
+verification and require misissuance to exploit.
+
+These low-impact vulnerabilities only affect users of the
+`rustls_web_pki_[server|client]_cert_verifier_builder` APIs.
+
+### Added
+
+* `rustls_client_config_builder_set_check_selected_alpn()`
+  * Allows configuring a to-be-built client config to allow skipping a check
+    that the server's selected ALPN was in the list offered by the client. This
+    defaults to true, matching the behavior before the option to skip the check
+    was available.
+
 ## 0.15.1 (2026-03-13)
 
 This is a minor release with one security fix. It updates `rustls` to
