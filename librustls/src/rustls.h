@@ -9,7 +9,7 @@
 
 #define RUSTLS_VERSION_MAJOR 0
 #define RUSTLS_VERSION_MINOR 15
-#define RUSTLS_VERSION_PATCH 1
+#define RUSTLS_VERSION_PATCH 2
 
 /**
  * This gives each version part 8 bits, and leaves the 8 least significant bits
