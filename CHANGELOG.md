@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.15.3 (2026-04-22)
+
+This is a minor release with one security fix. It also updates `rustls` to
+[0.23.39](https://github.com/rustls/rustls/releases/tag/v%2F0.23.39).
+
+### Security
+
+This update addresses
+[RUSTSEC-2026-0104](https://rustsec.org/advisories/RUSTSEC-2026-0104.html);
+a security issue affecting CRL parsing that could result in a panic prior
+to the validation of a CRL's signature.
+
+This security issue only affects users of the
+`rustls_web_pki_client_cert_verifier_builder_add_crl()` and
+`rustls_web_pki_server_cert_verifier_builder_add_crl()` APIs.
+
 ## 0.15.2 (2026-04-15)
 
 This is a minor release with two security fixes. It also updates `rustls` to
