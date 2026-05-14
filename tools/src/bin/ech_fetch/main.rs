@@ -13,11 +13,12 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Write;
 
-use hickory_resolver::config::ResolverConfig;
-use hickory_resolver::name_server::TokioConnectionProvider;
+use hickory_resolver::config::{GOOGLE, ResolverConfig};
+use hickory_resolver::net::NetError;
+use hickory_resolver::net::runtime::TokioRuntimeProvider;
 use hickory_resolver::proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
 use hickory_resolver::proto::rr::{RData, RecordType};
-use hickory_resolver::{ResolveError, Resolver, TokioResolver};
+use hickory_resolver::{Resolver, TokioResolver};
 
 use rustls::pki_types::EchConfigListBytes;
 
@@ -28,10 +29,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let output_path = args.next().unwrap_or(format!("{domain}.ech.configs.bin"));
 
     let resolver = Resolver::builder_with_config(
-        ResolverConfig::google_https(),
-        TokioConnectionProvider::default(),
+        ResolverConfig::https(&GOOGLE),
+        TokioRuntimeProvider::default(),
     )
-    .build();
+    .build()?;
 
     let all_lists = lookup_ech_configs(&resolver, &domain).await?;
 
@@ -70,16 +71,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 async fn lookup_ech_configs(
     resolver: &TokioResolver,
     domain: &str,
-) -> Result<Vec<EchConfigListBytes<'static>>, ResolveError> {
+) -> Result<Vec<EchConfigListBytes<'static>>, NetError> {
     let lookup = resolver.lookup(domain, RecordType::HTTPS).await?;
 
     let mut ech_config_lists = Vec::new();
-    for r in lookup.record_iter() {
-        let RData::HTTPS(svcb) = r.data() else {
+    for r in lookup.answers() {
+        let RData::HTTPS(svcb) = &r.data else {
             continue;
         };
 
-        ech_config_lists.extend(svcb.svc_params().iter().find_map(|sp| match sp {
+        ech_config_lists.extend(svcb.svc_params.iter().find_map(|sp| match sp {
             (SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(e)) => {
                 Some(EchConfigListBytes::from(e.clone().0))
             }
