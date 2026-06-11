@@ -1,3 +1,4 @@
+use std::cmp::min;
 use std::io::{ErrorKind, Read, Write};
 use std::{ffi::c_void, ptr::null};
 use std::{ptr::null_mut, slice};
@@ -27,6 +28,7 @@ pub(crate) struct Connection {
     conn: rustls::Connection,
     userdata: *mut c_void,
     log_callback: rustls_log_callback,
+    last_error_msg: Option<String>,
 }
 
 impl Connection {
@@ -35,6 +37,7 @@ impl Connection {
             conn: conn.into(),
             userdata: null_mut(),
             log_callback: None,
+            last_error_msg: None,
         }
     }
 
@@ -43,6 +46,7 @@ impl Connection {
             conn: conn.into(),
             userdata: null_mut(),
             log_callback: None,
+            last_error_msg: None,
         }
     }
 
@@ -147,6 +151,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
+                conn.last_error_msg = Some("EINVAL".to_owned());
                 return rustls_io_result(EINVAL);
             }
             let callback = try_callback!(callback);
@@ -154,7 +159,10 @@ impl rustls_connection {
             let mut reader = CallbackReader { callback, userdata };
             let n_read = match conn.read_tls(&mut reader) {
                 Ok(n) => n,
-                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_io_result(e.raw_os_error().unwrap_or(EIO));
+                }
             };
             unsafe {
                 *out_n = n_read;
@@ -184,6 +192,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
+                conn.last_error_msg = Some("EINVAL".to_owned());
                 return rustls_io_result(EINVAL);
             }
             let callback = try_callback!(callback);
@@ -191,7 +200,10 @@ impl rustls_connection {
             let mut writer = CallbackWriter { callback, userdata };
             let n_written = match conn.write_tls(&mut writer) {
                 Ok(n) => n,
-                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_io_result(e.raw_os_error().unwrap_or(EIO));
+                }
             };
             unsafe {
                 *out_n = n_written;
@@ -221,6 +233,7 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if out_n.is_null() {
+                conn.last_error_msg = Some("EINVAL".to_owned());
                 return rustls_io_result(EINVAL);
             }
             let callback = try_callback!(callback);
@@ -228,7 +241,10 @@ impl rustls_connection {
             let mut writer = VectoredCallbackWriter { callback, userdata };
             let n_written = match conn.write_tls(&mut writer) {
                 Ok(n) => n,
-                Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_io_result(e.raw_os_error().unwrap_or(EIO));
+                }
             };
             unsafe {
                 *out_n = n_written;
@@ -250,15 +266,24 @@ impl rustls_connection {
             let conn = try_mut_from_ptr!(conn);
             let guard = match userdata_push(conn.userdata, conn.log_callback) {
                 Ok(g) => g,
-                Err(_) => return rustls_result::Panic,
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{:?}", e));
+                    return rustls_result::Panic;
+                }
             };
             let result = match conn.process_new_packets() {
                 Ok(_) => rustls_result::Ok,
-                Err(e) => map_error(e),
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    map_error(e)
+                }
             };
             match guard.try_drop() {
                 Ok(()) => result,
-                Err(_) => rustls_result::Panic,
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{:?}", e));
+                    rustls_result::Panic
+                }
             }
         }
     }
@@ -342,7 +367,11 @@ impl rustls_connection {
         ffi_panic_boundary! {
             match try_mut_from_ptr!(conn).refresh_traffic_keys() {
                 Ok(_) => rustls_result::Ok,
-                Err(e) => map_error(e),
+                Err(e) => {
+                    let conn = try_mut_from_ptr!(conn);
+                    conn.last_error_msg = Some(format!("{}", e));
+                    map_error(e)
+                }
             }
         }
     }
@@ -528,11 +557,16 @@ impl rustls_connection {
             let conn = try_mut_from_ptr!(conn);
             let write_buf = try_slice!(buf, count);
             if out_n.is_null() {
-                return rustls_result::NullParameter;
+                let res = rustls_result::NullParameter;
+                conn.last_error_msg = Some(format!("{:?}", res));
+                return res;
             }
             let n_written = match conn.writer().write(write_buf) {
                 Ok(n) => n,
-                Err(_) => return rustls_result::Io,
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_result::Io;
+                }
             };
             unsafe {
                 *out_n = n_written;
@@ -563,9 +597,13 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if buf.is_null() {
-                return rustls_result::NullParameter;
+                let res = rustls_result::NullParameter;
+                conn.last_error_msg = Some(format!("{:?}", res));
+                return res;
             }
             if out_n.is_null() {
+                let res = rustls_result::NullParameter;
+                conn.last_error_msg = Some(format!("{:?}", res));
                 return rustls_result::NullParameter;
             }
 
@@ -576,12 +614,17 @@ impl rustls_connection {
             let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::UnexpectedEof;
                 }
                 Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::PlaintextEmpty;
                 }
-                Err(_) => return rustls_result::Io,
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_result::Io;
+                }
             };
             unsafe {
                 *out_n = n_read;
@@ -614,19 +657,26 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             if buf.is_null() || out_n.is_null() {
-                return rustls_result::NullParameter;
+                let res = rustls_result::NullParameter;
+                conn.last_error_msg = Some(format!("{:?}", res));
+                return res;
             }
             let mut read_buf: std::io::BorrowedBuf<'_> = try_slice_mut!(buf, count).into();
 
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
                 Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::UnexpectedEof;
                 }
                 Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    conn.last_error_msg = Some(format!("{}", e));
                     return rustls_result::PlaintextEmpty;
                 }
-                Err(_) => return rustls_result::Io,
+                Err(e) => {
+                    conn.last_error_msg = Some(format!("{}", e));
+                    return rustls_result::Io;
+                }
             };
             unsafe {
                 *out_n = n_read;
@@ -648,6 +698,41 @@ impl rustls_connection {
             match &conn.conn {
                 rustls::Connection::Client(c) => c.fips(),
                 rustls::Connection::Server(c) => c.fips(),
+            }
+        }
+    }
+
+    /// Read up to `count` bytes of the last error message into `buf`.
+    /// If there is any error message, store the number of bytes in *out_n and
+    /// returns `true`. If there is no last error message, stores 0 in *out_n
+    /// and returns `false`.
+    #[no_mangle]
+    pub extern "C" fn rustls_connection_last_error_msg(
+        conn: &mut rustls_connection,
+        buf: *mut u8,
+        count: size_t,
+        out_n: *mut size_t,
+    ) -> bool {
+        ffi_panic_boundary! {
+            let conn = try_ref_from_ptr!(conn);
+            match &conn.last_error_msg {
+                Some(msg) => {
+                    let n = min(msg.len(), count);
+                    if n > 0 {
+                        let buf = try_slice_mut!(buf, n);
+                        buf.copy_from_slice(msg.as_bytes());
+                    }
+                    unsafe {
+                        *out_n = n;
+                    }
+                    true
+                }
+                None => {
+                    unsafe {
+                        *out_n = 0;
+                    }
+                    false
+                }
             }
         }
     }
