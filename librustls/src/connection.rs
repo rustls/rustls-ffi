@@ -616,7 +616,7 @@ impl rustls_connection {
             if buf.is_null() || out_n.is_null() {
                 return rustls_result::NullParameter;
             }
-            let mut read_buf: std::io::BorrowedBuf<'_> = try_slice_mut!(buf, count).into();
+            let mut read_buf: std::io::BorrowedBuf<'_, u8> = try_slice_mut!(buf, count).into();
 
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
