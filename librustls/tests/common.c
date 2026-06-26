@@ -267,7 +267,7 @@ log_cb(void *userdata, const rustls_log_params *params)
 demo_result
 read_file(const char *filename, char *buf, const size_t buflen, size_t *n)
 {
-  FILE *f = fopen(filename, "r");
+  FILE *f = fopen(filename, "rb");
   if(f == NULL) {
     LOG("opening %s: %s", filename, strerror(errno));
     return DEMO_ERROR;
