@@ -892,6 +892,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn test_config_builder() {
         let builder = rustls_client_config_builder::rustls_client_config_builder_new();
         let mut verifier = null_mut();
