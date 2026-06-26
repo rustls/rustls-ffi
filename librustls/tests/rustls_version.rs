@@ -15,6 +15,7 @@ use rustls_ffi::rustls_version;
 /// If this test starts to fail, you probably forgot to update `RUSTLS_CRATE_VERSION` in
 /// `build.rs`.
 #[test]
+#[cfg_attr(miri, ignore)]
 fn rustls_version_match() {
     // Parse Cargo.toml as a generic TOML Table.
     let mut metadata_file =
