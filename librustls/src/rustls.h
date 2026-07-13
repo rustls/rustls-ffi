@@ -2393,6 +2393,15 @@ rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls
                                                                    bool ignore);
 
 /**
+ * Set the number of TLS 1.3 NewSessionTickets sent after a full handshake.
+ *
+ * Setting this to 0 disables session ticket issuance entirely.
+ * <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets>
+ */
+rustls_result rustls_server_config_builder_set_send_tls13_tickets(struct rustls_server_config_builder *builder,
+                                                                  size_t n);
+
+/**
  * Set the ALPN protocol list to the given protocols.
  *
  * `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
