@@ -60,6 +60,7 @@ pub(crate) struct ServerConfigBuilder {
     session_storage: Option<Arc<dyn StoresServerSessions + Send + Sync>>,
     alpn_protocols: Vec<Vec<u8>>,
     ignore_client_order: Option<bool>,
+    send_tls13_tickets: Option<usize>,
     key_log: Option<Arc<dyn KeyLog>>,
 }
 
@@ -98,6 +99,7 @@ impl rustls_server_config_builder {
                 session_storage: None,
                 alpn_protocols: vec![],
                 ignore_client_order: None,
+                send_tls13_tickets: None,
                 key_log: None,
             };
             to_boxed_mut_ptr(builder)
@@ -153,6 +155,7 @@ impl rustls_server_config_builder {
                 session_storage: None,
                 alpn_protocols: vec![],
                 ignore_client_order: None,
+                send_tls13_tickets: None,
                 key_log: None,
             };
             set_boxed_mut_ptr(builder_out, builder);
@@ -271,6 +274,22 @@ impl rustls_server_config_builder {
         }
     }
 
+    /// Set the number of TLS 1.3 NewSessionTickets sent after a full handshake.
+    ///
+    /// Setting this to 0 disables session ticket issuance entirely.
+    /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets>
+    #[no_mangle]
+    pub extern "C" fn rustls_server_config_builder_set_send_tls13_tickets(
+        builder: *mut rustls_server_config_builder,
+        n: usize,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let config = try_mut_from_ptr!(builder);
+            config.send_tls13_tickets = Some(n);
+            rustls_result::Ok
+        }
+    }
+
     /// Set the ALPN protocol list to the given protocols.
     ///
     /// `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
@@ -375,6 +394,9 @@ impl rustls_server_config_builder {
             config.alpn_protocols = builder.alpn_protocols;
             if let Some(ignore_client_order) = builder.ignore_client_order {
                 config.ignore_client_order = ignore_client_order;
+            }
+            if let Some(send_tls13_tickets) = builder.send_tls13_tickets {
+                config.send_tls13_tickets = send_tls13_tickets;
             }
 
             if let Some(key_log) = builder.key_log {
@@ -818,6 +840,69 @@ mod tests {
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
         }
         rustls_server_config::rustls_server_config_free(config);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_server_config_builder_set_send_tls13_tickets() {
+        let builder = rustls_server_config_builder::rustls_server_config_builder_new();
+
+        let cert_pem = include_str!("../testdata/localhost/cert.pem").as_bytes();
+        let key_pem = include_str!("../testdata/localhost/key.pem").as_bytes();
+        let mut certified_key = null();
+        let result = rustls_certified_key::rustls_certified_key_build(
+            cert_pem.as_ptr(),
+            cert_pem.len(),
+            key_pem.as_ptr(),
+            key_pem.len(),
+            &mut certified_key,
+        );
+        if !matches!(result, rustls_result::Ok) {
+            panic!("expected RUSTLS_RESULT_OK from rustls_certified_key_build, got {result:?}");
+        }
+        rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+            builder,
+            &certified_key,
+            1,
+        );
+
+        // 0 disables ticket issuance.
+        rustls_server_config_builder::rustls_server_config_builder_set_send_tls13_tickets(
+            builder, 0,
+        );
+
+        let mut config = null();
+        let result =
+            rustls_server_config_builder::rustls_server_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
+        {
+            let config2 = try_ref_from_ptr!(config);
+            assert_eq!(config2.send_tls13_tickets, 0);
+        }
+        rustls_server_config::rustls_server_config_free(config);
+
+        // A non-zero value flows through too.
+        let builder = rustls_server_config_builder::rustls_server_config_builder_new();
+        rustls_server_config_builder::rustls_server_config_builder_set_certified_keys(
+            builder,
+            &certified_key,
+            1,
+        );
+        rustls_server_config_builder::rustls_server_config_builder_set_send_tls13_tickets(
+            builder, 4,
+        );
+        let mut config = null();
+        let result =
+            rustls_server_config_builder::rustls_server_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        assert!(!config.is_null());
+        {
+            let config2 = try_ref_from_ptr!(config);
+            assert_eq!(config2.send_tls13_tickets, 4);
+        }
+        rustls_server_config::rustls_server_config_free(config);
+        rustls_certified_key::rustls_certified_key_free(certified_key);
     }
 
     // Build a server connection and test the getters and initial values.
