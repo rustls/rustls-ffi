@@ -90,6 +90,7 @@ main(const int argc, const char **argv)
     .port = port,
     .path = path,
     .use_vectored_io = opts.use_vectored_io,
+    .expect_tls13_tickets = opts.expect_tls13_tickets,
   };
 
   // Make GET requests with the rustls client config.
@@ -204,6 +205,33 @@ options_from_env(demo_client_options *opts)
     opts->use_vectored_io = true;
   }
 #endif
+
+  // Consider RFC 9149 TLS 1.3 ticket request options.
+  opts->request_tls13_tickets = -1;
+  opts->expect_tls13_tickets = -1;
+  const char *request_tls13_tickets = getenv("REQUEST_TLS13_TICKETS");
+  if(request_tls13_tickets) {
+    char *end = NULL;
+    const long int count = strtol(request_tls13_tickets, &end, 10);
+    if(end == request_tls13_tickets || *end != '\0' || count < 0 ||
+       count > UINT8_MAX) {
+      LOG_SIMPLE("REQUEST_TLS13_TICKETS must be an integer in [0, 255]");
+      return 1;
+    }
+    LOG("requesting %ld TLS 1.3 ticket(s) per handshake", count);
+    opts->request_tls13_tickets = (int)count;
+  }
+  const char *expect_tls13_tickets = getenv("EXPECT_TLS13_TICKETS");
+  if(expect_tls13_tickets) {
+    char *end = NULL;
+    const long int count = strtol(expect_tls13_tickets, &end, 10);
+    if(end == expect_tls13_tickets || *end != '\0' || count < 0) {
+      LOG_SIMPLE("EXPECT_TLS13_TICKETS must be a non-negative integer");
+      return 1;
+    }
+    LOG("expecting %ld TLS 1.3 ticket(s) per handshake", count);
+    opts->expect_tls13_tickets = (int)count;
+  }
 
   return 0;
 }
@@ -425,6 +453,18 @@ new_tls_config(const demo_client_options *opts)
     goto cleanup;
   }
 
+  // Then configure an RFC 9149 ticket request if required.
+  if(opts->request_tls13_tickets >= 0) {
+    rr = rustls_client_config_builder_set_send_ticket_request(
+      config_builder,
+      (uint8_t)opts->request_tls13_tickets,
+      (uint8_t)opts->request_tls13_tickets);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("setting ticket request", rr);
+      goto cleanup;
+    }
+  }
+
   // Finally consume the config_builder by trying to build it into a client
   // config. We can't use the config_builder (even to free it!) after this
   // point.
@@ -540,6 +580,21 @@ do_get_request(const demo_client_request_options *options)
   }
   LOG_SIMPLE("I/O loop fell through");
   log_connection_info(demo_conn->rconn);
+
+  // Verify the expected number of TLS 1.3 session tickets were received.
+  if(options->expect_tls13_tickets >= 0) {
+    const uint32_t tickets =
+      rustls_connection_get_tls13_tickets_received(demo_conn->rconn);
+    if(tickets != (uint32_t)options->expect_tls13_tickets) {
+      LOG("expected %d TLS 1.3 ticket(s), received %u",
+          options->expect_tls13_tickets,
+          tickets);
+      ret = 1;
+    }
+    else {
+      LOG("received %u TLS 1.3 ticket(s), as expected", tickets);
+    }
+  }
 
   // Print whatever is in the user data buffer.
   // TODO(@cpu): refactor conndata struct to avoid "data data data" naming

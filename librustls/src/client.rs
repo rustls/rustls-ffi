@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use libc::{c_char, size_t};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::client::{EchConfig, EchGreaseConfig, EchMode, ResolvesClientCert};
+use rustls::client::{EchConfig, EchGreaseConfig, EchMode, ResolvesClientCert, TicketRequest};
 use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
 use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
 use rustls::{
@@ -60,6 +60,7 @@ pub(crate) struct ClientConfigBuilder {
     cert_resolver: Option<Arc<dyn ResolvesClientCert>>,
     key_log: Option<Arc<dyn KeyLog>>,
     ech_mode: Option<EchMode>,
+    send_ticket_request: Option<TicketRequest>,
 }
 
 impl Default for ClientConfigBuilder {
@@ -79,6 +80,7 @@ impl Default for ClientConfigBuilder {
             cert_resolver: None,
             key_log: None,
             ech_mode: None,
+            send_ticket_request: None,
         }
     }
 }
@@ -284,6 +286,34 @@ impl rustls_client_config_builder {
         ffi_panic_boundary! {
             let config = try_mut_from_ptr!(config);
             config.check_selected_alpn = enable;
+        }
+    }
+
+    /// Request a specific number of TLS 1.3 session tickets.
+    ///
+    /// This is done via the RFC 9149 `ticket_request` extension.
+    ///
+    /// `new_session_count` is the number of tickets desired when the server
+    /// negotiates a new connection, and `resumption_count` the number desired
+    /// when the server resumes using a presented ticket.
+    ///
+    /// By default the extension is not sent. Note that servers are free to
+    /// ignore the request, it is only a hint.
+    ///
+    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request>
+    #[no_mangle]
+    pub extern "C" fn rustls_client_config_builder_set_send_ticket_request(
+        builder: *mut rustls_client_config_builder,
+        new_session_count: u8,
+        resumption_count: u8,
+    ) -> rustls_result {
+        ffi_panic_boundary! {
+            let config = try_mut_from_ptr!(builder);
+            config.send_ticket_request = Some(TicketRequest {
+                new_session_count,
+                resumption_count,
+            });
+            rustls_result::Ok
         }
     }
 
@@ -557,6 +587,7 @@ impl rustls_client_config_builder {
             };
             config.alpn_protocols = builder.alpn_protocols;
             config.enable_sni = builder.enable_sni;
+            config.send_ticket_request = builder.send_ticket_request;
 
             if let Some(key_log) = builder.key_log {
                 config.key_log = key_log;
@@ -921,6 +952,54 @@ mod tests {
             let config2 = try_ref_from_ptr!(config);
             assert!(!config2.enable_sni);
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
+        }
+        rustls_client_config::rustls_client_config_free(config);
+        rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn test_config_builder_set_send_ticket_request() {
+        // The default is to not send the ticket_request extension.
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
+        let mut verifier = null_mut();
+        let result =
+            rustls_server_cert_verifier::rustls_platform_server_cert_verifier(&mut verifier);
+        assert_eq!(result, rustls_result::Ok);
+        rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
+            builder, verifier,
+        );
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        {
+            let config2 = try_ref_from_ptr!(config);
+            assert_eq!(config2.send_ticket_request, None);
+        }
+        rustls_client_config::rustls_client_config_free(config);
+
+        // Configured counts flow through to the config.
+        let builder = rustls_client_config_builder::rustls_client_config_builder_new();
+        rustls_client_config_builder::rustls_client_config_builder_set_server_verifier(
+            builder, verifier,
+        );
+        rustls_client_config_builder::rustls_client_config_builder_set_send_ticket_request(
+            builder, 6, 3,
+        );
+        let mut config = null();
+        let result =
+            rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
+        assert_eq!(result, rustls_result::Ok);
+        {
+            let config2 = try_ref_from_ptr!(config);
+            assert_eq!(
+                config2.send_ticket_request,
+                Some(TicketRequest {
+                    new_session_count: 6,
+                    resumption_count: 3,
+                })
+            );
         }
         rustls_client_config::rustls_client_config_free(config);
         rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);

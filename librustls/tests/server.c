@@ -398,6 +398,25 @@ main(const int argc, const char **argv)
     }
   }
 
+  const char *max_tls13_tickets = getenv("MAX_TLS13_TICKETS");
+  if(max_tls13_tickets) {
+    char *end = NULL;
+    const long int max = strtol(max_tls13_tickets, &end, 10);
+    if(end == max_tls13_tickets || *end != '\0' || max < 0) {
+      fprintf(stderr,
+              "server: MAX_TLS13_TICKETS must be a non-negative integer\n");
+      goto cleanup;
+    }
+    const rustls_result rr =
+      rustls_server_config_builder_set_max_tls13_tickets(config_builder,
+                                                         (size_t)max);
+    if(rr != RUSTLS_RESULT_OK) {
+      print_error("setting max TLS 1.3 tickets", rr);
+      goto cleanup;
+    }
+    printf("honoring client ticket requests up to %ld ticket(s)\n", max);
+  }
+
   rustls_result rr =
     rustls_server_config_builder_build(config_builder, &server_config);
   if(rr != RUSTLS_RESULT_OK) {
