@@ -586,6 +586,7 @@ impl rustls_client_config_builder {
                 None => config.with_no_client_auth(),
             };
             config.alpn_protocols = builder.alpn_protocols;
+            config.check_selected_alpn = builder.check_selected_alpn;
             config.enable_sni = builder.enable_sni;
             config.send_ticket_request = builder.send_ticket_request;
 
@@ -943,6 +944,9 @@ mod tests {
             alpn.len(),
         );
         rustls_client_config_builder::rustls_client_config_builder_set_enable_sni(builder, false);
+        rustls_client_config_builder::rustls_client_config_builder_set_check_selected_alpn(
+            builder, false,
+        );
         let mut config = null();
         let result =
             rustls_client_config_builder::rustls_client_config_builder_build(builder, &mut config);
@@ -952,6 +956,7 @@ mod tests {
             let config2 = try_ref_from_ptr!(config);
             assert!(!config2.enable_sni);
             assert_eq!(config2.alpn_protocols, vec![h1, h2]);
+            assert!(!config2.check_selected_alpn);
         }
         rustls_client_config::rustls_client_config_free(config);
         rustls_server_cert_verifier::rustls_server_cert_verifier_free(verifier);
