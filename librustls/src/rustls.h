@@ -29,44 +29,13 @@
 
 
 /**
- * Describes which sort of handshake happened.
- */
-typedef enum rustls_handshake_kind {
-  /**
-   * The type of handshake could not be determined.
-   *
-   * This variant should not be used.
-   */
-  RUSTLS_HANDSHAKE_KIND_UNKNOWN = 0,
-  /**
-   * A full TLS handshake.
-   *
-   * This is the typical TLS connection initiation process when resumption is
-   * not yet unavailable, and the initial client hello was accepted by the server.
-   */
-  RUSTLS_HANDSHAKE_KIND_FULL = 1,
-  /**
-   * A full TLS handshake, with an extra round-trip for a hello retry request.
-   *
-   * The server can respond with a hello retry request (HRR) if the initial client
-   * hello is unacceptable for several reasons, the most likely if no supported key
-   * shares were offered by the client.
-   */
-  RUSTLS_HANDSHAKE_KIND_FULL_WITH_HELLO_RETRY_REQUEST = 2,
-  /**
-   * A resumed TLS handshake.
-   *
-   * Resumed handshakes involve fewer round trips and less cryptography than
-   * full ones, but can only happen when the peers have previously done a full
-   * handshake together, and then remember data about it.
-   */
-  RUSTLS_HANDSHAKE_KIND_RESUMED = 3,
-} rustls_handshake_kind;
-
-/**
  * Numeric error codes returned from rustls-ffi API functions.
  */
-enum rustls_result {
+enum rustls_result
+#if __STDC_VERSION__ >= 202311L
+  : uint32_t
+#endif // __STDC_VERSION__ >= 202311L
+ {
   RUSTLS_RESULT_OK = 7000,
   RUSTLS_RESULT_IO = 7001,
   RUSTLS_RESULT_NULL_PARAMETER = 7002,
@@ -193,7 +162,11 @@ enum rustls_result {
   RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_NO_COMPATIBLE_CONFIG = 7701,
   RUSTLS_RESULT_INVALID_ENCRYPTED_CLIENT_HELLO_SNI_REQUIRED = 7702,
 };
+#if __STDC_VERSION__ >= 202311L
+typedef enum rustls_result rustls_result;
+#else
 typedef uint32_t rustls_result;
+#endif // __STDC_VERSION__ >= 202311L
 
 /**
  * Definitions of known TLS protocol versions.
@@ -207,6 +180,41 @@ typedef enum rustls_tls_version {
   RUSTLS_TLS_VERSION_TLSV1_2 = 771,
   RUSTLS_TLS_VERSION_TLSV1_3 = 772,
 } rustls_tls_version;
+
+/**
+ * Describes which sort of handshake happened.
+ */
+typedef enum rustls_handshake_kind {
+  /**
+   * The type of handshake could not be determined.
+   *
+   * This variant should not be used.
+   */
+  RUSTLS_HANDSHAKE_KIND_UNKNOWN = 0,
+  /**
+   * A full TLS handshake.
+   *
+   * This is the typical TLS connection initiation process when resumption is
+   * not yet unavailable, and the initial client hello was accepted by the server.
+   */
+  RUSTLS_HANDSHAKE_KIND_FULL = 1,
+  /**
+   * A full TLS handshake, with an extra round-trip for a hello retry request.
+   *
+   * The server can respond with a hello retry request (HRR) if the initial client
+   * hello is unacceptable for several reasons, the most likely if no supported key
+   * shares were offered by the client.
+   */
+  RUSTLS_HANDSHAKE_KIND_FULL_WITH_HELLO_RETRY_REQUEST = 2,
+  /**
+   * A resumed TLS handshake.
+   *
+   * Resumed handshakes involve fewer round trips and less cryptography than
+   * full ones, but can only happen when the peers have previously done a full
+   * handshake together, and then remember data about it.
+   */
+  RUSTLS_HANDSHAKE_KIND_RESUMED = 3,
+} rustls_handshake_kind;
 
 /**
  * A parsed ClientHello produced by a rustls_acceptor.

@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Parse the .h into an AST.
     let header_file = fs::read_to_string("librustls/src/rustls.h")?;
     //let header_file = fs::read_to_string("test.h")?;
+    let header_file = resolve_c23_conditionals(&header_file);
     let header_file_bytes = header_file.as_bytes();
     let tree = parser
         .parse(&header_file, None)
@@ -33,6 +34,55 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", serde_json::to_string_pretty(&docs)?);
 
     Ok(())
+}
+
+/// Resolve `#if __STDC_VERSION__ >= 202311L` conditionals to the pre-C23 branch.
+///
+/// cbindgen 0.29+ emits enums with a fixed representation using C23 typed enum
+/// syntax, guarded by `__STDC_VERSION__` preprocessor conditionals, e.g.:
+///
+/// ```c
+/// enum rustls_result
+/// #if __STDC_VERSION__ >= 202311L
+///   : uint32_t
+/// #endif // __STDC_VERSION__ >= 202311L
+///  {
+///   ...
+/// };
+/// #if __STDC_VERSION__ >= 202311L
+/// typedef enum rustls_result rustls_result;
+/// #else
+/// typedef uint32_t rustls_result;
+/// #endif // __STDC_VERSION__ >= 202311L
+/// ```
+///
+/// Tree-sitter's C grammar can't parse a preprocessor conditional in the middle
+/// of an enum declaration, so evaluate the conditionals as if `__STDC_VERSION__`
+/// were pre-C23 before parsing. This restores the shape older cbindgen emitted.
+fn resolve_c23_conditionals(src: &str) -> String {
+    const C23_GUARD: &str = "#if __STDC_VERSION__ >= 202311L";
+
+    let mut out = Vec::new();
+    let mut lines = src.lines();
+    while let Some(line) = lines.next() {
+        if line.trim_end() != C23_GUARD {
+            out.push(line);
+            continue;
+        }
+        // Skip the C23 branch, keeping any #else branch. cbindgen doesn't nest
+        // further conditionals inside these guards.
+        let mut in_else = false;
+        for line in lines.by_ref() {
+            if line.starts_with("#endif") {
+                break;
+            } else if line.starts_with("#else") {
+                in_else = true;
+            } else if in_else {
+                out.push(line);
+            }
+        }
+    }
+    out.join("\n") + "\n"
 }
 
 #[derive(Debug, Default, Serialize)]

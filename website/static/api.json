@@ -1487,39 +1487,6 @@
   ],
   "enums": [
     {
-      "anchor": "rustls-handshake-kind",
-      "comment": "Describes which sort of handshake happened.",
-      "feature": null,
-      "deprecation": null,
-      "name": "rustls_handshake_kind",
-      "variants": [
-        {
-          "anchor": "rustls-handshake-kind-unknown",
-          "comment": "The type of handshake could not be determined.\n\n This variant should not be used.",
-          "name": "RUSTLS_HANDSHAKE_KIND_UNKNOWN",
-          "value": "0"
-        },
-        {
-          "anchor": "rustls-handshake-kind-full",
-          "comment": "A full TLS handshake.\n\n This is the typical TLS connection initiation process when resumption is\n not yet unavailable, and the initial client hello was accepted by the server.",
-          "name": "RUSTLS_HANDSHAKE_KIND_FULL",
-          "value": "1"
-        },
-        {
-          "anchor": "rustls-handshake-kind-full-with-hello-retry-request",
-          "comment": "A full TLS handshake, with an extra round-trip for a hello retry request.\n\n The server can respond with a hello retry request (HRR) if the initial client\n hello is unacceptable for several reasons, the most likely if no supported key\n shares were offered by the client.",
-          "name": "RUSTLS_HANDSHAKE_KIND_FULL_WITH_HELLO_RETRY_REQUEST",
-          "value": "2"
-        },
-        {
-          "anchor": "rustls-handshake-kind-resumed",
-          "comment": "A resumed TLS handshake.\n\n Resumed handshakes involve fewer round trips and less cryptography than\n full ones, but can only happen when the peers have previously done a full\n handshake together, and then remember data about it.",
-          "name": "RUSTLS_HANDSHAKE_KIND_RESUMED",
-          "value": "3"
-        }
-      ]
-    },
-    {
       "anchor": "rustls-result",
       "comment": "Numeric error codes returned from rustls-ffi API functions.",
       "feature": null,
@@ -2326,6 +2293,39 @@
           "comment": null,
           "name": "RUSTLS_TLS_VERSION_TLSV1_3",
           "value": "772"
+        }
+      ]
+    },
+    {
+      "anchor": "rustls-handshake-kind",
+      "comment": "Describes which sort of handshake happened.",
+      "feature": null,
+      "deprecation": null,
+      "name": "rustls_handshake_kind",
+      "variants": [
+        {
+          "anchor": "rustls-handshake-kind-unknown",
+          "comment": "The type of handshake could not be determined.\n\n This variant should not be used.",
+          "name": "RUSTLS_HANDSHAKE_KIND_UNKNOWN",
+          "value": "0"
+        },
+        {
+          "anchor": "rustls-handshake-kind-full",
+          "comment": "A full TLS handshake.\n\n This is the typical TLS connection initiation process when resumption is\n not yet unavailable, and the initial client hello was accepted by the server.",
+          "name": "RUSTLS_HANDSHAKE_KIND_FULL",
+          "value": "1"
+        },
+        {
+          "anchor": "rustls-handshake-kind-full-with-hello-retry-request",
+          "comment": "A full TLS handshake, with an extra round-trip for a hello retry request.\n\n The server can respond with a hello retry request (HRR) if the initial client\n hello is unacceptable for several reasons, the most likely if no supported key\n shares were offered by the client.",
+          "name": "RUSTLS_HANDSHAKE_KIND_FULL_WITH_HELLO_RETRY_REQUEST",
+          "value": "2"
+        },
+        {
+          "anchor": "rustls-handshake-kind-resumed",
+          "comment": "A resumed TLS handshake.\n\n Resumed handshakes involve fewer round trips and less cryptography than\n full ones, but can only happen when the peers have previously done a full\n handshake together, and then remember data about it.",
+          "name": "RUSTLS_HANDSHAKE_KIND_RESUMED",
+          "value": "3"
         }
       ]
     }
