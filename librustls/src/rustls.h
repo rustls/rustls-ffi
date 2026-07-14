@@ -1459,6 +1459,24 @@ void rustls_client_config_builder_set_check_selected_alpn(struct rustls_client_c
                                                           bool enable);
 
 /**
+ * Request a specific number of TLS 1.3 session tickets.
+ *
+ * This is done via the RFC 9149 `ticket_request` extension.
+ *
+ * `new_session_count` is the number of tickets desired when the server
+ * negotiates a new connection, and `resumption_count` the number desired
+ * when the server resumes using a presented ticket.
+ *
+ * By default the extension is not sent. Note that servers are free to
+ * ignore the request, it is only a hint.
+ *
+ * <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request>
+ */
+rustls_result rustls_client_config_builder_set_send_ticket_request(struct rustls_client_config_builder *builder,
+                                                                   uint8_t new_session_count,
+                                                                   uint8_t resumption_count);
+
+/**
  * Enable or disable SNI.
  * <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>
  */
@@ -2400,6 +2418,20 @@ rustls_result rustls_server_config_builder_set_ignore_client_order(struct rustls
  */
 rustls_result rustls_server_config_builder_set_send_tls13_tickets(struct rustls_server_config_builder *builder,
                                                                   size_t n);
+
+/**
+ * Set the upper bound on the number of TLS 1.3 tickets sent in response to a client.
+ *
+ * This modifies the server's response to a client's RFC 9149 `ticket_request` extension.
+ *
+ * A client requesting `n` tickets receives `min(n, max)`. Setting this to
+ * 0 (the default) ignores client requests entirely, clients get the configured
+ * `send_tls13_tickets` count regardless.
+ *
+ * <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets>
+ */
+rustls_result rustls_server_config_builder_set_max_tls13_tickets(struct rustls_server_config_builder *builder,
+                                                                 size_t max);
 
 /**
  * Set the ALPN protocol list to the given protocols.

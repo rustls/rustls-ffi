@@ -144,6 +144,36 @@ fn client_server_integration() {
         ],
     };
 
+    let ticket_request_server = TestCase {
+        name: "Ticket request (RFC 9149) tests",
+        server_opts: ServerOptions {
+            valgrind: valgrind.clone(),
+            env: vec![("MAX_TLS13_TICKETS", "3")],
+        },
+        client_tests: vec![
+            ClientTest {
+                name: "Request under the server max",
+                valgrind: valgrind.clone(),
+                env: vec![
+                    ("CA_FILE", "testdata/minica.pem"),
+                    ("REQUEST_TLS13_TICKETS", "2"),
+                    ("EXPECT_TLS13_TICKETS", "2"),
+                ],
+                expect_error: false,
+            },
+            ClientTest {
+                name: "Request over the server max",
+                valgrind: valgrind.clone(),
+                env: vec![
+                    ("CA_FILE", "testdata/minica.pem"),
+                    ("REQUEST_TLS13_TICKETS", "9"),
+                    ("EXPECT_TLS13_TICKETS", "3"),
+                ],
+                expect_error: false,
+            },
+        ],
+    };
+
     TestCases(vec![
         standard_server,
         vectored_server,
@@ -152,6 +182,7 @@ fn client_server_integration() {
         mandatory_client_auth_server,
         mandatory_client_auth_server_with_crls,
         custom_ciphersuites,
+        ticket_request_server,
     ])
     .run();
 }

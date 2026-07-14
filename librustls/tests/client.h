@@ -33,6 +33,14 @@ typedef struct demo_client_options
 
   // Optional vectored IO support.
   bool use_vectored_io;
+
+  // Optional RFC 9149 ticket request count. If >= 0 the client requests
+  // this many TLS 1.3 session tickets per handshake.
+  int request_tls13_tickets;
+
+  // Optional expected TLS 1.3 session ticket count. If >= 0 each request
+  // fails when the number of tickets received differs.
+  int expect_tls13_tickets;
 } demo_client_options;
 
 // Populate the provided options with values from the environment.
@@ -57,6 +65,9 @@ typedef struct demo_client_request_options
   const char *port;
   const char *path;
   bool use_vectored_io;
+  // If >= 0, the number of TLS 1.3 session tickets that must be received
+  // for the request to be considered successful.
+  int expect_tls13_tickets;
 } demo_client_request_options;
 
 // Make an HTTP request based on the provided options. The resulting

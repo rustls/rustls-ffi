@@ -515,6 +515,14 @@
       "text": "```c\nvoid rustls_client_config_builder_set_check_selected_alpn(struct rustls_client_config_builder *config,\n                                                          bool enable);\n```"
     },
     {
+      "anchor": "rustls-client-config-builder-set-send-ticket-request",
+      "comment": "Request a specific number of TLS 1.3 session tickets.\n\n This is done via the RFC 9149 `ticket_request` extension.\n\n `new_session_count` is the number of tickets desired when the server\n negotiates a new connection, and `resumption_count` the number desired\n when the server resumes using a presented ticket.\n\n By default the extension is not sent. Note that servers are free to\n ignore the request, it is only a hint.\n\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request>",
+      "feature": null,
+      "deprecation": null,
+      "name": "rustls_client_config_builder_set_send_ticket_request",
+      "text": "```c\nrustls_result rustls_client_config_builder_set_send_ticket_request(struct rustls_client_config_builder *builder,\n                                                                   uint8_t new_session_count,\n                                                                   uint8_t resumption_count);\n```"
+    },
+    {
       "anchor": "rustls-client-config-builder-set-enable-sni",
       "comment": "Enable or disable SNI.\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>",
       "feature": null,
@@ -1113,6 +1121,14 @@
       "deprecation": null,
       "name": "rustls_server_config_builder_set_send_tls13_tickets",
       "text": "```c\nrustls_result rustls_server_config_builder_set_send_tls13_tickets(struct rustls_server_config_builder *builder,\n                                                                  size_t n);\n```"
+    },
+    {
+      "anchor": "rustls-server-config-builder-set-max-tls13-tickets",
+      "comment": "Set the upper bound on the number of TLS 1.3 tickets sent in response to a client.\n\n This modifies the server's response to a client's RFC 9149 `ticket_request` extension.\n\n A client requesting `n` tickets receives `min(n, max)`. Setting this to\n 0 (the default) ignores client requests entirely, clients get the configured\n `send_tls13_tickets` count regardless.\n\n <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets>",
+      "feature": null,
+      "deprecation": null,
+      "name": "rustls_server_config_builder_set_max_tls13_tickets",
+      "text": "```c\nrustls_result rustls_server_config_builder_set_max_tls13_tickets(struct rustls_server_config_builder *builder,\n                                                                 size_t max);\n```"
     },
     {
       "anchor": "rustls-server-config-builder-set-alpn-protocols",
