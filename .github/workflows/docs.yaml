@@ -26,7 +26,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Install zola
-        uses: taiki-e/install-action@v2.85.10
+        uses: taiki-e/install-action@v2.85.13
         with:
           tool: zola@0.19.1 # Matched to rustls repo
 
