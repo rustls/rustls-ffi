@@ -392,7 +392,7 @@ jobs:
           persist-credentials: false
 
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@1.120.0
 
       - name: Test MSRV
         run: cargo check --manifest-path librustls/Cargo.toml --locked --lib --features=aws-lc-rs
