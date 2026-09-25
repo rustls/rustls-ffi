@@ -9,7 +9,7 @@
 
 #define RUSTLS_VERSION_MAJOR 0
 #define RUSTLS_VERSION_MINOR 15
-#define RUSTLS_VERSION_PATCH 3
+#define RUSTLS_VERSION_PATCH 4
 
 /**
  * This gives each version part 8 bits, and leaves the 8 least significant bits
@@ -17,7 +17,7 @@
  */
 #define RUSTLS_VERSION_NUMBER ((RUSTLS_VERSION_MAJOR << 24)   \
                                |(RUSTLS_VERSION_MINOR << 16)  \
-                               |(RUSTLS_VERSION_MINOR << 8))
+                               |(RUSTLS_VERSION_PATCH << 8))
 
 #if defined(__clang__) || defined(__GNUC__)
 # define DEPRECATED_FUNC(why) __attribute__((deprecated(why)))
