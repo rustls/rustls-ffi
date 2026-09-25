@@ -775,8 +775,13 @@ mod tests {
             SignatureScheme::RSA_PSS_SHA512,
             SignatureScheme::ED25519,
         ];
-        #[cfg(feature = "aws-lc-rs")] // aws-lc-rs also includes P-521.
-        expected_schemes.push(SignatureScheme::ECDSA_NISTP521_SHA512);
+        #[cfg(feature = "aws-lc-rs")]
+        expected_schemes.extend([
+            SignatureScheme::ECDSA_NISTP521_SHA512,
+            SignatureScheme::ML_DSA_44,
+            SignatureScheme::ML_DSA_65,
+            SignatureScheme::ML_DSA_87,
+        ]);
 
         let mut expected_schemes = expected_schemes
             .into_iter()
