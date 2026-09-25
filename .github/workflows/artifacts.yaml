@@ -81,6 +81,39 @@ jobs:
           name: rustls-ffi-x86_64-linux-gnu
           path: dist
 
+  linux-arm64-binaries:
+    name: Linux (arm64 GNU)
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-c
+        env:
+          LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
+          CARGO_C_FILE: cargo-c-aarch64-unknown-linux-musl.tar.gz
+        run: |
+          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+
+      - name: Build rustls-ffi
+        run: |
+          cargo cinstall --locked --target aarch64-unknown-linux-gnu --features cert_compression --release --prefix dist
+
+      - name: Copy in LICENSE files
+        run: cp LICENSE* dist
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: rustls-ffi-arm64-linux-gnu
+          path: dist
+
   linux-deb:
     name: Linux (x86-64 GNU Deb)
     runs-on: ubuntu-22.04 # x86_64.
@@ -179,7 +212,7 @@ jobs:
   test-archives:
     name: "Test (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
-    needs: [ windows-binaries, linux-binaries, macos-binaries ]
+    needs: [ windows-binaries, linux-binaries, linux-arm64-binaries, macos-binaries ]
     strategy:
       matrix:
         include:
@@ -187,6 +220,8 @@ jobs:
             artifact: rustls-ffi-x86_64-windows
           - os: ubuntu-latest
             artifact: rustls-ffi-x86_64-linux-gnu
+          - os: ubuntu-22.04-arm
+            artifact: rustls-ffi-arm64-linux-gnu
           - os: macos-15
             artifact: rustls-ffi-arm64-macos
           - os: macos-15-intel
