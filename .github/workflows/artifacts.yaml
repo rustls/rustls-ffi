@@ -23,6 +23,8 @@ jobs:
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-c
         shell: pwsh
         env:
@@ -57,6 +59,8 @@ jobs:
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-c
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
@@ -89,6 +93,8 @@ jobs:
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-c
         env:
@@ -126,13 +132,15 @@ jobs:
           # Install both the arm64 and x86_64 targets.
           targets: aarch64-apple-darwin, x86_64-apple-darwin
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Install cargo-c
         env:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-macos.zip
         run: |
           curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
-          unzip cargo-c-macos.zip -d ~/.cargo/bin
+          unzip -o cargo-c-macos.zip -d ~/.cargo/bin
 
       - name: Build rustls-ffi (arm64)
         run: |
