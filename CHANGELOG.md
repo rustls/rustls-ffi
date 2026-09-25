@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.15.4 (2026-09-25)
+
+This is a minor release with one security fix. It also updates `rustls` to
+[0.23.45](https://github.com/rustls/rustls/releases/tag/v%2F0.23.45).
+
+### Security
+
+This update addresses
+[GHSA-2mjx-qc3c-rqvc](https://github.com/rustls/rustls/security/advisories/GHSA-2mjx-qc3c-rqvc),
+a security issue affecting TLS 1.3 handshake message processing that could allow
+a broken peer to send plaintext handshake messages where an encrypted one is
+expected without rustls rejecting the connection.
+
+### Added
+
+* ML-DSA certificate signature support when using the `aws-lc-rs` cryptography
+  provider, inherited from the upstream `rustls`
+  [0.23.44 release](https://github.com/rustls/rustls/releases/tag/v%2F0.23.44).
+  This includes ML-DSA-44, ML-DSA-65, and ML-DSA-87, and is independent of the
+  `prefer-post-quantum` feature that controls `X25519MLKEM768` key-exchange
+  priority.
+
 ## 0.15.3 (2026-04-22)
 
 This is a minor release with one security fix. It also updates `rustls` to

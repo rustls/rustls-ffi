@@ -98,15 +98,28 @@ platforms see the upstream documentation:
 [`*ring*`]: https://crates.io/crates/ring
 [`*ring*` supported platforms]: https://github.com/briansmith/ring/blob/2e8363b433fa3b3962c877d9ed2e9145612f3160/include/ring-core/target.h#L18-L64
 
-#### Post-Quantum X25519MLKEM768 Key Exchange
+#### Post-Quantum Support
 
-Post-quantum-secure key exchange using [X25519MLKEM768][] is supported when using the `aws-lc-rs` 
-cryptography provider and offered by default at the highest priority.
+The `aws-lc-rs` cryptography provider supports post-quantum-secure key exchange
+and certificate signatures. These algorithms are not supported by the `ring`
+provider.
 
-By disabling the `prefer-post-quantum` feature flag the `X25519MLKEM768` key exchange will be
-offered at a lower negotiation priority.
+##### X25519MLKEM768 Key Exchange
 
-[X25519MLKEM768]: https://datatracker.ietf.org/doc/draft-kwiatkowski-tls-ecdhe-mlkem
+Post-quantum-secure key exchange using [X25519MLKEM768][] is offered by default
+at the highest priority.
+
+The `prefer-post-quantum` Cargo feature is enabled by default. Disabling it
+keeps `X25519MLKEM768` available, but at a lower negotiation priority. Note that
+this feature only controls key-exchange priority. It doesn't affect ML-DSA
+support.
+
+[X25519MLKEM768]: https://datatracker.ietf.org/doc/draft-ietf-tls-ecdhe-mlkem/
+
+##### ML-DSA Certificate Signatures
+
+Certificates and private keys using the ML-DSA-44, ML-DSA-65, and ML-DSA-87
+signature schemes are supported. This is principally useful with private PKIs.
 
 #### Certificate Compression
 
