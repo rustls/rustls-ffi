@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.15.5 (2026-10-14)
+
+This is a minor release updating `rustls` to
+[0.23.46](https://github.com/rustls/rustls/releases/tag/v%2F0.23.46).
+
+### Security
+
+This update addresses
+[GHSA-h2v8-394m-p7vv](https://github.com/rustls/rustls/security/advisories/GHSA-h2v8-394m-p7vv),
+a security issue allowing a peer to exhaust memory with a malicious Brotli
+compressed certificate before authentication. This only affects builds with
+the `cert_compression` feature enabled (disabled by default). Clients connecting
+to a malicious server and servers requesting client certificates are affected
+and the attacker does not need a trusted certificate.
+
+This update addresses
+[GHSA-w44r-93j7-qv28](https://github.com/rustls/rustls/security/advisories/GHSA-w44r-93j7-qv28),
+a security issue allowing an unauthenticated server response to influence the
+key exchange used by later connections sharing a `rustls_client_config` and
+server name. Clients preferring post-quantum key exchange could subsequently
+negotiate classical X25519 if the server accepts that key share instead of
+requesting a hybrid one. This removes post-quantum protection for those
+connections without bypassing authentication.
+
+This update addresses
+[GHSA-vp88-798v-h67f](https://github.com/rustls/rustls/security/advisories/GHSA-vp88-798v-h67f),
+a security issue affecting clients that enable Encrypted Client Hello with
+`rustls_client_config_builder_enable_ech()` and buffer application data with
+`rustls_connection_write()` before the handshake completes. If the server
+rejects ECH, that data could be sent to the authenticated outer server before
+the fatal alert, despite the handshake reporting failure. ECH GREASE is not
+affected.
+
+This update also addresses
+[GHSA-c8m5-c952-6cm4](https://github.com/rustls/rustls/security/advisories/GHSA-c8m5-c952-6cm4),
+which could expose session secrets when a custom client session store uses
+Rust's `Debug` formatting. This does not affect rustls-ffi users: the C API
+uses the built-in cache and does not expose these formatters.
+
 ## 0.15.4 (2026-09-25)
 
 This is a minor release with one security fix. It also updates `rustls` to
