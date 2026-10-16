@@ -153,7 +153,7 @@ jobs:
 
   macos-binaries:
     name: MacOS (Arm64 and x86_64)
-    runs-on: macos-14 # arm64.
+    runs-on: macos-15 # arm64.
     steps:
       - uses: actions/checkout@v7
         with:
