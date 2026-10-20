@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.6 (2026-10-20)
+
+This is a minor release, notably updating `rustls-webpki` so it includes
+countermeasures for CVE-2026-111943.
+
 ## 0.15.5 (2026-10-14)
 
 This is a minor release updating `rustls` to
