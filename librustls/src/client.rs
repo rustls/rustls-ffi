@@ -898,9 +898,10 @@ impl rustls_client_config {
         let Ok(server_name) = server_name.to_str() else {
             return rustls_result::InvalidDnsNameError;
         };
-        let Ok(server_name) = server_name.try_into() else {
+        let Ok(server_name) = ServerName::try_from(server_name) else {
             return rustls_result::InvalidDnsNameError;
         };
+        let server_name = server_name.to_owned();
 
         set_boxed_mut_ptr(
             try_mut_from_ptr_ptr!(conn_out),
