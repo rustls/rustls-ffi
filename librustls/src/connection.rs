@@ -1,6 +1,6 @@
 use std::io::{ErrorKind, Read, Write};
-use std::{ffi::c_void, ptr::NonNull, ptr::null};
-use std::{ptr::null_mut, slice};
+use std::ptr::{NonNull, null_mut};
+use std::{ffi::c_void, ptr::null};
 
 use libc::{EINVAL, EIO, size_t};
 use rustls::CipherSuite::TLS_NULL_WITH_NULL_NULL;
@@ -564,16 +564,13 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            let Some(buf) = NonNull::new(buf) else {
-                return rustls_result::NullParameter;
-            };
             let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_result::NullParameter;
             };
 
             // Safety: the memory pointed at by buf must be initialized
             // (required by documentation of this function).
-            let read_buf = try_slice_mut!(buf.as_ptr(), count);
+            let read_buf = try_slice_mut!(buf, count);
 
             let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
@@ -615,11 +612,10 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            let (Some(buf), Some(out_n)) = (NonNull::new(buf), NonNull::new(out_n)) else {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_result::NullParameter;
             };
-            let mut read_buf: std::io::BorrowedBuf<'_, u8> =
-                try_slice_mut!(buf.as_ptr(), count).into();
+            let mut read_buf: std::io::BorrowedBuf<'_, u8> = try_slice_mut!(buf, count).into();
 
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),

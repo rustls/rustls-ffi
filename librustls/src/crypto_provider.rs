@@ -1,4 +1,3 @@
-use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
@@ -531,7 +530,7 @@ impl Hpke {
     pub(crate) fn grease_public_key(
         &self,
         provider: &CryptoProvider,
-    ) -> Option<(&dyn hpke::Hpke, hpke::HpkePublicKey)> {
+    ) -> Option<(&'static dyn hpke::Hpke, hpke::HpkePublicKey)> {
         let num_suites = self.suites.len();
         if num_suites == 0 {
             return None;

@@ -1,7 +1,6 @@
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr::{NonNull, null};
-use std::slice;
 
 use libc::{c_char, size_t};
 use rustls::RootCertStore;

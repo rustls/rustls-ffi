@@ -367,7 +367,7 @@ impl rustls_accepted {
                 None => return Default::default(),
             };
             match alpn_iter.nth(i) {
-                Some(slice_bytes) => slice_bytes.into(),
+                Some(slice_bytes) => unsafe { rustls_slice_bytes::from(slice_bytes).into_static() },
                 None => rustls_slice_bytes::default(),
             }
         }
