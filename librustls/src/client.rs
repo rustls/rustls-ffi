@@ -1,6 +1,4 @@
-use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
-use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
@@ -19,8 +17,8 @@ use crate::crypto_provider::{self, rustls_crypto_provider, rustls_hpke};
 use crate::error::{self, map_error, rustls_result};
 use crate::ffi::{
     Castable, OwnershipArc, OwnershipBox, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr,
-    to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
-    try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
+    to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_cstr, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
 };
 use crate::keylog::{CallbackKeyLog, rustls_keylog_log_callback, rustls_keylog_will_log_callback};
 use crate::panic::ffi_panic_boundary;
@@ -620,7 +618,6 @@ impl rustls_client_config_builder {
 ///
 /// server_name can contain a hostname, an IPv4 address in textual form, or an
 /// IPv6 address in textual form.
-#[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct rustls_verify_server_cert_params<'a> {
     pub end_entity_cert_der: rustls_slice_bytes<'a>,
@@ -632,7 +629,7 @@ pub struct rustls_verify_server_cert_params<'a> {
 /// User-provided input to a custom certificate verifier callback.
 ///
 /// See `rustls_client_config_builder_dangerous_set_certificate_verifier()`.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
 
 /// A callback that is invoked to verify a server certificate.
@@ -640,7 +637,7 @@ pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
 // > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
 // > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
 // So we use Option<...> here. This is the type that is passed from C code.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub type rustls_verify_server_cert_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_verify_server_cert_user_data,
@@ -889,18 +886,14 @@ impl rustls_client_config {
         alpn_protocols: Vec<Vec<u8>>,
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
-        let server_name = unsafe {
-            if server_name.is_null() {
-                return rustls_result::NullParameter;
-            }
-            CStr::from_ptr(server_name)
-        };
+        let server_name = try_cstr!(server_name);
         let Ok(server_name) = server_name.to_str() else {
             return rustls_result::InvalidDnsNameError;
         };
-        let Ok(server_name) = server_name.try_into() else {
+        let Ok(server_name) = ServerName::try_from(server_name) else {
             return rustls_result::InvalidDnsNameError;
         };
+        let server_name = server_name.to_owned();
 
         set_boxed_mut_ptr(
             try_mut_from_ptr_ptr!(conn_out),

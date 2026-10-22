@@ -1,5 +1,6 @@
-use std::mem;
+use std::ffi::{CStr, c_char};
 use std::sync::Arc;
+use std::{mem, slice};
 
 /// Used to mark that pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
 /// to C code as a pointer to a `Box<Castable::RustType>`.
@@ -222,11 +223,14 @@ where
 ///
 /// Does nothing, returning `None`, when passed `NULL`. Can only be used when the `Castable` has
 /// specified a cast type equal to [`OwnershipBox`].
-pub(crate) fn try_from_mut<'a, C>(from: *mut C) -> Option<&'a mut C::RustType>
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+#[allow(clippy::mut_from_ref)]
+pub(crate) fn try_from_mut<C>(from: &*mut C) -> Option<&mut C::RustType>
 where
     C: Castable<Ownership = OwnershipBox>,
 {
-    unsafe { cast_mut_ptr(from).as_mut() }
+    unsafe { cast_mut_ptr(*from).as_mut() }
 }
 
 /// If the provided pointer to a [`Castable`] is non-null, convert it to a mutable reference using
@@ -234,7 +238,7 @@ where
 /// (`false`, `0`, `NULL`) based on the context. See [`try_from_mut`] for more information.
 macro_rules! try_mut_from_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from_mut($var) {
+        match $crate::ffi::try_from_mut(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
@@ -247,10 +251,13 @@ pub(crate) use try_mut_from_ptr;
 /// the mutable pointer to the  [`Castable::RustType`].
 ///
 /// Does nothing, returning `None`, when passed `NULL`.
-pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a mut *mut C> {
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+#[allow(clippy::mut_from_ref)]
+pub(crate) fn try_from_mut_mut<C: Castable>(from: &*mut *mut C) -> Option<&mut *mut C> {
     match from.is_null() {
         true => None,
-        false => unsafe { Some(&mut *from) },
+        false => unsafe { Some(&mut **from) },
     }
 }
 
@@ -260,7 +267,7 @@ pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a
 /// context. See [`try_from_mut_mut`] for more information.
 macro_rules! try_mut_from_ptr_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from_mut_mut($var) {
+        match $crate::ffi::try_from_mut_mut(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
@@ -275,11 +282,13 @@ pub(crate) use try_mut_from_ptr_ptr;
 /// Does nothing, returning `None` when passed `NULL`. Can be used with `Castable`'s that
 /// specify a cast type of [`OwnershipArc`] as well as `Castable`'s that specify
 /// a cast type of [`OwnershipBox`].
-pub(crate) fn try_from<'a, C, O>(from: *const C) -> Option<&'a C::RustType>
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+pub(crate) fn try_from<C, O>(from: &*const C) -> Option<&C::RustType>
 where
     C: Castable<Ownership = O>,
 {
-    unsafe { cast_const_ptr(from).as_ref() }
+    unsafe { cast_const_ptr(*from).as_ref() }
 }
 
 /// If the provided pointer to a [`Castable`] is non-null, convert it to a reference using
@@ -289,7 +298,7 @@ where
 /// See [`try_from`] for more information.
 macro_rules! try_ref_from_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from($var) {
+        match $crate::ffi::try_from(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
@@ -302,13 +311,16 @@ pub(crate) use try_ref_from_ptr;
 /// const pointer to the underlying [`Castable::RustType`].
 ///
 /// Does nothing, returning `None` when passed `NULL`.
-pub(crate) fn try_from_ptr<'a, C>(from: *mut *const C) -> Option<&'a mut *const C>
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+#[allow(clippy::mut_from_ref)]
+pub(crate) fn try_from_ptr<C>(from: &*mut *const C) -> Option<&mut *const C>
 where
     C: Castable,
 {
     match from.is_null() {
         true => None,
-        false => unsafe { Some(&mut *from) },
+        false => unsafe { Some(&mut **from) },
     }
 }
 
@@ -320,7 +332,7 @@ where
 /// See [`try_from_ptr`] for more information.
 macro_rules! try_ref_from_ptr_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from_ptr($var) {
+        match $crate::ffi::try_from_ptr(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
@@ -376,7 +388,7 @@ macro_rules! try_slice {
         if $ptr.is_null() {
             return $crate::panic::NullParameterOrDefault::value();
         } else {
-            unsafe { slice::from_raw_parts($ptr, $count) }
+            unsafe { $crate::ffi::bound_slice(&$ptr, $count) }
         }
     };
 }
@@ -388,7 +400,7 @@ macro_rules! try_slice_mut {
         if $ptr.is_null() {
             return $crate::panic::NullParameterOrDefault::value();
         } else {
-            unsafe { slice::from_raw_parts_mut($ptr, $count) }
+            unsafe { $crate::ffi::bound_slice_mut(&$ptr, $count) }
         }
     };
 }
@@ -418,3 +430,59 @@ macro_rules! try_take {
 }
 
 pub(crate) use try_take;
+
+/// Dereference a non-null `ptr`, where the result borrows `ptr`, so it cannot outlive
+/// the local holding the pointer.
+///
+/// # Safety
+///
+/// `*ptr` must be non-null, aligned, and point to a valid `T`.
+pub(crate) unsafe fn bound_ref<T>(ptr: &*const T) -> &T {
+    unsafe { &**ptr }
+}
+
+/// Like [`slice::from_raw_parts`], but the result borrows `ptr`, so it cannot outlive
+/// the local holding the pointer.
+///
+/// # Safety
+///
+/// As for [`slice::from_raw_parts`].
+pub(crate) unsafe fn bound_slice<T>(ptr: &*const T, len: usize) -> &[T] {
+    unsafe { slice::from_raw_parts(*ptr, len) }
+}
+
+/// Like [`slice::from_raw_parts_mut`], but the result borrows `ptr`, so it cannot outlive
+/// the local holding the pointer.
+///
+/// # Safety
+///
+/// As for [`slice::from_raw_parts_mut`].
+#[expect(clippy::mut_from_ref)]
+pub(crate) unsafe fn bound_slice_mut<T>(ptr: &*mut T, len: usize) -> &mut [T] {
+    unsafe { slice::from_raw_parts_mut(*ptr, len) }
+}
+
+/// Like [`CStr::from_ptr`], but the result borrows `ptr`, so it cannot outlive
+/// the local holding the pointer.
+///
+/// # Safety
+///
+/// As for [`CStr::from_ptr`].
+pub(crate) unsafe fn bound_cstr(ptr: &*const c_char) -> &CStr {
+    unsafe { CStr::from_ptr(*ptr) }
+}
+
+/// If the provided C string pointer is non-null, convert it to a `&CStr` using
+/// [`bound_cstr`]. Otherwise, return [`rustls_result::NullParameter`], or an appropriate
+/// default (`false`, `0`, `NULL`) based on the context.
+macro_rules! try_cstr {
+    ( $var:ident ) => {
+        if $var.is_null() {
+            return $crate::panic::NullParameterOrDefault::value();
+        } else {
+            unsafe { $crate::ffi::bound_cstr(&$var) }
+        }
+    };
+}
+
+pub(crate) use try_cstr;

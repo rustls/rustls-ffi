@@ -1,4 +1,3 @@
-use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;

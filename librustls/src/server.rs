@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
-use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;
@@ -482,9 +481,6 @@ impl rustls_server_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            if conn_out.is_null() {
-                return rustls_result::NullParameter;
-            }
             let config = try_clone_arc!(config);
             let conn_out = try_mut_from_ptr_ptr!(conn_out);
 
@@ -771,16 +767,12 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
             hello.signature_schemes.data,
             hello.signature_schemes.len
         ));
-        if out_key.is_null() {
-            return rustls_result::NullParameter;
-        }
+        let out_key = try_ref_from_ptr_ptr!(out_key);
         let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
             let key_ref = try_ref_from_ptr!(key_ptr);
             if key_ref.key.choose_scheme(&schemes).is_some() {
-                unsafe {
-                    *out_key = key_ptr;
-                }
+                *out_key = key_ptr;
                 return rustls_result::Ok;
             }
         }

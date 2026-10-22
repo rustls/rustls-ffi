@@ -365,7 +365,7 @@ impl rustls_accepted {
                 None => return Default::default(),
             };
             match alpn_iter.nth(i) {
-                Some(slice_bytes) => slice_bytes.into(),
+                Some(slice_bytes) => unsafe { rustls_slice_bytes::from(slice_bytes).into_static() },
                 None => rustls_slice_bytes::default(),
             }
         }
@@ -537,6 +537,7 @@ mod tests {
 
     use crate::certificate::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
+    use crate::ffi::try_slice;
     use crate::server::rustls_server_config_builder;
     use crate::verifier::rustls_server_cert_verifier;
 
@@ -572,7 +573,7 @@ mod tests {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
-        let buf = slice::from_raw_parts(buf, n);
+        let buf = try_slice!(buf, n);
         (*vecdeq).extend(buf);
         *out_n = n;
         rustls_io_result(0)
@@ -763,7 +764,7 @@ mod tests {
         // Sort to ensure consistent comparison
         signature_schemes.sort();
 
-        #[cfg_attr(not(feature = "aws-lc-rs"), allow(unused_mut))]
+        #[cfg_attr(not(feature = "aws-lc-rs"), expect(unused_mut))]
         let mut expected_schemes = vec![
             SignatureScheme::RSA_PKCS1_SHA256,
             SignatureScheme::ECDSA_NISTP256_SHA256,
