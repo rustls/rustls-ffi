@@ -431,6 +431,16 @@ macro_rules! try_take {
 
 pub(crate) use try_take;
 
+/// Dereference a non-null `ptr`, where the result borrows `ptr`, so it cannot outlive
+/// the local holding the pointer.
+///
+/// # Safety
+///
+/// `*ptr` must be non-null, aligned, and point to a valid `T`.
+pub(crate) unsafe fn bound_ref<T>(ptr: &*const T) -> &T {
+    unsafe { &**ptr }
+}
+
 /// Like [`slice::from_raw_parts`], but the result borrows `ptr`, so it cannot outlive
 /// the local holding the pointer.
 ///

@@ -537,6 +537,7 @@ mod tests {
 
     use crate::certificate::rustls_certified_key;
     use crate::client::{rustls_client_config, rustls_client_config_builder};
+    use crate::ffi::try_slice;
     use crate::server::rustls_server_config_builder;
     use crate::verifier::rustls_server_cert_verifier;
 
@@ -572,7 +573,7 @@ mod tests {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         let vecdeq: *mut VecDeque<u8> = userdata as *mut _;
-        let buf = slice::from_raw_parts(buf, n);
+        let buf = try_slice!(buf, n);
         (*vecdeq).extend(buf);
         *out_n = n;
         rustls_io_result(0)
