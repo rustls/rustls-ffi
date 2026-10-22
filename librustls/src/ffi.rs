@@ -420,6 +420,17 @@ macro_rules! try_take {
 
 pub(crate) use try_take;
 
+/// If `ptr` is non-null, dereference it; otherwise return `None`.  The result borrows
+/// `ptr`, so it cannot outlive the local holding the pointer.
+///
+/// # Safety
+///
+/// If `*ptr` is non-null, it must be aligned and point to a valid `T`.
+pub(crate) unsafe fn bound_ref<T>(ptr: &*const T) -> Option<&T> {
+    let ptr = NonNull::new(ptr.cast_mut())?;
+    unsafe { Some(ptr.as_ref()) }
+}
+
 /// Like [`slice::from_raw_parts`], but returns `None` if `ptr` is `NULL`, and the
 /// result borrows `ptr`, so it cannot outlive the local holding the pointer.
 ///

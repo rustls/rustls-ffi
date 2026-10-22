@@ -1,4 +1,3 @@
-use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr::{NonNull, null};
 
@@ -11,9 +10,9 @@ use rustls::sign::CertifiedKey;
 use crate::crypto_provider::{self, rustls_signing_key};
 use crate::error::{map_error, rustls_result};
 use crate::ffi::{
-    Castable, OwnershipArc, OwnershipBox, OwnershipRef, free_arc, free_box, set_arc_mut_ptr,
-    to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_mut_from_ptr, try_ref_from_ptr,
-    try_ref_from_ptr_ptr, try_slice, try_take,
+    Castable, OwnershipArc, OwnershipBox, OwnershipRef, bound_ref, free_arc, free_box,
+    set_arc_mut_ptr, to_arc_const_ptr, to_boxed_mut_ptr, try_box_from_ptr, try_cstr,
+    try_mut_from_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice, try_take,
 };
 use crate::panic::ffi_panic_boundary;
 use crate::rslice::rustls_slice_bytes;
@@ -228,19 +227,11 @@ impl rustls_certified_key {
         cloned_key_out: *mut *const rustls_certified_key,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            let cloned_key_out = unsafe {
-                match cloned_key_out.as_mut() {
-                    Some(c) => c,
-                    None => return rustls_result::NullParameter,
-                }
-            };
+            let cloned_key_out = try_ref_from_ptr_ptr!(cloned_key_out);
             let certified_key = try_ref_from_ptr!(certified_key);
             let mut new_key = certified_key.clone();
-            new_key.ocsp = match NonNull::new(ocsp_response.cast_mut()) {
-                Some(ocsp_response) => {
-                    let ocsp_slice = unsafe { ocsp_response.as_ref() };
-                    Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)))
-                }
+            new_key.ocsp = match unsafe { bound_ref(&ocsp_response) } {
+                Some(ocsp) => Some(Vec::from(try_slice!(ocsp.data, ocsp.len))),
                 None => None,
             };
             *cloned_key_out = to_arc_const_ptr(new_key);
@@ -385,11 +376,7 @@ impl rustls_root_cert_store_builder {
                 Some(b) => b,
             };
 
-            let Some(filename) = NonNull::new(filename.cast_mut()) else {
-                return rustls_result::NullParameter;
-            };
-            let filename = unsafe { CStr::from_ptr(filename.as_ptr()) };
-
+            let filename = try_cstr!(filename);
             let filename = filename.to_bytes();
             let filename = match std::str::from_utf8(filename) {
                 Ok(s) => s,
