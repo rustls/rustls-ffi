@@ -764,7 +764,7 @@ mod tests {
         // Sort to ensure consistent comparison
         signature_schemes.sort();
 
-        #[cfg_attr(not(feature = "aws-lc-rs"), allow(unused_mut))]
+        #[cfg_attr(not(feature = "aws-lc-rs"), expect(unused_mut))]
         let mut expected_schemes = vec![
             SignatureScheme::RSA_PKCS1_SHA256,
             SignatureScheme::ECDSA_NISTP256_SHA256,

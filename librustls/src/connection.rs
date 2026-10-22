@@ -46,7 +46,6 @@ impl Connection {
         }
     }
 
-    #[allow(dead_code)]
     pub(crate) fn as_client(&self) -> Option<&ClientConnection> {
         match &self.conn {
             rustls::Connection::Client(c) => Some(c),
@@ -61,7 +60,7 @@ impl Connection {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) fn as_client_mut(&mut self) -> Option<&mut ClientConnection> {
         match &mut self.conn {
             rustls::Connection::Client(c) => Some(c),
@@ -69,7 +68,7 @@ impl Connection {
         }
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) fn as_server_mut(&mut self) -> Option<&mut ServerConnection> {
         match &mut self.conn {
             rustls::Connection::Server(s) => Some(s),
