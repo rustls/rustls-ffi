@@ -1,3 +1,5 @@
+use std::ptr::NonNull;
+
 use libc::{EINVAL, EIO, c_void, size_t};
 use rustls::server::{Accepted, AcceptedAlert, Acceptor};
 
@@ -123,9 +125,9 @@ impl rustls_acceptor {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let acceptor = try_mut_from_ptr!(acceptor);
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_io_result(EINVAL);
-            }
+            };
             let callback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
@@ -135,7 +137,7 @@ impl rustls_acceptor {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-                *out_n = n_read;
+                out_n.write(n_read);
             }
 
             rustls_io_result(0)
@@ -489,9 +491,9 @@ impl rustls_accepted_alert {
         out_n: *mut size_t,
     ) -> rustls_io_result {
         ffi_panic_boundary! {
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_io_result(EINVAL);
-            }
+            };
             let accepted_alert = try_mut_from_ptr!(accepted_alert);
             let mut writer = CallbackWriter {
                 callback: try_callback!(callback),
@@ -502,7 +504,7 @@ impl rustls_accepted_alert {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-                *out_n = n_written;
+                out_n.write(n_written);
             }
             rustls_io_result(0)
         }
