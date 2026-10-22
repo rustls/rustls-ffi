@@ -1,6 +1,5 @@
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
-use std::slice;
 use std::sync::Arc;
 
 use libc::size_t;

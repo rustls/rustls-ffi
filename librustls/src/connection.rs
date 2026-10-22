@@ -1,6 +1,6 @@
 use std::io::{ErrorKind, Read, Write};
+use std::ptr::null_mut;
 use std::{ffi::c_void, ptr::null};
-use std::{ptr::null_mut, slice};
 
 use libc::{EINVAL, EIO, size_t};
 use rustls::CipherSuite::TLS_NULL_WITH_NULL_NULL;

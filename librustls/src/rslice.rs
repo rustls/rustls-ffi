@@ -32,6 +32,13 @@ impl<'a> Default for rustls_slice_bytes<'a> {
     }
 }
 
+impl rustls_slice_bytes<'_> {
+    /// Erase the lifetime; see `rustls_str::into_static` for the safety contract.
+    pub(crate) unsafe fn into_static(self) -> rustls_slice_bytes<'static> {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 impl<'a> From<&'a [u8]> for rustls_slice_bytes<'a> {
     fn from(s: &[u8]) -> Self {
         rustls_slice_bytes {
