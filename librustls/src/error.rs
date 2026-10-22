@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::fmt::Display;
+use std::ptr::NonNull;
 use std::sync::Arc;
 
 use libc::{c_char, c_uint, size_t};
@@ -224,17 +225,18 @@ impl rustls_result {
         out_n: *mut size_t,
     ) {
         ffi_panic_boundary! {
-            if buf.is_null() {
+            let (Some(buf), Some(out_n)) = (NonNull::new(buf), NonNull::new(out_n)) else {
                 return;
-            }
-            if out_n.is_null() {
-                return;
-            }
+            };
             let error_str = rustls_result::from(result).to_string();
             let out_len = min(len, error_str.len());
             unsafe {
-                std::ptr::copy_nonoverlapping(error_str.as_ptr() as *mut c_char, buf, out_len);
-                *out_n = out_len;
+                std::ptr::copy_nonoverlapping(
+                    error_str.as_ptr() as *mut c_char,
+                    buf.as_ptr(),
+                    out_len,
+                );
+                out_n.write(out_len);
             }
         }
     }
