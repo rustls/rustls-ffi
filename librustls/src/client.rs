@@ -1,7 +1,4 @@
-use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
-use std::ptr::NonNull;
-use std::slice;
 use std::sync::Arc;
 
 use libc::{c_char, size_t};
@@ -20,8 +17,8 @@ use crate::crypto_provider::{self, rustls_crypto_provider, rustls_hpke};
 use crate::error::{self, map_error, rustls_result};
 use crate::ffi::{
     Castable, OwnershipArc, OwnershipBox, free_arc, free_box, set_arc_mut_ptr, set_boxed_mut_ptr,
-    to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_mut_from_ptr, try_mut_from_ptr_ptr,
-    try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
+    to_boxed_mut_ptr, try_box_from_ptr, try_clone_arc, try_cstr, try_mut_from_ptr,
+    try_mut_from_ptr_ptr, try_ref_from_ptr, try_ref_from_ptr_ptr, try_slice,
 };
 use crate::keylog::{CallbackKeyLog, rustls_keylog_log_callback, rustls_keylog_will_log_callback};
 use crate::panic::ffi_panic_boundary;
@@ -894,10 +891,7 @@ impl rustls_client_config {
         alpn_protocols: Vec<Vec<u8>>,
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
-        let Some(server_name) = NonNull::new(server_name.cast_mut()) else {
-            return rustls_result::NullParameter;
-        };
-        let server_name = unsafe { CStr::from_ptr(server_name.as_ptr()) };
+        let server_name = try_cstr!(server_name);
         let Ok(server_name) = server_name.to_str() else {
             return rustls_result::InvalidDnsNameError;
         };

@@ -22,6 +22,13 @@ pub struct rustls_slice_bytes<'a> {
     phantom: PhantomData<&'a [u8]>,
 }
 
+impl rustls_slice_bytes<'_> {
+    /// Erase the lifetime; see `rustls_str::into_static` for the safety contract.
+    pub(crate) unsafe fn into_static(self) -> rustls_slice_bytes<'static> {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 impl<'a> Default for rustls_slice_bytes<'a> {
     fn default() -> rustls_slice_bytes<'a> {
         Self {
