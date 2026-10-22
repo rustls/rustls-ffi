@@ -251,10 +251,13 @@ pub(crate) use try_mut_from_ptr;
 /// the mutable pointer to the  [`Castable::RustType`].
 ///
 /// Does nothing, returning `None`, when passed `NULL`.
-pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a mut *mut C> {
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+#[allow(clippy::mut_from_ref)]
+pub(crate) fn try_from_mut_mut<C: Castable>(from: &*mut *mut C) -> Option<&mut *mut C> {
     match from.is_null() {
         true => None,
-        false => unsafe { Some(&mut *from) },
+        false => unsafe { Some(&mut **from) },
     }
 }
 
@@ -264,7 +267,7 @@ pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a
 /// context. See [`try_from_mut_mut`] for more information.
 macro_rules! try_mut_from_ptr_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from_mut_mut($var) {
+        match $crate::ffi::try_from_mut_mut(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
@@ -308,13 +311,16 @@ pub(crate) use try_ref_from_ptr;
 /// const pointer to the underlying [`Castable::RustType`].
 ///
 /// Does nothing, returning `None` when passed `NULL`.
-pub(crate) fn try_from_ptr<'a, C>(from: *mut *const C) -> Option<&'a mut *const C>
+///
+/// The result borrows `from`, so it cannot outlive the local holding the pointer.
+#[allow(clippy::mut_from_ref)]
+pub(crate) fn try_from_ptr<C>(from: &*mut *const C) -> Option<&mut *const C>
 where
     C: Castable,
 {
     match from.is_null() {
         true => None,
-        false => unsafe { Some(&mut *from) },
+        false => unsafe { Some(&mut **from) },
     }
 }
 
@@ -326,7 +332,7 @@ where
 /// See [`try_from_ptr`] for more information.
 macro_rules! try_ref_from_ptr_ptr {
     ( $var:ident ) => {
-        match $crate::ffi::try_from_ptr($var) {
+        match $crate::ffi::try_from_ptr(&$var) {
             Some(c) => c,
             None => return $crate::panic::NullParameterOrDefault::value(),
         }
