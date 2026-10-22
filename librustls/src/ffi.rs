@@ -1,4 +1,5 @@
 use std::mem;
+use std::ptr::NonNull;
 use std::sync::Arc;
 
 /// Used to mark that pointer to a [`Castable`]'s underlying `Castable::RustType` is provided
@@ -103,10 +104,8 @@ pub(crate) fn clone_arc<C>(ptr: *const C) -> Option<Arc<C::RustType>>
 where
     C: Castable<Ownership = OwnershipArc>,
 {
-    if ptr.is_null() {
-        return None;
-    }
-    let rs_typed = cast_const_ptr::<C>(ptr);
+    let ptr = NonNull::new(ptr.cast_mut())?;
+    let rs_typed = cast_const_ptr::<C>(ptr.as_ptr());
     let r = unsafe { Arc::from_raw(rs_typed) };
     let val = Arc::clone(&r);
     mem::forget(r);
@@ -126,10 +125,8 @@ pub(crate) fn to_box<C>(ptr: *mut C) -> Option<Box<C::RustType>>
 where
     C: Castable<Ownership = OwnershipBox>,
 {
-    if ptr.is_null() {
-        return None;
-    }
-    let rs_typed = cast_mut_ptr(ptr);
+    let ptr = NonNull::new(ptr)?;
+    let rs_typed = cast_mut_ptr(ptr.as_ptr());
     unsafe { Some(Box::from_raw(rs_typed)) }
 }
 
@@ -148,11 +145,9 @@ pub(crate) fn free_arc<C>(ptr: *const C)
 where
     C: Castable<Ownership = OwnershipArc>,
 {
-    if ptr.is_null() {
-        return;
+    if let Some(ptr) = NonNull::new(ptr.cast_mut()) {
+        drop(unsafe { Arc::from_raw(cast_const_ptr(ptr.as_ptr().cast_const())) });
     }
-    let rs_typed = cast_const_ptr(ptr);
-    drop(unsafe { Arc::from_raw(rs_typed) });
 }
 
 /// Convert a mutable pointer to a [`Castable`] to an optional `Box` over the underlying
@@ -248,10 +243,8 @@ pub(crate) use try_mut_from_ptr;
 ///
 /// Does nothing, returning `None`, when passed `NULL`.
 pub(crate) fn try_from_mut_mut<'a, C: Castable>(from: *mut *mut C) -> Option<&'a mut *mut C> {
-    match from.is_null() {
-        true => None,
-        false => unsafe { Some(&mut *from) },
-    }
+    let mut from = NonNull::new(from)?;
+    unsafe { Some(from.as_mut()) }
 }
 
 /// If the provided pointer to a pointer to a [`Castable`] is non-null, convert it to a mutable
@@ -306,10 +299,8 @@ pub(crate) fn try_from_ptr<'a, C>(from: *mut *const C) -> Option<&'a mut *const 
 where
     C: Castable,
 {
-    match from.is_null() {
-        true => None,
-        false => unsafe { Some(&mut *from) },
-    }
+    let mut from = NonNull::new(from)?;
+    unsafe { Some(from.as_mut()) }
 }
 
 /// If the provided pointer to pointer to a [`Castable`] is non-null, convert it to a mutable
@@ -373,10 +364,9 @@ pub(crate) use try_box_from_ptr;
 
 macro_rules! try_slice {
     ( $ptr:expr, $count:expr ) => {
-        if $ptr.is_null() {
-            return $crate::panic::NullParameterOrDefault::value();
-        } else {
-            unsafe { slice::from_raw_parts($ptr, $count) }
+        match ::std::ptr::NonNull::new($ptr.cast_mut()) {
+            Some(ptr) => unsafe { slice::from_raw_parts(ptr.as_ptr().cast_const(), $count) },
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }
@@ -385,10 +375,9 @@ pub(crate) use try_slice;
 
 macro_rules! try_slice_mut {
     ( $ptr:expr, $count:expr ) => {
-        if $ptr.is_null() {
-            return $crate::panic::NullParameterOrDefault::value();
-        } else {
-            unsafe { slice::from_raw_parts_mut($ptr, $count) }
+        match ::std::ptr::NonNull::new($ptr) {
+            Some(ptr) => unsafe { slice::from_raw_parts_mut(ptr.as_ptr(), $count) },
+            None => return $crate::panic::NullParameterOrDefault::value(),
         }
     };
 }

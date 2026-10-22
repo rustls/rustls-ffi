@@ -1,5 +1,5 @@
 use std::io::{ErrorKind, Read, Write};
-use std::{ffi::c_void, ptr::null};
+use std::{ffi::c_void, ptr::NonNull, ptr::null};
 use std::{ptr::null_mut, slice};
 
 use libc::{EINVAL, EIO, size_t};
@@ -146,9 +146,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_io_result(EINVAL);
-            }
+            };
             let callback = try_callback!(callback);
 
             let mut reader = CallbackReader { callback, userdata };
@@ -157,7 +157,7 @@ impl rustls_connection {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-                *out_n = n_read;
+                out_n.write(n_read);
             }
 
             rustls_io_result(0)
@@ -183,9 +183,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_io_result(EINVAL);
-            }
+            };
             let callback = try_callback!(callback);
 
             let mut writer = CallbackWriter { callback, userdata };
@@ -194,7 +194,7 @@ impl rustls_connection {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-                *out_n = n_written;
+                out_n.write(n_written);
             }
 
             rustls_io_result(0)
@@ -220,9 +220,9 @@ impl rustls_connection {
     ) -> rustls_io_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_io_result(EINVAL);
-            }
+            };
             let callback = try_callback!(callback);
 
             let mut writer = VectoredCallbackWriter { callback, userdata };
@@ -231,7 +231,7 @@ impl rustls_connection {
                 Err(e) => return rustls_io_result(e.raw_os_error().unwrap_or(EIO)),
             };
             unsafe {
-                *out_n = n_written;
+                out_n.write(n_written);
             }
 
             rustls_io_result(0)
@@ -391,17 +391,19 @@ impl rustls_connection {
     ) {
         ffi_panic_boundary! {
             let conn = try_ref_from_ptr!(conn);
-            if protocol_out.is_null() || protocol_out_len.is_null() {
+            let (Some(protocol_out), Some(protocol_out_len)) =
+                (NonNull::new(protocol_out), NonNull::new(protocol_out_len))
+            else {
                 return;
-            }
+            };
             match conn.alpn_protocol() {
                 Some(p) => unsafe {
-                    *protocol_out = p.as_ptr();
-                    *protocol_out_len = p.len();
+                    protocol_out.write(p.as_ptr());
+                    protocol_out_len.write(p.len());
                 },
                 None => unsafe {
-                    *protocol_out = null();
-                    *protocol_out_len = 0;
+                    protocol_out.write(null());
+                    protocol_out_len.write(0);
                 },
             }
         }
@@ -527,15 +529,15 @@ impl rustls_connection {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
             let write_buf = try_slice!(buf, count);
-            if out_n.is_null() {
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_result::NullParameter;
-            }
+            };
             let n_written = match conn.writer().write(write_buf) {
                 Ok(n) => n,
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
-                *out_n = n_written;
+                out_n.write(n_written);
             }
             rustls_result::Ok
         }
@@ -562,16 +564,16 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            if buf.is_null() {
+            let Some(buf) = NonNull::new(buf) else {
                 return rustls_result::NullParameter;
-            }
-            if out_n.is_null() {
+            };
+            let Some(out_n) = NonNull::new(out_n) else {
                 return rustls_result::NullParameter;
-            }
+            };
 
             // Safety: the memory pointed at by buf must be initialized
             // (required by documentation of this function).
-            let read_buf = try_slice_mut!(buf, count);
+            let read_buf = try_slice_mut!(buf.as_ptr(), count);
 
             let n_read = match conn.reader().read(read_buf) {
                 Ok(n) => n,
@@ -584,7 +586,7 @@ impl rustls_connection {
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
-                *out_n = n_read;
+                out_n.write(n_read);
             }
             rustls_result::Ok
         }
@@ -613,10 +615,11 @@ impl rustls_connection {
     ) -> rustls_result {
         ffi_panic_boundary! {
             let conn = try_mut_from_ptr!(conn);
-            if buf.is_null() || out_n.is_null() {
+            let (Some(buf), Some(out_n)) = (NonNull::new(buf), NonNull::new(out_n)) else {
                 return rustls_result::NullParameter;
-            }
-            let mut read_buf: std::io::BorrowedBuf<'_, u8> = try_slice_mut!(buf, count).into();
+            };
+            let mut read_buf: std::io::BorrowedBuf<'_, u8> =
+                try_slice_mut!(buf.as_ptr(), count).into();
 
             let n_read = match conn.reader().read_buf(read_buf.unfilled()) {
                 Ok(()) => read_buf.filled().len(),
@@ -629,7 +632,7 @@ impl rustls_connection {
                 Err(_) => return rustls_result::Io,
             };
             unsafe {
-                *out_n = n_read;
+                out_n.write(n_read);
             }
             rustls_result::Ok
         }

@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::fmt::{Debug, Formatter};
+use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
 
@@ -889,12 +890,10 @@ impl rustls_client_config {
         alpn_protocols: Vec<Vec<u8>>,
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
-        let server_name = unsafe {
-            if server_name.is_null() {
-                return rustls_result::NullParameter;
-            }
-            CStr::from_ptr(server_name)
+        let Some(server_name) = NonNull::new(server_name.cast_mut()) else {
+            return rustls_result::NullParameter;
         };
+        let server_name = unsafe { CStr::from_ptr(server_name.as_ptr()) };
         let Ok(server_name) = server_name.to_str() else {
             return rustls_result::InvalidDnsNameError;
         };
