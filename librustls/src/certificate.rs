@@ -1,6 +1,6 @@
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use std::ptr::null;
+use std::ptr::{NonNull, null};
 use std::slice;
 
 use libc::{c_char, size_t};
@@ -42,13 +42,15 @@ pub extern "C" fn rustls_certificate_get_der(
 ) -> rustls_result {
     ffi_panic_boundary! {
         let cert = try_ref_from_ptr!(cert);
-        if out_der_data.is_null() || out_der_len.is_null() {
+        let (Some(out_der_data), Some(out_der_len)) =
+            (NonNull::new(out_der_data), NonNull::new(out_der_len))
+        else {
             return rustls_result::NullParameter;
-        }
+        };
         let der = cert.as_ref();
         unsafe {
-            *out_der_data = der.as_ptr();
-            *out_der_len = der.len();
+            out_der_data.write(der.as_ptr());
+            out_der_len.write(der.len());
         }
         rustls_result::Ok
     }
@@ -235,11 +237,12 @@ impl rustls_certified_key {
             };
             let certified_key = try_ref_from_ptr!(certified_key);
             let mut new_key = certified_key.clone();
-            if !ocsp_response.is_null() {
-                let ocsp_slice = unsafe { &*ocsp_response };
-                new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
-            } else {
-                new_key.ocsp = None;
+            match NonNull::new(ocsp_response.cast_mut()) {
+                Some(ocsp_response) => {
+                    let ocsp_slice = unsafe { ocsp_response.as_ref() };
+                    new_key.ocsp = Some(Vec::from(try_slice!(ocsp_slice.data, ocsp_slice.len)));
+                }
+                None => new_key.ocsp = None,
             }
             *cloned_key_out = to_arc_const_ptr(new_key);
             rustls_result::Ok
@@ -383,12 +386,10 @@ impl rustls_root_cert_store_builder {
                 Some(b) => b,
             };
 
-            let filename = unsafe {
-                if filename.is_null() {
-                    return rustls_result::NullParameter;
-                }
-                CStr::from_ptr(filename)
+            let Some(filename) = NonNull::new(filename.cast_mut()) else {
+                return rustls_result::NullParameter;
             };
+            let filename = unsafe { CStr::from_ptr(filename.as_ptr()) };
 
             let filename = filename.to_bytes();
             let filename = match std::str::from_utf8(filename) {

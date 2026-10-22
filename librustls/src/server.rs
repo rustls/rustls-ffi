@@ -1,5 +1,6 @@
 use std::ffi::c_void;
 use std::fmt::{Debug, Formatter};
+use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
 
@@ -482,11 +483,11 @@ impl rustls_server_config {
         conn_out: *mut *mut rustls_connection,
     ) -> rustls_result {
         ffi_panic_boundary! {
-            if conn_out.is_null() {
+            let Some(mut conn_out) = NonNull::new(conn_out) else {
                 return rustls_result::NullParameter;
-            }
+            };
             let config = try_clone_arc!(config);
-            let conn_out = try_mut_from_ptr_ptr!(conn_out);
+            let conn_out = unsafe { conn_out.as_mut() };
 
             let server_connection = match ServerConnection::new(config) {
                 Ok(sc) => sc,
@@ -771,15 +772,15 @@ pub extern "C" fn rustls_client_hello_select_certified_key(
             hello.signature_schemes.data,
             hello.signature_schemes.len
         ));
-        if out_key.is_null() {
+        let Some(out_key) = NonNull::new(out_key) else {
             return rustls_result::NullParameter;
-        }
+        };
         let keys_ptrs = try_slice!(certified_keys, certified_keys_len);
         for &key_ptr in keys_ptrs {
             let key_ref = try_ref_from_ptr!(key_ptr);
             if key_ref.key.choose_scheme(&schemes).is_some() {
                 unsafe {
-                    *out_key = key_ptr;
+                    out_key.write(key_ptr);
                 }
                 return rustls_result::Ok;
             }
