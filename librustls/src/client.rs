@@ -810,6 +810,8 @@ impl rustls_client_config {
     /// point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
     /// and must call `rustls_connection_free` when done with it.
     ///
+    /// This function copies the contents of `server_name`.
+    ///
     /// Uses the `rustls_client_config` to determine ALPN protocol support. Prefer
     /// `rustls_client_connection_new_alpn` to customize this per-connection.
     ///
@@ -844,6 +846,8 @@ impl rustls_client_config {
     /// If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
     /// point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
     /// and must call `rustls_connection_free` when done with it.
+    ///
+    /// This function copies the contents of `server_name`.
     ///
     /// If this returns an error code, the memory pointed to by `conn_out` remains
     /// unchanged.
@@ -897,9 +901,10 @@ impl rustls_client_config {
         let Ok(server_name) = server_name.to_str() else {
             return rustls_result::InvalidDnsNameError;
         };
-        let Ok(server_name) = server_name.try_into() else {
+        let Ok(server_name) = ServerName::try_from(server_name) else {
             return rustls_result::InvalidDnsNameError;
         };
+        let server_name = server_name.to_owned();
 
         set_boxed_mut_ptr(
             try_mut_from_ptr_ptr!(conn_out),

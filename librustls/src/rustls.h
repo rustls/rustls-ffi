@@ -1652,6 +1652,8 @@ void rustls_client_config_free(const struct rustls_client_config *config);
  * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
  * and must call `rustls_connection_free` when done with it.
  *
+ * This function copies the contents of `server_name`.
+ *
  * Uses the `rustls_client_config` to determine ALPN protocol support. Prefer
  * `rustls_client_connection_new_alpn` to customize this per-connection.
  *
@@ -1676,6 +1678,8 @@ rustls_result rustls_client_connection_new(const struct rustls_client_config *co
  * If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
  * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
  * and must call `rustls_connection_free` when done with it.
+ *
+ * This function copies the contents of `server_name`.
  *
  * If this returns an error code, the memory pointed to by `conn_out` remains
  * unchanged.
