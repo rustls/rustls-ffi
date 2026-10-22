@@ -42,7 +42,6 @@ macro_rules! ResultFromU32 {
 }
 
 /// Numeric error codes returned from rustls-ffi API functions.
-#[allow(dead_code)]
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ResultFromU32!)]
 pub enum rustls_result {

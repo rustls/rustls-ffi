@@ -72,6 +72,6 @@ pub struct rustls_log_params<'a> {
 }
 
 /// A callback that is invoked for messages logged by rustls.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub type rustls_log_callback =
     Option<unsafe extern "C" fn(userdata: *mut c_void, params: *const rustls_log_params)>;
