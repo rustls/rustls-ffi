@@ -268,13 +268,15 @@ impl rustls_accepted {
     ///
     /// **Returns:**
     ///
-    /// A TLS Signature Scheme from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme>
+    /// A TLS Signature Scheme from the [IANA TLS SignatureScheme registry].
     ///
     /// This will be 0 in these cases:
     ///
     /// - `i` is greater than or equal to the number of offered signature schemes.
     /// - `accepted` is NULL.
     /// - `rustls_accepted_into_connection` has already been called with `accepted`.
+    ///
+    /// [IANA TLS SignatureScheme registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme
     #[no_mangle]
     pub extern "C" fn rustls_accepted_signature_scheme(
         accepted: *const rustls_accepted,
@@ -304,7 +306,7 @@ impl rustls_accepted {
     ///
     /// **Returns:**
     ///
-    /// A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>
+    /// A cipher suite value from the [IANA TLS Cipher Suites registry].
     ///
     /// This will be 0 in these cases:
     ///
@@ -314,6 +316,8 @@ impl rustls_accepted {
     ///
     /// Note that 0 is technically a valid cipher suite "TLS_NULL_WITH_NULL_NULL",
     /// but this library will never support null ciphers.
+    ///
+    /// [IANA TLS Cipher Suites registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
     #[no_mangle]
     pub extern "C" fn rustls_accepted_cipher_suite(
         accepted: *const rustls_accepted,

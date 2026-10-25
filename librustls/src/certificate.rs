@@ -19,7 +19,10 @@ use crate::rslice::rustls_slice_bytes;
 
 /// An X.509 certificate, as used in rustls.
 /// Corresponds to `CertificateDer` in the Rust pki-types API.
-/// <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>
+///
+/// See also the rustls-pki-types documentation for [`CertificateDer`].
+///
+/// [`CertificateDer`]: https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html
 pub struct rustls_certificate<'a> {
     _private: [u8; 0],
     _marker: PhantomData<&'a ()>,
@@ -63,7 +66,10 @@ pub extern "C" fn rustls_certificate_get_der(
 /// plus a private key that matches the end-entity (leaf) certificate.
 ///
 /// Corresponds to `CertifiedKey` in the Rust API.
-/// <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>
+///
+/// See also the rustls documentation for [`CertifiedKey`].
+///
+/// [`CertifiedKey`]: https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html
 pub struct rustls_certified_key {
     _private: [u8; 0],
 }
@@ -459,7 +465,10 @@ impl rustls_root_cert_store_builder {
 }
 
 /// A root certificate store.
-/// <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>
+///
+/// See also the rustls documentation for [`RootCertStore`].
+///
+/// [`RootCertStore`]: https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html
 pub struct rustls_root_cert_store {
     _private: [u8; 0],
 }

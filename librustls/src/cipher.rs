@@ -16,10 +16,12 @@ impl Castable for rustls_supported_ciphersuite {
 }
 
 impl rustls_supported_ciphersuite {
-    /// Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from
-    /// <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.
+    /// Return a 16-bit unsigned integer corresponding to this cipher suite's assignment
+    /// in the [IANA TLS Cipher Suites registry].
     ///
     /// The bytes from the assignment are interpreted in network order.
+    ///
+    /// [IANA TLS Cipher Suites registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
     #[no_mangle]
     pub extern "C" fn rustls_supported_ciphersuite_get_suite(
         supported_ciphersuite: *const rustls_supported_ciphersuite,

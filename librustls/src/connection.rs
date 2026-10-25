@@ -139,7 +139,10 @@ impl rustls_connection {
     /// On success, returns 0 and writes the number of bytes read to `out_n`. On error, returns
     /// an errno value passed through from `callback` and leaves `out_n` unchanged. See
     /// `rustls_read_callback` for more details.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
+    ///
+    /// See also the rustls documentation for [`Connection::read_tls`].
+    ///
+    /// [`Connection::read_tls`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls
     #[no_mangle]
     pub extern "C" fn rustls_connection_read_tls(
         conn: *mut rustls_connection,
@@ -178,7 +181,10 @@ impl rustls_connection {
     /// On success, returns 0 and writes the number of bytes written to `out_n`. On error,
     /// returns an errno value passed through from `callback` and leaves `out_n` unchanged.
     /// See `rustls_write_callback` for more details.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
+    ///
+    /// See also the rustls documentation for [`Connection::write_tls`].
+    ///
+    /// [`Connection::write_tls`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls(
         conn: *mut rustls_connection,
@@ -217,7 +223,10 @@ impl rustls_connection {
     /// On success, returns 0 and writes the number of bytes written to `out_n`. On error,
     /// returns an errno value passed through from `callback` and leaves `out_n` unchanged.
     /// See `rustls_write_vectored_callback` for more details.
-    /// <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored>
+    ///
+    /// See also the rustls documentation for [`Writer::write_vectored`].
+    ///
+    /// [`Writer::write_vectored`]: https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls_vectored(
         conn: *mut rustls_connection,
@@ -248,7 +257,10 @@ impl rustls_connection {
     /// Decrypt any available ciphertext from the internal buffer and put it
     /// into the internal plaintext buffer, potentially making bytes available
     /// for `rustls_connection_read()`.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets>
+    ///
+    /// See also the rustls documentation for [`Connection::process_new_packets`].
+    ///
+    /// [`Connection::process_new_packets`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets
     #[no_mangle]
     pub extern "C" fn rustls_connection_process_new_packets(
         conn: *mut rustls_connection,
@@ -270,7 +282,9 @@ impl rustls_connection {
         }
     }
 
-    /// <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_read>
+    /// See also the rustls documentation for [`CommonState::wants_read`].
+    ///
+    /// [`CommonState::wants_read`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_read
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_read(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
@@ -278,7 +292,9 @@ impl rustls_connection {
         }
     }
 
-    /// <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_write>
+    /// See also the rustls documentation for [`CommonState::wants_write`].
+    ///
+    /// [`CommonState::wants_write`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_write
     #[no_mangle]
     pub extern "C" fn rustls_connection_wants_write(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
@@ -291,9 +307,9 @@ impl rustls_connection {
     /// Note: This may return `false` while there are still handshake packets waiting
     /// to be extracted and transmitted with `rustls_connection_write_tls()`.
     ///
-    /// See the rustls documentation for more information.
+    /// See also the rustls documentation for [`CommonState::is_handshaking`].
     ///
-    /// <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking>
+    /// [`CommonState::is_handshaking`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking
     #[no_mangle]
     pub extern "C" fn rustls_connection_is_handshaking(conn: *const rustls_connection) -> bool {
         ffi_panic_boundary! {
@@ -318,7 +334,10 @@ impl rustls_connection {
     /// to completing the TLS handshake) and unsent TLS records. By default, there
     /// is no limit. The limit can be set at any time, even if the current buffer
     /// use is higher.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.set_buffer_limit>
+    ///
+    /// See also the rustls documentation for [`Connection::set_buffer_limit`].
+    ///
+    /// [`Connection::set_buffer_limit`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.set_buffer_limit
     #[no_mangle]
     pub extern "C" fn rustls_connection_set_buffer_limit(conn: *mut rustls_connection, n: usize) {
         ffi_panic_boundary! {
@@ -328,7 +347,10 @@ impl rustls_connection {
 
     /// Queues a close_notify alert to be sent by the next call to
     /// `rustls_connection_write_tls()`.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.send_close_notify>
+    ///
+    /// See also the rustls documentation for [`Connection::send_close_notify`].
+    ///
+    /// [`Connection::send_close_notify`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.send_close_notify
     #[no_mangle]
     pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
         ffi_panic_boundary! {
@@ -339,10 +361,11 @@ impl rustls_connection {
     /// Queues a TLS1.3 key_update message to refresh a connection’s keys.
     ///
     /// Rustls internally manages key updates as required and so this function should
-    /// seldom be used. See the Rustls documentation for important caveats and suggestions
+    /// seldom be used. See the rustls documentation for
+    /// [`ConnectionCommon::refresh_traffic_keys`] for important caveats and suggestions
     /// on occasions that merit its use.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys>
+    /// [`ConnectionCommon::refresh_traffic_keys`]: https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys
     #[no_mangle]
     pub extern "C" fn rustls_connection_refresh_traffic_keys(
         conn: *mut rustls_connection,
@@ -363,7 +386,10 @@ impl rustls_connection {
     /// affecting the connection. A mutating function call is one where the first
     /// argument is a mutable pointer to `rustls_connection` (as opposed to a const
     /// pointer).
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates>
+    ///
+    /// See also the rustls documentation for [`Connection::peer_certificates`].
+    ///
+    /// [`Connection::peer_certificates`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_peer_certificate<'a>(
         conn: *const rustls_connection,
@@ -392,8 +418,11 @@ impl rustls_connection {
     /// The caller must not modify or free the borrowed buffer.
     ///
     /// If `conn` or either output parameter is NULL, both output values are unchanged.
-    /// <https://www.iana.org/assignments/tls-parameters/>
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol>
+    /// Protocol identifiers are listed in the [IANA TLS Parameters registry]. See
+    /// also the rustls documentation for [`Connection::alpn_protocol`].
+    ///
+    /// [IANA TLS Parameters registry]: https://www.iana.org/assignments/tls-parameters/
+    /// [`Connection::alpn_protocol`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_alpn_protocol(
         conn: *const rustls_connection,
@@ -423,8 +452,12 @@ impl rustls_connection {
     /// Return the TLS protocol version that has been negotiated. Before this
     /// has been decided during the handshake, this will return 0. Otherwise,
     /// the u16 version number as defined in the relevant RFC is returned.
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.protocol_version>
-    /// <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.ProtocolVersion.html>
+    ///
+    /// See also the rustls documentation for [`Connection::protocol_version`] and
+    /// [`ProtocolVersion`].
+    ///
+    /// [`Connection::protocol_version`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.protocol_version
+    /// [`ProtocolVersion`]: https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.ProtocolVersion.html
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_protocol_version(
         conn: *const rustls_connection,
@@ -437,11 +470,11 @@ impl rustls_connection {
         }
     }
 
-    /// Retrieves the [IANA registered cipher suite identifier][IANA] agreed with the peer.
+    /// Retrieves the [IANA registered cipher suite identifier] agreed with the peer.
     ///
     /// This returns `TLS_NULL_WITH_NULL_NULL` (0x0000) until the ciphersuite is agreed.
     ///
-    /// [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>
+    /// [IANA registered cipher suite identifier]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_negotiated_ciphersuite(
         conn: *const rustls_connection,
@@ -461,7 +494,9 @@ impl rustls_connection {
     /// The lifetime of the `rustls_str` is the lifetime of the program, it does not
     /// need to be freed.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.negotiated_cipher_suite>
+    /// See also the rustls documentation for [`Connection::negotiated_cipher_suite`].
+    ///
+    /// [`Connection::negotiated_cipher_suite`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.negotiated_cipher_suite
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_negotiated_ciphersuite_name(
         conn: *const rustls_connection,
@@ -474,11 +509,11 @@ impl rustls_connection {
         }
     }
 
-    /// Retrieves the [IANA registered supported group identifier][IANA] agreed with the peer.
+    /// Retrieves the [IANA registered supported group identifier] agreed with the peer.
     ///
     /// This returns Reserved (0x0000) until the key exchange group is agreed.
     ///
-    /// [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>
+    /// [IANA registered supported group identifier]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_negotiated_key_exchange_group(
         conn: *const rustls_connection,
@@ -532,7 +567,10 @@ impl rustls_connection {
     ///
     /// This function borrows `buf` for the duration of the call and does not retain it.
     /// On error, `out_n` is unchanged.
-    /// <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write>
+    ///
+    /// See also the rustls documentation for [`Writer::write`].
+    ///
+    /// [`Writer::write`]: https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write
     #[no_mangle]
     pub extern "C" fn rustls_connection_write(
         conn: *mut rustls_connection,
@@ -570,7 +608,10 @@ impl rustls_connection {
     /// multiple times without zeroizing before each call is fine.
     ///
     /// The function does not retain `buf`. On error, `out_n` is unchanged.
-    /// <https://docs.rs/rustls/latest/rustls/struct.Reader.html#method.read>
+    ///
+    /// See also the rustls documentation for [`Reader::read`].
+    ///
+    /// [`Reader::read`]: https://docs.rs/rustls/latest/rustls/struct.Reader.html#method.read
     #[no_mangle]
     pub extern "C" fn rustls_connection_read(
         conn: *mut rustls_connection,

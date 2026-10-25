@@ -38,7 +38,10 @@ use crate::verifier::rustls_server_cert_verifier;
 ///
 /// This object is not safe for concurrent mutation. Under the hood,
 /// it corresponds to a `Box<ClientConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
+///
+/// See also the rustls documentation for [`ConfigBuilder`].
+///
+/// [`ConfigBuilder`]: https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html
 pub struct rustls_client_config_builder {
     _private: [u8; 0],
 }
@@ -86,7 +89,10 @@ impl Default for ClientConfigBuilder {
 /// A client config that is done being constructed and is now read-only.
 ///
 /// Under the hood, this object corresponds to an `Arc<ClientConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>
+///
+/// See also the rustls documentation for [`ClientConfig`].
+///
+/// [`ClientConfig`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html
 pub struct rustls_client_config {
     _private: [u8; 0],
 }
@@ -206,7 +212,10 @@ impl rustls_client_config_builder {
     /// `RUSTLS_RESULT_OK`. Otherwise, it may return any other `rustls_result` error,
     /// including one of the certificate-related errors.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
+    /// See also the rustls documentation for
+    /// [`DangerousClientConfig::set_certificate_verifier`].
+    ///
+    /// [`DangerousClientConfig::set_certificate_verifier`]: https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_dangerous_set_certificate_verifier(
         config_builder: *mut rustls_client_config_builder,
@@ -251,13 +260,15 @@ impl rustls_client_config_builder {
     /// Each element of the buffer must be a `rustls_slice_bytes` whose
     /// data field points to a single ALPN protocol ID.
     ///
-    /// Standard ALPN protocol IDs are defined at
-    /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
+    /// Standard ALPN protocol IDs are defined in the [IANA registry].
     ///
     /// This function makes a copy of the data in `protocols` and does not retain
     /// any pointers, so the caller can free the pointed-to memory after calling.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols>
+    /// See also the rustls documentation for [`ClientConfig::alpn_protocols`].
+    ///
+    /// [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
+    /// [`ClientConfig::alpn_protocols`]: https://docs.rs/rustls/latest/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_alpn_protocols(
         builder: *mut rustls_client_config_builder,
@@ -282,7 +293,9 @@ impl rustls_client_config_builder {
     ///
     /// The default is `true`.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn>
+    /// See also the rustls documentation for [`ClientConfig::check_selected_alpn`].
+    ///
+    /// [`ClientConfig::check_selected_alpn`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_check_selected_alpn(
         config: *mut rustls_client_config_builder,
@@ -305,7 +318,9 @@ impl rustls_client_config_builder {
     /// By default the extension is not sent. Note that servers are free to
     /// ignore the request, it is only a hint.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request>
+    /// See also the rustls documentation for [`ClientConfig::send_ticket_request`].
+    ///
+    /// [`ClientConfig::send_ticket_request`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_send_ticket_request(
         builder: *mut rustls_client_config_builder,
@@ -323,7 +338,10 @@ impl rustls_client_config_builder {
     }
 
     /// Enable or disable SNI.
-    /// <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>
+    ///
+    /// See also the rustls documentation for [`ClientConfig::enable_sni`].
+    ///
+    /// [`ClientConfig::enable_sni`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_enable_sni(
         config: *mut rustls_client_config_builder,
@@ -370,15 +388,16 @@ impl rustls_client_config_builder {
 
     /// Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.
     ///
-    /// The key material will be logged in the NSS key log format,
-    /// <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is
-    /// compatible with tools like Wireshark.
+    /// The key material will be logged in the [NSS key log format] and is compatible
+    /// with tools like Wireshark.
     ///
     /// Secrets logged in this manner are **extremely sensitive** and can break the security
     /// of past, present and future sessions.
     ///
     /// For more control over which secrets are logged, or to customize the format, prefer
     /// `rustls_client_config_builder_set_key_log`.
+    ///
+    /// [NSS key log format]: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_key_log_file(
         builder: *mut rustls_client_config_builder,
@@ -395,8 +414,7 @@ impl rustls_client_config_builder {
     /// The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is
     /// returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,
     /// a `label` to identify the purpose of the `secret`, and the `secret` itself. See the
-    /// Rustls documentation of the `KeyLog` trait for more information on possible labels:
-    /// <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>
+    /// rustls documentation for [`KeyLog::log`] for more information on possible labels.
     ///
     /// The `will_log_cb` may be `NULL`, in which case all key material will be provided to
     /// the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't
@@ -411,6 +429,8 @@ impl rustls_client_config_builder {
     ///
     /// See also `rustls_client_config_builder_set_key_log_file` for a simpler way to log
     /// to a file specified by the `SSLKEYLOGFILE` environment variable.
+    ///
+    /// [`KeyLog::log`]: https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_key_log(
         builder: *mut rustls_client_config_builder,
@@ -880,8 +900,9 @@ impl rustls_client_config {
     /// data in `alpn_protocols` and does not retain any pointers, so the caller can free the
     /// pointed-to memory after calling.
     ///
-    /// Standard ALPN protocol IDs are defined at
-    /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
+    /// Standard ALPN protocol IDs are defined in the [IANA registry].
+    ///
+    /// [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
     #[no_mangle]
     pub extern "C" fn rustls_client_connection_new_alpn(
         config: *const rustls_client_config,
