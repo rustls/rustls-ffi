@@ -645,9 +645,17 @@ demo_client_connect(const demo_client_request_options *options)
   LOG_SIMPLE("socket connected");
   demo_conn->sockfd = sockfd;
 
-  // Construct the rustls request with the client config.
+  // Construct the rustls request with the client config. Use a temporary copy
+  // of the hostname to ensure the connection does not retain the caller's
+  // server_name buffer after rustls_client_connection_new returns.
+  char *server_name = strdup(options->hostname);
+  if(server_name == NULL) {
+    perror("client: server_name strdup");
+    goto cleanup;
+  }
   const rustls_result rr = rustls_client_connection_new(
-    options->tls_config, options->hostname, &demo_conn->rconn);
+    options->tls_config, server_name, &demo_conn->rconn);
+  free(server_name);
   if(rr != RUSTLS_RESULT_OK) {
     print_error("client_connection_new", rr);
     goto cleanup;
