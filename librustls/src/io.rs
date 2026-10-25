@@ -10,7 +10,7 @@ use crate::error::rustls_io_result;
 /// network, storing them in `buf`. If any bytes were stored, the implementation should
 /// set out_n to the number of bytes stored and return 0.
 ///
-/// If there was an error, the implementation should return a nonzero rustls_io_result,
+/// If there was an error, the implementation should return a nonzero `rustls_io_result`,
 /// which will be passed through to the caller.
 ///
 /// On POSIX systems, returning `errno` is convenient.
@@ -73,7 +73,7 @@ impl Read for CallbackReader {
 /// On other systems, any appropriate error code works.
 ///
 /// It's best to make one write attempt to the network per call. Additional writes will
-/// be triggered by subsequent calls to rustls_connection_write_tls.
+/// be triggered by subsequent calls to `rustls_connection_write_tls`.
 ///
 /// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
@@ -118,9 +118,11 @@ impl Write for CallbackWriter {
 
 /// An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows.
 ///
-/// You should cast `const struct rustls_iovec *` to `const struct iovec *` on
-/// Unix, or `const *LPWSABUF` on Windows. See [`std::io::IoSlice`] for details
-/// on interoperability with platform specific vectored IO.
+/// You should cast a const pointer to `rustls_iovec` to `const struct iovec *` on Unix,
+/// or `const *LPWSABUF` on Windows. See
+/// [`std::io::IoSlice`] for details on interoperability with platform-specific vectored IO.
+///
+/// [`std::io::IoSlice`]: https://doc.rust-lang.org/std/io/struct.IoSlice.html
 pub struct rustls_iovec {
     _private: [u8; 0],
 }
@@ -133,7 +135,7 @@ pub struct rustls_iovec {
 /// If any bytes were written, the implementation should set out_n to the number of
 /// bytes written and return 0.
 ///
-/// If there was an error, the implementation should return a nonzero rustls_io_result,
+/// If there was an error, the implementation should return a nonzero `rustls_io_result`,
 /// which will be passed through to the caller.
 ///
 /// On POSIX systems, returning `errno` is convenient.
@@ -143,7 +145,7 @@ pub struct rustls_iovec {
 /// It's best to make one write attempt to the network per call. Additional write will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 ///
-/// `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
 /// cases that should be a struct that contains, at a minimum, a file descriptor.
 ///
 /// The iov and out_n pointers are borrowed and should not be retained across calls.

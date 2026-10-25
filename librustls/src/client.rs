@@ -29,9 +29,9 @@ use crate::verifier::rustls_server_cert_verifier;
 
 /// A client config being constructed.
 ///
-/// A builder can be modified by, e.g. `rustls_client_config_builder_load_roots_from_file`.
+/// A builder can be modified by, e.g. `rustls_client_config_builder_set_server_verifier`.
 /// Once you're done configuring settings, call `rustls_client_config_builder_build`
-/// to turn it into a *rustls_client_config.
+/// to turn it into a `rustls_client_config`.
 ///
 /// Alternatively, if an error occurs or, you don't wish to build a config,
 /// call `rustls_client_config_builder_free` to free the builder directly.
@@ -97,7 +97,7 @@ impl Castable for rustls_client_config {
 }
 
 impl rustls_client_config_builder {
-    /// Create a rustls_client_config_builder using the process default crypto provider.
+    /// Create a `rustls_client_config_builder` using the process default crypto provider.
     ///
     /// Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
     /// then free the resulting `rustls_client_config`.
@@ -108,8 +108,9 @@ impl rustls_client_config_builder {
     /// This uses the process default provider's values for the cipher suites and key
     /// exchange groups, as well as safe defaults for protocol versions.
     ///
-    /// This starts out with no trusted roots. Caller must add roots with
-    /// rustls_client_config_builder_load_roots_from_file or provide a custom verifier.
+    /// This starts out with no trusted roots. The caller must provide a verifier with
+    /// `rustls_client_config_builder_set_server_verifier` or
+    /// `rustls_client_config_builder_dangerous_set_certificate_verifier`.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_new() -> *mut rustls_client_config_builder {
         ffi_panic_boundary! {
@@ -121,7 +122,7 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Create a rustls_client_config_builder using the specified crypto provider.
+    /// Create a `rustls_client_config_builder` using the specified crypto provider.
     ///
     /// Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
     /// then free the resulting `rustls_client_config`.
@@ -133,7 +134,7 @@ impl rustls_client_config_builder {
     /// `tls_version` is the version of the protocol, as defined in rfc8446,
     /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
     /// `rustls_tls_version` for convenience, and the arrays
-    /// RUSTLS_DEFAULT_VERSIONS or RUSTLS_ALL_VERSIONS can be used directly.
+    /// `RUSTLS_DEFAULT_VERSIONS` or `RUSTLS_ALL_VERSIONS` can be used directly.
     ///
     /// `tls_versions` will only be used during the call and the application retains
     /// ownership. `tls_versions_len` is the number of consecutive `uint16_t`
@@ -174,13 +175,13 @@ impl rustls_client_config_builder {
     }
 
     /// Set a custom server certificate verifier using the builder crypto provider.
-    /// Returns rustls_result::NoDefaultCryptoProvider if no process default crypto
+    /// Returns `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` if no process default crypto
     /// provider has been set, and the builder was not constructed with an explicit
     /// provider choice.
     ///
     /// The callback must not capture any of the pointers in its
-    /// rustls_verify_server_cert_params.
-    /// If `userdata` has been set with rustls_connection_set_userdata, it
+    /// `rustls_verify_server_cert_params`.
+    /// If `userdata` has been set with `rustls_connection_set_userdata`, it
     /// will be passed to the callback. Otherwise the userdata param passed to
     /// the callback will be NULL.
     ///
@@ -195,9 +196,8 @@ impl rustls_client_config_builder {
     /// if you need to parse them.
     ///
     /// If the custom verifier accepts the certificate, it should return
-    /// RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
-    /// Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
-    /// section.
+    /// `RUSTLS_RESULT_OK`. Otherwise, it may return any other `rustls_result` error,
+    /// including one of the certificate-related errors.
     ///
     /// <https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
     #[no_mangle]
@@ -241,7 +241,7 @@ impl rustls_client_config_builder {
     /// `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
     /// elements.
     ///
-    /// Each element of the buffer must be a rustls_slice_bytes whose
+    /// Each element of the buffer must be a `rustls_slice_bytes` whose
     /// data field points to a single ALPN protocol ID.
     ///
     /// Standard ALPN protocol IDs are defined at
@@ -530,7 +530,7 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
+    /// Turn a mutable `rustls_client_config_builder` into a const `rustls_client_config`
     /// (read-only).
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_build(
@@ -597,9 +597,10 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// "Free" a client_config_builder without building it into a rustls_client_config.
+    /// "Free" a client_config_builder without building it into a `rustls_client_config`.
     ///
-    /// Normally builders are built into rustls_client_config via `rustls_client_config_builder_build`
+    /// Normally builders are built into `rustls_client_config` via
+    /// `rustls_client_config_builder_build`.
     /// and may not be free'd or otherwise used afterwards.
     ///
     /// Use free only when the building of a config has to be aborted before a config
@@ -664,7 +665,7 @@ unsafe impl Send for Verifier {}
 
 /// Safety: Verifier is Sync if the C code that passes us a callback that
 /// obeys the concurrency safety requirements documented in
-/// rustls_client_config_builder_dangerous_set_certificate_verifier.
+/// `rustls_client_config_builder_dangerous_set_certificate_verifier`.
 unsafe impl Sync for Verifier {}
 
 impl ServerCertVerifier for Verifier {
@@ -837,7 +838,7 @@ impl rustls_client_config {
     ///
     /// Operates the same as `rustls_client_connection_new`, but allows specifying
     /// custom per-connection ALPN protocols instead of inheriting ALPN protocols
-    /// from the `rustls_clinet_config`.
+    /// from the `rustls_client_config`.
     ///
     /// If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
     /// point at a valid `rustls_connection`. The caller now owns the `rustls_connection`

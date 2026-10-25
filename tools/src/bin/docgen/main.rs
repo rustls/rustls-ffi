@@ -149,6 +149,13 @@ fn find_doc_items(root: Node, source_code: &[u8]) -> Result<ApiDocs, Box<dyn Err
         if !anchor_set.insert(item.anchor().to_string()) {
             return Err(format!("duplicate anchor: {}", item.anchor()).into());
         }
+        if let Item::Enum(item) = item {
+            for variant in &item.variants {
+                if !anchor_set.insert(variant.anchor.clone()) {
+                    return Err(format!("duplicate anchor: {}", variant.anchor).into());
+                }
+            }
+        }
     }
 
     let mut api = ApiDocs::default();
@@ -358,11 +365,19 @@ impl Comment {
                 let start = node.start_byte();
                 let end = node.end_byte();
                 let content = &self.0[start..end].trim_matches('`');
-                let anchor = content.trim_end_matches("()").replace('_', "-");
+                let anchor = make_anchor(content.trim_end_matches("()"));
 
                 // If we found an anchor in backticks, make it a link to that anchor.
                 if anchors.contains(&anchor) {
                     replacements.push((start, end, format!("[`{content}`](#{anchor})")));
+                } else {
+                    // Simple type aliases are prefixed to avoid colliding with other items.
+                    let alias_anchor = format!("alias-{anchor}");
+                    if anchors.contains(&alias_anchor) {
+                        replacements.push((start, end, format!("[`{content}`](#{alias_anchor})")));
+                    } else if is_c_api_reference(content) {
+                        return Err(format!("unresolved API reference: `{content}`").into());
+                    }
                 }
 
                 if !cursor.goto_next_sibling() {
@@ -610,7 +625,7 @@ impl EnumItem {
             .collect();
 
         Ok(Self {
-            anchor: name.replace('_', "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             metadata,
             name,
             variants,
@@ -635,7 +650,7 @@ impl EnumVariantItem {
 
         let name = node_text(variant_node.child_by_field_name("name").unwrap(), src);
         Ok(Self {
-            anchor: name.replace('_', "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             comment: variant_node
                 .prev_sibling()
                 .and_then(|n| Comment::new(n, src).ok()),
@@ -665,7 +680,7 @@ impl StructItem {
 
         let name = node_text(struct_node.child_by_field_name("name").unwrap(), src);
         Ok(Self {
-            anchor: name.replace('_', "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             metadata,
             name,
             text: markup_text(struct_node, src),
@@ -700,7 +715,7 @@ impl TypeAliasItem {
             // Note: we add a 'alias-' prefix for simple type aliases anchors.
             //  We do this because otherwise we end up with two 'rustls-result'
             // anchors. One for the bare enum, and one for the typedef'd type.
-            anchor: format!("alias-{}", name.replace("_", "-").to_ascii_lowercase()),
+            anchor: format!("alias-{}", make_anchor(&name)),
             name,
             metadata,
             text: markup_text(item, src),
@@ -726,7 +741,7 @@ impl CallbackItem {
 
         let name = function_identifier(typedef, src);
         Ok(Self {
-            anchor: name.replace("_'", "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             metadata,
             name,
             text: markup_text(typedef, src),
@@ -752,7 +767,7 @@ impl FunctionItem {
 
         let name = function_identifier(decl_node, src);
         Ok(Self {
-            anchor: name.replace('_', "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             metadata,
             name,
             text: markup_text(decl_node, src),
@@ -787,7 +802,7 @@ impl ExternItem {
             .unwrap();
 
         Ok(Self {
-            anchor: name.replace('_', "-").to_ascii_lowercase(),
+            anchor: make_anchor(&name),
             metadata,
             name,
             text: markup_text(decl_node, src),
@@ -833,6 +848,18 @@ fn function_identifier(node: Node, src: &[u8]) -> String {
         dbg!(&node);
     }
     res.unwrap()
+}
+
+fn make_anchor(name: &str) -> String {
+    name.replace('_', "-").to_ascii_lowercase()
+}
+
+fn is_c_api_reference(content: &str) -> bool {
+    let content = content.trim_end_matches("()");
+    (content.starts_with("rustls_") || content.starts_with("RUSTLS_"))
+        && content
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Require that a `Node` correspond to a specific kind of grammar rule.
@@ -890,4 +917,46 @@ fn node_text(node: Node, src: &[u8]) -> String {
 /// markdown code block.
 fn markup_text(node: Node, src: &[u8]) -> String {
     format!("```c\n{}\n```", node_text(node, src))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn crosslinks_all_documented_item_kinds() {
+        let anchors = HashSet::from([
+            "rustls-connection-write-tls".to_string(),
+            "rustls-write-callback".to_string(),
+            "rustls-result-ok".to_string(),
+            "alias-rustls-io-result".to_string(),
+        ]);
+        let mut comment = Comment(
+            "Call `rustls_connection_write_tls()` with a `rustls_write_callback`. \
+             It returns `RUSTLS_RESULT_OK` as a `rustls_io_result`."
+                .to_string(),
+        );
+
+        comment.crosslink(&anchors).unwrap();
+
+        assert_eq!(
+            comment.0,
+            "Call [`rustls_connection_write_tls()`](#rustls-connection-write-tls) with a \
+             [`rustls_write_callback`](#rustls-write-callback). It returns \
+             [`RUSTLS_RESULT_OK`](#rustls-result-ok) as a \
+             [`rustls_io_result`](#alias-rustls-io-result)."
+        );
+    }
+
+    #[test]
+    fn rejects_unresolved_api_references() {
+        let mut comment = Comment("Call `rustls_function_that_does_not_exist()`.".to_string());
+
+        let error = comment.crosslink(&HashSet::new()).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "unresolved API reference: `rustls_function_that_does_not_exist()`"
+        );
+    }
 }

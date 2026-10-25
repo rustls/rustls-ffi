@@ -32,10 +32,9 @@ use crate::verifier::rustls_client_cert_verifier;
 
 /// A server config being constructed.
 ///
-/// A builder can be modified by,
-/// e.g. rustls_server_config_builder_load_native_roots. Once you're
-/// done configuring settings, call rustls_server_config_builder_build
-/// to turn it into a *const rustls_server_config.
+/// A builder can be modified by, e.g. `rustls_server_config_builder_set_certified_keys`.
+/// Once you're done configuring settings, call `rustls_server_config_builder_build`
+/// to turn it into a `rustls_server_config`.
 ///
 /// Alternatively, if an error occurs or, you don't wish to build a config,
 /// call `rustls_server_config_builder_free` to free the builder directly.
@@ -78,10 +77,10 @@ impl Castable for rustls_server_config {
 }
 
 impl rustls_server_config_builder {
-    /// Create a rustls_server_config_builder using the process default crypto provider.
+    /// Create a `rustls_server_config_builder` using the process default crypto provider.
     ///
-    /// Caller owns the memory and must eventually call rustls_server_config_builder_build,
-    /// then free the resulting rustls_server_config.
+    /// Caller owns the memory and must eventually call `rustls_server_config_builder_build`,
+    /// then free the resulting `rustls_server_config`.
     ///
     /// Alternatively, if an error occurs or, you don't wish to build a config, call
     /// `rustls_server_config_builder_free` to free the builder directly.
@@ -107,10 +106,10 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Create a rustls_server_config_builder using the specified crypto provider.
+    /// Create a `rustls_server_config_builder` using the specified crypto provider.
     ///
-    /// Caller owns the memory and must eventually call rustls_server_config_builder_build,
-    /// then free the resulting rustls_server_config.
+    /// Caller owns the memory and must eventually call `rustls_server_config_builder_build`,
+    /// then free the resulting `rustls_server_config`.
     ///
     /// Alternatively, if an error occurs or, you don't wish to build a config, call
     /// `rustls_server_config_builder_free` to free the builder directly.
@@ -165,7 +164,7 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Create a rustls_server_config_builder for TLS sessions that may verify client
+    /// Create a `rustls_server_config_builder` for TLS sessions that may verify client
     /// certificates.
     ///
     /// This increases the refcount of `verifier` and doesn't take ownership.
@@ -246,9 +245,10 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// "Free" a server_config_builder without building it into a rustls_server_config.
+    /// "Free" a server_config_builder without building it into a `rustls_server_config`.
     ///
-    /// Normally builders are built into rustls_server_configs via `rustls_server_config_builder_build`
+    /// Normally builders are built into `rustls_server_config` values via
+    /// `rustls_server_config_builder_build`.
     /// and may not be free'd or otherwise used afterwards.
     ///
     /// Use free only when the building of a config has to be aborted before a config
@@ -377,9 +377,9 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// Turn a *rustls_server_config_builder (mutable) into a const *rustls_server_config
+    /// Turn a mutable `rustls_server_config_builder` into a const `rustls_server_config`
     /// (read-only). The constructed `rustls_server_config` will be written to the `config_out`
-    /// pointer when this function returns `rustls_result::Ok`.
+    /// pointer when this function returns `RUSTLS_RESULT_OK`.
     ///
     /// This function may return an error if no process default crypto provider has been set
     /// and the builder was constructed using `rustls_server_config_builder_new`, or if no
@@ -449,10 +449,10 @@ impl rustls_server_config {
         }
     }
 
-    /// "Free" a rustls_server_config previously returned from
-    /// rustls_server_config_builder_build.
+    /// "Free" a `rustls_server_config` previously returned from
+    /// `rustls_server_config_builder_build`.
     ///
-    /// Since rustls_server_config is actually an
+    /// Since `rustls_server_config` is actually an
     /// atomically reference-counted pointer, extant server connections may still
     /// hold an internal reference to the Rust object. However, C code must
     /// consider this pointer unusable after "free"ing it.
@@ -464,16 +464,16 @@ impl rustls_server_config {
         }
     }
 
-    /// Create a new rustls_connection containing a server connection, and return it.
+    /// Create a new `rustls_connection` containing a server connection, and return it.
     ///
     /// It is returned in the output parameter `conn_out`.
     ///
     /// If this returns an error code, the memory pointed to by `conn_out` remains unchanged.
     ///
     /// If this returns a non-error, the memory pointed to by `conn_out` is modified to point
-    /// at a valid rustls_connection
+    /// at a valid `rustls_connection`
     ///
-    /// The caller now owns the rustls_connection and must call `rustls_connection_free` when
+    /// The caller now owns the `rustls_connection` and must call `rustls_connection_free` when
     /// done with it.
     #[no_mangle]
     pub extern "C" fn rustls_server_connection_new(
@@ -502,9 +502,9 @@ impl rustls_server_config {
 /// indication (SNI) extension.
 ///
 /// The returned `rustls_str` is valid until the next mutating function call affecting the
-/// connection. A mutating function call is one where the first argument has type
-/// `struct rustls_connection *` (as opposed to `const struct rustls_connection *`). The caller
-/// does not need to free the `rustls_str`.
+/// connection. A mutating function call is one where the first argument is a mutable pointer to
+/// `rustls_connection` (as opposed to a const pointer). The caller does not need to free the
+/// `rustls_str`.
 ///
 /// Returns a zero-length `rustls_str` if:
 ///
@@ -563,7 +563,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// `server_name` is the value of the ServerNameIndication extension provided
 /// by the client. If the client did not send an SNI, the length of this
-/// `rustls_string` will be 0.
+/// `rustls_str` will be 0.
 ///
 /// `signature_schemes` carries the values supplied by the client or, if the
 /// client did not send this TLS extension, the default schemes in the rustls library. See:
@@ -606,7 +606,7 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// This callback will be invoked by a `rustls_connection` once the TLS client
 /// hello message has been received.
 ///
-/// `userdata` will be set based on rustls_connection_set_userdata.
+/// `userdata` will be set based on `rustls_connection_set_userdata`.
 ///
 /// `hello` gives the value of the available client announcements, as interpreted
 /// by rustls. See the definition of `rustls_client_hello` for details.
@@ -705,7 +705,7 @@ impl Debug for ClientHelloResolver {
 impl rustls_server_config_builder {
     /// Register a callback to be invoked when a connection created from this config
     /// sees a TLS ClientHello message. If `userdata` has been set with
-    /// rustls_connection_set_userdata, it will be passed to the callback.
+    /// `rustls_connection_set_userdata`, it will be passed to the callback.
     /// Otherwise the userdata param passed to the callback will be NULL.
     ///
     /// Any existing `ResolvesServerCert` implementation currently installed in the
@@ -752,7 +752,7 @@ fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
 /// to be the best key with its knowledge about security issues and possible future
 /// extensions of the protocol.
 ///
-/// Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+/// Return `RUSTLS_RESULT_OK` if a key was selected and `RUSTLS_RESULT_NOT_FOUND`
 /// if none was suitable.
 #[no_mangle]
 pub extern "C" fn rustls_client_hello_select_certified_key(
@@ -788,7 +788,7 @@ impl rustls_server_config_builder {
     /// If `builder`, `get_cb`, or `put_cb` are NULL, this function will return
     /// immediately without doing anything.
     ///
-    /// If `userdata` has been set with rustls_connection_set_userdata, it
+    /// If `userdata` has been set with `rustls_connection_set_userdata`, it
     /// will be passed to the callbacks. Otherwise the userdata param passed to
     /// the callbacks will be NULL.
     #[no_mangle]

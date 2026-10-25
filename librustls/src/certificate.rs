@@ -191,13 +191,13 @@ impl rustls_certified_key {
         }
     }
 
-    /// Return the i-th rustls_certificate in the rustls_certified_key.
+    /// Return the i-th `rustls_certificate` in the `rustls_certified_key`.
     ///
     /// 0 gives the end-entity certificate. 1 and higher give certificates from the chain.
     ///
     /// Indexes higher than the last available certificate return NULL.
     ///
-    /// The returned certificate is valid until the rustls_certified_key is freed.
+    /// The returned certificate is valid until the `rustls_certified_key` is freed.
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_get_certificate<'a>(
         certified_key: *const rustls_certified_key,
@@ -212,7 +212,7 @@ impl rustls_certified_key {
         }
     }
 
-    /// Create a copy of the rustls_certified_key with the given OCSP response data
+    /// Create a copy of the `rustls_certified_key` with the given OCSP response data
     /// as DER encoded bytes.
     ///
     /// The OCSP response may be given as NULL to clear any possibly present OCSP
@@ -455,7 +455,8 @@ impl Castable for rustls_root_cert_store {
 }
 
 impl rustls_root_cert_store {
-    /// Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
+    /// Free a `rustls_root_cert_store` previously returned from
+    /// `rustls_root_cert_store_builder_build`.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]

@@ -16,28 +16,28 @@ use crate::server::rustls_server_config;
 
 /// A buffer and parser for ClientHello bytes.
 ///
-/// This allows reading ClientHello before choosing a rustls_server_config.
+/// This allows reading ClientHello before choosing a `rustls_server_config`.
 ///
 /// It's useful when the server config will be based on parameters in the
 /// ClientHello: server name indication (SNI), ALPN protocols, signature
 /// schemes, and cipher suites.
 ///
 /// In particular, if a server wants to do some potentially expensive work
-/// to load a certificate for a given hostname, rustls_acceptor allows doing
-/// that asynchronously, as opposed to rustls_server_config_builder_set_hello_callback(),
+/// to load a certificate for a given hostname, `rustls_acceptor` allows doing
+/// that asynchronously, as opposed to `rustls_server_config_builder_set_hello_callback()`,
 /// which doesn't work well for asynchronous I/O.
 ///
 /// The general flow is:
-///  - rustls_acceptor_new()
+///  - `rustls_acceptor_new()`
 ///  - Loop:
-///    - Read bytes from the network it with rustls_acceptor_read_tls().
-///    - If successful, parse those bytes with rustls_acceptor_accept().
-///    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
+///    - Read bytes from the network it with `rustls_acceptor_read_tls()`.
+///    - If successful, parse those bytes with `rustls_acceptor_accept()`.
+///    - If that returns `RUSTLS_RESULT_ACCEPTOR_NOT_READY`, continue.
 ///    - Otherwise, break.
-///  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
-///    - Examine the resulting rustls_accepted.
-///    - Create or select a rustls_server_config.
-///    - Call rustls_accepted_into_connection().
+///  - If `rustls_acceptor_accept()` returned `RUSTLS_RESULT_OK`:
+///    - Examine the resulting `rustls_accepted`.
+///    - Create or select a `rustls_server_config`.
+///    - Call `rustls_accepted_into_connection()`.
 ///  - Otherwise, there was a problem with the ClientHello data and the
 ///    connection should be rejected.
 pub struct rustls_acceptor {
@@ -49,7 +49,7 @@ impl Castable for rustls_acceptor {
     type RustType = Acceptor;
 }
 
-/// A parsed ClientHello produced by a rustls_acceptor.
+/// A parsed ClientHello produced by a `rustls_acceptor`.
 ///
 /// It is used to check server name indication (SNI), ALPN protocols,
 /// signature schemes, and cipher suites. It can be combined with a
@@ -64,7 +64,7 @@ impl Castable for rustls_accepted {
 }
 
 impl rustls_acceptor {
-    /// Create and return a new rustls_acceptor.
+    /// Create and return a new `rustls_acceptor`.
     ///
     /// Caller owns the pointed-to memory and must eventually free it with
     /// `rustls_acceptor_free()`.
@@ -75,11 +75,11 @@ impl rustls_acceptor {
         }
     }
 
-    /// Free a rustls_acceptor.
+    /// Free a `rustls_acceptor`.
     ///
     /// Parameters:
     ///
-    /// acceptor: The rustls_acceptor to free.
+    /// acceptor: The `rustls_acceptor` to free.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
@@ -98,7 +98,7 @@ impl rustls_acceptor {
     ///
     /// Parameters:
     ///
-    /// acceptor: The rustls_acceptor to read bytes into.
+    /// acceptor: The `rustls_acceptor` to read bytes into.
     /// callback: A function that will perform the actual network I/O.
     ///   Must be valid to call with the given userdata parameter until
     ///   this function call returns.
@@ -146,37 +146,37 @@ impl rustls_acceptor {
 
     /// Parse all TLS bytes read so far.
     ///
-    /// If those bytes make up a ClientHello, create a rustls_accepted from them.
+    /// If those bytes make up a ClientHello, create a `rustls_accepted` from them.
     ///
     /// Parameters:
     ///
-    /// acceptor: The rustls_acceptor to access.
+    /// acceptor: The `rustls_acceptor` to access.
     /// out_accepted: An output parameter. The pointed-to pointer will be set
-    ///   to a new rustls_accepted only when the function returns
-    ///   RUSTLS_RESULT_OK. The memory is owned by the caller and must eventually
+    ///   to a new `rustls_accepted` only when the function returns
+    ///   `RUSTLS_RESULT_OK`. The memory is owned by the caller and must eventually
     ///   be freed
     /// out_alert: An output parameter. The pointed-to pointer will be set
-    ///   to a new rustls_accepted_alert only when the function returns
+    ///   to a new `rustls_accepted_alert` only when the function returns
     ///   a non-OK result. The memory is owned by the caller and must eventually
-    ///   be freed with rustls_accepted_alert_free. The caller should call
-    ///   rustls_accepted_alert_write_tls to write the alert bytes to the TLS
-    ///   connection before freeing the rustls_accepted_alert.
+    ///   be freed with `rustls_accepted_alert_free`. The caller should call
+    ///   `rustls_accepted_alert_write_tls` to write the alert bytes to the TLS
+    ///   connection before freeing the `rustls_accepted_alert`.
     ///
     /// At most one of out_accepted or out_alert will be set.
     ///
     /// Returns:
     ///
-    /// - RUSTLS_RESULT_OK: a ClientHello has successfully been parsed.
-    ///   A pointer to a newly allocated rustls_accepted has been written to
+    /// - `RUSTLS_RESULT_OK`: a ClientHello has successfully been parsed.
+    ///   A pointer to a newly allocated `rustls_accepted` has been written to
     ///   *out_accepted.
-    /// - RUSTLS_RESULT_ACCEPTOR_NOT_READY: a full ClientHello has not yet been read.
+    /// - `RUSTLS_RESULT_ACCEPTOR_NOT_READY`: a full ClientHello has not yet been read.
     ///   Read more TLS bytes to continue.
-    /// - Any other rustls_result: the TLS bytes read so far cannot be parsed
+    /// - Any other `rustls_result`: the TLS bytes read so far cannot be parsed
     ///   as a ClientHello, and reading additional bytes won't help.
     ///
     /// Memory and lifetimes:
     ///
-    /// After this method returns RUSTLS_RESULT_OK, `acceptor` is
+    /// After this method returns `RUSTLS_RESULT_OK`, `acceptor` is
     /// still allocated and valid. It needs to be freed regardless of success
     /// or failure of this function.
     ///
@@ -213,22 +213,22 @@ impl rustls_accepted {
     ///
     /// Parameters:
     ///
-    /// accepted: The rustls_accepted to access.
+    /// accepted: The `rustls_accepted` to access.
     ///
     /// Returns:
     ///
-    /// A rustls_str containing the SNI field.
+    /// A `rustls_str` containing the SNI field.
     ///
-    /// The returned value is valid until rustls_accepted_into_connection or
-    /// rustls_accepted_free is called on the same `accepted`. It is not owned
+    /// The returned value is valid until `rustls_accepted_into_connection` or
+    /// `rustls_accepted_free` is called on the same `accepted`. It is not owned
     /// by the caller and does not need to be freed.
     ///
-    /// This will be a zero-length rustls_str in these error cases:
+    /// This will be a zero-length `rustls_str` in these error cases:
     ///
     ///  - The SNI contains a NUL byte.
     ///  - The `accepted` parameter was NULL.
     ///  - The `accepted` parameter was already transformed into a connection
-    ///    with rustls_accepted_into_connection.
+    ///    with `rustls_accepted_into_connection`.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_server_name(
         accepted: *const rustls_accepted,
@@ -259,7 +259,7 @@ impl rustls_accepted {
     ///
     /// Parameters:
     ///
-    /// accepted: The rustls_accepted to access.
+    /// accepted: The `rustls_accepted` to access.
     /// i: Fetch the signature scheme at this offset.
     ///
     /// Returns:
@@ -269,7 +269,7 @@ impl rustls_accepted {
     /// This will be 0 in these cases:
     ///   - i is greater than the number of available cipher suites.
     ///   - accepted is NULL.
-    ///   - rustls_accepted_into_connection has already been called with `accepted`.
+    ///   - `rustls_accepted_into_connection` has already been called with `accepted`.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_signature_scheme(
         accepted: *const rustls_accepted,
@@ -294,7 +294,7 @@ impl rustls_accepted {
     ///
     /// Parameters:
     ///
-    /// accepted: The rustls_accepted to access.
+    /// accepted: The `rustls_accepted` to access.
     /// i: Fetch the cipher suite at this offset.
     ///
     /// Returns:
@@ -304,7 +304,7 @@ impl rustls_accepted {
     /// This will be 0 in these cases:
     ///   - i is greater than the number of available cipher suites.
     ///   - accepted is NULL.
-    ///   - rustls_accepted_into_connection has already been called with `accepted`.
+    ///   - `rustls_accepted_into_connection` has already been called with `accepted`.
     ///
     /// Note that 0 is technically a valid cipher suite "TLS_NULL_WITH_NULL_NULL",
     /// but this library will never support null ciphers.
@@ -330,23 +330,23 @@ impl rustls_accepted {
 
     /// Get the i'th in the list of ALPN protocols requested in the ClientHello.
     ///
-    /// accepted: The rustls_accepted to access.
+    /// accepted: The `rustls_accepted` to access.
     /// i: Fetch the ALPN value at this offset.
     ///
     /// Returns:
     ///
-    /// A rustls_slice_bytes containing the i'th ALPN protocol. This may
+    /// A `rustls_slice_bytes` containing the i'th ALPN protocol. This may
     /// contain internal NUL bytes and is not guaranteed to contain valid
     /// UTF-8.
     ///
-    /// This will be a zero-length rustls_slice bytes in these cases:
+    /// This will be a zero-length `rustls_slice_bytes` in these cases:
     ///   - i is greater than the number of offered ALPN protocols.
     ///   - The client did not offer the ALPN extension.
     ///   - The `accepted` parameter was already transformed into a connection
-    ///     with rustls_accepted_into_connection.
+    ///     with `rustls_accepted_into_connection`.
     ///
-    /// The returned value is valid until rustls_accepted_into_connection or
-    /// rustls_accepted_free is called on the same `accepted`. It is not owned
+    /// The returned value is valid until `rustls_accepted_into_connection` or
+    /// `rustls_accepted_free` is called on the same `accepted`. It is not owned
     /// by the caller and does not need to be freed.
     ///
     /// If you are calling this from Rust, note that the `'static` lifetime
@@ -373,49 +373,49 @@ impl rustls_accepted {
         }
     }
 
-    /// Turn a rustls_accepted into a rustls_connection, given the provided
-    /// rustls_server_config.
+    /// Turn a `rustls_accepted` into a `rustls_connection`, given the provided
+    /// `rustls_server_config`.
     ///
     /// Parameters:
     ///
-    /// accepted: The rustls_accepted to transform.
+    /// accepted: The `rustls_accepted` to transform.
     /// config: The configuration with which to create this connection.
     /// out_conn: An output parameter. The pointed-to pointer will be set
-    ///   to a new rustls_connection only when the function returns
-    ///   RUSTLS_RESULT_OK.
+    ///   to a new `rustls_connection` only when the function returns
+    ///   `RUSTLS_RESULT_OK`.
     /// out_alert: An output parameter. The pointed-to pointer will be set
-    ///   to a new rustls_accepted_alert when, and only when, the function returns
+    ///   to a new `rustls_accepted_alert` when, and only when, the function returns
     ///   a non-OK result. The memory is owned by the caller and must eventually
-    ///   be freed with rustls_accepted_alert_free. The caller should call
-    ///   rustls_accepted_alert_write_tls to write the alert bytes to
-    ///   the TLS connection before freeing the rustls_accepted_alert.
+    ///   be freed with `rustls_accepted_alert_free`. The caller should call
+    ///   `rustls_accepted_alert_write_tls` to write the alert bytes to
+    ///   the TLS connection before freeing the `rustls_accepted_alert`.
     ///
     /// At most one of out_conn or out_alert will be set.
     ///
     /// Returns:
     ///
-    /// - RUSTLS_RESULT_OK: The `accepted` parameter was successfully
-    ///   transformed into a rustls_connection, and *out_conn was written to.
-    /// - RUSTLS_RESULT_ALREADY_USED: This function was called twice on the
-    ///   same rustls_connection.
-    /// - RUSTLS_RESULT_NULL_PARAMETER: One of the input parameters was NULL.
+    /// - `RUSTLS_RESULT_OK`: The `accepted` parameter was successfully
+    ///   transformed into a `rustls_connection`, and *out_conn was written to.
+    /// - `RUSTLS_RESULT_ALREADY_USED`: This function was called twice on the
+    ///   same `rustls_connection`.
+    /// - `RUSTLS_RESULT_NULL_PARAMETER`: One of the input parameters was NULL.
     ///
     /// Memory and lifetimes:
     ///
     /// In both success and failure cases, this consumes the contents of
     /// `accepted` but does not free its allocated memory. In either case,
-    /// call rustls_accepted_free to avoid a memory leak.
+    /// call `rustls_accepted_free` to avoid a memory leak.
     ///
     /// Calling accessor methods on an `accepted` after consuming it will
     /// return zero or default values.
     ///
-    /// The rustls_connection emitted by this function in the success case
+    /// The `rustls_connection` emitted by this function in the success case
     /// is owned by the caller and must eventually be freed.
     ///
     /// This function does not take ownership of `config`. It does increment
     /// `config`'s internal reference count, indicating that the
-    /// rustls_connection may hold a reference to it until it is done.
-    /// See the documentation for rustls_connection for details.
+    /// `rustls_connection` may hold a reference to it until it is done.
+    /// See the documentation for `rustls_connection` for details.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_into_connection(
         accepted: *mut rustls_accepted,
@@ -443,11 +443,11 @@ impl rustls_accepted {
         }
     }
 
-    /// Free a rustls_accepted.
+    /// Free a `rustls_accepted`.
     ///
     /// Parameters:
     ///
-    /// accepted: The rustls_accepted to free.
+    /// accepted: The `rustls_accepted` to free.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
@@ -481,8 +481,10 @@ impl rustls_accepted_alert {
     /// `rustls_connection_set_userdata`.
     ///
     /// Returns 0 for success, or an errno value on error. Passes through return values
-    /// from callback. See [`rustls_write_callback`] or [`AcceptedAlert`] for
-    /// more details.
+    /// from callback. See `rustls_write_callback` or rustls's [`AcceptedAlert`]
+    /// for more details.
+    ///
+    /// [`AcceptedAlert`]: https://docs.rs/rustls/latest/rustls/server/struct.AcceptedAlert.html
     #[no_mangle]
     pub extern "C" fn rustls_accepted_alert_write_tls(
         accepted_alert: *mut rustls_accepted_alert,
@@ -510,11 +512,11 @@ impl rustls_accepted_alert {
         }
     }
 
-    /// Free a rustls_accepted_alert.
+    /// Free a `rustls_accepted_alert`.
     ///
     /// Parameters:
     ///
-    /// accepted_alert: The rustls_accepted_alert to free.
+    /// accepted_alert: The `rustls_accepted_alert` to free.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]

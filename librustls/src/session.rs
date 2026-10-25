@@ -15,7 +15,7 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// This callback will be invoked by a TLS session when looking up the data
 /// for a TLS session id.
 ///
-/// `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+/// `userdata` will be supplied based on `rustls_connection_set_userdata`.
 ///
 /// The `buf` points to `count` consecutive bytes where the
 /// callback is expected to copy the result to. The number of copied bytes
@@ -26,8 +26,8 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// do a partial copy but instead remove the value from its store and
 /// act as if it was never found.
 ///
-/// The callback should return RUSTLS_RESULT_OK to indicate that a value was
-/// retrieved and written in its entirety into `buf`, or RUSTLS_RESULT_NOT_FOUND
+/// The callback should return `RUSTLS_RESULT_OK` to indicate that a value was
+/// retrieved and written in its entirety into `buf`, or `RUSTLS_RESULT_NOT_FOUND`
 /// if no session was retrieved.
 ///
 /// When `remove_after` is != 0, the returned data needs to be removed
@@ -64,10 +64,10 @@ pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
 /// been created and an id for later use is handed to the client/has
 /// been received from the server.
 ///
-/// `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+/// `userdata` will be supplied based on `rustls_connection_set_userdata`.
 ///
-/// The callback should return RUSTLS_RESULT_OK to indicate that a value was
-/// successfully stored, or RUSTLS_RESULT_IO on failure.
+/// The callback should return `RUSTLS_RESULT_OK` to indicate that a value was
+/// successfully stored, or `RUSTLS_RESULT_IO` on failure.
 ///
 /// NOTE: the passed in `key` and `val` are only available during the
 /// callback invocation.

@@ -38,8 +38,8 @@ impl Castable for rustls_client_cert_verifier {
 
 impl rustls_client_cert_verifier {
     /// Free a `rustls_client_cert_verifier` previously returned from
-    /// `rustls_client_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
-    /// called twice with the same value.
+    /// `rustls_web_pki_client_cert_verifier_builder_build`. Calling with NULL is fine.
+    /// Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_client_cert_verifier_free(verifier: *mut rustls_client_cert_verifier) {
         ffi_panic_boundary! {
@@ -365,8 +365,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
         }
     }
 
-    /// Free a `rustls_client_cert_verifier_builder` previously returned from
-    /// `rustls_client_cert_verifier_builder_new`.
+    /// Free a `rustls_web_pki_client_cert_verifier_builder` previously returned from
+    /// `rustls_web_pki_client_cert_verifier_builder_new`.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
@@ -636,8 +636,8 @@ impl ServerCertVerifierBuilder {
         }
     }
 
-    /// Free a `rustls_server_cert_verifier_builder` previously returned from
-    /// `rustls_server_cert_verifier_builder_new`.
+    /// Free a `rustls_web_pki_server_cert_verifier_builder` previously returned from
+    /// `rustls_web_pki_server_cert_verifier_builder_new`.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
@@ -724,7 +724,7 @@ impl rustls_server_cert_verifier {
     ///
     /// If the initialization of `rustls-platform-verifier` fails, this function returns
     /// an error and `NULL` is written to `verifier_out`.  Otherwise it fills in `verifier_out`
-    /// (whose ownership is transferred to the caller) and returns `RUSTLS_SUCCESS`.
+    /// (whose ownership is transferred to the caller) and returns `RUSTLS_RESULT_OK`.
     ///
     /// The verifier can be used in several `rustls_client_config` instances and must be freed by
     /// the application using `rustls_server_cert_verifier_free` when no longer needed.
@@ -750,7 +750,8 @@ impl rustls_server_cert_verifier {
     }
 
     /// Free a `rustls_server_cert_verifier` previously returned from
-    /// `rustls_server_cert_verifier_builder_build` or `rustls_platform_server_cert_verifier`.
+    /// `rustls_web_pki_server_cert_verifier_builder_build` or
+    /// `rustls_platform_server_cert_verifier`.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
