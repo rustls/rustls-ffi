@@ -130,15 +130,22 @@ impl rustls_client_config_builder {
     /// Alternatively, if an error occurs or, you don't wish to build a config,
     /// call `rustls_client_config_builder_free` to free the builder directly.
     ///
-    /// `tls_version` sets the TLS protocol versions to use when negotiating a TLS session.
-    /// `tls_version` is the version of the protocol, as defined in rfc8446,
-    /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
-    /// `rustls_tls_version` for convenience, and the arrays
+    /// `tls_versions` sets the TLS protocol versions to use when negotiating a
+    /// TLS session. Each value is a protocol version as defined in RFC 8446,
+    /// sections 4.2.1 and 5.1. Some values are defined in `rustls_tls_version`
+    /// for convenience, and the arrays
     /// `RUSTLS_DEFAULT_VERSIONS` or `RUSTLS_ALL_VERSIONS` can be used directly.
     ///
     /// `tls_versions` will only be used during the call and the application retains
     /// ownership. `tls_versions_len` is the number of consecutive `uint16_t`
     /// pointed to by `tls_versions`.
+    ///
+    /// On `RUSTLS_RESULT_OK`, `builder_out` receives a builder owned by the caller.
+    /// It must eventually be passed to `rustls_client_config_builder_build` or freed with
+    /// `rustls_client_config_builder_free`. On error, `builder_out` is unchanged.
+    ///
+    /// The function borrows `provider` for the duration of the call and retains its own
+    /// reference afterward.
     ///
     /// Ciphersuites are configured separately via the crypto provider. See
     /// `rustls_crypto_provider_builder_set_cipher_suites` for more information.
@@ -532,6 +539,12 @@ impl rustls_client_config_builder {
 
     /// Turn a mutable `rustls_client_config_builder` into a const `rustls_client_config`
     /// (read-only).
+    ///
+    /// This function takes ownership of `builder`. The caller must not use or free the builder
+    /// after calling this function, regardless of the result.
+    ///
+    /// On `RUSTLS_RESULT_OK`, `config_out` receives a config owned by the caller, which must
+    /// eventually be freed with `rustls_client_config_free`. On error, `config_out` is unchanged.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_build(
         builder: *mut rustls_client_config_builder,
@@ -597,14 +610,11 @@ impl rustls_client_config_builder {
         }
     }
 
-    /// "Free" a client_config_builder without building it into a `rustls_client_config`.
+    /// Free a `rustls_client_config_builder` without building it into a
+    /// `rustls_client_config`.
     ///
-    /// Normally builders are built into `rustls_client_config` via
-    /// `rustls_client_config_builder_build`.
-    /// and may not be free'd or otherwise used afterwards.
-    ///
-    /// Use free only when the building of a config has to be aborted before a config
-    /// was created.
+    /// Do not call this after `rustls_client_config_builder_build`, which consumes and frees the
+    /// builder. Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_free(config: *mut rustls_client_config_builder) {
         ffi_panic_boundary! {
@@ -634,6 +644,12 @@ pub struct rustls_verify_server_cert_params<'a> {
 pub type rustls_verify_server_cert_user_data = *mut libc::c_void;
 
 /// A callback that is invoked to verify a server certificate.
+///
+/// `userdata` is the value set with `rustls_connection_set_userdata`. `params` and all data
+/// referenced by its fields are borrowed and valid only for the duration of the callback.
+///
+/// See `rustls_client_config_builder_dangerous_set_certificate_verifier` for return values and
+/// thread-safety requirements.
 // According to the nomicon https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization):
 // > Option<extern "C" fn(c_int) -> c_int> is a correct way to represent a
 // > nullable function pointer using the C ABI (corresponding to the C type int (*)(int)).
@@ -809,6 +825,9 @@ impl rustls_client_config {
     ///
     /// This function copies the contents of `server_name`.
     ///
+    /// The connection retains an internal reference to `config`. This function
+    /// does not take ownership of the caller's config pointer.
+    ///
     /// Uses the `rustls_client_config` to determine ALPN protocol support. Prefer
     /// `rustls_client_connection_new_alpn` to customize this per-connection.
     ///
@@ -817,7 +836,7 @@ impl rustls_client_config {
     ///
     /// The `server_name` parameter can contain a hostname or an IP address in
     /// textual form (IPv4 or IPv6). This function will return an error if it
-    /// cannot be parsed as one of those types.
+    /// cannot be parsed as one of those types. It must be NUL-terminated.
     #[no_mangle]
     pub extern "C" fn rustls_client_connection_new(
         config: *const rustls_client_config,
@@ -846,12 +865,15 @@ impl rustls_client_config {
     ///
     /// This function copies the contents of `server_name`.
     ///
+    /// The connection retains an internal reference to `config`. This function
+    /// does not take ownership of the caller's config pointer.
+    ///
     /// If this returns an error code, the memory pointed to by `conn_out` remains
     /// unchanged.
     ///
     /// The `server_name` parameter can contain a hostname or an IP address in
     /// textual form (IPv4 or IPv6). This function will return an error if it
-    /// cannot be parsed as one of those types.
+    /// cannot be parsed as one of those types. It must be NUL-terminated.
     ///
     /// `alpn_protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
     /// with `alpn_protocols_len` elements. Each element of the buffer must be a `rustls_slice_bytes`

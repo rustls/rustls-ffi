@@ -105,8 +105,8 @@ impl rustls_acceptor {
     /// userdata: An opaque parameter to be passed directly to `callback`.
     ///   Note: this is distinct from the `userdata` parameter set with
     ///   `rustls_connection_set_userdata`.
-    /// out_n: An output parameter. This will be passed through to `callback`,
-    ///   which should use it to store the number of bytes written.
+    /// out_n: An output parameter that receives the number of bytes read when
+    ///   this function returns 0. It is unchanged on error.
     ///
     /// Returns:
     ///
@@ -154,15 +154,17 @@ impl rustls_acceptor {
     /// out_accepted: An output parameter. The pointed-to pointer will be set
     ///   to a new `rustls_accepted` only when the function returns
     ///   `RUSTLS_RESULT_OK`. The memory is owned by the caller and must eventually
-    ///   be freed
+    ///   be freed with `rustls_accepted_free`.
     /// out_alert: An output parameter. The pointed-to pointer will be set
-    ///   to a new `rustls_accepted_alert` only when the function returns
-    ///   a non-OK result. The memory is owned by the caller and must eventually
+    ///   to a new `rustls_accepted_alert` only when a complete ClientHello is rejected.
+    ///   `RUSTLS_RESULT_ACCEPTOR_NOT_READY` and earlier errors such as a NULL parameter do not
+    ///   write it. The memory is owned by the caller and must eventually
     ///   be freed with `rustls_accepted_alert_free`. The caller should call
     ///   `rustls_accepted_alert_write_tls` to write the alert bytes to the TLS
     ///   connection before freeing the `rustls_accepted_alert`.
     ///
-    /// At most one of out_accepted or out_alert will be set.
+    /// The function does not initialize either output pointer. It writes at most one of
+    /// `out_accepted` and `out_alert`. The other retains its original value.
     ///
     /// Returns:
     ///
@@ -225,6 +227,7 @@ impl rustls_accepted {
     ///
     /// This will be a zero-length `rustls_str` in these error cases:
     ///
+    ///  - The ClientHello did not contain an SNI extension.
     ///  - The SNI contains a NUL byte.
     ///  - The `accepted` parameter was NULL.
     ///  - The `accepted` parameter was already transformed into a connection
@@ -267,8 +270,8 @@ impl rustls_accepted {
     /// A TLS Signature Scheme from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme>
     ///
     /// This will be 0 in these cases:
-    ///   - i is greater than the number of available cipher suites.
-    ///   - accepted is NULL.
+    ///   - `i` is greater than or equal to the number of offered signature schemes.
+    ///   - `accepted` is NULL.
     ///   - `rustls_accepted_into_connection` has already been called with `accepted`.
     #[no_mangle]
     pub extern "C" fn rustls_accepted_signature_scheme(
@@ -302,8 +305,8 @@ impl rustls_accepted {
     /// A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.>
     ///
     /// This will be 0 in these cases:
-    ///   - i is greater than the number of available cipher suites.
-    ///   - accepted is NULL.
+    ///   - `i` is greater than or equal to the number of offered cipher suites.
+    ///   - `accepted` is NULL.
     ///   - `rustls_accepted_into_connection` has already been called with `accepted`.
     ///
     /// Note that 0 is technically a valid cipher suite "TLS_NULL_WITH_NULL_NULL",
@@ -340,7 +343,7 @@ impl rustls_accepted {
     /// UTF-8.
     ///
     /// This will be a zero-length `rustls_slice_bytes` in these cases:
-    ///   - i is greater than the number of offered ALPN protocols.
+    ///   - `i` is greater than or equal to the number of offered ALPN protocols.
     ///   - The client did not offer the ALPN extension.
     ///   - The `accepted` parameter was already transformed into a connection
     ///     with `rustls_accepted_into_connection`.
@@ -382,23 +385,28 @@ impl rustls_accepted {
     /// config: The configuration with which to create this connection.
     /// out_conn: An output parameter. The pointed-to pointer will be set
     ///   to a new `rustls_connection` only when the function returns
-    ///   `RUSTLS_RESULT_OK`.
+    ///   `RUSTLS_RESULT_OK`. The caller owns the connection and must eventually
+    ///   free it with `rustls_connection_free`.
     /// out_alert: An output parameter. The pointed-to pointer will be set
-    ///   to a new `rustls_accepted_alert` when, and only when, the function returns
-    ///   a non-OK result. The memory is owned by the caller and must eventually
+    ///   to a new `rustls_accepted_alert` when constructing the connection fails
+    ///   with a TLS error. Earlier errors, such as a NULL parameter, do not write it.
+    ///   The memory is owned by the caller and must eventually
     ///   be freed with `rustls_accepted_alert_free`. The caller should call
     ///   `rustls_accepted_alert_write_tls` to write the alert bytes to
     ///   the TLS connection before freeing the `rustls_accepted_alert`.
     ///
-    /// At most one of out_conn or out_alert will be set.
+    /// The function does not initialize either output pointer. It writes at most one of
+    /// `out_conn` and `out_alert`. The other retains its original value.
     ///
     /// Returns:
     ///
     /// - `RUSTLS_RESULT_OK`: The `accepted` parameter was successfully
     ///   transformed into a `rustls_connection`, and *out_conn was written to.
     /// - `RUSTLS_RESULT_ALREADY_USED`: This function was called twice on the
-    ///   same `rustls_connection`.
+    ///   same `rustls_accepted`.
     /// - `RUSTLS_RESULT_NULL_PARAMETER`: One of the input parameters was NULL.
+    /// - Any other `rustls_result`: constructing the connection failed and an alert was written
+    ///   to `out_alert`.
     ///
     /// Memory and lifetimes:
     ///
@@ -408,9 +416,6 @@ impl rustls_accepted {
     ///
     /// Calling accessor methods on an `accepted` after consuming it will
     /// return zero or default values.
-    ///
-    /// The `rustls_connection` emitted by this function in the success case
-    /// is owned by the caller and must eventually be freed.
     ///
     /// This function does not take ownership of `config`. It does increment
     /// `config`'s internal reference count, indicating that the
@@ -480,8 +485,9 @@ impl rustls_accepted_alert {
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
     ///
-    /// Returns 0 for success, or an errno value on error. Passes through return values
-    /// from callback. See `rustls_write_callback` or rustls's [`AcceptedAlert`]
+    /// On success, returns 0 and writes the number of bytes written to `out_n`.
+    /// On error, returns an errno value passed through from `callback` and leaves
+    /// `out_n` unchanged. See `rustls_write_callback` or rustls's [`AcceptedAlert`]
     /// for more details.
     ///
     /// [`AcceptedAlert`]: https://docs.rs/rustls/latest/rustls/server/struct.AcceptedAlert.html
