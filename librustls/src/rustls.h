@@ -1516,7 +1516,25 @@ rustls_result rustls_client_config_builder_dangerous_set_certificate_verifier(st
 /**
  * Configure the server certificate verifier.
  *
- * This increases the reference count of `verifier` and does not take ownership.
+ * For the usual case of verifying servers against a custom set of root
+ * certificates:
+ *
+ * 1. Create a `rustls_root_cert_store_builder` with
+ *    `rustls_root_cert_store_builder_new`.
+ * 2. Add roots with `rustls_root_cert_store_builder_add_pem` or
+ *    `rustls_root_cert_store_builder_load_roots_from_file`, then call
+ *    `rustls_root_cert_store_builder_build`.
+ * 3. Pass the resulting store to
+ *    `rustls_web_pki_server_cert_verifier_builder_new`, then call
+ *    `rustls_web_pki_server_cert_verifier_builder_build`.
+ * 4. Pass the resulting verifier to this function.
+ *
+ * Alternatively, `rustls_platform_server_cert_verifier` creates a verifier
+ * using the platform's certificate facilities and trust store.
+ *
+ * This function increases the reference count of `verifier` and does not
+ * take ownership. The caller must still free its verifier pointer with
+ * `rustls_server_cert_verifier_free` when it is no longer needed.
  */
 void rustls_client_config_builder_set_server_verifier(struct rustls_client_config_builder *builder,
                                                       const struct rustls_server_cert_verifier *verifier);
@@ -2552,10 +2570,24 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_crypto
                                                       struct rustls_server_config_builder **builder_out);
 
 /**
- * Create a `rustls_server_config_builder` for TLS sessions that may verify client
- * certificates.
+ * Configure a `rustls_server_config_builder` to verify client certificates.
+ * Client authentication is disabled unless this function is called.
  *
- * This increases the refcount of `verifier` and doesn't take ownership.
+ * To require client certificates that chain to a custom set of roots:
+ *
+ * 1. Create a `rustls_root_cert_store_builder` with
+ *    `rustls_root_cert_store_builder_new`.
+ * 2. Add roots with `rustls_root_cert_store_builder_add_pem` or
+ *    `rustls_root_cert_store_builder_load_roots_from_file`, then call
+ *    `rustls_root_cert_store_builder_build`.
+ * 3. Pass the resulting store to
+ *    `rustls_web_pki_client_cert_verifier_builder_new`, then call
+ *    `rustls_web_pki_client_cert_verifier_builder_build`.
+ * 4. Pass the resulting verifier to this function.
+ *
+ * This function increases the reference count of `verifier` and does not
+ * take ownership. The caller must still free its verifier pointer with
+ * `rustls_client_cert_verifier_free` when it is no longer needed.
  */
 void rustls_server_config_builder_set_client_verifier(struct rustls_server_config_builder *builder,
                                                       const struct rustls_client_cert_verifier *verifier);
@@ -2678,12 +2710,14 @@ rustls_result rustls_server_config_builder_set_alpn_protocols(struct rustls_serv
  * verification capabilities.
  *
  * Servers that want to support both ECDSA and RSA certificates will want
- * the ECSDA to go first in the list.
+ * the ECDSA certificate to go first in the list.
  *
- * The built configuration will keep a reference to all certified keys
- * provided. The client may `rustls_certified_key_free()` afterwards
- * without the configuration losing them. The same certified key may also
- * be used in multiple configs.
+ * In the usual case, first call `rustls_certified_key_build` with the PEM
+ * certificate chain and private key, then pass the resulting
+ * `rustls_certified_key` pointer to this function. The builder and built
+ * configuration keep a reference to each certified key, so the caller may
+ * call `rustls_certified_key_free()` after this function returns. The same
+ * certified key may also be used in multiple configs.
  *
  * EXPERIMENTAL: installing a client_hello callback will replace any
  * configured certified keys and vice versa.

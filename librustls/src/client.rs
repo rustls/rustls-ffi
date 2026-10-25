@@ -240,7 +240,25 @@ impl rustls_client_config_builder {
 
     /// Configure the server certificate verifier.
     ///
-    /// This increases the reference count of `verifier` and does not take ownership.
+    /// For the usual case of verifying servers against a custom set of root
+    /// certificates:
+    ///
+    /// 1. Create a `rustls_root_cert_store_builder` with
+    ///    `rustls_root_cert_store_builder_new`.
+    /// 2. Add roots with `rustls_root_cert_store_builder_add_pem` or
+    ///    `rustls_root_cert_store_builder_load_roots_from_file`, then call
+    ///    `rustls_root_cert_store_builder_build`.
+    /// 3. Pass the resulting store to
+    ///    `rustls_web_pki_server_cert_verifier_builder_new`, then call
+    ///    `rustls_web_pki_server_cert_verifier_builder_build`.
+    /// 4. Pass the resulting verifier to this function.
+    ///
+    /// Alternatively, `rustls_platform_server_cert_verifier` creates a verifier
+    /// using the platform's certificate facilities and trust store.
+    ///
+    /// This function increases the reference count of `verifier` and does not
+    /// take ownership. The caller must still free its verifier pointer with
+    /// `rustls_server_cert_verifier_free` when it is no longer needed.
     #[no_mangle]
     pub extern "C" fn rustls_client_config_builder_set_server_verifier(
         builder: *mut rustls_client_config_builder,

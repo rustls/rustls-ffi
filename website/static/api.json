@@ -492,7 +492,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-server-verifier",
-      "comment": "Configure the server certificate verifier.\n\n This increases the reference count of `verifier` and does not take ownership.",
+      "comment": "Configure the server certificate verifier.\n\n For the usual case of verifying servers against a custom set of root\n certificates:\n\n 1. Create a [`rustls_root_cert_store_builder`](#rustls-root-cert-store-builder) with\n    [`rustls_root_cert_store_builder_new`](#rustls-root-cert-store-builder-new).\n 2. Add roots with [`rustls_root_cert_store_builder_add_pem`](#rustls-root-cert-store-builder-add-pem) or\n    [`rustls_root_cert_store_builder_load_roots_from_file`](#rustls-root-cert-store-builder-load-roots-from-file), then call\n    [`rustls_root_cert_store_builder_build`](#rustls-root-cert-store-builder-build).\n 3. Pass the resulting store to\n    [`rustls_web_pki_server_cert_verifier_builder_new`](#rustls-web-pki-server-cert-verifier-builder-new), then call\n    [`rustls_web_pki_server_cert_verifier_builder_build`](#rustls-web-pki-server-cert-verifier-builder-build).\n 4. Pass the resulting verifier to this function.\n\n Alternatively, [`rustls_platform_server_cert_verifier`](#rustls-platform-server-cert-verifier) creates a verifier\n using the platform's certificate facilities and trust store.\n\n This function increases the reference count of `verifier` and does not\n take ownership. The caller must still free its verifier pointer with\n [`rustls_server_cert_verifier_free`](#rustls-server-cert-verifier-free) when it is no longer needed.",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_server_verifier",
@@ -1076,7 +1076,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-client-verifier",
-      "comment": "Create a [`rustls_server_config_builder`](#rustls-server-config-builder) for TLS sessions that may verify client\n certificates.\n\n This increases the refcount of `verifier` and doesn't take ownership.",
+      "comment": "Configure a [`rustls_server_config_builder`](#rustls-server-config-builder) to verify client certificates.\n Client authentication is disabled unless this function is called.\n\n To require client certificates that chain to a custom set of roots:\n\n 1. Create a [`rustls_root_cert_store_builder`](#rustls-root-cert-store-builder) with\n    [`rustls_root_cert_store_builder_new`](#rustls-root-cert-store-builder-new).\n 2. Add roots with [`rustls_root_cert_store_builder_add_pem`](#rustls-root-cert-store-builder-add-pem) or\n    [`rustls_root_cert_store_builder_load_roots_from_file`](#rustls-root-cert-store-builder-load-roots-from-file), then call\n    [`rustls_root_cert_store_builder_build`](#rustls-root-cert-store-builder-build).\n 3. Pass the resulting store to\n    [`rustls_web_pki_client_cert_verifier_builder_new`](#rustls-web-pki-client-cert-verifier-builder-new), then call\n    [`rustls_web_pki_client_cert_verifier_builder_build`](#rustls-web-pki-client-cert-verifier-builder-build).\n 4. Pass the resulting verifier to this function.\n\n This function increases the reference count of `verifier` and does not\n take ownership. The caller must still free its verifier pointer with\n [`rustls_client_cert_verifier_free`](#rustls-client-cert-verifier-free) when it is no longer needed.",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_client_verifier",
@@ -1140,7 +1140,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-certified-keys",
-      "comment": "Provide the configuration a list of certificates where the connection\n will select the first one that is compatible with the client's signature\n verification capabilities.\n\n Servers that want to support both ECDSA and RSA certificates will want\n the ECSDA to go first in the list.\n\n The built configuration will keep a reference to all certified keys\n provided. The client may [`rustls_certified_key_free()`](#rustls-certified-key-free) afterwards\n without the configuration losing them. The same certified key may also\n be used in multiple configs.\n\n EXPERIMENTAL: installing a client_hello callback will replace any\n configured certified keys and vice versa.",
+      "comment": "Provide the configuration a list of certificates where the connection\n will select the first one that is compatible with the client's signature\n verification capabilities.\n\n Servers that want to support both ECDSA and RSA certificates will want\n the ECDSA certificate to go first in the list.\n\n In the usual case, first call [`rustls_certified_key_build`](#rustls-certified-key-build) with the PEM\n certificate chain and private key, then pass the resulting\n [`rustls_certified_key`](#rustls-certified-key) pointer to this function. The builder and built\n configuration keep a reference to each certified key, so the caller may\n call [`rustls_certified_key_free()`](#rustls-certified-key-free) after this function returns. The same\n certified key may also be used in multiple configs.\n\n EXPERIMENTAL: installing a client_hello callback will replace any\n configured certified keys and vice versa.",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_certified_keys",
