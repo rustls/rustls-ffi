@@ -1,18 +1,18 @@
-{% macro section_header(id, title) %}
+{% component api.section_header(id: string, title: string) %}
 <h2>
     <a href="#{{ id }}" class="anchor">#</a>
     <a href="#{{ id }}" class="header-link">{{ title }}</a>
 </h2>
-{% endmacro section_header %}
+{% endcomponent api.section_header %}
 
-{% macro item_header(anchor, name) %}
+{% component api.item_header(anchor: string, name: string) %}
 <h3>
     <a href="#{{ anchor }}" class="anchor">#</a>
     <a href="#{{ anchor }}" class="header-link">{{ name }}</a>
 </h3>
-{% endmacro item_header %}
+{% endcomponent api.item_header %}
 
-{% macro toc_list(items) %}
+{% component api.toc_list(items: array) %}
 <div class="toc">
     <ul>
         {% for item in items %}
@@ -27,8 +27,8 @@
         {% endfor %}
     </ul>
 </div>
-{% endmacro toc_list %}
+{% endcomponent api.toc_list %}
 
-{% macro back_to_top() %}
+{% component api.back_to_top() %}
 <p class="back-to-top"><a href="#top">Back to top ↑</a></p>
-{% endmacro back_to_top %}
+{% endcomponent api.back_to_top %}

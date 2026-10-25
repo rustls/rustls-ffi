@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>rustls: {{ page.title | default (value="C FFI bindings for Rustls") }}</title>
+    <title>rustls: {{ page?.title or section?.title or "C FFI bindings for Rustls" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="{{ get_url(path="style.css") }}">
