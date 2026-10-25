@@ -1,11 +1,11 @@
-{% macro render_section(section_id, title, items) %}
+{% component api.render_section(section_id: string, title: string, items: array) %}
 <section id="{{ section_id }}" class="section">
-    {{ macros::section_header(id=section_id, title=title) }}
-    {{ macros::toc_list(items=items) }}
+    {{<api.section_header id={section_id} title={title} />}}
+    {{<api.toc_list items={items} />}}
 
     {% for item in items %}
     <div id="{{ item.anchor }}" class="item">
-        {{ macros::item_header(anchor=item.anchor, name=item.name) }}
+        {{<api.item_header anchor={item.anchor} name={item.name} />}}
 
         {% if item.feature %}
         <div class="feature-box">
@@ -42,8 +42,8 @@
         {{ item.text | markdown | safe }}
         {% endif %}
 
-        {{ macros::back_to_top() }}
+        {{<api.back_to_top />}}
     </div>
     {% endfor %}
 </section>
-{% endmacro render_section %}
+{% endcomponent api.render_section %}

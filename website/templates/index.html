@@ -1,6 +1,4 @@
 {% extends "base.html" %}
-{% import "macros.html" as macros %}
-{% import "_api_section.html" as api_section %}
 
 {% block content %}
 {% set data = load_data(path="static/api.json") %}
@@ -23,11 +21,10 @@
 
     {% for id in section_ids %}
         {% if data[id] %}
-        {{ api_section::render_section(
-            section_id=id,
-            title=section_titles[loop.index0],
-            items=data[id])
-        }}
+        {{<api.render_section
+            section_id={id}
+            title={section_titles[loop.index0]}
+            items={data[id]} />}}
         {% endif %}
     {% endfor %}
 </div>
