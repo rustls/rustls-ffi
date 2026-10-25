@@ -26,7 +26,7 @@
     },
     {
       "anchor": "rustls-certificate",
-      "comment": "An X.509 certificate, as used in rustls.\n Corresponds to `CertificateDer` in the Rust pki-types API.\n <https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html>",
+      "comment": "An X.509 certificate, as used in rustls.\n Corresponds to `CertificateDer` in the Rust pki-types API.\n\n See also the rustls-pki-types documentation for [`CertificateDer`].\n\n [`CertificateDer`]: https://docs.rs/rustls-pki-types/latest/rustls_pki_types/struct.CertificateDer.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_certificate",
@@ -34,7 +34,7 @@
     },
     {
       "anchor": "rustls-certified-key",
-      "comment": "The complete chain of certificates to send during a TLS handshake,\n plus a private key that matches the end-entity (leaf) certificate.\n\n Corresponds to `CertifiedKey` in the Rust API.\n <https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html>",
+      "comment": "The complete chain of certificates to send during a TLS handshake,\n plus a private key that matches the end-entity (leaf) certificate.\n\n Corresponds to `CertifiedKey` in the Rust API.\n\n See also the rustls documentation for [`CertifiedKey`].\n\n [`CertifiedKey`]: https://docs.rs/rustls/latest/rustls/sign/struct.CertifiedKey.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_certified_key",
@@ -50,7 +50,7 @@
     },
     {
       "anchor": "rustls-client-config",
-      "comment": "A client config that is done being constructed and is now read-only.\n\n Under the hood, this object corresponds to an `Arc<ClientConfig>`.\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html>",
+      "comment": "A client config that is done being constructed and is now read-only.\n\n Under the hood, this object corresponds to an `Arc<ClientConfig>`.\n\n See also the rustls documentation for [`ClientConfig`].\n\n [`ClientConfig`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config",
@@ -58,7 +58,7 @@
     },
     {
       "anchor": "rustls-client-config-builder",
-      "comment": "A client config being constructed.\n\n A builder can be modified by, e.g. [`rustls_client_config_builder_set_server_verifier`](#rustls-client-config-builder-set-server-verifier).\n Once you're done configuring settings, call [`rustls_client_config_builder_build`](#rustls-client-config-builder-build)\n to turn it into a [`rustls_client_config`](#rustls-client-config).\n\n Alternatively, if an error occurs or, you don't wish to build a config,\n call [`rustls_client_config_builder_free`](#rustls-client-config-builder-free) to free the builder directly.\n\n This object is not safe for concurrent mutation. Under the hood,\n it corresponds to a `Box<ClientConfig>`.\n <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>",
+      "comment": "A client config being constructed.\n\n A builder can be modified by, e.g. [`rustls_client_config_builder_set_server_verifier`](#rustls-client-config-builder-set-server-verifier).\n Once you're done configuring settings, call [`rustls_client_config_builder_build`](#rustls-client-config-builder-build)\n to turn it into a [`rustls_client_config`](#rustls-client-config).\n\n Alternatively, if an error occurs or, you don't wish to build a config,\n call [`rustls_client_config_builder_free`](#rustls-client-config-builder-free) to free the builder directly.\n\n This object is not safe for concurrent mutation. Under the hood,\n it corresponds to a `Box<ClientConfig>`.\n\n See also the rustls documentation for [`ConfigBuilder`].\n\n [`ConfigBuilder`]: https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder",
@@ -106,7 +106,7 @@
     },
     {
       "anchor": "rustls-root-cert-store",
-      "comment": "A root certificate store.\n <https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html>",
+      "comment": "A root certificate store.\n\n See also the rustls documentation for [`RootCertStore`].\n\n [`RootCertStore`]: https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_root_cert_store",
@@ -130,7 +130,7 @@
     },
     {
       "anchor": "rustls-server-config",
-      "comment": "A server config that is done being constructed and is now read-only.\n\n Under the hood, this object corresponds to an `Arc<ServerConfig>`.\n <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>",
+      "comment": "A server config that is done being constructed and is now read-only.\n\n Under the hood, this object corresponds to an `Arc<ServerConfig>`.\n\n See also the rustls documentation for [`ServerConfig`].\n\n [`ServerConfig`]: https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config",
@@ -138,7 +138,7 @@
     },
     {
       "anchor": "rustls-server-config-builder",
-      "comment": "A server config being constructed.\n\n A builder can be modified by, e.g. [`rustls_server_config_builder_set_certified_keys`](#rustls-server-config-builder-set-certified-keys).\n Once you're done configuring settings, call [`rustls_server_config_builder_build`](#rustls-server-config-builder-build)\n to turn it into a [`rustls_server_config`](#rustls-server-config).\n\n Alternatively, if an error occurs or, you don't wish to build a config,\n call [`rustls_server_config_builder_free`](#rustls-server-config-builder-free) to free the builder directly.\n\n This object is not safe for concurrent mutation.\n <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>",
+      "comment": "A server config being constructed.\n\n A builder can be modified by, e.g. [`rustls_server_config_builder_set_certified_keys`](#rustls-server-config-builder-set-certified-keys).\n Once you're done configuring settings, call [`rustls_server_config_builder_build`](#rustls-server-config-builder-build)\n to turn it into a [`rustls_server_config`](#rustls-server-config).\n\n Alternatively, if an error occurs or, you don't wish to build a config,\n call [`rustls_server_config_builder_free`](#rustls-server-config-builder-free) to free the builder directly.\n\n This object is not safe for concurrent mutation.\n\n See also the rustls documentation for [`ConfigBuilder`].\n\n [`ConfigBuilder`]: https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder",
@@ -178,7 +178,7 @@
     },
     {
       "anchor": "rustls-web-pki-client-cert-verifier-builder",
-      "comment": "A client certificate verifier being constructed.\n\n A builder can be modified by, e.g. [`rustls_web_pki_client_cert_verifier_builder_add_crl`](#rustls-web-pki-client-cert-verifier-builder-add-crl).\n\n Once you're done configuring settings, call [`rustls_web_pki_client_cert_verifier_builder_build`](#rustls-web-pki-client-cert-verifier-builder-build)\n to turn it into a [`rustls_client_cert_verifier`](#rustls-client-cert-verifier).\n\n This object is not safe for concurrent mutation.\n\n See <https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html>\n for more information.",
+      "comment": "A client certificate verifier being constructed.\n\n A builder can be modified by, e.g. [`rustls_web_pki_client_cert_verifier_builder_add_crl`](#rustls-web-pki-client-cert-verifier-builder-add-crl).\n\n Once you're done configuring settings, call [`rustls_web_pki_client_cert_verifier_builder_build`](#rustls-web-pki-client-cert-verifier-builder-build)\n to turn it into a [`rustls_client_cert_verifier`](#rustls-client-cert-verifier).\n\n This object is not safe for concurrent mutation.\n\n See also the rustls documentation for [`ClientCertVerifierBuilder`].\n\n [`ClientCertVerifierBuilder`]: https://docs.rs/rustls/latest/rustls/server/struct.ClientCertVerifierBuilder.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_web_pki_client_cert_verifier_builder",
@@ -186,7 +186,7 @@
     },
     {
       "anchor": "rustls-web-pki-server-cert-verifier-builder",
-      "comment": "A server certificate verifier being constructed.\n\n A builder can be modified by, e.g. [`rustls_web_pki_server_cert_verifier_builder_add_crl`](#rustls-web-pki-server-cert-verifier-builder-add-crl).\n\n Once you're done configuring settings, call [`rustls_web_pki_server_cert_verifier_builder_build`](#rustls-web-pki-server-cert-verifier-builder-build)\n to turn it into a [`rustls_server_cert_verifier`](#rustls-server-cert-verifier). This object is not safe for concurrent mutation.\n\n See <https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html>\n for more information.",
+      "comment": "A server certificate verifier being constructed.\n\n A builder can be modified by, e.g. [`rustls_web_pki_server_cert_verifier_builder_add_crl`](#rustls-web-pki-server-cert-verifier-builder-add-crl).\n\n Once you're done configuring settings, call [`rustls_web_pki_server_cert_verifier_builder_build`](#rustls-web-pki-server-cert-verifier-builder-build)\n to turn it into a [`rustls_server_cert_verifier`](#rustls-server-cert-verifier). This object is not safe for concurrent mutation.\n\n See also the rustls documentation for [`ServerCertVerifierBuilder`].\n\n [`ServerCertVerifierBuilder`]: https://docs.rs/rustls/latest/rustls/client/struct.ServerCertVerifierBuilder.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_web_pki_server_cert_verifier_builder",
@@ -234,7 +234,7 @@
     },
     {
       "anchor": "rustls-client-hello",
-      "comment": "The TLS ClientHello information provided to a [`rustls_client_hello_callback`](#rustls-client-hello-callback).\n\n `server_name` is the value of the server name indication (SNI) extension provided\n by the client. If the client did not send an SNI, the length of this\n [`rustls_str`](#rustls-str) will be 0.\n\n `signature_schemes` carries the values supplied by the client or, if the\n client did not send this TLS extension, the default schemes in the rustls library. See:\n <https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html>.\n\n `named_groups` carries the values of the `named_groups` extension sent by the\n client. If the client did not send a `named_groups` extension, the length of\n this [`rustls_slice_u16`](#rustls-slice-u16) will be 0. The meaning of this extension differs\n based on TLS version. See the Rustls documentation for more information:\n <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>\n\n `alpn` carries the list of ALPN protocol names that the client proposed to\n the server. Again, the length of this list will be 0 if none were supplied.\n\n All this data, when passed to a callback function, is only accessible during\n the call and may not be modified. Users of this API must copy any values that\n they want to access after the callback returns.\n\n EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as\n the rustls library is re-evaluating its current approach to ClientHello handling.",
+      "comment": "The TLS ClientHello information provided to a [`rustls_client_hello_callback`](#rustls-client-hello-callback).\n\n `server_name` is the value of the server name indication (SNI) extension provided\n by the client. If the client did not send an SNI, the length of this\n [`rustls_str`](#rustls-str) will be 0.\n\n `signature_schemes` carries the values supplied by the client or, if the\n client did not send this TLS extension, the default schemes in the rustls library.\n See the rustls documentation for [`SignatureScheme`] for more information.\n\n `named_groups` carries the values of the `named_groups` extension sent by the\n client. If the client did not send a `named_groups` extension, the length of\n this [`rustls_slice_u16`](#rustls-slice-u16) will be 0. The meaning of this extension differs\n based on TLS version. See the rustls documentation for\n [`ClientHello::named_groups`] for more information.\n\n `alpn` carries the list of ALPN protocol names that the client proposed to\n the server. Again, the length of this list will be 0 if none were supplied.\n\n All this data, when passed to a callback function, is only accessible during\n the call and may not be modified. Users of this API must copy any values that\n they want to access after the callback returns.\n\n EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as\n the rustls library is re-evaluating its current approach to ClientHello handling.\n\n [`SignatureScheme`]: https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html\n [`ClientHello::named_groups`]: https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_hello",
@@ -284,7 +284,7 @@
     },
     {
       "anchor": "rustls-accepted-signature-scheme",
-      "comment": "Get the i-th entry in the list of signature schemes offered in the ClientHello.\n\n This is useful in selecting a server certificate when there are multiple\n available for the same server name, for instance when selecting\n between an RSA and an ECDSA certificate.\n\n **Parameters:**\n\n - `accepted`: The [`rustls_accepted`](#rustls-accepted) to access.\n - `i`: Fetch the signature scheme at this offset.\n\n **Returns:**\n\n A TLS Signature Scheme from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme>\n\n This will be 0 in these cases:\n\n - `i` is greater than or equal to the number of offered signature schemes.\n - `accepted` is NULL.\n - [`rustls_accepted_into_connection`](#rustls-accepted-into-connection) has already been called with `accepted`.",
+      "comment": "Get the i-th entry in the list of signature schemes offered in the ClientHello.\n\n This is useful in selecting a server certificate when there are multiple\n available for the same server name, for instance when selecting\n between an RSA and an ECDSA certificate.\n\n **Parameters:**\n\n - `accepted`: The [`rustls_accepted`](#rustls-accepted) to access.\n - `i`: Fetch the signature scheme at this offset.\n\n **Returns:**\n\n A TLS Signature Scheme from the [IANA TLS SignatureScheme registry].\n\n This will be 0 in these cases:\n\n - `i` is greater than or equal to the number of offered signature schemes.\n - `accepted` is NULL.\n - [`rustls_accepted_into_connection`](#rustls-accepted-into-connection) has already been called with `accepted`.\n\n [IANA TLS SignatureScheme registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-signaturescheme",
       "feature": null,
       "deprecation": null,
       "name": "rustls_accepted_signature_scheme",
@@ -292,7 +292,7 @@
     },
     {
       "anchor": "rustls-accepted-cipher-suite",
-      "comment": "Get the i-th entry in the list of cipher suites offered in the ClientHello.\n\n **Parameters:**\n\n - `accepted`: The [`rustls_accepted`](#rustls-accepted) to access.\n - `i`: Fetch the cipher suite at this offset.\n\n **Returns:**\n\n A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>\n\n This will be 0 in these cases:\n\n - `i` is greater than or equal to the number of offered cipher suites.\n - `accepted` is NULL.\n - [`rustls_accepted_into_connection`](#rustls-accepted-into-connection) has already been called with `accepted`.\n\n Note that 0 is technically a valid cipher suite \"TLS_NULL_WITH_NULL_NULL\",\n but this library will never support null ciphers.",
+      "comment": "Get the i-th entry in the list of cipher suites offered in the ClientHello.\n\n **Parameters:**\n\n - `accepted`: The [`rustls_accepted`](#rustls-accepted) to access.\n - `i`: Fetch the cipher suite at this offset.\n\n **Returns:**\n\n A cipher suite value from the [IANA TLS Cipher Suites registry].\n\n This will be 0 in these cases:\n\n - `i` is greater than or equal to the number of offered cipher suites.\n - `accepted` is NULL.\n - [`rustls_accepted_into_connection`](#rustls-accepted-into-connection) has already been called with `accepted`.\n\n Note that 0 is technically a valid cipher suite \"TLS_NULL_WITH_NULL_NULL\",\n but this library will never support null ciphers.\n\n [IANA TLS Cipher Suites registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4",
       "feature": null,
       "deprecation": null,
       "name": "rustls_accepted_cipher_suite",
@@ -444,7 +444,7 @@
     },
     {
       "anchor": "rustls-supported-ciphersuite-get-suite",
-      "comment": "Return a 16-bit unsigned integer corresponding to this cipher suite's assignment from\n <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>.\n\n The bytes from the assignment are interpreted in network order.",
+      "comment": "Return a 16-bit unsigned integer corresponding to this cipher suite's assignment\n in the [IANA TLS Cipher Suites registry].\n\n The bytes from the assignment are interpreted in network order.\n\n [IANA TLS Cipher Suites registry]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4",
       "feature": null,
       "deprecation": null,
       "name": "rustls_supported_ciphersuite_get_suite",
@@ -484,7 +484,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-dangerous-set-certificate-verifier",
-      "comment": "Set a custom server certificate verifier using the builder crypto provider.\n Returns [`RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER`](#rustls-result-no-default-crypto-provider) if no process default crypto\n provider has been set, and the builder was not constructed with an explicit\n provider choice.\n\n The callback must not capture any of the pointers in its\n [`rustls_verify_server_cert_params`](#rustls-verify-server-cert-params).\n If `userdata` has been set with [`rustls_connection_set_userdata`](#rustls-connection-set-userdata), it\n will be passed to the callback. Otherwise the userdata param passed to\n the callback will be NULL.\n\n The callback must be safe to call on any thread at any time, including\n multiple concurrent calls. So, for instance, if the callback mutates\n userdata (or other shared state), it must use synchronization primitives\n to make such mutation safe.\n\n The callback receives certificate chain information as raw bytes.\n Currently this library offers no functions to parse the certificates,\n so you'll need to bring your own certificate parsing library\n if you need to parse them.\n\n If the custom verifier accepts the certificate, it should return\n [`RUSTLS_RESULT_OK`](#rustls-result-ok). Otherwise, it may return any other [`rustls_result`](#rustls-result) error,\n including one of the certificate-related errors.\n\n <https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>",
+      "comment": "Set a custom server certificate verifier using the builder crypto provider.\n Returns [`RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER`](#rustls-result-no-default-crypto-provider) if no process default crypto\n provider has been set, and the builder was not constructed with an explicit\n provider choice.\n\n The callback must not capture any of the pointers in its\n [`rustls_verify_server_cert_params`](#rustls-verify-server-cert-params).\n If `userdata` has been set with [`rustls_connection_set_userdata`](#rustls-connection-set-userdata), it\n will be passed to the callback. Otherwise the userdata param passed to\n the callback will be NULL.\n\n The callback must be safe to call on any thread at any time, including\n multiple concurrent calls. So, for instance, if the callback mutates\n userdata (or other shared state), it must use synchronization primitives\n to make such mutation safe.\n\n The callback receives certificate chain information as raw bytes.\n Currently this library offers no functions to parse the certificates,\n so you'll need to bring your own certificate parsing library\n if you need to parse them.\n\n If the custom verifier accepts the certificate, it should return\n [`RUSTLS_RESULT_OK`](#rustls-result-ok). Otherwise, it may return any other [`rustls_result`](#rustls-result) error,\n including one of the certificate-related errors.\n\n See also the rustls documentation for\n [`DangerousClientConfig::set_certificate_verifier`].\n\n [`DangerousClientConfig::set_certificate_verifier`]: https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_dangerous_set_certificate_verifier",
@@ -500,7 +500,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-alpn-protocols",
-      "comment": "Set the ALPN protocol list to the given protocols.\n\n `protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller) with `len`\n elements.\n\n Each element of the buffer must be a [`rustls_slice_bytes`](#rustls-slice-bytes) whose\n data field points to a single ALPN protocol ID.\n\n Standard ALPN protocol IDs are defined at\n <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.\n\n This function makes a copy of the data in `protocols` and does not retain\n any pointers, so the caller can free the pointed-to memory after calling.\n\n <https://docs.rs/rustls/latest/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols>",
+      "comment": "Set the ALPN protocol list to the given protocols.\n\n `protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller) with `len`\n elements.\n\n Each element of the buffer must be a [`rustls_slice_bytes`](#rustls-slice-bytes) whose\n data field points to a single ALPN protocol ID.\n\n Standard ALPN protocol IDs are defined in the [IANA registry].\n\n This function makes a copy of the data in `protocols` and does not retain\n any pointers, so the caller can free the pointed-to memory after calling.\n\n See also the rustls documentation for [`ClientConfig::alpn_protocols`].\n\n [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids\n [`ClientConfig::alpn_protocols`]: https://docs.rs/rustls/latest/rustls/client/struct.ClientConfig.html#structfield.alpn_protocols",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_alpn_protocols",
@@ -508,7 +508,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-check-selected-alpn",
-      "comment": "Enable or disable verifying the selected ALPN was offered.\n\n The default is `true`.\n\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn>",
+      "comment": "Enable or disable verifying the selected ALPN was offered.\n\n The default is `true`.\n\n See also the rustls documentation for [`ClientConfig::check_selected_alpn`].\n\n [`ClientConfig::check_selected_alpn`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.check_selected_alpn",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_check_selected_alpn",
@@ -516,7 +516,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-send-ticket-request",
-      "comment": "Request a specific number of TLS 1.3 session tickets.\n\n This is done via the RFC 9149 `ticket_request` extension.\n\n `new_session_count` is the number of tickets desired when the server\n negotiates a new connection, and `resumption_count` the number desired\n when the server resumes using a presented ticket.\n\n By default the extension is not sent. Note that servers are free to\n ignore the request, it is only a hint.\n\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request>",
+      "comment": "Request a specific number of TLS 1.3 session tickets.\n\n This is done via the RFC 9149 `ticket_request` extension.\n\n `new_session_count` is the number of tickets desired when the server\n negotiates a new connection, and `resumption_count` the number desired\n when the server resumes using a presented ticket.\n\n By default the extension is not sent. Note that servers are free to\n ignore the request, it is only a hint.\n\n See also the rustls documentation for [`ClientConfig::send_ticket_request`].\n\n [`ClientConfig::send_ticket_request`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.send_ticket_request",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_send_ticket_request",
@@ -524,7 +524,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-enable-sni",
-      "comment": "Enable or disable SNI.\n <https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni>",
+      "comment": "Enable or disable SNI.\n\n See also the rustls documentation for [`ClientConfig::enable_sni`].\n\n [`ClientConfig::enable_sni`]: https://docs.rs/rustls/latest/rustls/struct.ClientConfig.html#structfield.enable_sni",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_enable_sni",
@@ -540,7 +540,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-key-log-file",
-      "comment": "Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.\n\n The key material will be logged in the NSS key log format,\n <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is\n compatible with tools like Wireshark.\n\n Secrets logged in this manner are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n For more control over which secrets are logged, or to customize the format, prefer\n [`rustls_client_config_builder_set_key_log`](#rustls-client-config-builder-set-key-log).",
+      "comment": "Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.\n\n The key material will be logged in the [NSS key log format] and is compatible\n with tools like Wireshark.\n\n Secrets logged in this manner are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n For more control over which secrets are logged, or to customize the format, prefer\n [`rustls_client_config_builder_set_key_log`](#rustls-client-config-builder-set-key-log).\n\n [NSS key log format]: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_key_log_file",
@@ -548,7 +548,7 @@
     },
     {
       "anchor": "rustls-client-config-builder-set-key-log",
-      "comment": "Provide callbacks to manage logging key material.\n\n The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is\n returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,\n a `label` to identify the purpose of the `secret`, and the `secret` itself. See the\n Rustls documentation of the `KeyLog` trait for more information on possible labels:\n <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>\n\n The `will_log_cb` may be `NULL`, in which case all key material will be provided to\n the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't\n wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.\n\n Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as\n long as the callback is executing and are not valid after the callback returns. The\n callbacks must not retain references to the provided data.\n\n Secrets provided to the `log_cb` are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n See also [`rustls_client_config_builder_set_key_log_file`](#rustls-client-config-builder-set-key-log-file) for a simpler way to log\n to a file specified by the `SSLKEYLOGFILE` environment variable.",
+      "comment": "Provide callbacks to manage logging key material.\n\n The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is\n returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,\n a `label` to identify the purpose of the `secret`, and the `secret` itself. See the\n rustls documentation for [`KeyLog::log`] for more information on possible labels.\n\n The `will_log_cb` may be `NULL`, in which case all key material will be provided to\n the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't\n wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.\n\n Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as\n long as the callback is executing and are not valid after the callback returns. The\n callbacks must not retain references to the provided data.\n\n Secrets provided to the `log_cb` are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n See also [`rustls_client_config_builder_set_key_log_file`](#rustls-client-config-builder-set-key-log-file) for a simpler way to log\n to a file specified by the `SSLKEYLOGFILE` environment variable.\n\n [`KeyLog::log`]: https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_config_builder_set_key_log",
@@ -612,7 +612,7 @@
     },
     {
       "anchor": "rustls-client-connection-new-alpn",
-      "comment": "Create a new client [`rustls_connection`](#rustls-connection) with custom ALPN protocols.\n\n Operates the same as [`rustls_client_connection_new`](#rustls-client-connection-new), but allows specifying\n custom per-connection ALPN protocols instead of inheriting ALPN protocols\n from the [`rustls_client_config`](#rustls-client-config).\n\n If this returns [`RUSTLS_RESULT_OK`](#rustls-result-ok), the memory pointed to by `conn_out` is modified to\n point at a valid [`rustls_connection`](#rustls-connection). The caller now owns the [`rustls_connection`](#rustls-connection)\n and must call [`rustls_connection_free`](#rustls-connection-free) when done with it.\n\n This function copies the contents of `server_name`.\n\n The connection retains an internal reference to `config`. This function\n does not take ownership of the caller's config pointer.\n\n If this returns an error code, the memory pointed to by `conn_out` remains\n unchanged.\n\n The `server_name` parameter can contain a hostname or an IP address in\n textual form (IPv4 or IPv6). This function will return an error if it\n cannot be parsed as one of those types. It must be NUL-terminated.\n\n `alpn_protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller)\n with `alpn_protocols_len` elements. Each element of the buffer must be a [`rustls_slice_bytes`](#rustls-slice-bytes)\n whose data field points to a single ALPN protocol ID. This function makes a copy of the\n data in `alpn_protocols` and does not retain any pointers, so the caller can free the\n pointed-to memory after calling.\n\n Standard ALPN protocol IDs are defined at\n <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.",
+      "comment": "Create a new client [`rustls_connection`](#rustls-connection) with custom ALPN protocols.\n\n Operates the same as [`rustls_client_connection_new`](#rustls-client-connection-new), but allows specifying\n custom per-connection ALPN protocols instead of inheriting ALPN protocols\n from the [`rustls_client_config`](#rustls-client-config).\n\n If this returns [`RUSTLS_RESULT_OK`](#rustls-result-ok), the memory pointed to by `conn_out` is modified to\n point at a valid [`rustls_connection`](#rustls-connection). The caller now owns the [`rustls_connection`](#rustls-connection)\n and must call [`rustls_connection_free`](#rustls-connection-free) when done with it.\n\n This function copies the contents of `server_name`.\n\n The connection retains an internal reference to `config`. This function\n does not take ownership of the caller's config pointer.\n\n If this returns an error code, the memory pointed to by `conn_out` remains\n unchanged.\n\n The `server_name` parameter can contain a hostname or an IP address in\n textual form (IPv4 or IPv6). This function will return an error if it\n cannot be parsed as one of those types. It must be NUL-terminated.\n\n `alpn_protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller)\n with `alpn_protocols_len` elements. Each element of the buffer must be a [`rustls_slice_bytes`](#rustls-slice-bytes)\n whose data field points to a single ALPN protocol ID. This function makes a copy of the\n data in `alpn_protocols` and does not retain any pointers, so the caller can free the\n pointed-to memory after calling.\n\n Standard ALPN protocol IDs are defined in the [IANA registry].\n\n [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids",
       "feature": null,
       "deprecation": null,
       "name": "rustls_client_connection_new_alpn",
@@ -636,7 +636,7 @@
     },
     {
       "anchor": "rustls-connection-read-tls",
-      "comment": "Read some TLS bytes from the network into internal buffers. The actual network\n I/O is performed by `callback`, which you provide. Rustls will invoke your\n callback with a suitable buffer to store the read bytes into. You don't have\n to fill it up, just fill with as many bytes as you get in one syscall.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes read to `out_n`. On error, returns\n an errno value passed through from `callback` and leaves `out_n` unchanged. See\n [`rustls_read_callback`](#rustls-read-callback) for more details.\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>",
+      "comment": "Read some TLS bytes from the network into internal buffers. The actual network\n I/O is performed by `callback`, which you provide. Rustls will invoke your\n callback with a suitable buffer to store the read bytes into. You don't have\n to fill it up, just fill with as many bytes as you get in one syscall.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes read to `out_n`. On error, returns\n an errno value passed through from `callback` and leaves `out_n` unchanged. See\n [`rustls_read_callback`](#rustls-read-callback) for more details.\n\n See also the rustls documentation for [`Connection::read_tls`].\n\n [`Connection::read_tls`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_read_tls",
@@ -644,7 +644,7 @@
     },
     {
       "anchor": "rustls-connection-write-tls",
-      "comment": "Write some TLS bytes to the network. The actual network I/O is performed by\n `callback`, which you provide. Rustls will invoke your callback with a\n suitable buffer containing TLS bytes to send. You don't have to write them\n all, just as many as you can in one syscall.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes written to `out_n`. On error,\n returns an errno value passed through from `callback` and leaves `out_n` unchanged.\n See [`rustls_write_callback`](#rustls-write-callback) for more details.\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>",
+      "comment": "Write some TLS bytes to the network. The actual network I/O is performed by\n `callback`, which you provide. Rustls will invoke your callback with a\n suitable buffer containing TLS bytes to send. You don't have to write them\n all, just as many as you can in one syscall.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes written to `out_n`. On error,\n returns an errno value passed through from `callback` and leaves `out_n` unchanged.\n See [`rustls_write_callback`](#rustls-write-callback) for more details.\n\n See also the rustls documentation for [`Connection::write_tls`].\n\n [`Connection::write_tls`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_write_tls",
@@ -652,7 +652,7 @@
     },
     {
       "anchor": "rustls-connection-write-tls-vectored",
-      "comment": "Write all available TLS bytes to the network. The actual network I/O is performed by\n `callback`, which you provide. Rustls will invoke your callback with an array\n of [`rustls_slice_bytes`](#rustls-slice-bytes), each containing a buffer with TLS bytes to send.\n You don't have to write them all, just as many as you are willing.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes written to `out_n`. On error,\n returns an errno value passed through from `callback` and leaves `out_n` unchanged.\n See [`rustls_write_vectored_callback`](#rustls-write-vectored-callback) for more details.\n <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored>",
+      "comment": "Write all available TLS bytes to the network. The actual network I/O is performed by\n `callback`, which you provide. Rustls will invoke your callback with an array\n of [`rustls_slice_bytes`](#rustls-slice-bytes), each containing a buffer with TLS bytes to send.\n You don't have to write them all, just as many as you are willing.\n The `userdata` parameter is passed through directly to `callback`. Note that\n this is distinct from the `userdata` parameter set with\n [`rustls_connection_set_userdata`](#rustls-connection-set-userdata).\n\n On success, returns 0 and writes the number of bytes written to `out_n`. On error,\n returns an errno value passed through from `callback` and leaves `out_n` unchanged.\n See [`rustls_write_vectored_callback`](#rustls-write-vectored-callback) for more details.\n\n See also the rustls documentation for [`Writer::write_vectored`].\n\n [`Writer::write_vectored`]: https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_write_tls_vectored",
@@ -660,7 +660,7 @@
     },
     {
       "anchor": "rustls-connection-process-new-packets",
-      "comment": "Decrypt any available ciphertext from the internal buffer and put it\n into the internal plaintext buffer, potentially making bytes available\n for [`rustls_connection_read()`](#rustls-connection-read).\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets>",
+      "comment": "Decrypt any available ciphertext from the internal buffer and put it\n into the internal plaintext buffer, potentially making bytes available\n for [`rustls_connection_read()`](#rustls-connection-read).\n\n See also the rustls documentation for [`Connection::process_new_packets`].\n\n [`Connection::process_new_packets`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_process_new_packets",
@@ -668,7 +668,7 @@
     },
     {
       "anchor": "rustls-connection-wants-read",
-      "comment": "<https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_read>",
+      "comment": "See also the rustls documentation for [`CommonState::wants_read`].\n\n [`CommonState::wants_read`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_read",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_wants_read",
@@ -676,7 +676,7 @@
     },
     {
       "anchor": "rustls-connection-wants-write",
-      "comment": "<https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_write>",
+      "comment": "See also the rustls documentation for [`CommonState::wants_write`].\n\n [`CommonState::wants_write`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.wants_write",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_wants_write",
@@ -684,7 +684,7 @@
     },
     {
       "anchor": "rustls-connection-is-handshaking",
-      "comment": "Returns true if the connection is currently performing the TLS handshake.\n\n Note: This may return `false` while there are still handshake packets waiting\n to be extracted and transmitted with [`rustls_connection_write_tls()`](#rustls-connection-write-tls).\n\n See the rustls documentation for more information.\n\n <https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking>",
+      "comment": "Returns true if the connection is currently performing the TLS handshake.\n\n Note: This may return `false` while there are still handshake packets waiting\n to be extracted and transmitted with [`rustls_connection_write_tls()`](#rustls-connection-write-tls).\n\n See also the rustls documentation for [`CommonState::is_handshaking`].\n\n [`CommonState::is_handshaking`]: https://docs.rs/rustls/latest/rustls/struct.CommonState.html#method.is_handshaking",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_is_handshaking",
@@ -700,15 +700,15 @@
     },
     {
       "anchor": "rustls-connection-set-buffer-limit",
-      "comment": "Sets a limit on the internal buffers used to buffer unsent plaintext (prior\n to completing the TLS handshake) and unsent TLS records. By default, there\n is no limit. The limit can be set at any time, even if the current buffer\n use is higher.\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.set_buffer_limit>",
+      "comment": "Sets a limit on the internal buffers used to buffer unsent plaintext (prior\n to completing the TLS handshake) and unsent TLS records. By default, there\n is no limit. The limit can be set at any time, even if the current buffer\n use is higher.\n\n See also the rustls documentation for [`Connection::set_buffer_limit`].\n\n [`Connection::set_buffer_limit`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.set_buffer_limit",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_set_buffer_limit",
-      "text": "```c\nvoid rustls_connection_set_buffer_limit(struct rustls_connection *conn, size_t n);\n```"
+      "text": "```c\nvoid rustls_connection_set_buffer_limit(struct rustls_connection *conn,\n                                        size_t n);\n```"
     },
     {
       "anchor": "rustls-connection-send-close-notify",
-      "comment": "Queues a close_notify alert to be sent by the next call to\n [`rustls_connection_write_tls()`](#rustls-connection-write-tls).\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.send_close_notify>",
+      "comment": "Queues a close_notify alert to be sent by the next call to\n [`rustls_connection_write_tls()`](#rustls-connection-write-tls).\n\n See also the rustls documentation for [`Connection::send_close_notify`].\n\n [`Connection::send_close_notify`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.send_close_notify",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_send_close_notify",
@@ -716,7 +716,7 @@
     },
     {
       "anchor": "rustls-connection-refresh-traffic-keys",
-      "comment": "Queues a TLS1.3 key_update message to refresh a connection’s keys.\n\n Rustls internally manages key updates as required and so this function should\n seldom be used. See the Rustls documentation for important caveats and suggestions\n on occasions that merit its use.\n\n <https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys>",
+      "comment": "Queues a TLS1.3 key_update message to refresh a connection’s keys.\n\n Rustls internally manages key updates as required and so this function should\n seldom be used. See the rustls documentation for\n [`ConnectionCommon::refresh_traffic_keys`] for important caveats and suggestions\n on occasions that merit its use.\n\n [`ConnectionCommon::refresh_traffic_keys`]: https://docs.rs/rustls/latest/rustls/struct.ConnectionCommon.html#method.refresh_traffic_keys",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_refresh_traffic_keys",
@@ -724,7 +724,7 @@
     },
     {
       "anchor": "rustls-connection-get-peer-certificate",
-      "comment": "Return the i-th certificate provided by the peer.\n Index 0 is the end entity certificate. Higher indexes are certificates\n in the chain. Requesting an out-of-range index returns NULL.\n\n The returned pointer is valid until the next mutating function call\n affecting the connection. A mutating function call is one where the first\n argument is a mutable pointer to [`rustls_connection`](#rustls-connection) (as opposed to a const\n pointer).\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates>",
+      "comment": "Return the i-th certificate provided by the peer.\n Index 0 is the end entity certificate. Higher indexes are certificates\n in the chain. Requesting an out-of-range index returns NULL.\n\n The returned pointer is valid until the next mutating function call\n affecting the connection. A mutating function call is one where the first\n argument is a mutable pointer to [`rustls_connection`](#rustls-connection) (as opposed to a const\n pointer).\n\n See also the rustls documentation for [`Connection::peer_certificates`].\n\n [`Connection::peer_certificates`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_peer_certificate",
@@ -732,7 +732,7 @@
     },
     {
       "anchor": "rustls-connection-get-alpn-protocol",
-      "comment": "Get the ALPN protocol that was negotiated, if any. Stores a pointer to a\n borrowed buffer of bytes, and that buffer's length, in the output parameters.\n If the connection is still handshaking, or no ALPN protocol was negotiated,\n stores NULL and 0 in the output parameters.\n\n The borrowed buffer is owned by the connection and is valid until the next\n mutating function call affecting the connection. A mutating function call\n is one where the first argument is a mutable pointer to\n [`rustls_connection`](#rustls-connection) (as opposed to a const pointer).\n The caller must not modify or free the borrowed buffer.\n\n If `conn` or either output parameter is NULL, both output values are unchanged.\n <https://www.iana.org/assignments/tls-parameters/>\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol>",
+      "comment": "Get the ALPN protocol that was negotiated, if any. Stores a pointer to a\n borrowed buffer of bytes, and that buffer's length, in the output parameters.\n If the connection is still handshaking, or no ALPN protocol was negotiated,\n stores NULL and 0 in the output parameters.\n\n The borrowed buffer is owned by the connection and is valid until the next\n mutating function call affecting the connection. A mutating function call\n is one where the first argument is a mutable pointer to\n [`rustls_connection`](#rustls-connection) (as opposed to a const pointer).\n The caller must not modify or free the borrowed buffer.\n\n If `conn` or either output parameter is NULL, both output values are unchanged.\n Protocol identifiers are listed in the [IANA TLS Parameters registry]. See\n also the rustls documentation for [`Connection::alpn_protocol`].\n\n [IANA TLS Parameters registry]: https://www.iana.org/assignments/tls-parameters/\n [`Connection::alpn_protocol`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_alpn_protocol",
@@ -740,7 +740,7 @@
     },
     {
       "anchor": "rustls-connection-get-protocol-version",
-      "comment": "Return the TLS protocol version that has been negotiated. Before this\n has been decided during the handshake, this will return 0. Otherwise,\n the u16 version number as defined in the relevant RFC is returned.\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.protocol_version>\n <https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.ProtocolVersion.html>",
+      "comment": "Return the TLS protocol version that has been negotiated. Before this\n has been decided during the handshake, this will return 0. Otherwise,\n the u16 version number as defined in the relevant RFC is returned.\n\n See also the rustls documentation for [`Connection::protocol_version`] and\n [`ProtocolVersion`].\n\n [`Connection::protocol_version`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.protocol_version\n [`ProtocolVersion`]: https://docs.rs/rustls/latest/rustls/internal/msgs/enums/enum.ProtocolVersion.html",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_protocol_version",
@@ -748,7 +748,7 @@
     },
     {
       "anchor": "rustls-connection-get-negotiated-ciphersuite",
-      "comment": "Retrieves the [IANA registered cipher suite identifier][IANA] agreed with the peer.\n\n This returns `TLS_NULL_WITH_NULL_NULL` (0x0000) until the ciphersuite is agreed.\n\n [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>",
+      "comment": "Retrieves the [IANA registered cipher suite identifier] agreed with the peer.\n\n This returns `TLS_NULL_WITH_NULL_NULL` (0x0000) until the ciphersuite is agreed.\n\n [IANA registered cipher suite identifier]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_negotiated_ciphersuite",
@@ -756,7 +756,7 @@
     },
     {
       "anchor": "rustls-connection-get-negotiated-ciphersuite-name",
-      "comment": "Retrieves the cipher suite name agreed with the peer.\n\n This returns \"\" until the ciphersuite is agreed.\n\n The lifetime of the [`rustls_str`](#rustls-str) is the lifetime of the program, it does not\n need to be freed.\n\n <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.negotiated_cipher_suite>",
+      "comment": "Retrieves the cipher suite name agreed with the peer.\n\n This returns \"\" until the ciphersuite is agreed.\n\n The lifetime of the [`rustls_str`](#rustls-str) is the lifetime of the program, it does not\n need to be freed.\n\n See also the rustls documentation for [`Connection::negotiated_cipher_suite`].\n\n [`Connection::negotiated_cipher_suite`]: https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.negotiated_cipher_suite",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_negotiated_ciphersuite_name",
@@ -764,7 +764,7 @@
     },
     {
       "anchor": "rustls-connection-get-negotiated-key-exchange-group",
-      "comment": "Retrieves the [IANA registered supported group identifier][IANA] agreed with the peer.\n\n This returns Reserved (0x0000) until the key exchange group is agreed.\n\n [IANA]: <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>",
+      "comment": "Retrieves the [IANA registered supported group identifier] agreed with the peer.\n\n This returns Reserved (0x0000) until the key exchange group is agreed.\n\n [IANA registered supported group identifier]: https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_get_negotiated_key_exchange_group",
@@ -788,7 +788,7 @@
     },
     {
       "anchor": "rustls-connection-write",
-      "comment": "Write up to `count` plaintext bytes from `buf` into the [`rustls_connection`](#rustls-connection).\n This will increase the number of output bytes available to\n [`rustls_connection_write_tls`](#rustls-connection-write-tls).\n On success, store the number of bytes actually written in `*out_n`\n (this may be less than `count`).\n\n This function borrows `buf` for the duration of the call and does not retain it.\n On error, `out_n` is unchanged.\n <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write>",
+      "comment": "Write up to `count` plaintext bytes from `buf` into the [`rustls_connection`](#rustls-connection).\n This will increase the number of output bytes available to\n [`rustls_connection_write_tls`](#rustls-connection-write-tls).\n On success, store the number of bytes actually written in `*out_n`\n (this may be less than `count`).\n\n This function borrows `buf` for the duration of the call and does not retain it.\n On error, `out_n` is unchanged.\n\n See also the rustls documentation for [`Writer::write`].\n\n [`Writer::write`]: https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_write",
@@ -796,7 +796,7 @@
     },
     {
       "anchor": "rustls-connection-read",
-      "comment": "Read up to `count` plaintext bytes from the [`rustls_connection`](#rustls-connection) into `buf`.\n On success, store the number of bytes read in `*out_n` (this may be less\n than `count`). A success with `*out_n` set to 0 means \"all bytes currently\n available have been read, but more bytes may become available after\n subsequent calls to [`rustls_connection_read_tls`](#rustls-connection-read-tls) and\n [`rustls_connection_process_new_packets`](#rustls-connection-process-new-packets).\n\n Subtle note: Even though this function only writes to `buf` and does not\n read from it, the memory in `buf` must be initialized before the call (for\n Rust-internal reasons). Initializing a buffer once and then using it\n multiple times without zeroizing before each call is fine.\n\n The function does not retain `buf`. On error, `out_n` is unchanged.\n <https://docs.rs/rustls/latest/rustls/struct.Reader.html#method.read>",
+      "comment": "Read up to `count` plaintext bytes from the [`rustls_connection`](#rustls-connection) into `buf`.\n On success, store the number of bytes read in `*out_n` (this may be less\n than `count`). A success with `*out_n` set to 0 means \"all bytes currently\n available have been read, but more bytes may become available after\n subsequent calls to [`rustls_connection_read_tls`](#rustls-connection-read-tls) and\n [`rustls_connection_process_new_packets`](#rustls-connection-process-new-packets).\n\n Subtle note: Even though this function only writes to `buf` and does not\n read from it, the memory in `buf` must be initialized before the call (for\n Rust-internal reasons). Initializing a buffer once and then using it\n multiple times without zeroizing before each call is fine.\n\n The function does not retain `buf`. On error, `out_n` is unchanged.\n\n See also the rustls documentation for [`Reader::read`].\n\n [`Reader::read`]: https://docs.rs/rustls/latest/rustls/struct.Reader.html#method.read",
       "feature": null,
       "deprecation": null,
       "name": "rustls_connection_read",
@@ -1084,7 +1084,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-key-log-file",
-      "comment": "Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.\n\n The key material will be logged in the NSS key log format,\n <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is\n compatible with tools like Wireshark.\n\n Secrets logged in this manner are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n For more control over which secrets are logged, or to customize the format, prefer\n [`rustls_server_config_builder_set_key_log`](#rustls-server-config-builder-set-key-log).",
+      "comment": "Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.\n\n The key material will be logged in the [NSS key log format] and is compatible\n with tools like Wireshark.\n\n Secrets logged in this manner are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n For more control over which secrets are logged, or to customize the format, prefer\n [`rustls_server_config_builder_set_key_log`](#rustls-server-config-builder-set-key-log).\n\n [NSS key log format]: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_key_log_file",
@@ -1092,7 +1092,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-key-log",
-      "comment": "Provide callbacks to manage logging key material.\n\n The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is\n returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,\n a `label` to identify the purpose of the `secret`, and the `secret` itself. See the\n Rustls documentation of the `KeyLog` trait for more information on possible labels:\n <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>\n\n The `will_log_cb` may be `NULL`, in which case all key material will be provided to\n the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't\n wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.\n\n Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as\n long as the callback is executing and are not valid after the callback returns. The\n callbacks must not retain references to the provided data.\n\n Secrets provided to the `log_cb` are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n See also [`rustls_server_config_builder_set_key_log_file`](#rustls-server-config-builder-set-key-log-file) for a simpler way to log\n to a file specified by the `SSLKEYLOGFILE` environment variable.",
+      "comment": "Provide callbacks to manage logging key material.\n\n The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is\n returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,\n a `label` to identify the purpose of the `secret`, and the `secret` itself. See the\n rustls documentation for [`KeyLog::log`] for more information on possible labels.\n\n The `will_log_cb` may be `NULL`, in which case all key material will be provided to\n the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't\n wish to log, and non-zero for labels you _do_ wish to log as a performance optimization.\n\n Both callbacks **must** be thread-safe. Arguments provided to the callback live only for as\n long as the callback is executing and are not valid after the callback returns. The\n callbacks must not retain references to the provided data.\n\n Secrets provided to the `log_cb` are **extremely sensitive** and can break the security\n of past, present and future sessions.\n\n See also [`rustls_server_config_builder_set_key_log_file`](#rustls-server-config-builder-set-key-log-file) for a simpler way to log\n to a file specified by the `SSLKEYLOGFILE` environment variable.\n\n [`KeyLog::log`]: https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_key_log",
@@ -1108,7 +1108,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-ignore-client-order",
-      "comment": "With `ignore` != 0, the server will ignore the client ordering of cipher\n suites, aka preference, during handshake and respect its own ordering\n as configured.\n <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html#structfield.ignore_client_order>",
+      "comment": "With `ignore` != 0, the server will ignore the client ordering of cipher\n suites, aka preference, during handshake and respect its own ordering\n as configured.\n\n See also the rustls documentation for [`ServerConfig::ignore_client_order`].\n\n [`ServerConfig::ignore_client_order`]: https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html#structfield.ignore_client_order",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_ignore_client_order",
@@ -1116,7 +1116,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-send-tls13-tickets",
-      "comment": "Set the number of TLS 1.3 NewSessionTickets sent after a full handshake.\n\n Setting this to 0 disables session ticket issuance entirely.\n <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets>",
+      "comment": "Set the number of TLS 1.3 NewSessionTickets sent after a full handshake.\n\n Setting this to 0 disables session ticket issuance entirely.\n\n See also the rustls documentation for [`ServerConfig::send_tls13_tickets`].\n\n [`ServerConfig::send_tls13_tickets`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_send_tls13_tickets",
@@ -1124,7 +1124,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-max-tls13-tickets",
-      "comment": "Set the upper bound on the number of TLS 1.3 tickets sent in response to a client.\n\n This modifies the server's response to a client's RFC 9149 `ticket_request` extension.\n\n A client requesting `n` tickets receives `min(n, max)`. Setting this to\n 0 (the default) ignores client requests entirely, clients get the configured\n `send_tls13_tickets` count regardless.\n\n <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets>",
+      "comment": "Set the upper bound on the number of TLS 1.3 tickets sent in response to a client.\n\n This modifies the server's response to a client's RFC 9149 `ticket_request` extension.\n\n A client requesting `n` tickets receives `min(n, max)`. Setting this to\n 0 (the default) ignores client requests entirely, clients get the configured\n `send_tls13_tickets` count regardless.\n\n See also the rustls documentation for [`ServerConfig::max_tls13_tickets`].\n\n [`ServerConfig::max_tls13_tickets`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_max_tls13_tickets",
@@ -1132,7 +1132,7 @@
     },
     {
       "anchor": "rustls-server-config-builder-set-alpn-protocols",
-      "comment": "Set the ALPN protocol list to the given protocols.\n\n `protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller)\n with `len` elements. Each element of the buffer must point to a slice of bytes that\n contains a single ALPN protocol from\n <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.\n\n This function makes a copy of the data in `protocols` and does not retain\n any pointers, so the caller can free the pointed-to memory after calling.\n\n <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols>",
+      "comment": "Set the ALPN protocol list to the given protocols.\n\n `protocols` must point to a buffer of [`rustls_slice_bytes`](#rustls-slice-bytes) (built by the caller)\n with `len` elements. Each element of the buffer must point to a slice of bytes that\n contains a single ALPN protocol from the [IANA registry].\n\n This function makes a copy of the data in `protocols` and does not retain\n any pointers, so the caller can free the pointed-to memory after calling.\n\n See also the rustls documentation for [`ServerConfig::alpn_protocols`].\n\n [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids\n [`ServerConfig::alpn_protocols`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols",
       "feature": null,
       "deprecation": null,
       "name": "rustls_server_config_builder_set_alpn_protocols",

@@ -40,7 +40,10 @@ use crate::verifier::rustls_client_cert_verifier;
 /// call `rustls_server_config_builder_free` to free the builder directly.
 ///
 /// This object is not safe for concurrent mutation.
-/// <https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html>
+///
+/// See also the rustls documentation for [`ConfigBuilder`].
+///
+/// [`ConfigBuilder`]: https://docs.rs/rustls/latest/rustls/struct.ConfigBuilder.html
 pub struct rustls_server_config_builder {
     _private: [u8; 0],
 }
@@ -66,7 +69,10 @@ pub(crate) struct ServerConfigBuilder {
 /// A server config that is done being constructed and is now read-only.
 ///
 /// Under the hood, this object corresponds to an `Arc<ServerConfig>`.
-/// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html>
+///
+/// See also the rustls documentation for [`ServerConfig`].
+///
+/// [`ServerConfig`]: https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html
 pub struct rustls_server_config {
     _private: [u8; 0],
 }
@@ -188,15 +194,16 @@ impl rustls_server_config_builder {
 
     /// Log key material to the file specified by the `SSLKEYLOGFILE` environment variable.
     ///
-    /// The key material will be logged in the NSS key log format,
-    /// <https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format> and is
-    /// compatible with tools like Wireshark.
+    /// The key material will be logged in the [NSS key log format] and is compatible
+    /// with tools like Wireshark.
     ///
     /// Secrets logged in this manner are **extremely sensitive** and can break the security
     /// of past, present and future sessions.
     ///
     /// For more control over which secrets are logged, or to customize the format, prefer
     /// `rustls_server_config_builder_set_key_log`.
+    ///
+    /// [NSS key log format]: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_key_log_file(
         builder: *mut rustls_server_config_builder,
@@ -213,8 +220,7 @@ impl rustls_server_config_builder {
     /// The `log_cb` argument is mandatory and must not be `NULL` or a `NullParameter` error is
     /// returned. The `log_cb` will be invoked with a `client_random` to identify the relevant session,
     /// a `label` to identify the purpose of the `secret`, and the `secret` itself. See the
-    /// Rustls documentation of the `KeyLog` trait for more information on possible labels:
-    /// <https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log>
+    /// rustls documentation for [`KeyLog::log`] for more information on possible labels.
     ///
     /// The `will_log_cb` may be `NULL`, in which case all key material will be provided to
     /// the `log_cb`. By providing a custom `will_log_cb` you may return `0` for labels you don't
@@ -229,6 +235,8 @@ impl rustls_server_config_builder {
     ///
     /// See also `rustls_server_config_builder_set_key_log_file` for a simpler way to log
     /// to a file specified by the `SSLKEYLOGFILE` environment variable.
+    ///
+    /// [`KeyLog::log`]: https://docs.rs/rustls/latest/rustls/trait.KeyLog.html#tymethod.log
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_key_log(
         builder: *mut rustls_server_config_builder,
@@ -266,7 +274,10 @@ impl rustls_server_config_builder {
     /// With `ignore` != 0, the server will ignore the client ordering of cipher
     /// suites, aka preference, during handshake and respect its own ordering
     /// as configured.
-    /// <https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html#structfield.ignore_client_order>
+    ///
+    /// See also the rustls documentation for [`ServerConfig::ignore_client_order`].
+    ///
+    /// [`ServerConfig::ignore_client_order`]: https://docs.rs/rustls/latest/rustls/struct.ServerConfig.html#structfield.ignore_client_order
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_ignore_client_order(
         builder: *mut rustls_server_config_builder,
@@ -282,7 +293,10 @@ impl rustls_server_config_builder {
     /// Set the number of TLS 1.3 NewSessionTickets sent after a full handshake.
     ///
     /// Setting this to 0 disables session ticket issuance entirely.
-    /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets>
+    ///
+    /// See also the rustls documentation for [`ServerConfig::send_tls13_tickets`].
+    ///
+    /// [`ServerConfig::send_tls13_tickets`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.send_tls13_tickets
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_send_tls13_tickets(
         builder: *mut rustls_server_config_builder,
@@ -303,7 +317,9 @@ impl rustls_server_config_builder {
     /// 0 (the default) ignores client requests entirely, clients get the configured
     /// `send_tls13_tickets` count regardless.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets>
+    /// See also the rustls documentation for [`ServerConfig::max_tls13_tickets`].
+    ///
+    /// [`ServerConfig::max_tls13_tickets`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.max_tls13_tickets
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_max_tls13_tickets(
         builder: *mut rustls_server_config_builder,
@@ -320,13 +336,15 @@ impl rustls_server_config_builder {
     ///
     /// `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller)
     /// with `len` elements. Each element of the buffer must point to a slice of bytes that
-    /// contains a single ALPN protocol from
-    /// <https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids>.
+    /// contains a single ALPN protocol from the [IANA registry].
     ///
     /// This function makes a copy of the data in `protocols` and does not retain
     /// any pointers, so the caller can free the pointed-to memory after calling.
     ///
-    /// <https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols>
+    /// See also the rustls documentation for [`ServerConfig::alpn_protocols`].
+    ///
+    /// [IANA registry]: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml#alpn-protocol-ids
+    /// [`ServerConfig::alpn_protocols`]: https://docs.rs/rustls/latest/rustls/server/struct.ServerConfig.html#structfield.alpn_protocols
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_set_alpn_protocols(
         builder: *mut rustls_server_config_builder,
@@ -578,14 +596,14 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 /// `rustls_str` will be 0.
 ///
 /// `signature_schemes` carries the values supplied by the client or, if the
-/// client did not send this TLS extension, the default schemes in the rustls library. See:
-/// <https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html>.
+/// client did not send this TLS extension, the default schemes in the rustls library.
+/// See the rustls documentation for [`SignatureScheme`] for more information.
 ///
 /// `named_groups` carries the values of the `named_groups` extension sent by the
 /// client. If the client did not send a `named_groups` extension, the length of
 /// this `rustls_slice_u16` will be 0. The meaning of this extension differs
-/// based on TLS version. See the Rustls documentation for more information:
-/// <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>
+/// based on TLS version. See the rustls documentation for
+/// [`ClientHello::named_groups`] for more information.
 ///
 /// `alpn` carries the list of ALPN protocol names that the client proposed to
 /// the server. Again, the length of this list will be 0 if none were supplied.
@@ -596,6 +614,9 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
 /// the rustls library is re-evaluating its current approach to ClientHello handling.
+///
+/// [`SignatureScheme`]: https://docs.rs/rustls/latest/rustls/enum.SignatureScheme.html
+/// [`ClientHello::named_groups`]: https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
     server_name: rustls_str<'a>,
