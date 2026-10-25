@@ -4,6 +4,7 @@ use std::{env, panic, thread};
 
 const HOST: &str = "localhost";
 const PORT: &str = "8443";
+const VALGRIND_ERROR_EXIT_CODE: &str = "--error-exitcode=1";
 
 #[test]
 #[ignore] // This test requires the client & server binaries be present.
@@ -256,7 +257,7 @@ impl ClientTest {
             None => (client_binary.as_str(), args),
             Some(valgrind) => (
                 valgrind.as_str(),
-                [vec![client_binary.as_str()], args].concat(),
+                [vec![VALGRIND_ERROR_EXIT_CODE, client_binary.as_str()], args].concat(),
             ),
         };
         let result = Command::new(program)
@@ -289,7 +290,7 @@ impl ServerOptions {
             None => (server_binary.as_str(), args),
             Some(valgrind) => (
                 valgrind.as_str(),
-                [vec![server_binary.as_str()], args].concat(),
+                [vec![VALGRIND_ERROR_EXIT_CODE, server_binary.as_str()], args].concat(),
             ),
         };
         Command::new(program)
