@@ -48,7 +48,7 @@ pub(crate) fn ensure_log_registered() {
 /// Use with `rustls_log_level_str` to convert to a string label.
 pub type rustls_log_level = usize;
 
-/// Return a rustls_str containing the stringified version of a log level.
+/// Return a `rustls_str` containing the stringified version of a log level.
 #[no_mangle]
 pub extern "C" fn rustls_log_level_str(level: rustls_log_level) -> rustls_str<'static> {
     let s = match level {

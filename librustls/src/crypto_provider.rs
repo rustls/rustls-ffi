@@ -62,9 +62,9 @@ impl CryptoProviderBuilder {
 /// Constructs a new `rustls_crypto_provider_builder` using the process-wide default crypto
 /// provider as the base crypto provider to be customized.
 ///
-/// When this function returns `rustls_result::Ok` a pointer to the `rustls_crypto_provider_builder`
-/// is written to `builder_out`. It returns `rustls_result::NoDefaultCryptoProvider` if no default
-/// provider has been registered.
+/// When this function returns `RUSTLS_RESULT_OK`, a pointer to the
+/// `rustls_crypto_provider_builder` is written to `builder_out`. It returns
+/// `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` if no default provider has been registered.
 ///
 /// The caller owns the returned `rustls_crypto_provider_builder` and must free it using
 /// `rustls_crypto_provider_builder_free`.
@@ -275,7 +275,7 @@ pub extern "C" fn rustls_default_fips_provider() -> *const rustls_crypto_provide
 /// Retrieve a pointer to the process default `rustls_crypto_provider`.
 ///
 /// This may return `NULL` if no process default provider has been set using
-/// `rustls_crypto_provider_builder_build_default`.
+/// `rustls_crypto_provider_builder_build_as_default`.
 ///
 /// Caller owns the returned `rustls_crypto_provider` and must free it w/ `rustls_crypto_provider_free`.
 #[no_mangle]
@@ -288,7 +288,8 @@ pub extern "C" fn rustls_crypto_provider_default() -> *const rustls_crypto_provi
     }
 }
 
-/// A C representation of a Rustls [`CryptoProvider`].
+/// A C representation of a Rustls
+/// [`CryptoProvider`](https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html).
 pub struct rustls_crypto_provider {
     _private: [u8; 0],
 }
@@ -340,7 +341,7 @@ pub extern "C" fn rustls_crypto_provider_ciphersuites_get(
 /// the crypto provider in use. The default providers support PKCS#1, PKCS#8 or
 /// SEC1 formats.
 ///
-/// When this function returns `rustls_result::Ok` a pointer to a `rustls_signing_key`
+/// When this function returns `RUSTLS_RESULT_OK`, a pointer to a `rustls_signing_key`
 /// is written to `signing_key_out`. The caller owns the returned `rustls_signing_key`
 /// and must free it with `rustls_signing_key_free`.
 #[no_mangle]

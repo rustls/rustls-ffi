@@ -217,7 +217,7 @@ typedef enum rustls_handshake_kind {
 } rustls_handshake_kind;
 
 /**
- * A parsed ClientHello produced by a rustls_acceptor.
+ * A parsed ClientHello produced by a `rustls_acceptor`.
  *
  * It is used to check server name indication (SNI), ALPN protocols,
  * signature schemes, and cipher suites. It can be combined with a
@@ -233,28 +233,28 @@ typedef struct rustls_accepted_alert rustls_accepted_alert;
 /**
  * A buffer and parser for ClientHello bytes.
  *
- * This allows reading ClientHello before choosing a rustls_server_config.
+ * This allows reading ClientHello before choosing a `rustls_server_config`.
  *
  * It's useful when the server config will be based on parameters in the
  * ClientHello: server name indication (SNI), ALPN protocols, signature
  * schemes, and cipher suites.
  *
  * In particular, if a server wants to do some potentially expensive work
- * to load a certificate for a given hostname, rustls_acceptor allows doing
- * that asynchronously, as opposed to rustls_server_config_builder_set_hello_callback(),
+ * to load a certificate for a given hostname, `rustls_acceptor` allows doing
+ * that asynchronously, as opposed to `rustls_server_config_builder_set_hello_callback()`,
  * which doesn't work well for asynchronous I/O.
  *
  * The general flow is:
- *  - rustls_acceptor_new()
+ *  - `rustls_acceptor_new()`
  *  - Loop:
- *    - Read bytes from the network it with rustls_acceptor_read_tls().
- *    - If successful, parse those bytes with rustls_acceptor_accept().
- *    - If that returns RUSTLS_RESULT_ACCEPTOR_NOT_READY, continue.
+ *    - Read bytes from the network it with `rustls_acceptor_read_tls()`.
+ *    - If successful, parse those bytes with `rustls_acceptor_accept()`.
+ *    - If that returns `RUSTLS_RESULT_ACCEPTOR_NOT_READY`, continue.
  *    - Otherwise, break.
- *  - If rustls_acceptor_accept() returned RUSTLS_RESULT_OK:
- *    - Examine the resulting rustls_accepted.
- *    - Create or select a rustls_server_config.
- *    - Call rustls_accepted_into_connection().
+ *  - If `rustls_acceptor_accept()` returned `RUSTLS_RESULT_OK`:
+ *    - Examine the resulting `rustls_accepted`.
+ *    - Create or select a `rustls_server_config`.
+ *    - Call `rustls_accepted_into_connection()`.
  *  - Otherwise, there was a problem with the ClientHello data and the
  *    connection should be rejected.
  */
@@ -293,9 +293,9 @@ typedef struct rustls_client_config rustls_client_config;
 /**
  * A client config being constructed.
  *
- * A builder can be modified by, e.g. `rustls_client_config_builder_load_roots_from_file`.
+ * A builder can be modified by, e.g. `rustls_client_config_builder_set_server_verifier`.
  * Once you're done configuring settings, call `rustls_client_config_builder_build`
- * to turn it into a *rustls_client_config.
+ * to turn it into a `rustls_client_config`.
  *
  * Alternatively, if an error occurs or, you don't wish to build a config,
  * call `rustls_client_config_builder_free` to free the builder directly.
@@ -312,7 +312,8 @@ typedef struct rustls_client_config_builder rustls_client_config_builder;
 typedef struct rustls_connection rustls_connection;
 
 /**
- * A C representation of a Rustls [`CryptoProvider`].
+ * A C representation of a Rustls
+ * [`CryptoProvider`](https://docs.rs/rustls/latest/rustls/crypto/struct.CryptoProvider.html).
  */
 typedef struct rustls_crypto_provider rustls_crypto_provider;
 
@@ -333,9 +334,11 @@ typedef struct rustls_hpke rustls_hpke;
 /**
  * An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows.
  *
- * You should cast `const struct rustls_iovec *` to `const struct iovec *` on
- * Unix, or `const *LPWSABUF` on Windows. See [`std::io::IoSlice`] for details
- * on interoperability with platform specific vectored IO.
+ * You should cast a const pointer to `rustls_iovec` to `const struct iovec *` on Unix,
+ * or `const *LPWSABUF` on Windows. See
+ * [`std::io::IoSlice`] for details on interoperability with platform-specific vectored IO.
+ *
+ * [`std::io::IoSlice`]: https://doc.rust-lang.org/std/io/struct.IoSlice.html
  */
 typedef struct rustls_iovec rustls_iovec;
 
@@ -372,10 +375,9 @@ typedef struct rustls_server_config rustls_server_config;
 /**
  * A server config being constructed.
  *
- * A builder can be modified by,
- * e.g. rustls_server_config_builder_load_native_roots. Once you're
- * done configuring settings, call rustls_server_config_builder_build
- * to turn it into a *const rustls_server_config.
+ * A builder can be modified by, e.g. `rustls_server_config_builder_set_certified_keys`.
+ * Once you're done configuring settings, call `rustls_server_config_builder_build`
+ * to turn it into a `rustls_server_config`.
  *
  * Alternatively, if an error occurs or, you don't wish to build a config,
  * call `rustls_server_config_builder_free` to free the builder directly.
@@ -477,7 +479,7 @@ typedef int rustls_io_result;
  * network, storing them in `buf`. If any bytes were stored, the implementation should
  * set out_n to the number of bytes stored and return 0.
  *
- * If there was an error, the implementation should return a nonzero rustls_io_result,
+ * If there was an error, the implementation should return a nonzero `rustls_io_result`,
  * which will be passed through to the caller.
  *
  * On POSIX systems, returning `errno` is convenient.
@@ -553,7 +555,7 @@ typedef struct rustls_slice_bytes {
  * On other systems, any appropriate error code works.
  *
  * It's best to make one write attempt to the network per call. Additional writes will
- * be triggered by subsequent calls to rustls_connection_write_tls.
+ * be triggered by subsequent calls to `rustls_connection_write_tls`.
  *
  * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
@@ -651,7 +653,7 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
  * If any bytes were written, the implementation should set out_n to the number of
  * bytes written and return 0.
  *
- * If there was an error, the implementation should return a nonzero rustls_io_result,
+ * If there was an error, the implementation should return a nonzero `rustls_io_result`,
  * which will be passed through to the caller.
  *
  * On POSIX systems, returning `errno` is convenient.
@@ -661,7 +663,7 @@ typedef void (*rustls_log_callback)(void *userdata, const struct rustls_log_para
  * It's best to make one write attempt to the network per call. Additional write will
  * be triggered by subsequent calls to one of the `_write_tls` methods.
  *
- * `userdata` is set to the value provided to `rustls_*_session_set_userdata`. In most
+ * `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
  * cases that should be a struct that contains, at a minimum, a file descriptor.
  *
  * The iov and out_n pointers are borrowed and should not be retained across calls.
@@ -699,7 +701,7 @@ typedef struct rustls_slice_u16 {
  *
  * `server_name` is the value of the ServerNameIndication extension provided
  * by the client. If the client did not send an SNI, the length of this
- * `rustls_string` will be 0.
+ * `rustls_str` will be 0.
  *
  * `signature_schemes` carries the values supplied by the client or, if the
  * client did not send this TLS extension, the default schemes in the rustls library. See:
@@ -735,7 +737,7 @@ typedef struct rustls_client_hello {
  * This callback will be invoked by a `rustls_connection` once the TLS client
  * hello message has been received.
  *
- * `userdata` will be set based on rustls_connection_set_userdata.
+ * `userdata` will be set based on `rustls_connection_set_userdata`.
  *
  * `hello` gives the value of the available client announcements, as interpreted
  * by rustls. See the definition of `rustls_client_hello` for details.
@@ -765,7 +767,7 @@ typedef void *rustls_session_store_userdata;
  * This callback will be invoked by a TLS session when looking up the data
  * for a TLS session id.
  *
- * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+ * `userdata` will be supplied based on `rustls_connection_set_userdata`.
  *
  * The `buf` points to `count` consecutive bytes where the
  * callback is expected to copy the result to. The number of copied bytes
@@ -776,8 +778,8 @@ typedef void *rustls_session_store_userdata;
  * do a partial copy but instead remove the value from its store and
  * act as if it was never found.
  *
- * The callback should return RUSTLS_RESULT_OK to indicate that a value was
- * retrieved and written in its entirety into `buf`, or RUSTLS_RESULT_NOT_FOUND
+ * The callback should return `RUSTLS_RESULT_OK` to indicate that a value was
+ * retrieved and written in its entirety into `buf`, or `RUSTLS_RESULT_NOT_FOUND`
  * if no session was retrieved.
  *
  * When `remove_after` is != 0, the returned data needs to be removed
@@ -803,10 +805,10 @@ typedef uint32_t (*rustls_session_store_get_callback)(rustls_session_store_userd
  * been created and an id for later use is handed to the client/has
  * been received from the server.
  *
- * `userdata` will be supplied based on rustls_{client,server}_session_set_userdata.
+ * `userdata` will be supplied based on `rustls_connection_set_userdata`.
  *
- * The callback should return RUSTLS_RESULT_OK to indicate that a value was
- * successfully stored, or RUSTLS_RESULT_IO on failure.
+ * The callback should return `RUSTLS_RESULT_OK` to indicate that a value was
+ * successfully stored, or `RUSTLS_RESULT_IO` on failure.
  *
  * NOTE: the passed in `key` and `val` are only available during the
  * callback invocation.
@@ -840,7 +842,7 @@ extern const uint16_t RUSTLS_DEFAULT_VERSIONS[2];
 extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
 
 /**
- * Create and return a new rustls_acceptor.
+ * Create and return a new `rustls_acceptor`.
  *
  * Caller owns the pointed-to memory and must eventually free it with
  * `rustls_acceptor_free()`.
@@ -848,11 +850,11 @@ extern const size_t RUSTLS_DEFAULT_VERSIONS_LEN;
 struct rustls_acceptor *rustls_acceptor_new(void);
 
 /**
- * Free a rustls_acceptor.
+ * Free a `rustls_acceptor`.
  *
  * Parameters:
  *
- * acceptor: The rustls_acceptor to free.
+ * acceptor: The `rustls_acceptor` to free.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -868,7 +870,7 @@ void rustls_acceptor_free(struct rustls_acceptor *acceptor);
  *
  * Parameters:
  *
- * acceptor: The rustls_acceptor to read bytes into.
+ * acceptor: The `rustls_acceptor` to read bytes into.
  * callback: A function that will perform the actual network I/O.
  *   Must be valid to call with the given userdata parameter until
  *   this function call returns.
@@ -895,37 +897,37 @@ rustls_io_result rustls_acceptor_read_tls(struct rustls_acceptor *acceptor,
 /**
  * Parse all TLS bytes read so far.
  *
- * If those bytes make up a ClientHello, create a rustls_accepted from them.
+ * If those bytes make up a ClientHello, create a `rustls_accepted` from them.
  *
  * Parameters:
  *
- * acceptor: The rustls_acceptor to access.
+ * acceptor: The `rustls_acceptor` to access.
  * out_accepted: An output parameter. The pointed-to pointer will be set
- *   to a new rustls_accepted only when the function returns
- *   RUSTLS_RESULT_OK. The memory is owned by the caller and must eventually
+ *   to a new `rustls_accepted` only when the function returns
+ *   `RUSTLS_RESULT_OK`. The memory is owned by the caller and must eventually
  *   be freed
  * out_alert: An output parameter. The pointed-to pointer will be set
- *   to a new rustls_accepted_alert only when the function returns
+ *   to a new `rustls_accepted_alert` only when the function returns
  *   a non-OK result. The memory is owned by the caller and must eventually
- *   be freed with rustls_accepted_alert_free. The caller should call
- *   rustls_accepted_alert_write_tls to write the alert bytes to the TLS
- *   connection before freeing the rustls_accepted_alert.
+ *   be freed with `rustls_accepted_alert_free`. The caller should call
+ *   `rustls_accepted_alert_write_tls` to write the alert bytes to the TLS
+ *   connection before freeing the `rustls_accepted_alert`.
  *
  * At most one of out_accepted or out_alert will be set.
  *
  * Returns:
  *
- * - RUSTLS_RESULT_OK: a ClientHello has successfully been parsed.
- *   A pointer to a newly allocated rustls_accepted has been written to
+ * - `RUSTLS_RESULT_OK`: a ClientHello has successfully been parsed.
+ *   A pointer to a newly allocated `rustls_accepted` has been written to
  *   *out_accepted.
- * - RUSTLS_RESULT_ACCEPTOR_NOT_READY: a full ClientHello has not yet been read.
+ * - `RUSTLS_RESULT_ACCEPTOR_NOT_READY`: a full ClientHello has not yet been read.
  *   Read more TLS bytes to continue.
- * - Any other rustls_result: the TLS bytes read so far cannot be parsed
+ * - Any other `rustls_result`: the TLS bytes read so far cannot be parsed
  *   as a ClientHello, and reading additional bytes won't help.
  *
  * Memory and lifetimes:
  *
- * After this method returns RUSTLS_RESULT_OK, `acceptor` is
+ * After this method returns `RUSTLS_RESULT_OK`, `acceptor` is
  * still allocated and valid. It needs to be freed regardless of success
  * or failure of this function.
  *
@@ -942,22 +944,22 @@ rustls_result rustls_acceptor_accept(struct rustls_acceptor *acceptor,
  *
  * Parameters:
  *
- * accepted: The rustls_accepted to access.
+ * accepted: The `rustls_accepted` to access.
  *
  * Returns:
  *
- * A rustls_str containing the SNI field.
+ * A `rustls_str` containing the SNI field.
  *
- * The returned value is valid until rustls_accepted_into_connection or
- * rustls_accepted_free is called on the same `accepted`. It is not owned
+ * The returned value is valid until `rustls_accepted_into_connection` or
+ * `rustls_accepted_free` is called on the same `accepted`. It is not owned
  * by the caller and does not need to be freed.
  *
- * This will be a zero-length rustls_str in these error cases:
+ * This will be a zero-length `rustls_str` in these error cases:
  *
  *  - The SNI contains a NUL byte.
  *  - The `accepted` parameter was NULL.
  *  - The `accepted` parameter was already transformed into a connection
- *    with rustls_accepted_into_connection.
+ *    with `rustls_accepted_into_connection`.
  */
 struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *accepted);
 
@@ -970,7 +972,7 @@ struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *acce
  *
  * Parameters:
  *
- * accepted: The rustls_accepted to access.
+ * accepted: The `rustls_accepted` to access.
  * i: Fetch the signature scheme at this offset.
  *
  * Returns:
@@ -980,7 +982,7 @@ struct rustls_str rustls_accepted_server_name(const struct rustls_accepted *acce
  * This will be 0 in these cases:
  *   - i is greater than the number of available cipher suites.
  *   - accepted is NULL.
- *   - rustls_accepted_into_connection has already been called with `accepted`.
+ *   - `rustls_accepted_into_connection` has already been called with `accepted`.
  */
 uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted,
                                           size_t i);
@@ -990,7 +992,7 @@ uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted
  *
  * Parameters:
  *
- * accepted: The rustls_accepted to access.
+ * accepted: The `rustls_accepted` to access.
  * i: Fetch the cipher suite at this offset.
  *
  * Returns:
@@ -1000,7 +1002,7 @@ uint16_t rustls_accepted_signature_scheme(const struct rustls_accepted *accepted
  * This will be 0 in these cases:
  *   - i is greater than the number of available cipher suites.
  *   - accepted is NULL.
- *   - rustls_accepted_into_connection has already been called with `accepted`.
+ *   - `rustls_accepted_into_connection` has already been called with `accepted`.
  *
  * Note that 0 is technically a valid cipher suite "TLS_NULL_WITH_NULL_NULL",
  * but this library will never support null ciphers.
@@ -1011,23 +1013,23 @@ uint16_t rustls_accepted_cipher_suite(const struct rustls_accepted *accepted,
 /**
  * Get the i'th in the list of ALPN protocols requested in the ClientHello.
  *
- * accepted: The rustls_accepted to access.
+ * accepted: The `rustls_accepted` to access.
  * i: Fetch the ALPN value at this offset.
  *
  * Returns:
  *
- * A rustls_slice_bytes containing the i'th ALPN protocol. This may
+ * A `rustls_slice_bytes` containing the i'th ALPN protocol. This may
  * contain internal NUL bytes and is not guaranteed to contain valid
  * UTF-8.
  *
- * This will be a zero-length rustls_slice bytes in these cases:
+ * This will be a zero-length `rustls_slice_bytes` in these cases:
  *   - i is greater than the number of offered ALPN protocols.
  *   - The client did not offer the ALPN extension.
  *   - The `accepted` parameter was already transformed into a connection
- *     with rustls_accepted_into_connection.
+ *     with `rustls_accepted_into_connection`.
  *
- * The returned value is valid until rustls_accepted_into_connection or
- * rustls_accepted_free is called on the same `accepted`. It is not owned
+ * The returned value is valid until `rustls_accepted_into_connection` or
+ * `rustls_accepted_free` is called on the same `accepted`. It is not owned
  * by the caller and does not need to be freed.
  *
  * If you are calling this from Rust, note that the `'static` lifetime
@@ -1036,49 +1038,49 @@ uint16_t rustls_accepted_cipher_suite(const struct rustls_accepted *accepted,
 struct rustls_slice_bytes rustls_accepted_alpn(const struct rustls_accepted *accepted, size_t i);
 
 /**
- * Turn a rustls_accepted into a rustls_connection, given the provided
- * rustls_server_config.
+ * Turn a `rustls_accepted` into a `rustls_connection`, given the provided
+ * `rustls_server_config`.
  *
  * Parameters:
  *
- * accepted: The rustls_accepted to transform.
+ * accepted: The `rustls_accepted` to transform.
  * config: The configuration with which to create this connection.
  * out_conn: An output parameter. The pointed-to pointer will be set
- *   to a new rustls_connection only when the function returns
- *   RUSTLS_RESULT_OK.
+ *   to a new `rustls_connection` only when the function returns
+ *   `RUSTLS_RESULT_OK`.
  * out_alert: An output parameter. The pointed-to pointer will be set
- *   to a new rustls_accepted_alert when, and only when, the function returns
+ *   to a new `rustls_accepted_alert` when, and only when, the function returns
  *   a non-OK result. The memory is owned by the caller and must eventually
- *   be freed with rustls_accepted_alert_free. The caller should call
- *   rustls_accepted_alert_write_tls to write the alert bytes to
- *   the TLS connection before freeing the rustls_accepted_alert.
+ *   be freed with `rustls_accepted_alert_free`. The caller should call
+ *   `rustls_accepted_alert_write_tls` to write the alert bytes to
+ *   the TLS connection before freeing the `rustls_accepted_alert`.
  *
  * At most one of out_conn or out_alert will be set.
  *
  * Returns:
  *
- * - RUSTLS_RESULT_OK: The `accepted` parameter was successfully
- *   transformed into a rustls_connection, and *out_conn was written to.
- * - RUSTLS_RESULT_ALREADY_USED: This function was called twice on the
- *   same rustls_connection.
- * - RUSTLS_RESULT_NULL_PARAMETER: One of the input parameters was NULL.
+ * - `RUSTLS_RESULT_OK`: The `accepted` parameter was successfully
+ *   transformed into a `rustls_connection`, and *out_conn was written to.
+ * - `RUSTLS_RESULT_ALREADY_USED`: This function was called twice on the
+ *   same `rustls_connection`.
+ * - `RUSTLS_RESULT_NULL_PARAMETER`: One of the input parameters was NULL.
  *
  * Memory and lifetimes:
  *
  * In both success and failure cases, this consumes the contents of
  * `accepted` but does not free its allocated memory. In either case,
- * call rustls_accepted_free to avoid a memory leak.
+ * call `rustls_accepted_free` to avoid a memory leak.
  *
  * Calling accessor methods on an `accepted` after consuming it will
  * return zero or default values.
  *
- * The rustls_connection emitted by this function in the success case
+ * The `rustls_connection` emitted by this function in the success case
  * is owned by the caller and must eventually be freed.
  *
  * This function does not take ownership of `config`. It does increment
  * `config`'s internal reference count, indicating that the
- * rustls_connection may hold a reference to it until it is done.
- * See the documentation for rustls_connection for details.
+ * `rustls_connection` may hold a reference to it until it is done.
+ * See the documentation for `rustls_connection` for details.
  */
 rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
                                               const struct rustls_server_config *config,
@@ -1086,11 +1088,11 @@ rustls_result rustls_accepted_into_connection(struct rustls_accepted *accepted,
                                               struct rustls_accepted_alert **out_alert);
 
 /**
- * Free a rustls_accepted.
+ * Free a `rustls_accepted`.
  *
  * Parameters:
  *
- * accepted: The rustls_accepted to free.
+ * accepted: The `rustls_accepted` to free.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -1109,8 +1111,10 @@ void rustls_accepted_free(struct rustls_accepted *accepted);
  * `rustls_connection_set_userdata`.
  *
  * Returns 0 for success, or an errno value on error. Passes through return values
- * from callback. See [`rustls_write_callback`] or [`AcceptedAlert`] for
- * more details.
+ * from callback. See `rustls_write_callback` or rustls's [`AcceptedAlert`]
+ * for more details.
+ *
+ * [`AcceptedAlert`]: https://docs.rs/rustls/latest/rustls/server/struct.AcceptedAlert.html
  */
 rustls_io_result rustls_accepted_alert_write_tls(struct rustls_accepted_alert *accepted_alert,
                                                  rustls_write_callback callback,
@@ -1118,11 +1122,11 @@ rustls_io_result rustls_accepted_alert_write_tls(struct rustls_accepted_alert *a
                                                  size_t *out_n);
 
 /**
- * Free a rustls_accepted_alert.
+ * Free a `rustls_accepted_alert`.
  *
  * Parameters:
  *
- * accepted_alert: The rustls_accepted_alert to free.
+ * accepted_alert: The `rustls_accepted_alert` to free.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -1210,19 +1214,19 @@ rustls_result rustls_certified_key_build_with_signing_key(const uint8_t *cert_ch
                                                           const struct rustls_certified_key **certified_key_out);
 
 /**
- * Return the i-th rustls_certificate in the rustls_certified_key.
+ * Return the i-th `rustls_certificate` in the `rustls_certified_key`.
  *
  * 0 gives the end-entity certificate. 1 and higher give certificates from the chain.
  *
  * Indexes higher than the last available certificate return NULL.
  *
- * The returned certificate is valid until the rustls_certified_key is freed.
+ * The returned certificate is valid until the `rustls_certified_key` is freed.
  */
 const struct rustls_certificate *rustls_certified_key_get_certificate(const struct rustls_certified_key *certified_key,
                                                                       size_t i);
 
 /**
- * Create a copy of the rustls_certified_key with the given OCSP response data
+ * Create a copy of the `rustls_certified_key` with the given OCSP response data
  * as DER encoded bytes.
  *
  * The OCSP response may be given as NULL to clear any possibly present OCSP
@@ -1321,7 +1325,8 @@ rustls_result rustls_root_cert_store_builder_build(struct rustls_root_cert_store
 void rustls_root_cert_store_builder_free(struct rustls_root_cert_store_builder *builder);
 
 /**
- * Free a rustls_root_cert_store previously returned from rustls_root_cert_store_builder_build.
+ * Free a `rustls_root_cert_store` previously returned from
+ * `rustls_root_cert_store_builder_build`.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -1352,7 +1357,7 @@ struct rustls_str rustls_supported_ciphersuite_get_name(const struct rustls_supp
 enum rustls_tls_version rustls_supported_ciphersuite_protocol_version(const struct rustls_supported_ciphersuite *supported_ciphersuite);
 
 /**
- * Create a rustls_client_config_builder using the process default crypto provider.
+ * Create a `rustls_client_config_builder` using the process default crypto provider.
  *
  * Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
  * then free the resulting `rustls_client_config`.
@@ -1363,13 +1368,14 @@ enum rustls_tls_version rustls_supported_ciphersuite_protocol_version(const stru
  * This uses the process default provider's values for the cipher suites and key
  * exchange groups, as well as safe defaults for protocol versions.
  *
- * This starts out with no trusted roots. Caller must add roots with
- * rustls_client_config_builder_load_roots_from_file or provide a custom verifier.
+ * This starts out with no trusted roots. The caller must provide a verifier with
+ * `rustls_client_config_builder_set_server_verifier` or
+ * `rustls_client_config_builder_dangerous_set_certificate_verifier`.
  */
 struct rustls_client_config_builder *rustls_client_config_builder_new(void);
 
 /**
- * Create a rustls_client_config_builder using the specified crypto provider.
+ * Create a `rustls_client_config_builder` using the specified crypto provider.
  *
  * Caller owns the memory and must eventually call `rustls_client_config_builder_build`,
  * then free the resulting `rustls_client_config`.
@@ -1381,7 +1387,7 @@ struct rustls_client_config_builder *rustls_client_config_builder_new(void);
  * `tls_version` is the version of the protocol, as defined in rfc8446,
  * ch. 4.2.1 and end of ch. 5.1. Some values are defined in
  * `rustls_tls_version` for convenience, and the arrays
- * RUSTLS_DEFAULT_VERSIONS or RUSTLS_ALL_VERSIONS can be used directly.
+ * `RUSTLS_DEFAULT_VERSIONS` or `RUSTLS_ALL_VERSIONS` can be used directly.
  *
  * `tls_versions` will only be used during the call and the application retains
  * ownership. `tls_versions_len` is the number of consecutive `uint16_t`
@@ -1397,13 +1403,13 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_crypto
 
 /**
  * Set a custom server certificate verifier using the builder crypto provider.
- * Returns rustls_result::NoDefaultCryptoProvider if no process default crypto
+ * Returns `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` if no process default crypto
  * provider has been set, and the builder was not constructed with an explicit
  * provider choice.
  *
  * The callback must not capture any of the pointers in its
- * rustls_verify_server_cert_params.
- * If `userdata` has been set with rustls_connection_set_userdata, it
+ * `rustls_verify_server_cert_params`.
+ * If `userdata` has been set with `rustls_connection_set_userdata`, it
  * will be passed to the callback. Otherwise the userdata param passed to
  * the callback will be NULL.
  *
@@ -1418,9 +1424,8 @@ rustls_result rustls_client_config_builder_new_custom(const struct rustls_crypto
  * if you need to parse them.
  *
  * If the custom verifier accepts the certificate, it should return
- * RUSTLS_RESULT_OK. Otherwise, it may return any other rustls_result error.
- * Feel free to use an appropriate error from the RUSTLS_RESULT_CERT_*
- * section.
+ * `RUSTLS_RESULT_OK`. Otherwise, it may return any other `rustls_result` error,
+ * including one of the certificate-related errors.
  *
  * <https://docs.rs/rustls/latest/rustls/client/struct.DangerousClientConfig.html#method.set_certificate_verifier>
  */
@@ -1441,7 +1446,7 @@ void rustls_client_config_builder_set_server_verifier(struct rustls_client_confi
  * `protocols` must point to a buffer of `rustls_slice_bytes` (built by the caller) with `len`
  * elements.
  *
- * Each element of the buffer must be a rustls_slice_bytes whose
+ * Each element of the buffer must be a `rustls_slice_bytes` whose
  * data field points to a single ALPN protocol ID.
  *
  * Standard ALPN protocol IDs are defined at
@@ -1605,16 +1610,17 @@ rustls_result rustls_client_config_builder_enable_ech_grease(struct rustls_clien
                                                              const struct rustls_hpke *hpke);
 
 /**
- * Turn a *rustls_client_config_builder (mutable) into a const *rustls_client_config
+ * Turn a mutable `rustls_client_config_builder` into a const `rustls_client_config`
  * (read-only).
  */
 rustls_result rustls_client_config_builder_build(struct rustls_client_config_builder *builder,
                                                  const struct rustls_client_config **config_out);
 
 /**
- * "Free" a client_config_builder without building it into a rustls_client_config.
+ * "Free" a client_config_builder without building it into a `rustls_client_config`.
  *
- * Normally builders are built into rustls_client_config via `rustls_client_config_builder_build`
+ * Normally builders are built into `rustls_client_config` via
+ * `rustls_client_config_builder_build`.
  * and may not be free'd or otherwise used afterwards.
  *
  * Use free only when the building of a config has to be aborted before a config
@@ -1673,7 +1679,7 @@ rustls_result rustls_client_connection_new(const struct rustls_client_config *co
  *
  * Operates the same as `rustls_client_connection_new`, but allows specifying
  * custom per-connection ALPN protocols instead of inheriting ALPN protocols
- * from the `rustls_clinet_config`.
+ * from the `rustls_client_config`.
  *
  * If this returns `RUSTLS_RESULT_OK`, the memory pointed to by `conn_out` is modified to
  * point at a valid `rustls_connection`. The caller now owns the `rustls_connection`
@@ -1712,7 +1718,7 @@ void rustls_connection_set_userdata(struct rustls_connection *conn, void *userda
 
 /**
  * Set the logging callback for this connection. The log callback will be invoked
- * with the userdata parameter previously set by rustls_connection_set_userdata, or
+ * with the userdata parameter previously set by `rustls_connection_set_userdata`, or
  * NULL if no userdata was set.
  */
 void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_log_callback cb);
@@ -1726,7 +1732,7 @@ void rustls_connection_set_log_callback(struct rustls_connection *conn, rustls_l
  * this is distinct from the `userdata` parameter set with
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
- * from callback. See rustls_read_callback for more details.
+ * from callback. See `rustls_read_callback` for more details.
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
  */
 rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
@@ -1743,7 +1749,7 @@ rustls_io_result rustls_connection_read_tls(struct rustls_connection *conn,
  * this is distinct from the `userdata` parameter set with
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
- * from callback. See rustls_write_callback for more details.
+ * from callback. See `rustls_write_callback` for more details.
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
  */
 rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
@@ -1754,13 +1760,13 @@ rustls_io_result rustls_connection_write_tls(struct rustls_connection *conn,
 /**
  * Write all available TLS bytes to the network. The actual network I/O is performed by
  * `callback`, which you provide. Rustls will invoke your callback with an array
- * of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+ * of `rustls_slice_bytes`, each containing a buffer with TLS bytes to send.
  * You don't have to write them all, just as many as you are willing.
  * The `userdata` parameter is passed through directly to `callback`. Note that
  * this is distinct from the `userdata` parameter set with
  * `rustls_connection_set_userdata`.
  * Returns 0 for success, or an errno value on error. Passes through return values
- * from callback. See rustls_write_callback for more details.
+ * from callback. See `rustls_write_vectored_callback` for more details.
  * <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored>
  */
 rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *conn,
@@ -1771,7 +1777,7 @@ rustls_io_result rustls_connection_write_tls_vectored(struct rustls_connection *
 /**
  * Decrypt any available ciphertext from the internal buffer and put it
  * into the internal plaintext buffer, potentially making bytes available
- * for rustls_connection_read().
+ * for `rustls_connection_read()`.
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets>
  */
 rustls_result rustls_connection_process_new_packets(struct rustls_connection *conn);
@@ -1835,9 +1841,8 @@ rustls_result rustls_connection_refresh_traffic_keys(struct rustls_connection *c
  * in the chain. Requesting an index higher than what is available returns
  * NULL.
  * The returned pointer is valid until the next mutating function call
- * affecting the connection. A mutating function call is one where the
- * first argument has type `struct rustls_connection *` (as opposed to
- *  `const struct rustls_connection *`).
+ * affecting the connection. A mutating function call is one where the first argument is a
+ * mutable pointer to `rustls_connection` (as opposed to a const pointer).
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates>
  */
 const struct rustls_certificate *rustls_connection_get_peer_certificate(const struct rustls_connection *conn,
@@ -1850,9 +1855,8 @@ const struct rustls_certificate *rustls_connection_get_peer_certificate(const st
  * If the connection is still handshaking, or no ALPN protocol was negotiated,
  * stores NULL and 0 in the output parameters.
  * The provided pointer is valid until the next mutating function call
- * affecting the connection. A mutating function call is one where the
- * first argument has type `struct rustls_connection *` (as opposed to
- *  `const struct rustls_connection *`).
+ * affecting the connection. A mutating function call is one where the first argument is a
+ * mutable pointer to `rustls_connection` (as opposed to a const pointer).
  * <https://www.iana.org/assignments/tls-parameters/>
  * <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol>
  */
@@ -1934,8 +1938,8 @@ rustls_result rustls_connection_write(struct rustls_connection *conn,
  * On success, store the number of bytes read in *out_n (this may be less
  * than `count`). A success with *out_n set to 0 means "all bytes currently
  * available have been read, but more bytes may become available after
- * subsequent calls to rustls_connection_read_tls and
- * rustls_connection_process_new_packets."
+ * subsequent calls to `rustls_connection_read_tls` and
+ * `rustls_connection_process_new_packets`."
  *
  * Subtle note: Even though this function only writes to `buf` and does not
  * read from it, the memory in `buf` must be initialized before the call (for
@@ -1954,8 +1958,8 @@ rustls_result rustls_connection_read(struct rustls_connection *conn,
  * On success, store the number of bytes read in *out_n (this may be less
  * than `count`). A success with *out_n set to 0 means "all bytes currently
  * available have been read, but more bytes may become available after
- * subsequent calls to rustls_connection_read_tls and
- * rustls_connection_process_new_packets."
+ * subsequent calls to `rustls_connection_read_tls` and
+ * `rustls_connection_process_new_packets`."
  *
  * This experimental API is only available when using a nightly Rust compiler
  * and enabling the `read_buf` Cargo feature. It will be deprecated and later
@@ -1981,7 +1985,7 @@ rustls_result rustls_connection_read_2(struct rustls_connection *conn,
 bool rustls_connection_fips(const struct rustls_connection *conn);
 
 /**
- * Free a rustls_connection. Calling with NULL is fine.
+ * Free a `rustls_connection`. Calling with NULL is fine.
  * Must not be called twice with the same value.
  */
 void rustls_connection_free(struct rustls_connection *conn);
@@ -1990,9 +1994,9 @@ void rustls_connection_free(struct rustls_connection *conn);
  * Constructs a new `rustls_crypto_provider_builder` using the process-wide default crypto
  * provider as the base crypto provider to be customized.
  *
- * When this function returns `rustls_result::Ok` a pointer to the `rustls_crypto_provider_builder`
- * is written to `builder_out`. It returns `rustls_result::NoDefaultCryptoProvider` if no default
- * provider has been registered.
+ * When this function returns `RUSTLS_RESULT_OK`, a pointer to the
+ * `rustls_crypto_provider_builder` is written to `builder_out`. It returns
+ * `RUSTLS_RESULT_NO_DEFAULT_CRYPTO_PROVIDER` if no default provider has been registered.
  *
  * The caller owns the returned `rustls_crypto_provider_builder` and must free it using
  * `rustls_crypto_provider_builder_free`.
@@ -2126,7 +2130,7 @@ const struct rustls_crypto_provider *rustls_default_fips_provider(void);
  * Retrieve a pointer to the process default `rustls_crypto_provider`.
  *
  * This may return `NULL` if no process default provider has been set using
- * `rustls_crypto_provider_builder_build_default`.
+ * `rustls_crypto_provider_builder_build_as_default`.
  *
  * Caller owns the returned `rustls_crypto_provider` and must free it w/ `rustls_crypto_provider_free`.
  */
@@ -2162,7 +2166,7 @@ const struct rustls_supported_ciphersuite *rustls_crypto_provider_ciphersuites_g
  * the crypto provider in use. The default providers support PKCS#1, PKCS#8 or
  * SEC1 formats.
  *
- * When this function returns `rustls_result::Ok` a pointer to a `rustls_signing_key`
+ * When this function returns `RUSTLS_RESULT_OK`, a pointer to a `rustls_signing_key`
  * is written to `signing_key_out`. The caller owns the returned `rustls_signing_key`
  * and must free it with `rustls_signing_key_free`.
  */
@@ -2276,7 +2280,7 @@ void rustls_error(unsigned int result, char *buf, size_t len, size_t *out_n);
 bool rustls_result_is_cert_error(unsigned int result);
 
 /**
- * Return a rustls_str containing the stringified version of a log level.
+ * Return a `rustls_str` containing the stringified version of a log level.
  */
 struct rustls_str rustls_log_level_str(rustls_log_level level);
 
@@ -2290,7 +2294,8 @@ size_t rustls_slice_slice_bytes_len(const struct rustls_slice_slice_bytes *input
  * Retrieve the nth element from the input slice of slices.
  *
  * If the input pointer is NULL, or n is greater than the length
- * of the `rustls_slice_slice_bytes`, returns rustls_slice_bytes{NULL, 0}.
+ * of the `rustls_slice_slice_bytes`, returns a `rustls_slice_bytes` with a NULL data pointer
+ * and a length of 0.
  */
 struct rustls_slice_bytes rustls_slice_slice_bytes_get(const struct rustls_slice_slice_bytes *input,
                                                        size_t n);
@@ -2306,15 +2311,15 @@ size_t rustls_slice_str_len(const struct rustls_slice_str *input);
  * Retrieve the nth element from the input slice of `&str`s.
  *
  * If the input pointer is NULL, or n is greater than the length of the
- * rustls_slice_str, returns rustls_str{NULL, 0}.
+ * `rustls_slice_str`, returns a `rustls_str` with a NULL data pointer and a length of 0.
  */
 struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, size_t n);
 
 /**
- * Create a rustls_server_config_builder using the process default crypto provider.
+ * Create a `rustls_server_config_builder` using the process default crypto provider.
  *
- * Caller owns the memory and must eventually call rustls_server_config_builder_build,
- * then free the resulting rustls_server_config.
+ * Caller owns the memory and must eventually call `rustls_server_config_builder_build`,
+ * then free the resulting `rustls_server_config`.
  *
  * Alternatively, if an error occurs or, you don't wish to build a config, call
  * `rustls_server_config_builder_free` to free the builder directly.
@@ -2325,10 +2330,10 @@ struct rustls_str rustls_slice_str_get(const struct rustls_slice_str *input, siz
 struct rustls_server_config_builder *rustls_server_config_builder_new(void);
 
 /**
- * Create a rustls_server_config_builder using the specified crypto provider.
+ * Create a `rustls_server_config_builder` using the specified crypto provider.
  *
- * Caller owns the memory and must eventually call rustls_server_config_builder_build,
- * then free the resulting rustls_server_config.
+ * Caller owns the memory and must eventually call `rustls_server_config_builder_build`,
+ * then free the resulting `rustls_server_config`.
  *
  * Alternatively, if an error occurs or, you don't wish to build a config, call
  * `rustls_server_config_builder_free` to free the builder directly.
@@ -2352,7 +2357,7 @@ rustls_result rustls_server_config_builder_new_custom(const struct rustls_crypto
                                                       struct rustls_server_config_builder **builder_out);
 
 /**
- * Create a rustls_server_config_builder for TLS sessions that may verify client
+ * Create a `rustls_server_config_builder` for TLS sessions that may verify client
  * certificates.
  *
  * This increases the refcount of `verifier` and doesn't take ownership.
@@ -2403,9 +2408,10 @@ rustls_result rustls_server_config_builder_set_key_log(struct rustls_server_conf
                                                        rustls_keylog_will_log_callback will_log_cb);
 
 /**
- * "Free" a server_config_builder without building it into a rustls_server_config.
+ * "Free" a server_config_builder without building it into a `rustls_server_config`.
  *
- * Normally builders are built into rustls_server_configs via `rustls_server_config_builder_build`
+ * Normally builders are built into `rustls_server_config` values via
+ * `rustls_server_config_builder_build`.
  * and may not be free'd or otherwise used afterwards.
  *
  * Use free only when the building of a config has to be aborted before a config
@@ -2483,9 +2489,9 @@ rustls_result rustls_server_config_builder_set_certified_keys(struct rustls_serv
                                                               size_t certified_keys_len);
 
 /**
- * Turn a *rustls_server_config_builder (mutable) into a const *rustls_server_config
+ * Turn a mutable `rustls_server_config_builder` into a const `rustls_server_config`
  * (read-only). The constructed `rustls_server_config` will be written to the `config_out`
- * pointer when this function returns `rustls_result::Ok`.
+ * pointer when this function returns `RUSTLS_RESULT_OK`.
  *
  * This function may return an error if no process default crypto provider has been set
  * and the builder was constructed using `rustls_server_config_builder_new`, or if no
@@ -2505,10 +2511,10 @@ rustls_result rustls_server_config_builder_build(struct rustls_server_config_bui
 bool rustls_server_config_fips(const struct rustls_server_config *config);
 
 /**
- * "Free" a rustls_server_config previously returned from
- * rustls_server_config_builder_build.
+ * "Free" a `rustls_server_config` previously returned from
+ * `rustls_server_config_builder_build`.
  *
- * Since rustls_server_config is actually an
+ * Since `rustls_server_config` is actually an
  * atomically reference-counted pointer, extant server connections may still
  * hold an internal reference to the Rust object. However, C code must
  * consider this pointer unusable after "free"ing it.
@@ -2517,16 +2523,16 @@ bool rustls_server_config_fips(const struct rustls_server_config *config);
 void rustls_server_config_free(const struct rustls_server_config *config);
 
 /**
- * Create a new rustls_connection containing a server connection, and return it.
+ * Create a new `rustls_connection` containing a server connection, and return it.
  *
  * It is returned in the output parameter `conn_out`.
  *
  * If this returns an error code, the memory pointed to by `conn_out` remains unchanged.
  *
  * If this returns a non-error, the memory pointed to by `conn_out` is modified to point
- * at a valid rustls_connection
+ * at a valid `rustls_connection`
  *
- * The caller now owns the rustls_connection and must call `rustls_connection_free` when
+ * The caller now owns the `rustls_connection` and must call `rustls_connection_free` when
  * done with it.
  */
 rustls_result rustls_server_connection_new(const struct rustls_server_config *config,
@@ -2537,9 +2543,9 @@ rustls_result rustls_server_connection_new(const struct rustls_server_config *co
  * indication (SNI) extension.
  *
  * The returned `rustls_str` is valid until the next mutating function call affecting the
- * connection. A mutating function call is one where the first argument has type
- * `struct rustls_connection *` (as opposed to `const struct rustls_connection *`). The caller
- * does not need to free the `rustls_str`.
+ * connection. A mutating function call is one where the first argument is a mutable pointer to
+ * `rustls_connection` (as opposed to a const pointer). The caller does not need to free the
+ * `rustls_str`.
  *
  * Returns a zero-length `rustls_str` if:
  *
@@ -2553,7 +2559,7 @@ struct rustls_str rustls_server_connection_get_server_name(const struct rustls_c
 /**
  * Register a callback to be invoked when a connection created from this config
  * sees a TLS ClientHello message. If `userdata` has been set with
- * rustls_connection_set_userdata, it will be passed to the callback.
+ * `rustls_connection_set_userdata`, it will be passed to the callback.
  * Otherwise the userdata param passed to the callback will be NULL.
  *
  * Any existing `ResolvesServerCert` implementation currently installed in the
@@ -2583,7 +2589,7 @@ rustls_result rustls_server_config_builder_set_hello_callback(struct rustls_serv
  * to be the best key with its knowledge about security issues and possible future
  * extensions of the protocol.
  *
- * Return RUSTLS_RESULT_OK if a key was selected and RUSTLS_RESULT_NOT_FOUND
+ * Return `RUSTLS_RESULT_OK` if a key was selected and `RUSTLS_RESULT_NOT_FOUND`
  * if none was suitable.
  */
 rustls_result rustls_client_hello_select_certified_key(const struct rustls_client_hello *hello,
@@ -2599,7 +2605,7 @@ rustls_result rustls_client_hello_select_certified_key(const struct rustls_clien
  * If `builder`, `get_cb`, or `put_cb` are NULL, this function will return
  * immediately without doing anything.
  *
- * If `userdata` has been set with rustls_connection_set_userdata, it
+ * If `userdata` has been set with `rustls_connection_set_userdata`, it
  * will be passed to the callbacks. Otherwise the userdata param passed to
  * the callbacks will be NULL.
  */
@@ -2609,8 +2615,8 @@ void rustls_server_config_builder_set_persistence(struct rustls_server_config_bu
 
 /**
  * Free a `rustls_client_cert_verifier` previously returned from
- * `rustls_client_cert_verifier_builder_build`. Calling with NULL is fine. Must not be
- * called twice with the same value.
+ * `rustls_web_pki_client_cert_verifier_builder_build`. Calling with NULL is fine.
+ * Must not be called twice with the same value.
  */
 void rustls_client_cert_verifier_free(struct rustls_client_cert_verifier *verifier);
 
@@ -2743,8 +2749,8 @@ rustls_result rustls_web_pki_client_cert_verifier_builder_build(struct rustls_we
                                                                 struct rustls_client_cert_verifier **verifier_out);
 
 /**
- * Free a `rustls_client_cert_verifier_builder` previously returned from
- * `rustls_client_cert_verifier_builder_new`.
+ * Free a `rustls_web_pki_client_cert_verifier_builder` previously returned from
+ * `rustls_web_pki_client_cert_verifier_builder_new`.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -2852,8 +2858,8 @@ rustls_result rustls_web_pki_server_cert_verifier_builder_build(struct rustls_we
                                                                 struct rustls_server_cert_verifier **verifier_out);
 
 /**
- * Free a `rustls_server_cert_verifier_builder` previously returned from
- * `rustls_server_cert_verifier_builder_new`.
+ * Free a `rustls_web_pki_server_cert_verifier_builder` previously returned from
+ * `rustls_web_pki_server_cert_verifier_builder_new`.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */
@@ -2894,7 +2900,7 @@ struct rustls_server_cert_verifier *rustls_platform_server_cert_verifier_with_pr
  *
  * If the initialization of `rustls-platform-verifier` fails, this function returns
  * an error and `NULL` is written to `verifier_out`.  Otherwise it fills in `verifier_out`
- * (whose ownership is transferred to the caller) and returns `RUSTLS_SUCCESS`.
+ * (whose ownership is transferred to the caller) and returns `RUSTLS_RESULT_OK`.
  *
  * The verifier can be used in several `rustls_client_config` instances and must be freed by
  * the application using `rustls_server_cert_verifier_free` when no longer needed.
@@ -2906,7 +2912,8 @@ rustls_result rustls_platform_server_cert_verifier_try_with_provider(const struc
 
 /**
  * Free a `rustls_server_cert_verifier` previously returned from
- * `rustls_server_cert_verifier_builder_build` or `rustls_platform_server_cert_verifier`.
+ * `rustls_web_pki_server_cert_verifier_builder_build` or
+ * `rustls_platform_server_cert_verifier`.
  *
  * Calling with NULL is fine. Must not be called twice with the same value.
  */

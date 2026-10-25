@@ -114,7 +114,7 @@ impl rustls_connection {
     }
 
     /// Set the logging callback for this connection. The log callback will be invoked
-    /// with the userdata parameter previously set by rustls_connection_set_userdata, or
+    /// with the userdata parameter previously set by `rustls_connection_set_userdata`, or
     /// NULL if no userdata was set.
     #[no_mangle]
     pub extern "C" fn rustls_connection_set_log_callback(
@@ -134,7 +134,7 @@ impl rustls_connection {
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
-    /// from callback. See rustls_read_callback for more details.
+    /// from callback. See `rustls_read_callback` for more details.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.read_tls>
     #[no_mangle]
     pub extern "C" fn rustls_connection_read_tls(
@@ -171,7 +171,7 @@ impl rustls_connection {
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
-    /// from callback. See rustls_write_callback for more details.
+    /// from callback. See `rustls_write_callback` for more details.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.write_tls>
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls(
@@ -202,13 +202,13 @@ impl rustls_connection {
 
     /// Write all available TLS bytes to the network. The actual network I/O is performed by
     /// `callback`, which you provide. Rustls will invoke your callback with an array
-    /// of rustls_slice_bytes, each containing a buffer with TLS bytes to send.
+    /// of `rustls_slice_bytes`, each containing a buffer with TLS bytes to send.
     /// You don't have to write them all, just as many as you are willing.
     /// The `userdata` parameter is passed through directly to `callback`. Note that
     /// this is distinct from the `userdata` parameter set with
     /// `rustls_connection_set_userdata`.
     /// Returns 0 for success, or an errno value on error. Passes through return values
-    /// from callback. See rustls_write_callback for more details.
+    /// from callback. See `rustls_write_vectored_callback` for more details.
     /// <https://docs.rs/rustls/latest/rustls/struct.Writer.html#method.write_vectored>
     #[no_mangle]
     pub extern "C" fn rustls_connection_write_tls_vectored(
@@ -239,7 +239,7 @@ impl rustls_connection {
 
     /// Decrypt any available ciphertext from the internal buffer and put it
     /// into the internal plaintext buffer, potentially making bytes available
-    /// for rustls_connection_read().
+    /// for `rustls_connection_read()`.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.process_new_packets>
     #[no_mangle]
     pub extern "C" fn rustls_connection_process_new_packets(
@@ -351,9 +351,8 @@ impl rustls_connection {
     /// in the chain. Requesting an index higher than what is available returns
     /// NULL.
     /// The returned pointer is valid until the next mutating function call
-    /// affecting the connection. A mutating function call is one where the
-    /// first argument has type `struct rustls_connection *` (as opposed to
-    ///  `const struct rustls_connection *`).
+    /// affecting the connection. A mutating function call is one where the first argument is a
+    /// mutable pointer to `rustls_connection` (as opposed to a const pointer).
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.peer_certificates>
     #[no_mangle]
     pub extern "C" fn rustls_connection_get_peer_certificate<'a>(
@@ -377,9 +376,8 @@ impl rustls_connection {
     /// If the connection is still handshaking, or no ALPN protocol was negotiated,
     /// stores NULL and 0 in the output parameters.
     /// The provided pointer is valid until the next mutating function call
-    /// affecting the connection. A mutating function call is one where the
-    /// first argument has type `struct rustls_connection *` (as opposed to
-    ///  `const struct rustls_connection *`).
+    /// affecting the connection. A mutating function call is one where the first argument is a
+    /// mutable pointer to `rustls_connection` (as opposed to a const pointer).
     /// <https://www.iana.org/assignments/tls-parameters/>
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.alpn_protocol>
     #[no_mangle]
@@ -546,8 +544,8 @@ impl rustls_connection {
     /// On success, store the number of bytes read in *out_n (this may be less
     /// than `count`). A success with *out_n set to 0 means "all bytes currently
     /// available have been read, but more bytes may become available after
-    /// subsequent calls to rustls_connection_read_tls and
-    /// rustls_connection_process_new_packets."
+    /// subsequent calls to `rustls_connection_read_tls` and
+    /// `rustls_connection_process_new_packets`."
     ///
     /// Subtle note: Even though this function only writes to `buf` and does not
     /// read from it, the memory in `buf` must be initialized before the call (for
@@ -592,8 +590,8 @@ impl rustls_connection {
     /// On success, store the number of bytes read in *out_n (this may be less
     /// than `count`). A success with *out_n set to 0 means "all bytes currently
     /// available have been read, but more bytes may become available after
-    /// subsequent calls to rustls_connection_read_tls and
-    /// rustls_connection_process_new_packets."
+    /// subsequent calls to `rustls_connection_read_tls` and
+    /// `rustls_connection_process_new_packets`."
     ///
     /// This experimental API is only available when using a nightly Rust compiler
     /// and enabling the `read_buf` Cargo feature. It will be deprecated and later
@@ -650,7 +648,7 @@ impl rustls_connection {
         }
     }
 
-    /// Free a rustls_connection. Calling with NULL is fine.
+    /// Free a `rustls_connection`. Calling with NULL is fine.
     /// Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_connection_free(conn: *mut rustls_connection) {

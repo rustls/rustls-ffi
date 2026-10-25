@@ -90,7 +90,8 @@ pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_
 /// Retrieve the nth element from the input slice of slices.
 ///
 /// If the input pointer is NULL, or n is greater than the length
-/// of the `rustls_slice_slice_bytes`, returns rustls_slice_bytes{NULL, 0}.
+/// of the `rustls_slice_slice_bytes`, returns a `rustls_slice_bytes` with a NULL data pointer
+/// and a length of 0.
 #[no_mangle]
 pub extern "C" fn rustls_slice_slice_bytes_get(
     input: *const rustls_slice_slice_bytes,
@@ -187,10 +188,10 @@ impl Default for rustls_str<'_> {
     }
 }
 
-/// rustls_str represents a string that can be passed to C code.
+/// `rustls_str` represents a string that can be passed to C code.
 ///
 /// The string should not have any internal NUL bytes and is not NUL terminated.
-/// C code should not create rustls_str objects, they should only be created in Rust
+/// C code should not create `rustls_str` objects, they should only be created in Rust
 /// code.
 impl rustls_str<'_> {
     pub fn from_str_unchecked(s: &'static str) -> rustls_str<'static> {
@@ -201,16 +202,16 @@ impl rustls_str<'_> {
         }
     }
 
-    /// Change a rustls_str's lifetime to 'static.
+    /// Change a `rustls_str`'s lifetime to 'static.
     ///
     /// This doesn't actually change how long the pointed-to data lives, but
-    /// is necessary when returning a rustls_str (as opposed to passing it
+    /// is necessary when returning a `rustls_str` (as opposed to passing it
     /// into a callback), because Rust can't figure out the "real" lifetime.
     ///
     /// # Safety
     ///
     /// The caller is responsible for requiring (usually via
-    /// documentation) that nothing uses the resulting rustls_str past its
+    /// documentation) that nothing uses the resulting `rustls_str` past its
     /// actual validity period. The validity period is somewhat ill-defined
     /// at present, but the Stacked Borrows experiment provides one definition,
     /// by which a shared reference is valid until a mutable reference (to
@@ -219,11 +220,11 @@ impl rustls_str<'_> {
         std::mem::transmute(self)
     }
 
-    /// Change a rustls_str back to a &str.
+    /// Change a `rustls_str` back to a &str.
     ///
     /// # Safety
     ///
-    /// The caller must ensure the rustls_str data is valid utf8
+    /// The caller must ensure the `rustls_str` data is valid utf8
     pub unsafe fn to_str(&self) -> &str {
         str::from_utf8_unchecked(slice::from_raw_parts(self.data as *const u8, self.len))
     }
@@ -322,7 +323,7 @@ pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t
 /// Retrieve the nth element from the input slice of `&str`s.
 ///
 /// If the input pointer is NULL, or n is greater than the length of the
-/// rustls_slice_str, returns rustls_str{NULL, 0}.
+/// `rustls_slice_str`, returns a `rustls_str` with a NULL data pointer and a length of 0.
 #[no_mangle]
 pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t) -> rustls_str {
     let input: &rustls_slice_str = unsafe {
