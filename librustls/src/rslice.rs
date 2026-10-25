@@ -89,9 +89,12 @@ pub extern "C" fn rustls_slice_slice_bytes_len(input: *const rustls_slice_slice_
 
 /// Retrieve the nth element from the input slice of slices.
 ///
-/// If the input pointer is NULL, or n is greater than the length
+/// If the input pointer is NULL, or `n` is greater than or equal to the length
 /// of the `rustls_slice_slice_bytes`, returns a `rustls_slice_bytes` with a NULL data pointer
 /// and a length of 0.
+///
+/// Otherwise, the returned byte slice borrows its data from `input`. It remains valid for the
+/// same lifetime as `input` and must not be freed.
 #[no_mangle]
 pub extern "C" fn rustls_slice_slice_bytes_get(
     input: *const rustls_slice_slice_bytes,
@@ -322,8 +325,11 @@ pub extern "C" fn rustls_slice_str_len(input: *const rustls_slice_str) -> size_t
 
 /// Retrieve the nth element from the input slice of `&str`s.
 ///
-/// If the input pointer is NULL, or n is greater than the length of the
+/// If the input pointer is NULL, or `n` is greater than or equal to the length of the
 /// `rustls_slice_str`, returns a `rustls_str` with a NULL data pointer and a length of 0.
+///
+/// Otherwise, the returned string borrows its data from `input`. It remains valid for the same
+/// lifetime as `input` and must not be freed.
 #[no_mangle]
 pub extern "C" fn rustls_slice_str_get(input: *const rustls_slice_str, n: size_t) -> rustls_str {
     let input: &rustls_slice_str = unsafe {

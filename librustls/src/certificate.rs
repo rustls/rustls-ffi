@@ -30,8 +30,13 @@ impl<'a> Castable for rustls_certificate<'a> {
     type RustType = CertificateDer<'a>;
 }
 
-/// Get the DER data of the certificate itself.
-/// The data is owned by the certificate and has the same lifetime.
+/// Get the certificate's DER data.
+///
+/// On success, `out_der_data` receives a borrowed pointer and `out_der_len` receives its length.
+/// The data remains owned by `cert` and is valid only as long as `cert`. The caller must not
+/// modify or free it.
+///
+/// On error, the output parameters are unchanged.
 #[no_mangle]
 pub extern "C" fn rustls_certificate_get_der(
     cert: *const rustls_certificate,
@@ -91,7 +96,9 @@ impl rustls_certified_key {
     ///
     /// This function does not take ownership of any of its input pointers. It
     /// parses the pointed-to data and makes a copy of the result. You may
-    /// free the cert_chain and private_key pointers after calling it.
+    /// free the `cert_chain` and `private_key` buffers after calling it.
+    ///
+    /// `certified_key_out` is unchanged if the function returns an error.
     ///
     /// Typically, you will build a `rustls_certified_key`, use it to create a
     /// `rustls_server_config` (which increments the reference count), and then
@@ -155,9 +162,14 @@ impl rustls_certified_key {
     /// may retain a pointer to the object. The memory will be freed when all
     /// references are gone.
     ///
-    /// This function does not take ownership of any of its input pointers. It
-    /// parses the pointed-to data and makes a copy of the result. You may
-    /// free the cert_chain and private_key pointers after calling it.
+    /// This function copies the `cert_chain` data and does not take ownership of
+    /// that buffer. Once the `cert_chain` pointer has been validated, the function
+    /// takes ownership of `signing_key`, including when a later operation returns
+    /// an error. The caller must not use or free the signing key afterward. If
+    /// `cert_chain` is NULL, the function returns `RUSTLS_RESULT_NULL_PARAMETER`
+    /// without consuming `signing_key`.
+    ///
+    /// `certified_key_out` is unchanged if the function returns an error.
     ///
     /// Typically, you will build a `rustls_certified_key`, use it to create a
     /// `rustls_server_config` (which increments the reference count), and then
@@ -218,8 +230,9 @@ impl rustls_certified_key {
     /// The OCSP response may be given as NULL to clear any possibly present OCSP
     /// data from the cloned key.
     ///
-    /// The cloned key is independent from its original and needs to be freed
-    /// by the application.
+    /// The function copies `ocsp_response` and does not take ownership of either input.
+    /// On success, `cloned_key_out` receives an independently owned key that the caller must
+    /// free with `rustls_certified_key_free`. On error, `cloned_key_out` is unchanged.
     #[no_mangle]
     pub extern "C" fn rustls_certified_key_clone_with_ocsp(
         certified_key: *const rustls_certified_key,
@@ -296,11 +309,9 @@ pub(crate) struct RootCertStoreBuilder {
 impl rustls_root_cert_store_builder {
     /// Create a `rustls_root_cert_store_builder`.
     ///
-    /// Caller owns the memory and may free it with `rustls_root_cert_store_free`, regardless of
-    /// whether `rustls_root_cert_store_builder_build` was called.
-    ///
-    /// If you wish to abandon the builder without calling `rustls_root_cert_store_builder_build`,
-    /// it must be freed with `rustls_root_cert_store_builder_free`.
+    /// The caller owns the returned builder and must eventually free it with
+    /// `rustls_root_cert_store_builder_free`, whether or not
+    /// `rustls_root_cert_store_builder_build` is called.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_builder_new() -> *mut rustls_root_cert_store_builder {
         ffi_panic_boundary! {
@@ -318,6 +329,8 @@ impl rustls_root_cert_store_builder {
     /// When `strict` is false, unparseable root certificates will be ignored.
     /// This may be useful on systems that have syntactically invalid root
     /// certificates.
+    ///
+    /// This function copies the parsed certificates and does not retain `pem`.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_builder_add_pem(
         builder: *mut rustls_root_cert_store_builder,
@@ -363,6 +376,9 @@ impl rustls_root_cert_store_builder {
     /// When `strict` is false, unparseable root certificates will be ignored.
     /// This may be useful on systems that have syntactically invalid root
     /// certificates.
+    ///
+    /// `filename` must be a NUL-terminated UTF-8 string. It is borrowed for the
+    /// duration of the call and is not retained.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_builder_load_roots_from_file(
         builder: *mut rustls_root_cert_store_builder,
@@ -411,9 +427,9 @@ impl rustls_root_cert_store_builder {
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
     ///
-    /// The root cert store can be used in several `rustls_web_pki_client_cert_verifier_builder_new`
-    /// instances and must be freed by the application when no longer needed. See the documentation of
-    /// `rustls_root_cert_store_free` for details about lifetime.
+    /// On success, `root_cert_store_out` receives a new root certificate store. The caller owns
+    /// it and must free it with `rustls_root_cert_store_free` when no longer needed. The store can
+    /// be used in multiple verifier builders.
     #[no_mangle]
     pub extern "C" fn rustls_root_cert_store_builder_build(
         builder: *mut rustls_root_cert_store_builder,

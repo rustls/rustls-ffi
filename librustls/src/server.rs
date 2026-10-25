@@ -114,15 +114,21 @@ impl rustls_server_config_builder {
     /// Alternatively, if an error occurs or, you don't wish to build a config, call
     /// `rustls_server_config_builder_free` to free the builder directly.
     ///
-    /// `tls_versions` set the TLS protocol versions to use when negotiating a TLS session.
-    ///
-    /// `tls_versions` is the version of the protocol, as defined in rfc8446,
-    /// ch. 4.2.1 and end of ch. 5.1. Some values are defined in
+    /// `tls_versions` sets the TLS protocol versions to use when negotiating a TLS session.
+    /// Each value is a protocol version as defined in RFC 8446, sections 4.2.1 and 5.1.
+    /// Some values are defined in
     /// `rustls_tls_version` for convenience.
     ///
     /// `tls_versions` will only be used during the call and the application retains
     /// ownership. `tls_versions_len` is the number of consecutive `uint16_t` pointed
     /// to by `tls_versions`.
+    ///
+    /// On `RUSTLS_RESULT_OK`, `builder_out` receives a builder owned by the caller.
+    /// It must eventually be passed to `rustls_server_config_builder_build` or freed with
+    /// `rustls_server_config_builder_free`. On error, `builder_out` is unchanged.
+    ///
+    /// The function borrows `provider` for the duration of the call and retains its own
+    /// reference afterward.
     ///
     /// Ciphersuites are configured separately via the crypto provider. See
     /// `rustls_crypto_provider_builder_set_cipher_suites` for more information.
@@ -245,14 +251,11 @@ impl rustls_server_config_builder {
         }
     }
 
-    /// "Free" a server_config_builder without building it into a `rustls_server_config`.
+    /// Free a `rustls_server_config_builder` without building it into a
+    /// `rustls_server_config`.
     ///
-    /// Normally builders are built into `rustls_server_config` values via
-    /// `rustls_server_config_builder_build`.
-    /// and may not be free'd or otherwise used afterwards.
-    ///
-    /// Use free only when the building of a config has to be aborted before a config
-    /// was created.
+    /// Do not call this after `rustls_server_config_builder_build`, which consumes and frees the
+    /// builder. Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_builder_free(config: *mut rustls_server_config_builder) {
         ffi_panic_boundary! {
@@ -381,6 +384,12 @@ impl rustls_server_config_builder {
     /// (read-only). The constructed `rustls_server_config` will be written to the `config_out`
     /// pointer when this function returns `RUSTLS_RESULT_OK`.
     ///
+    /// This function takes ownership of `builder`. The caller must not use or free the builder
+    /// after calling this function, regardless of the result.
+    ///
+    /// On `RUSTLS_RESULT_OK`, `config_out` receives a config owned by the caller, which must
+    /// eventually be freed with `rustls_server_config_free`. On error, `config_out` is unchanged.
+    ///
     /// This function may return an error if no process default crypto provider has been set
     /// and the builder was constructed using `rustls_server_config_builder_new`, or if no
     /// certificate resolver was set.
@@ -475,6 +484,9 @@ impl rustls_server_config {
     ///
     /// The caller now owns the `rustls_connection` and must call `rustls_connection_free` when
     /// done with it.
+    ///
+    /// The connection retains an internal reference to `config`. This function
+    /// does not take ownership of the caller's config pointer.
     #[no_mangle]
     pub extern "C" fn rustls_server_connection_new(
         config: *const rustls_server_config,
@@ -754,6 +766,12 @@ fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
 ///
 /// Return `RUSTLS_RESULT_OK` if a key was selected and `RUSTLS_RESULT_NOT_FOUND`
 /// if none was suitable.
+///
+/// On success, `out_key` is set to one of the pointers from `certified_keys`. The function does
+/// not take ownership or increment the reference count. The returned pointer remains valid only
+/// while the caller keeps the corresponding input key alive and must not be freed separately.
+///
+/// On error, `out_key` is unchanged.
 #[no_mangle]
 pub extern "C" fn rustls_client_hello_select_certified_key(
     hello: *const rustls_client_hello,

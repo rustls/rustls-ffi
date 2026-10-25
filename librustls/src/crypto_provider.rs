@@ -69,6 +69,8 @@ impl CryptoProviderBuilder {
 /// The caller owns the returned `rustls_crypto_provider_builder` and must free it using
 /// `rustls_crypto_provider_builder_free`.
 ///
+/// On error, `builder_out` is unchanged.
+///
 /// This function is typically used for customizing the default crypto provider for specific
 /// connections. For example, a typical workflow might be to:
 ///
@@ -114,6 +116,9 @@ pub extern "C" fn rustls_crypto_provider_builder_new_from_default(
 ///
 /// The caller owns the returned `rustls_crypto_provider_builder` and must free it using
 /// `rustls_crypto_provider_builder_free`.
+///
+/// This function does not take ownership of `base`. The builder retains its own
+/// reference.
 ///
 /// This function can be used for setting the default process wide crypto provider,
 /// or for constructing a custom crypto provider for a specific connection. A typical
@@ -178,6 +183,9 @@ pub extern "C" fn rustls_crypto_provider_builder_set_cipher_suites(
 /// The `rustls_crypto_provider_builder` builder is consumed and should not be used
 /// for further calls, except to `rustls_crypto_provider_builder_free`. The caller must
 /// still free the builder after a successful build.
+///
+/// On `RUSTLS_RESULT_OK`, `provider_out` receives a provider owned by the caller, which must
+/// eventually be freed with `rustls_crypto_provider_free`. On error, `provider_out` is unchanged.
 #[no_mangle]
 pub extern "C" fn rustls_crypto_provider_builder_build(
     builder: *mut rustls_crypto_provider_builder,
@@ -277,7 +285,8 @@ pub extern "C" fn rustls_default_fips_provider() -> *const rustls_crypto_provide
 /// This may return `NULL` if no process default provider has been set using
 /// `rustls_crypto_provider_builder_build_as_default`.
 ///
-/// Caller owns the returned `rustls_crypto_provider` and must free it w/ `rustls_crypto_provider_free`.
+/// The caller owns the returned `rustls_crypto_provider` and must free it with
+/// `rustls_crypto_provider_free`.
 #[no_mangle]
 pub extern "C" fn rustls_crypto_provider_default() -> *const rustls_crypto_provider {
     ffi_panic_boundary! {
@@ -320,7 +329,8 @@ pub extern "C" fn rustls_crypto_provider_ciphersuites_len(
 /// with respect to `rustls_crypto_provider_ciphersuites_len`.
 ///
 /// The lifetime of the returned `rustls_supported_ciphersuite` is equal to the lifetime of the
-/// `provider` and should not be used after the `provider` is freed.
+/// `provider` and should not be used after the `provider` is freed. The returned pointer is
+/// borrowed and must not be freed.
 #[no_mangle]
 pub extern "C" fn rustls_crypto_provider_ciphersuites_get(
     provider: *const rustls_crypto_provider,
@@ -344,6 +354,9 @@ pub extern "C" fn rustls_crypto_provider_ciphersuites_get(
 /// When this function returns `RUSTLS_RESULT_OK`, a pointer to a `rustls_signing_key`
 /// is written to `signing_key_out`. The caller owns the returned `rustls_signing_key`
 /// and must free it with `rustls_signing_key_free`.
+///
+/// The function copies the private key data and does not retain `private_key`. On error,
+/// `signing_key_out` is unchanged.
 #[no_mangle]
 pub extern "C" fn rustls_crypto_provider_load_key(
     provider: *const rustls_crypto_provider,
@@ -440,7 +453,8 @@ pub extern "C" fn rustls_default_crypto_provider_ciphersuites_len() -> usize {
 /// with respect to `rustls_default_crypto_provider_ciphersuites_len`.
 ///
 /// The lifetime of the returned `rustls_supported_ciphersuite` is static, as the process-wide
-/// default provider lives for as long as the process.
+/// default provider lives for as long as the process. The returned pointer is borrowed and must
+/// not be freed.
 #[no_mangle]
 pub extern "C" fn rustls_default_crypto_provider_ciphersuites_get(
     index: usize,

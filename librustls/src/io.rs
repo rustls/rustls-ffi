@@ -6,9 +6,9 @@ use crate::error::rustls_io_result;
 
 /// A callback for `rustls_connection_read_tls`.
 ///
-/// An implementation of this callback should attempt to read up to n bytes from the
+/// An implementation of this callback should attempt to read up to `n` bytes from the
 /// network, storing them in `buf`. If any bytes were stored, the implementation should
-/// set out_n to the number of bytes stored and return 0.
+/// set `out_n` to the number of bytes stored and return 0.
 ///
 /// If there was an error, the implementation should return a nonzero `rustls_io_result`,
 /// which will be passed through to the caller.
@@ -20,10 +20,10 @@ use crate::error::rustls_io_result;
 /// It's best to make one read attempt to the network per call. Additional reads will
 /// be triggered by subsequent calls to one of the `_read_tls` methods.
 ///
-/// `userdata` is set to the value provided to `rustls_connection_set_userdata`.
-/// In most cases that should be a struct that contains, at a minimum, a file descriptor.
+/// `userdata` is the value passed to the function invoking this callback. In most cases that
+/// should point to a struct containing, at a minimum, a file descriptor.
 ///
-/// The buf and out_n pointers are borrowed and should not be retained across calls.
+/// The `buf` and `out_n` pointers are borrowed and should not be retained across calls.
 pub type rustls_read_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,
@@ -59,11 +59,11 @@ impl Read for CallbackReader {
 
 /// A callback for `rustls_connection_write_tls` or `rustls_accepted_alert_write_tls`.
 ///
-/// An implementation of this callback should attempt to write the `n` bytes in buf
+/// An implementation of this callback should attempt to write the `n` bytes in `buf`
 /// to the network.
 ///
 /// If any bytes were written, the implementation should set `out_n` to the number of
-/// bytes stored and return 0.
+/// bytes written and return 0.
 ///
 /// If there was an error, the implementation should return a nonzero `rustls_io_result`,
 /// which will be passed through to the caller.
@@ -75,10 +75,10 @@ impl Read for CallbackReader {
 /// It's best to make one write attempt to the network per call. Additional writes will
 /// be triggered by subsequent calls to `rustls_connection_write_tls`.
 ///
-/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
-/// cases that should be a struct that contains, at a minimum, a file descriptor.
+/// `userdata` is the value passed to the function invoking this callback. In most cases that
+/// should point to a struct containing, at a minimum, a file descriptor.
 ///
-/// The buf and out_n pointers are borrowed and should not be retained across calls.
+/// The `buf` and `out_n` pointers are borrowed and should not be retained across calls.
 pub type rustls_write_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,
@@ -132,7 +132,7 @@ pub struct rustls_iovec {
 /// An implementation of this callback should attempt to write the bytes in
 /// the given `count` iovecs to the network.
 ///
-/// If any bytes were written, the implementation should set out_n to the number of
+/// If any bytes were written, the implementation should set `out_n` to the number of
 /// bytes written and return 0.
 ///
 /// If there was an error, the implementation should return a nonzero `rustls_io_result`,
@@ -145,10 +145,10 @@ pub struct rustls_iovec {
 /// It's best to make one write attempt to the network per call. Additional write will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 ///
-/// `userdata` is set to the value provided to `rustls_connection_set_userdata`. In most
-/// cases that should be a struct that contains, at a minimum, a file descriptor.
+/// `userdata` is the value passed to the function invoking this callback. In most cases that
+/// should point to a struct containing, at a minimum, a file descriptor.
 ///
-/// The iov and out_n pointers are borrowed and should not be retained across calls.
+/// The `iov` and `out_n` pointers are borrowed and should not be retained across calls.
 pub type rustls_write_vectored_callback = Option<
     unsafe extern "C" fn(
         userdata: *mut c_void,

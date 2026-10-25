@@ -49,6 +49,8 @@ pub(crate) fn ensure_log_registered() {
 pub type rustls_log_level = usize;
 
 /// Return a `rustls_str` containing the stringified version of a log level.
+///
+/// The returned string has static lifetime and does not need to be freed.
 #[no_mangle]
 pub extern "C" fn rustls_log_level_str(level: rustls_log_level) -> rustls_str<'static> {
     let s = match level {
@@ -72,6 +74,9 @@ pub struct rustls_log_params<'a> {
 }
 
 /// A callback that is invoked for messages logged by rustls.
+///
+/// `params` and the message it references are borrowed and valid only for the duration of the
+/// callback. `userdata` is the value set with `rustls_connection_set_userdata`.
 #[expect(non_camel_case_types)]
 pub type rustls_log_callback =
     Option<unsafe extern "C" fn(userdata: *mut c_void, params: *const rustls_log_params)>;

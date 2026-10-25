@@ -210,12 +210,15 @@ pub enum rustls_result {
 }
 
 impl rustls_result {
-    /// After a rustls function returns an error, you may call
-    /// this to get a pointer to a buffer containing a detailed error
-    /// message.
+    /// After a rustls function returns an error, you may call this to write a detailed error
+    /// message into the caller-provided `buf`.
     ///
-    /// The contents of the error buffer will be out_n bytes long,
-    /// UTF-8 encoded, and not NUL-terminated.
+    /// This writes at most `len` bytes and stores the number written in `out_n`. If the full
+    /// message is longer than `len`, it is truncated. The output is UTF-8 encoded and is not
+    /// NUL-terminated.
+    ///
+    /// If `buf` or `out_n` is NULL, this function does nothing. The caller retains ownership of
+    /// `buf`, and the function does not retain it.
     #[no_mangle]
     pub extern "C" fn rustls_error(
         result: c_uint,

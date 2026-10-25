@@ -101,8 +101,9 @@ impl rustls_web_pki_client_cert_verifier_builder {
     /// Unauthenticated clients will not be permitted unless
     /// `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
     ///
-    /// This copies the contents of the `rustls_root_cert_store`. It does not take
-    /// ownership of the pointed-to data.
+    /// This does not take ownership of `store`. The builder retains its own
+    /// reference, so the caller may free its root certificate store pointer after
+    /// this function returns.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_new(
         store: *const rustls_root_cert_store,
@@ -144,8 +145,9 @@ impl rustls_web_pki_client_cert_verifier_builder {
     /// Unauthenticated clients will not be permitted unless
     /// `rustls_web_pki_client_cert_verifier_builder_allow_unauthenticated` is used.
     ///
-    /// This copies the contents of the `rustls_root_cert_store`. It does not take
-    /// ownership of the pointed-to data.
+    /// This does not take ownership of `provider` or `store`. The builder retains
+    /// its own references, so the caller may free both input pointers after this
+    /// function returns.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_new_with_provider(
         provider: *const rustls_crypto_provider,
@@ -174,6 +176,8 @@ impl rustls_web_pki_client_cert_verifier_builder {
     /// `rustls_web_pki_client_cert_verifier_only_check_end_entity_revocation`.
     ///
     /// This function returns an error if the provided buffer is not valid PEM encoded content.
+    ///
+    /// It copies the parsed CRLs and does not retain `crl_pem`.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_add_crl(
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
@@ -313,9 +317,10 @@ impl rustls_web_pki_client_cert_verifier_builder {
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
     ///
-    /// The verifier can be used in several `rustls_server_config` instances and must be
-    /// freed by the application when no longer needed. See the documentation of
-    /// `rustls_web_pki_client_cert_verifier_builder_free` for details about lifetime.
+    /// On `RUSTLS_RESULT_OK`, `verifier_out` receives a verifier owned by the caller. It can be
+    /// used in several `rustls_server_config` instances and must be freed with
+    /// `rustls_client_cert_verifier_free` when no longer needed. On error, `verifier_out` is
+    /// unchanged.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_client_cert_verifier_builder_build(
         builder: *mut rustls_web_pki_client_cert_verifier_builder,
@@ -426,8 +431,9 @@ impl ServerCertVerifierBuilder {
     /// an error unless `rustls_web_pki_server_cert_verifier_allow_unknown_revocation_status` is
     /// used.
     ///
-    /// This copies the contents of the `rustls_root_cert_store`. It does not take
-    /// ownership of the pointed-to data.
+    /// This does not take ownership of `store`. The builder retains its own
+    /// reference, so the caller may free its root certificate store pointer after
+    /// this function returns.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_new(
         store: *const rustls_root_cert_store,
@@ -464,8 +470,9 @@ impl ServerCertVerifierBuilder {
     /// used. Expired CRLs will not be treated as an error unless
     /// `rustls_web_pki_server_cert_verifier_enforce_revocation_expiry` is used.
     ///
-    /// This copies the contents of the `rustls_root_cert_store`. It does not take
-    /// ownership of the pointed-to data.
+    /// This does not take ownership of `provider` or `store`. The builder retains
+    /// its own references, so the caller may free both input pointers after this
+    /// function returns.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_new_with_provider(
         provider: *const rustls_crypto_provider,
@@ -493,6 +500,8 @@ impl ServerCertVerifierBuilder {
     /// `rustls_web_pki_server_cert_verifier_only_check_end_entity_revocation`.
     ///
     /// This function returns an error if the provided buffer is not valid PEM encoded content.
+    ///
+    /// It copies the parsed CRLs and does not retain `crl_pem`.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_add_crl(
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
@@ -588,9 +597,10 @@ impl ServerCertVerifierBuilder {
     ///
     /// The builder is consumed and cannot be used again, but must still be freed.
     ///
-    /// The verifier can be used in several `rustls_client_config` instances and must be
-    /// freed by the application when no longer needed. See the documentation of
-    /// `rustls_web_pki_server_cert_verifier_builder_free` for details about lifetime.
+    /// On `RUSTLS_RESULT_OK`, `verifier_out` receives a verifier owned by the caller. It can be
+    /// used in several `rustls_client_config` instances and must be freed with
+    /// `rustls_server_cert_verifier_free` when no longer needed. On error, `verifier_out` is
+    /// unchanged.
     #[no_mangle]
     pub extern "C" fn rustls_web_pki_server_cert_verifier_builder_build(
         builder: *mut rustls_web_pki_server_cert_verifier_builder,
@@ -673,6 +683,8 @@ impl rustls_server_cert_verifier {
     ///
     /// The verifier can be used in several `rustls_client_config` instances and must be freed by
     /// the application using `rustls_server_cert_verifier_free` when no longer needed.
+    ///
+    /// On error, `verifier_out` is unchanged.
     ///
     /// [`rustls-platform-verifier`]: https://github.com/rustls/rustls-platform-verifier
     #[no_mangle]
