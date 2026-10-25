@@ -243,7 +243,7 @@ impl rustls_result {
         }
     }
 
-    /// Returns true if the `result` is a certificate related error.
+    /// Returns true if the `result` is a certificate-related error.
     #[no_mangle]
     pub extern "C" fn rustls_result_is_cert_error(result: c_uint) -> bool {
         use rustls_result::*;

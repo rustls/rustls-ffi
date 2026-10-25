@@ -326,7 +326,8 @@ impl rustls_connection {
         }
     }
 
-    /// Queues a close_notify fatal alert to be sent in the next write_tls call.
+    /// Queues a close_notify alert to be sent by the next call to
+    /// `rustls_connection_write_tls()`.
     /// <https://docs.rs/rustls/latest/rustls/enum.Connection.html#method.send_close_notify>
     #[no_mangle]
     pub extern "C" fn rustls_connection_send_close_notify(conn: *mut rustls_connection) {
@@ -526,7 +527,7 @@ impl rustls_connection {
     /// Write up to `count` plaintext bytes from `buf` into the `rustls_connection`.
     /// This will increase the number of output bytes available to
     /// `rustls_connection_write_tls`.
-    /// On success, store the number of bytes actually written in *out_n
+    /// On success, store the number of bytes actually written in `*out_n`
     /// (this may be less than `count`).
     ///
     /// This function borrows `buf` for the duration of the call and does not retain it.
@@ -557,11 +558,11 @@ impl rustls_connection {
     }
 
     /// Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
-    /// On success, store the number of bytes read in *out_n (this may be less
-    /// than `count`). A success with *out_n set to 0 means "all bytes currently
+    /// On success, store the number of bytes read in `*out_n` (this may be less
+    /// than `count`). A success with `*out_n` set to 0 means "all bytes currently
     /// available have been read, but more bytes may become available after
     /// subsequent calls to `rustls_connection_read_tls` and
-    /// `rustls_connection_process_new_packets`."
+    /// `rustls_connection_process_new_packets`.
     ///
     /// Subtle note: Even though this function only writes to `buf` and does not
     /// read from it, the memory in `buf` must be initialized before the call (for
@@ -605,11 +606,11 @@ impl rustls_connection {
     }
 
     /// Read up to `count` plaintext bytes from the `rustls_connection` into `buf`.
-    /// On success, store the number of bytes read in *out_n (this may be less
-    /// than `count`). A success with *out_n set to 0 means "all bytes currently
+    /// On success, store the number of bytes read in `*out_n` (this may be less
+    /// than `count`). A success with `*out_n` set to 0 means "all bytes currently
     /// available have been read, but more bytes may become available after
     /// subsequent calls to `rustls_connection_read_tls` and
-    /// `rustls_connection_process_new_packets`."
+    /// `rustls_connection_process_new_packets`.
     ///
     /// This experimental API is only available when using a nightly Rust compiler
     /// and enabling the `read_buf` Cargo feature. It will be deprecated and later

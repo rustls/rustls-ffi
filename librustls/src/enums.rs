@@ -68,14 +68,14 @@ pub enum rustls_handshake_kind {
     /// A full TLS handshake.
     ///
     /// This is the typical TLS connection initiation process when resumption is
-    /// not yet unavailable, and the initial client hello was accepted by the server.
+    /// unavailable and the initial ClientHello is accepted by the server.
     Full = 0x1,
 
     /// A full TLS handshake, with an extra round-trip for a hello retry request.
     ///
-    /// The server can respond with a hello retry request (HRR) if the initial client
-    /// hello is unacceptable for several reasons, the most likely if no supported key
-    /// shares were offered by the client.
+    /// The server can respond with a hello retry request (HRR) if the initial ClientHello
+    /// is unacceptable for several reasons, the most likely being that the client offered
+    /// no supported key shares.
     FullWithHelloRetryRequest = 0x2,
 
     /// A resumed TLS handshake.

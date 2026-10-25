@@ -31,7 +31,7 @@ use crate::server::rustls_server_config;
 ///
 /// - `rustls_acceptor_new()`
 /// - Loop:
-///   - Read bytes from the network it with `rustls_acceptor_read_tls()`.
+///   - Read bytes from the network with `rustls_acceptor_read_tls()`.
 ///   - If successful, parse those bytes with `rustls_acceptor_accept()`.
 ///   - If that returns `RUSTLS_RESULT_ACCEPTOR_NOT_READY`, continue.
 ///   - Otherwise, break.
@@ -255,7 +255,7 @@ impl rustls_accepted {
         }
     }
 
-    /// Get the i'th in the list of signature schemes offered in the ClientHello.
+    /// Get the i-th entry in the list of signature schemes offered in the ClientHello.
     ///
     /// This is useful in selecting a server certificate when there are multiple
     /// available for the same server name, for instance when selecting
@@ -295,7 +295,7 @@ impl rustls_accepted {
         }
     }
 
-    /// Get the i'th in the list of cipher suites offered in the ClientHello.
+    /// Get the i-th entry in the list of cipher suites offered in the ClientHello.
     ///
     /// **Parameters:**
     ///
@@ -304,7 +304,7 @@ impl rustls_accepted {
     ///
     /// **Returns:**
     ///
-    /// A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4.>
+    /// A cipher suite value from <https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-4>
     ///
     /// This will be 0 in these cases:
     ///
@@ -334,7 +334,7 @@ impl rustls_accepted {
         }
     }
 
-    /// Get the i'th in the list of ALPN protocols requested in the ClientHello.
+    /// Get the i-th entry in the list of ALPN protocols requested in the ClientHello.
     ///
     /// **Parameters:**
     ///
@@ -343,7 +343,7 @@ impl rustls_accepted {
     ///
     /// **Returns:**
     ///
-    /// A `rustls_slice_bytes` containing the i'th ALPN protocol. This may
+    /// A `rustls_slice_bytes` containing the i-th ALPN protocol. This may
     /// contain internal NUL bytes and is not guaranteed to contain valid
     /// UTF-8.
     ///

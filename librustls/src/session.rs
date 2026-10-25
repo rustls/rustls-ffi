@@ -13,7 +13,7 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// `rustls_server_config` or `rustls_client_config`.
 ///
 /// This callback will be invoked by a TLS session when looking up the data
-/// for a TLS session id.
+/// for a TLS session ID.
 ///
 /// `userdata` will be supplied based on `rustls_connection_set_userdata`.
 ///
@@ -30,13 +30,13 @@ pub type rustls_session_store_userdata = *mut c_void;
 /// retrieved and written in its entirety into `buf`, or `RUSTLS_RESULT_NOT_FOUND`
 /// if no session was retrieved.
 ///
-/// When `remove_after` is != 0, the returned data needs to be removed
+/// When `remove_after` is nonzero, the returned data needs to be removed
 /// from the store.
 ///
-/// NOTE: the passed in `key` and `buf` are only available during the
-/// callback invocation.
-/// NOTE: callbacks used in several sessions via a common config
-/// must be implemented thread-safe.
+/// **Notes:**
+///
+/// - The passed-in `key` and `buf` are only valid during the callback invocation.
+/// - Callbacks shared by several sessions through a common config must be thread-safe.
 pub type rustls_session_store_get_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_session_store_userdata,
@@ -60,19 +60,18 @@ pub(crate) type SessionStoreGetCallback = unsafe extern "C" fn(
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config` or `rustls_client_config`.
 ///
-/// This callback will be invoked by a TLS session when a TLS session
-/// been created and an id for later use is handed to the client/has
-/// been received from the server.
+/// This callback will be invoked when a resumable TLS session has been created and a session ID
+/// has either been sent to the client or received from the server.
 ///
 /// `userdata` will be supplied based on `rustls_connection_set_userdata`.
 ///
 /// The callback should return `RUSTLS_RESULT_OK` to indicate that a value was
 /// successfully stored, or `RUSTLS_RESULT_IO` on failure.
 ///
-/// NOTE: the passed in `key` and `val` are only available during the
-/// callback invocation.
-/// NOTE: callbacks used in several sessions via a common config
-/// must be implemented thread-safe.
+/// **Notes:**
+///
+/// - The passed-in `key` and `val` are only valid during the callback invocation.
+/// - Callbacks shared by several sessions through a common config must be thread-safe.
 pub type rustls_session_store_put_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_session_store_userdata,

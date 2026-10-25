@@ -801,13 +801,12 @@ impl rustls_client_config {
         }
     }
 
-    /// "Free" a `rustls_client_config` previously returned from
+    /// Release the caller's reference to a `rustls_client_config` previously returned from
     /// `rustls_client_config_builder_build`.
     ///
-    /// Since `rustls_client_config` is actually an atomically reference-counted pointer,
-    /// extant client connections may still hold an internal reference to the Rust object.
-    ///
-    /// However, C code must consider this pointer unusable after "free"ing it.
+    /// Existing client connections may still hold internal references to the atomically
+    /// reference-counted Rust object. Regardless, the caller must not use `config` after this
+    /// function returns.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]

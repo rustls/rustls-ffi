@@ -458,13 +458,13 @@ impl rustls_server_config {
         }
     }
 
-    /// "Free" a `rustls_server_config` previously returned from
+    /// Release the caller's reference to a `rustls_server_config` previously returned from
     /// `rustls_server_config_builder_build`.
     ///
-    /// Since `rustls_server_config` is actually an
-    /// atomically reference-counted pointer, extant server connections may still
-    /// hold an internal reference to the Rust object. However, C code must
-    /// consider this pointer unusable after "free"ing it.
+    /// Existing server connections may still hold internal references to the atomically
+    /// reference-counted Rust object. Regardless, the caller must not use `config` after this
+    /// function returns.
+    ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]
     pub extern "C" fn rustls_server_config_free(config: *const rustls_server_config) {
@@ -521,7 +521,7 @@ impl rustls_server_config {
 /// Returns a zero-length `rustls_str` if:
 ///
 /// - the connection is not a server connection.
-/// - the connection is a server connection but the SNI extension in the client hello has not
+/// - the connection is a server connection but the SNI extension in the ClientHello has not
 ///   been processed during the handshake yet. Check `rustls_connection_is_handshaking`.
 /// - the SNI value contains null bytes.
 #[no_mangle]
@@ -571,9 +571,9 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
     }
 }
 
-/// The TLS Client Hello information provided to a ClientHelloCallback function.
+/// The TLS ClientHello information provided to a `rustls_client_hello_callback`.
 ///
-/// `server_name` is the value of the ServerNameIndication extension provided
+/// `server_name` is the value of the server name indication (SNI) extension provided
 /// by the client. If the client did not send an SNI, the length of this
 /// `rustls_str` will be 0.
 ///
@@ -583,7 +583,7 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// `named_groups` carries the values of the `named_groups` extension sent by the
 /// client. If the client did not send a `named_groups` extension, the length of
-/// this `rustls_slice_u16` will be 0. The meaning of this extension differ
+/// this `rustls_slice_u16` will be 0. The meaning of this extension differs
 /// based on TLS version. See the Rustls documentation for more information:
 /// <https://rustls.dev/docs/server/struct.ClientHello.html#method.named_groups>
 ///
@@ -592,10 +592,10 @@ impl ResolvesServerCert for ResolvesServerCertFromChoices {
 ///
 /// All this data, when passed to a callback function, is only accessible during
 /// the call and may not be modified. Users of this API must copy any values that
-/// they want to access when the callback returned.
+/// they want to access after the callback returns.
 ///
 /// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
-/// the rustls library is re-evaluating their current approach to client hello handling.
+/// the rustls library is re-evaluating its current approach to ClientHello handling.
 #[repr(C)]
 pub struct rustls_client_hello<'a> {
     server_name: rustls_str<'a>,
@@ -615,23 +615,23 @@ pub type rustls_client_hello_userdata = *mut c_void;
 /// Prototype of a callback that can be installed by the application at the
 /// `rustls_server_config`.
 ///
-/// This callback will be invoked by a `rustls_connection` once the TLS client
-/// hello message has been received.
+/// This callback will be invoked by a `rustls_connection` once the TLS ClientHello
+/// message has been received.
 ///
 /// `userdata` will be set based on `rustls_connection_set_userdata`.
 ///
-/// `hello` gives the value of the available client announcements, as interpreted
-/// by rustls. See the definition of `rustls_client_hello` for details.
+/// `hello` contains the client parameters parsed by rustls. See the definition of
+/// `rustls_client_hello` for details.
 ///
-/// NOTE:
-/// - the passed in `hello` and all its values are only available during the
-///   callback invocations.
-/// - the passed callback function must be safe to call multiple times concurrently
-///   with the same userdata, unless there is only a single config and connection
+/// **Note:**
+///
+/// - The passed-in `hello` and all its values are only valid during the callback invocation.
+/// - The callback must be safe to call multiple times concurrently
+///   with the same `userdata`, unless there is only a single config and connection
 ///   where it is installed.
 ///
 /// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
-/// the rustls library is re-evaluating their current approach to client hello handling.
+/// the rustls library is re-evaluating its current approach to ClientHello handling.
 pub type rustls_client_hello_callback = Option<
     unsafe extern "C" fn(
         userdata: rustls_client_hello_userdata,
@@ -726,7 +726,7 @@ impl rustls_server_config_builder {
     /// value for `callback`.
     ///
     /// EXPERIMENTAL: this feature of rustls-ffi is likely to change in the future, as
-    /// the rustls library is re-evaluating their current approach to client hello handling.
+    /// the rustls library is re-evaluating its current approach to ClientHello handling.
     /// Installing a client_hello callback will replace any configured certified keys
     /// and vice versa. Same holds true for the set_certified_keys variant.
     #[no_mangle]
@@ -752,10 +752,10 @@ fn sigschemes(input: &[u16]) -> Vec<SignatureScheme> {
 }
 
 /// Select a `rustls_certified_key` from the list that matches the cryptographic
-/// parameters of a TLS client hello.
+/// parameters of a TLS ClientHello.
 ///
 /// Note that this does not do any SNI matching. The input certificates should
-/// already have been filtered to ones matching the SNI from the client hello.
+/// already have been filtered to ones matching the SNI from the ClientHello.
 ///
 /// This is intended for servers that are configured with several keys for the
 /// same domain name(s), for example ECDSA and RSA types. The presented keys are

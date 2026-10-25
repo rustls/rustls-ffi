@@ -8,7 +8,7 @@ use libc::{c_char, size_t};
 ///
 /// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API.
-/// `len` indicates the number of bytes than can be safely read.
+/// `len` indicates the number of bytes that can be safely read.
 ///
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
@@ -149,9 +149,10 @@ fn test_rustls_slice_slice_bytes() {
 /// The contents are guaranteed to be valid UTF-8.
 ///
 /// As an additional guarantee on top of Rust's normal UTF-8 guarantee,
-/// a `rustls_str` is guaranteed not to contain internal NUL bytes, so it is
-/// safe to interpolate into a C string or compare using strncmp. Keep in mind
-/// that it is not NUL-terminated.
+/// a `rustls_str` is guaranteed not to contain internal NUL bytes. Its `data`
+/// and `len` fields can be passed to APIs that accept an explicit byte length.
+/// The `data` field is not NUL-terminated and must not be passed to functions
+/// that expect a C string.
 ///
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
@@ -383,7 +384,7 @@ fn test_rustls_slice_str() {
 ///
 /// This is used to pass data from rustls-ffi to callback functions provided
 /// by the user of the API.
-/// `len` indicates the number of bytes than can be safely read.
+/// `len` indicates the number of 16-bit integers that can be safely read.
 ///
 /// The memory exposed is available as specified by the function
 /// using this in its signature. For instance, when this is a parameter to a
