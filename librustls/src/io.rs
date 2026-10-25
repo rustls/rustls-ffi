@@ -118,9 +118,12 @@ impl Write for CallbackWriter {
 
 /// An alias for `struct iovec` from uio.h (on Unix) or `WSABUF` on Windows.
 ///
-/// You should cast a const pointer to `rustls_iovec` to `const struct iovec *` on Unix,
-/// or `const *LPWSABUF` on Windows. See
-/// [`std::io::IoSlice`] for details on interoperability with platform-specific vectored IO.
+/// On Unix, cast `const rustls_iovec *` to `const struct iovec *`. On Windows,
+/// cast it to `const WSABUF *`; `LPWSABUF` is an alias for the non-const pointer
+/// `WSABUF *`.
+///
+/// See [`std::io::IoSlice`] for details on interoperability with platform-specific
+/// vectored IO.
 ///
 /// [`std::io::IoSlice`]: https://doc.rust-lang.org/std/io/struct.IoSlice.html
 pub struct rustls_iovec {
@@ -142,7 +145,7 @@ pub struct rustls_iovec {
 ///
 /// On other systems, any appropriate error code works.
 ///
-/// It's best to make one write attempt to the network per call. Additional write will
+/// It's best to make one write attempt to the network per call. Additional writes will
 /// be triggered by subsequent calls to one of the `_write_tls` methods.
 ///
 /// `userdata` is the value passed to the function invoking this callback. In most cases that

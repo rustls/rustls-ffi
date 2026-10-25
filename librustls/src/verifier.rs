@@ -86,7 +86,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
     /// to free it, whether or not `rustls_web_pki_client_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a client certificate verifier that
-    /// will require a client present a client certificate that chains to one of the trust anchors
+    /// will require a client to present a client certificate that chains to one of the trust anchors
     /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
     ///
     /// Revocation checking will not be performed unless
@@ -130,7 +130,7 @@ impl rustls_web_pki_client_cert_verifier_builder {
     /// not `rustls_web_pki_client_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a client certificate verifier that
-    /// will require a client present a client certificate that chains to one of the trust anchors
+    /// will require a client to present a client certificate that chains to one of the trust anchors
     /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
     ///
     /// Revocation checking will not be performed unless
@@ -419,7 +419,7 @@ impl ServerCertVerifierBuilder {
     /// regardless of whether `rustls_web_pki_server_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a server certificate verifier that
-    /// will require a server present a certificate that chains to one of the trust anchors
+    /// will require a server to present a certificate that chains to one of the trust anchors
     /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
     ///
     /// Revocation checking will not be performed unless
@@ -457,7 +457,7 @@ impl ServerCertVerifierBuilder {
     /// `rustls_web_pki_server_cert_verifier_builder_build` was called.
     ///
     /// Without further modification the builder will produce a server certificate verifier that
-    /// will require a server present a certificate that chains to one of the trust anchors
+    /// will require a server to present a certificate that chains to one of the trust anchors
     /// in the provided `rustls_root_cert_store`. The root cert store must not be empty.
     ///
     /// Revocation checking will not be performed unless

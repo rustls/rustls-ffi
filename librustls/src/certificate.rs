@@ -82,7 +82,7 @@ impl rustls_certified_key {
     /// certificate first.
     ///
     /// `private_key` must point to a buffer of `private_key_len` bytes, containing
-    /// a PEM-encoded private key in either PKCS#1, PKCS#8 or SEC#1 format when
+    /// a PEM-encoded private key in either PKCS#1, PKCS#8, or SEC1 format when
     /// using `aws-lc-rs` as the crypto provider. Supported formats may vary by
     /// provider.
     ///
@@ -271,12 +271,11 @@ impl rustls_certified_key {
         }
     }
 
-    /// "Free" a certified_key previously returned from `rustls_certified_key_build`.
+    /// Release the caller's reference to a `rustls_certified_key` previously returned from
+    /// `rustls_certified_key_build`.
     ///
-    /// Since certified_key is actually an atomically reference-counted pointer,
-    /// extant certified_key may still hold an internal reference to the Rust object.
-    ///
-    /// However, C code must consider this pointer unusable after "free"ing it.
+    /// Other objects may still hold internal references to the atomically reference-counted
+    /// Rust object. Regardless, the caller must not use `key` after this function returns.
     ///
     /// Calling with NULL is fine. Must not be called twice with the same value.
     #[no_mangle]

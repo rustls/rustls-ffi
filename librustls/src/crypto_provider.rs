@@ -308,10 +308,10 @@ impl Castable for rustls_crypto_provider {
     type RustType = CryptoProvider;
 }
 
-/// Returns the number of ciphersuites the `rustls_crypto_provider` supports.
+/// Returns the number of cipher suites the `rustls_crypto_provider` supports.
 ///
-/// You can use this to know the maximum allowed index for use with
-/// `rustls_crypto_provider_ciphersuites_get`.
+/// Valid indices for `rustls_crypto_provider_ciphersuites_get` range from 0 (inclusive) to the
+/// returned length (exclusive).
 ///
 /// This function will return 0 if the `provider` is NULL.
 #[no_mangle]
@@ -323,7 +323,7 @@ pub extern "C" fn rustls_crypto_provider_ciphersuites_len(
     }
 }
 
-/// Retrieve a pointer to a supported ciphersuite of the `rustls_crypto_provider`.
+/// Retrieve a pointer to a supported cipher suite of the `rustls_crypto_provider`.
 ///
 /// This function will return NULL if the `provider` is NULL, or if the index is out of bounds
 /// with respect to `rustls_crypto_provider_ciphersuites_len`.
@@ -431,10 +431,10 @@ pub extern "C" fn rustls_crypto_provider_free(provider: *const rustls_crypto_pro
     }
 }
 
-/// Returns the number of ciphersuites the default process-wide crypto provider supports.
+/// Returns the number of cipher suites the default process-wide crypto provider supports.
 ///
-/// You can use this to know the maximum allowed index for use with
-/// `rustls_default_crypto_provider_ciphersuites_get`.
+/// Valid indices for `rustls_default_crypto_provider_ciphersuites_get` range from 0 (inclusive)
+/// to the returned length (exclusive).
 ///
 /// This function will return 0 if no process-wide default `rustls_crypto_provider` is available.
 #[no_mangle]
@@ -447,10 +447,10 @@ pub extern "C" fn rustls_default_crypto_provider_ciphersuites_len() -> usize {
     }
 }
 
-/// Retrieve a pointer to a supported ciphersuite of the default process-wide crypto provider.
+/// Retrieve a pointer to a supported cipher suite of the default process-wide crypto provider.
 ///
-/// This function will return NULL if the `provider` is NULL, or if the index is out of bounds
-/// with respect to `rustls_default_crypto_provider_ciphersuites_len`.
+/// This function returns NULL if no process-wide default provider is available or if `index` is
+/// out of bounds with respect to `rustls_default_crypto_provider_ciphersuites_len`.
 ///
 /// The lifetime of the returned `rustls_supported_ciphersuite` is static, as the process-wide
 /// default provider lives for as long as the process. The returned pointer is borrowed and must
