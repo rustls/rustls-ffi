@@ -32,8 +32,10 @@ jobs:
           CARGO_C_FILE: cargo-c-windows-msvc.zip
         run: |
           $ErrorActionPreference = 'Stop'
+          $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
+          New-Item -ItemType Directory -Force -Path $cargoBin | Out-Null
           curl -L "$env:LINK/$env:CARGO_C_FILE" -o cargo-c-windows-msvc.zip
-          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $env:USERPROFILE\\.cargo\\bin -Force
+          Expand-Archive -Path cargo-c-windows-msvc.zip -DestinationPath $cargoBin -Force
 
       - name: Build rustls-ffi
         run: |
@@ -66,7 +68,9 @@ jobs:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
         run: |
-          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$cargo_bin"
+          curl -L "$LINK/$CARGO_C_FILE" | tar xz -C "$cargo_bin"
 
       - name: Build rustls-ffi
         run: |
@@ -99,7 +103,9 @@ jobs:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-aarch64-unknown-linux-musl.tar.gz
         run: |
-          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$cargo_bin"
+          curl -L "$LINK/$CARGO_C_FILE" | tar xz -C "$cargo_bin"
 
       - name: Build rustls-ffi
         run: |
@@ -134,7 +140,9 @@ jobs:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-x86_64-unknown-linux-musl.tar.gz
         run: |
-          curl -L $LINK/$CARGO_C_FILE | tar xz -C ~/.cargo/bin
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$cargo_bin"
+          curl -L "$LINK/$CARGO_C_FILE" | tar xz -C "$cargo_bin"
 
       - name: Extract version
         id: version
@@ -172,8 +180,10 @@ jobs:
           LINK: https://github.com/lu-zero/cargo-c/releases/latest/download
           CARGO_C_FILE: cargo-c-macos.zip
         run: |
-          curl -L $LINK/$CARGO_C_FILE -o cargo-c-macos.zip
-          unzip -o cargo-c-macos.zip -d ~/.cargo/bin
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$cargo_bin"
+          curl -L "$LINK/$CARGO_C_FILE" -o cargo-c-macos.zip
+          unzip -o cargo-c-macos.zip -d "$cargo_bin"
 
       - name: Build rustls-ffi (arm64)
         run: |
