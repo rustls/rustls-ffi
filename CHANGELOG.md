@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.15.7 (2026-10-26)
+
+This is a minor release, fixing one security issue and improving API
+documentation.
+
+### Security
+
+This update addresses
+[GHSA-rc3f-4j82-cmrg](https://github.com/rustls/rustls-ffi/security/advisories/GHSA-rc3f-4j82-cmrg),
+a security issue affecting `rustls_client_connection_new()` and
+`rustls_client_connection_new_alpn()`. These functions retained a reference to
+the caller's `server_name` buffer after returning, rather than copying it. The
+API documentation did not require the buffer to outlive the call and as a result
+if the caller freed or reused the buffer, later TLS processing read freed
+memory.
+
+Clients that free or reuse the `server_name` buffer after the constructor
+returns are affected. This is most likely for language bindings that pass
+temporary strings. Callers that keep the `server_name` buffer alive for the
+lifetime of the `rustls_client_config` are not affected.
+
+Versions 0.12.0 through 0.15.6 are affected. Version 0.15.7+ changed these APIs
+to copy the input buffer. Additionally our FFI helpers have been updated to
+prevent this class of issue in the future, and documentation throughout has been
+improved to clarify lifetime/ownership of inputs/returns.
+
 ## 0.15.6 (2026-10-20)
 
 This is a minor release, notably updating `rustls-webpki` so it includes
