@@ -5,7 +5,6 @@ version = "0.15.7"
 license = "Apache-2.0 OR ISC OR MIT"
 readme = "../README-crates.io.md"
 description = "Rustls bindings for non-Rust languages"
-homepage = "https://github.com/rustls/rustls-ffi"
 repository = "https://github.com/rustls/rustls-ffi"
 categories = ["network-programming", "cryptography"]
 edition = "2021"
