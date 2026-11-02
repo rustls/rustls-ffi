@@ -69,9 +69,9 @@ impl UserdataGuard {
             .userdata;
         USERDATA
             .try_with(|userdata| {
-                userdata.try_borrow_mut().map_or_else(
-                    |_| Err(UserdataError::AlreadyBorrowed),
-                    |mut v| {
+                userdata
+                    .try_borrow_mut()
+                    .map_or(Err(UserdataError::AlreadyBorrowed), |mut v| {
                         let u = v.pop().ok_or(UserdataError::EmptyStack)?;
                         self.data = None;
                         if ptr::eq(u.userdata, expected_data) {
@@ -79,8 +79,7 @@ impl UserdataGuard {
                         } else {
                             Err(UserdataError::WrongData)
                         }
-                    },
-                )
+                    })
             })
             .unwrap_or(Err(UserdataError::AccessError))
     }
@@ -116,17 +115,16 @@ pub(crate) fn userdata_push(
 ) -> Result<UserdataGuard, UserdataError> {
     USERDATA
         .try_with(|userdata| {
-            userdata.try_borrow_mut().map_or_else(
-                |_| Err(UserdataError::AlreadyBorrowed),
-                |mut v| {
+            userdata
+                .try_borrow_mut()
+                .map_or(Err(UserdataError::AlreadyBorrowed), |mut v| {
                     v.push(Userdata {
                         userdata: u,
                         #[cfg(not(feature = "no_log_capture"))]
                         log_callback: _cb,
                     });
                     Ok(())
-                },
-            )
+                })
         })
         .unwrap_or(Err(UserdataError::AccessError))?;
     Ok(UserdataGuard::new(u))
@@ -135,13 +133,12 @@ pub(crate) fn userdata_push(
 pub(crate) fn userdata_get() -> Result<*mut c_void, UserdataError> {
     USERDATA
         .try_with(|userdata| {
-            userdata.try_borrow_mut().map_or_else(
-                |_| Err(UserdataError::AlreadyBorrowed),
-                |v| match v.last() {
+            userdata
+                .try_borrow_mut()
+                .map_or(Err(UserdataError::AlreadyBorrowed), |v| match v.last() {
                     Some(u) => Ok(u.userdata),
                     None => Err(UserdataError::EmptyStack),
-                },
-            )
+                })
         })
         .unwrap_or(Err(UserdataError::AccessError))
 }
@@ -150,13 +147,12 @@ pub(crate) fn userdata_get() -> Result<*mut c_void, UserdataError> {
 pub(crate) fn log_callback_get() -> Result<(rustls_log_callback, *mut c_void), UserdataError> {
     USERDATA
         .try_with(|userdata| {
-            userdata.try_borrow_mut().map_or_else(
-                |_| Err(UserdataError::AlreadyBorrowed),
-                |v| match v.last() {
+            userdata
+                .try_borrow_mut()
+                .map_or(Err(UserdataError::AlreadyBorrowed), |v| match v.last() {
                     Some(u) => Ok((u.log_callback, u.userdata)),
                     None => Err(UserdataError::EmptyStack),
-                },
-            )
+                })
         })
         .unwrap_or(Err(UserdataError::AccessError))
 }
